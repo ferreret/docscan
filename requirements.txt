@@ -1,0 +1,43 @@
+# UI
+PySide6>=6.7
+
+# ORM / BD
+SQLAlchemy>=2.0
+alembic
+
+# Barcode
+pyzbar
+zxing-cpp
+opencv-python
+
+# Imagen
+Pillow
+
+# OCR
+rapidocr-onnxruntime
+pytesseract
+
+# IA
+anthropic
+openai
+
+# PDF
+pymupdf
+
+# HTTP / notificaciones
+httpx
+
+# Automatización
+watchdog
+APScheduler
+
+# Seguridad
+cryptography
+
+# Config
+pydantic-settings
+
+# Dev
+pytest
+pytest-qt
+ruff

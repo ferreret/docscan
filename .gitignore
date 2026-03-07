@@ -1,0 +1,4 @@
+.venv/
+docscan.db
+__pycache__/
+*.pyc
