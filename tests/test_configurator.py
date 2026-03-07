@@ -21,8 +21,6 @@ from app.pipeline.steps import (
     OcrStep,
     AiStep,
     ScriptStep,
-    ConditionStep,
-    HttpRequestStep,
 )
 from app.pipeline.serializer import serialize
 from app.ui.configurator.app_configurator import AppConfigurator
@@ -35,8 +33,6 @@ from app.ui.configurator.step_dialogs.barcode_step_dialog import BarcodeStepDial
 from app.ui.configurator.step_dialogs.ocr_step_dialog import OcrStepDialog
 from app.ui.configurator.step_dialogs.ai_step_dialog import AiStepDialog
 from app.ui.configurator.step_dialogs.script_step_dialog import ScriptStepDialog
-from app.ui.configurator.step_dialogs.condition_step_dialog import ConditionStepDialog
-from app.ui.configurator.step_dialogs.http_request_dialog import HttpRequestDialog
 
 
 @pytest.fixture
@@ -316,34 +312,6 @@ class TestScriptStepDialog:
         assert result.label == "Mi script"
         assert result.entry_point == "my_func"
         assert "def my_func" in result.script
-
-
-class TestConditionStepDialog:
-    def test_get_step(self, qtbot):
-        step = ConditionStep(id="s1")
-        dialog = ConditionStepDialog(step)
-        qtbot.addWidget(dialog)
-        dialog._expr_edit.setText("len(page.barcodes) > 0")
-        dialog._on_false_edit.setText("skip_to:step_005")
-        result = dialog.get_step()
-        assert result.expression == "len(page.barcodes) > 0"
-        assert result.on_false == "skip_to:step_005"
-
-
-class TestHttpRequestDialog:
-    def test_get_step(self, qtbot):
-        step = HttpRequestStep(id="s1")
-        dialog = HttpRequestDialog(step)
-        qtbot.addWidget(dialog)
-        dialog._method_combo.setCurrentText("POST")
-        dialog._url_edit.setText("https://api.example.com")
-        dialog._headers_edit.setText("Authorization: Bearer xxx")
-        dialog._on_error_combo.setCurrentText("abort")
-        result = dialog.get_step()
-        assert result.method == "POST"
-        assert result.url == "https://api.example.com"
-        assert result.headers == {"Authorization": "Bearer xxx"}
-        assert result.on_error == "abort"
 
 
 # ------------------------------------------------------------------

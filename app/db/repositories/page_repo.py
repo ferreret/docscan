@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.page import Page
@@ -51,7 +51,7 @@ class PageRepository:
 
     def count_by_batch(self, batch_id: int) -> int:
         stmt = (
-            select(Page.id)
+            select(func.count(Page.id))
             .where(Page.batch_id == batch_id)
         )
-        return len(list(self._session.scalars(stmt)))
+        return self._session.scalar(stmt) or 0

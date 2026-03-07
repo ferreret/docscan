@@ -1,7 +1,7 @@
 """PipelineContext — control de flujo del pipeline desde scripts.
 
-El objeto ``pipeline`` que reciben los ScriptStep y ConditionStep
-expone métodos para alterar el orden de ejecución de forma declarativa.
+El objeto ``pipeline`` que reciben los ScriptStep expone métodos
+para alterar el orden de ejecución de forma declarativa.
 """
 
 from __future__ import annotations
@@ -85,13 +85,16 @@ class PipelineContext:
         self._skipped.add(step_id)
 
     def skip_to(self, step_id: str) -> None:
-        """Salta todos los pasos hasta llegar a ``step_id`` (inclusive).
+        """Salta todos los pasos hasta llegar a ``step_id``.
 
-        Los pasos entre la posición actual y ``step_id`` se marcan como
-        saltados. El paso ``step_id`` sí se ejecutará.
+        Los pasos intermedios se marcan como saltados.
+        El paso ``step_id`` sí se ejecutará.
         """
         for i in range(self._cursor, len(self._steps)):
             if self._steps[i].id == step_id:
+                # Marcar intermedios como saltados
+                for j in range(self._cursor, i):
+                    self._skipped.add(self._steps[j].id)
                 self._cursor = i
                 return
         log.warning("skip_to: paso '%s' no encontrado", step_id)

@@ -287,10 +287,10 @@ class WiaScanner(BaseScanner):
         self._set_property(item, 6146, config.resolution)  # DPI horizontal
         self._set_property(item, 6147, config.resolution)  # DPI vertical
 
-        # Modo color: 1=Color, 2=Grayscale, 4=B&W
+        # Modo color: 1=Color, 2=Grayscale, 4=B&W (WIA_IPS_CUR_INTENT = 6146 no, 4103)
         mode_map = {"Color": 1, "Gray": 2, "Lineart": 4}
         self._set_property(
-            item, 6146, mode_map.get(config.mode, 1),
+            item, 4103, mode_map.get(config.mode, 1),
         )
 
         transfer = item.Transfer("{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}")  # BMP

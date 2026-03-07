@@ -28,7 +28,7 @@ class TransferTab(QWidget):
         layout = QFormLayout(self)
 
         self._mode_combo = QComboBox()
-        self._mode_combo.addItems(["folder", "pdf", "pdfa", "csv", "script"])
+        self._mode_combo.addItems(["folder", "pdf", "pdfa", "csv"])
         layout.addRow("Modo:", self._mode_combo)
 
         self._dest_edit = QLineEdit()

@@ -268,33 +268,3 @@ class TestRunEvent:
         assert result is None
 
 
-# ------------------------------------------------------------------
-# Evaluación de expresiones (ConditionStep)
-# ------------------------------------------------------------------
-
-
-class TestEvalExpression:
-    def test_true_condition(self, engine, page):
-        page.barcodes = [MockBarcode(value="123")]
-        result = engine.eval_expression(
-            "len(page.barcodes) > 0", page=page,
-        )
-        assert result is True
-
-    def test_false_condition(self, engine, page):
-        result = engine.eval_expression(
-            "len(page.barcodes) > 0", page=page,
-        )
-        assert result is False
-
-    def test_complex_expression(self, engine, page):
-        page.ocr_text = "Factura #12345"
-        result = engine.eval_expression(
-            "re.search(r'Factura', page.ocr_text) is not None",
-            page=page,
-        )
-        assert result is True
-
-    def test_error_returns_false(self, engine):
-        result = engine.eval_expression("1 / 0")
-        assert result is False

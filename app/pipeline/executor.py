@@ -6,14 +6,12 @@ Stateless entre páginas; crear una instancia por aplicación.
 from __future__ import annotations
 
 import logging
-from typing import Any, Protocol
+from typing import Any
 
 from app.pipeline.context import PipelineAbortError, PipelineContext
 from app.pipeline.steps import (
     AiStep,
     BarcodeStep,
-    ConditionStep,
-    HttpRequestStep,
     ImageOpStep,
     OcrStep,
     PipelineStep,
@@ -41,7 +39,6 @@ class PipelineExecutor:
         barcode_service: Servicio de lectura de barcodes (opcional).
         ocr_service: Servicio de OCR (opcional).
         ai_service: Servicio de IA (opcional).
-        http_client: Cliente HTTP para HttpRequestStep (opcional).
         max_repeats: Límite de repeticiones por paso.
     """
 
@@ -53,7 +50,6 @@ class PipelineExecutor:
         barcode_service: Any = None,
         ocr_service: Any = None,
         ai_service: Any = None,
-        http_client: Any = None,
         max_repeats: int = MAX_STEP_REPEATS,
     ) -> None:
         self._steps = steps
@@ -62,15 +58,14 @@ class PipelineExecutor:
         self._barcode_service = barcode_service
         self._ocr_service = ocr_service
         self._ai_service = ai_service
-        self._http_client = http_client
         self._max_repeats = max_repeats
 
     def execute(self, page: Any, batch: Any, app: Any) -> Any:
         """Ejecuta todos los pasos habilitados en orden.
 
-        Los ScriptStep/ConditionStep pueden modificar el flujo
-        vía PipelineContext. Captura errores de pasos individuales
-        sin detener el pipeline (salvo abort explícito).
+        Los ScriptStep pueden modificar el flujo vía PipelineContext.
+        Captura errores de pasos individuales sin detener el pipeline
+        (salvo abort explícito).
 
         Args:
             page: Contexto de la página (con image, barcodes, flags, etc.).
@@ -130,10 +125,6 @@ class PipelineExecutor:
                     return self._run_ai(step, page, batch, app, ctx)
                 case "script":
                     return self._run_script(step, page, batch, app, ctx)
-                case "condition":
-                    return self._run_condition(step, page, batch, app, ctx)
-                case "http_request":
-                    return self._run_http_request(step, page, batch, app, ctx)
                 case _:
                     raise StepError(f"Tipo de paso desconocido: '{step.type}'")
         except PipelineAbortError:
@@ -248,52 +239,6 @@ class PipelineExecutor:
         """Ejecuta un script de usuario."""
         return self._script_engine.run_step(step, page, batch, app, ctx)
 
-    def _run_condition(
-        self, step: ConditionStep, page: Any, batch: Any, app: Any,
-        ctx: PipelineContext,
-    ) -> Any:
-        """Evalúa una condición y ejecuta la acción si es False."""
-        result = self._script_engine.eval_expression(
-            step.expression, page=page, batch=batch, app=app, pipeline=ctx,
-        )
-
-        if not result:
-            self._apply_condition_action(step.on_false, ctx)
-
-        return {"expression": step.expression, "result": result}
-
-    def _run_http_request(
-        self, step: HttpRequestStep, page: Any, batch: Any, app: Any,
-        ctx: PipelineContext,
-    ) -> Any:
-        """Ejecuta una petición HTTP."""
-        if self._http_client is None:
-            log.warning("HTTP client no configurado, saltando paso %s", step.id)
-            return None
-
-        try:
-            url = self._interpolate(step.url, page, batch, app)
-            headers = {
-                k: self._interpolate(v, page, batch, app)
-                for k, v in step.headers.items()
-            }
-            body = self._interpolate(step.body, page, batch, app) if step.body else None
-
-            response = self._http_client.request(
-                method=step.method,
-                url=url,
-                headers=headers,
-                content=body,
-            )
-            return {
-                "status_code": response.status_code,
-                "body": response.text,
-            }
-        except Exception as e:
-            if step.on_error == "abort":
-                ctx.abort(f"HTTP error en '{step.label}': {e}")
-            raise
-
     # ------------------------------------------------------------------
     # Utilidades
     # ------------------------------------------------------------------
@@ -305,37 +250,6 @@ class PipelineExecutor:
         if hasattr(page, "image"):
             return page.image
         return None
-
-    def _interpolate(
-        self, template: str, page: Any, batch: Any, app: Any,
-    ) -> str:
-        """Interpola variables en un string template.
-
-        Soporta {page.xxx}, {batch.xxx}, {app.xxx}.
-        """
-        try:
-            return template.format(page=page, batch=batch, app=app)
-        except (AttributeError, KeyError, IndexError) as e:
-            log.warning("Error interpolando '%s': %s", template, e)
-            return template
-
-    def _apply_condition_action(
-        self, action: str, ctx: PipelineContext,
-    ) -> None:
-        """Ejecuta la acción de un ConditionStep cuando la condición es False."""
-        if not action:
-            return
-
-        if action == "abort":
-            ctx.abort("Condición no cumplida")
-        elif action.startswith("skip_step:"):
-            step_id = action[len("skip_step:"):]
-            ctx.skip_step(step_id)
-        elif action.startswith("skip_to:"):
-            step_id = action[len("skip_to:"):]
-            ctx.skip_to(step_id)
-        else:
-            log.warning("Acción de condición desconocida: '%s'", action)
 
     def _record_processing_error(
         self, page: Any, step: PipelineStep, error: Exception,

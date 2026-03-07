@@ -12,8 +12,6 @@ from app.pipeline.serializer import (
 from app.pipeline.steps import (
     AiStep,
     BarcodeStep,
-    ConditionStep,
-    HttpRequestStep,
     ImageOpStep,
     OcrStep,
     ScriptStep,
@@ -41,23 +39,8 @@ def sample_steps() -> list:
             entry_point="classify",
             script="def classify(app, batch, page, pipeline): pass",
         ),
-        ConditionStep(
-            id="s4",
-            label="Hay barcodes?",
-            expression="len(page.barcodes) > 0",
-            on_false="skip_to:s6",
-        ),
-        OcrStep(id="s5", engine="rapidocr", languages=["es", "en"]),
-        AiStep(id="s6", provider="anthropic", template_id=1),
-        HttpRequestStep(
-            id="s7",
-            label="Webhook",
-            method="POST",
-            url="https://example.com/{batch.id}",
-            headers={"Authorization": "Bearer {app.api_key}"},
-            body='{"page": "{page.index}"}',
-            on_error="continue",
-        ),
+        OcrStep(id="s4", engine="rapidocr", languages=["es", "en"]),
+        AiStep(id="s5", provider="anthropic", template_id=1),
     ]
 
 
@@ -80,20 +63,6 @@ class TestSteps:
         assert step.symbologies == []
         assert step.orientations == ["horizontal", "vertical"]
 
-    def test_condition_fields(self):
-        step = ConditionStep(
-            id="x",
-            expression="page.ocr_text != ''",
-            on_false="abort",
-        )
-        assert step.type == "condition"
-        assert step.on_false == "abort"
-
-    def test_http_request_fields(self):
-        step = HttpRequestStep(id="x", method="GET", url="https://api.test")
-        assert step.type == "http_request"
-        assert step.on_error == "continue"
-        assert step.headers == {}
 
 
 # ------------------------------------------------------------------
@@ -171,7 +140,7 @@ class TestPipelineContext:
         ids = []
         while ctx.has_next():
             ids.append(ctx.next_step().id)
-        assert ids == ["s1", "s2", "s3", "s4", "s5", "s6", "s7"]
+        assert ids == ["s1", "s2", "s3", "s4", "s5"]
 
     def test_skip_step(self, sample_steps):
         ctx = PipelineContext(sample_steps)
@@ -182,9 +151,9 @@ class TestPipelineContext:
     def test_skip_to(self, sample_steps):
         ctx = PipelineContext(sample_steps)
         ctx.next_step()  # s1
-        ctx.skip_to("s5")  # saltar s2, s3, s4
+        ctx.skip_to("s4")  # saltar s2, s3
         step = ctx.next_step()
-        assert step.id == "s5"
+        assert step.id == "s4"
 
     def test_abort(self, sample_steps):
         ctx = PipelineContext(sample_steps)

@@ -30,7 +30,7 @@ class TransferConfig:
     Se deserializa desde ``Application.transfer_json``.
     """
 
-    mode: str = "folder"  # "folder", "pdf", "pdfa", "csv", "script"
+    mode: str = "folder"  # "folder", "pdf", "pdfa", "csv"
     destination: str = ""  # Ruta destino o patrón
     filename_pattern: str = "{batch_id}_{page_index:04d}"
     create_subdirs: bool = True

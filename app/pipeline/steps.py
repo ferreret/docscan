@@ -15,8 +15,6 @@ StepType = Literal[
     "ocr",
     "ai",
     "script",
-    "condition",
-    "http_request",
 ]
 
 
@@ -98,37 +96,6 @@ class ScriptStep(PipelineStep):
     script: str = ""
 
 
-@dataclass
-class ConditionStep(PipelineStep):
-    """Expresión Python de una línea evaluada sobre el contexto.
-
-    Si el resultado es ``False``, ejecuta la acción indicada.
-    Acciones válidas: ``skip_step:<id>``, ``skip_to:<id>``, ``abort``.
-    """
-
-    type: Literal["condition"] = "condition"
-    label: str = ""
-    expression: str = ""  # Expresión Python (ej: "len(page.barcodes) > 0")
-    on_false: str = ""  # "skip_step:step_005", "skip_to:step_008", "abort"
-
-
-@dataclass
-class HttpRequestStep(PipelineStep):
-    """Petición HTTP con variables del contexto interpoladas.
-
-    Las variables se interpolan con sintaxis ``{expr}`` en url, headers
-    y body (ej: ``{page.barcodes[0].value}``, ``{batch.id}``).
-    """
-
-    type: Literal["http_request"] = "http_request"
-    label: str = ""
-    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"] = "POST"
-    url: str = ""
-    headers: dict[str, str] = field(default_factory=dict)
-    body: str = ""
-    on_error: Literal["continue", "abort"] = "continue"
-
-
 # Mapa tipo -> clase para deserialización
 STEP_TYPE_MAP: dict[str, type[PipelineStep]] = {
     "image_op": ImageOpStep,
@@ -136,6 +103,4 @@ STEP_TYPE_MAP: dict[str, type[PipelineStep]] = {
     "ocr": OcrStep,
     "ai": AiStep,
     "script": ScriptStep,
-    "condition": ConditionStep,
-    "http_request": HttpRequestStep,
 }

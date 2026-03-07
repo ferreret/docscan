@@ -193,37 +193,6 @@ class ScriptEngine:
             return None
 
     # ------------------------------------------------------------------
-    # Evaluación de expresiones (para ConditionStep)
-    # ------------------------------------------------------------------
-
-    def eval_expression(
-        self,
-        expression: str,
-        page: Any = None,
-        batch: Any = None,
-        app: Any = None,
-        pipeline: Any = None,
-    ) -> Any:
-        """Evalúa una expresión Python de una línea.
-
-        Usada por ConditionStep para evaluar condiciones.
-
-        Args:
-            expression: Expresión Python (ej: "len(page.barcodes) > 0").
-
-        Returns:
-            El resultado de la expresión, o False si falla.
-        """
-        namespace = self._build_namespace(
-            page=page, batch=batch, app=app, pipeline=pipeline,
-        )
-        try:
-            return eval(expression, namespace)
-        except Exception as e:
-            log.error("Error evaluando expresión '%s': %s", expression, e)
-            return False
-
-    # ------------------------------------------------------------------
     # Internos
     # ------------------------------------------------------------------
 

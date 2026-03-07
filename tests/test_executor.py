@@ -10,7 +10,6 @@ import pytest
 
 from app.pipeline.executor import PipelineExecutor, StepError
 from app.pipeline.steps import (
-    ConditionStep,
     ImageOpStep,
     ScriptStep,
 )
@@ -190,49 +189,6 @@ class TestExecutorWithScripts:
         # El error se registra pero el pipeline continúa
         assert len(page.flags.script_errors) == 1
         assert page.flags.script_errors[0]["error"] == "boom"
-
-
-class TestExecutorWithConditions:
-    def test_condition_true_continues(self, image_service, script_engine, page, batch, app_ctx):
-        page.ocr_text = "Factura"
-        steps = [
-            ConditionStep(
-                id="s1",
-                expression="page.ocr_text != ''",
-                on_false="abort",
-            ),
-            ImageOpStep(id="s2", op="FxGrayscale"),
-        ]
-        executor = make_executor(steps, image_service, script_engine)
-        executor.execute(page, batch, app_ctx)
-        assert page.flags.needs_review is False
-
-    def test_condition_false_skips(self, image_service, script_engine, page, batch, app_ctx):
-        steps = [
-            ConditionStep(
-                id="s1",
-                expression="len(page.barcodes) > 0",
-                on_false="skip_step:s2",
-            ),
-            ImageOpStep(id="s2", op="FxNegative"),
-            ImageOpStep(id="s3", op="FxGrayscale"),
-        ]
-        executor = make_executor(steps, image_service, script_engine)
-        executor.execute(page, batch, app_ctx)
-        # s2 saltado, s3 ejecutado
-
-    def test_condition_false_aborts(self, image_service, script_engine, page, batch, app_ctx):
-        steps = [
-            ConditionStep(
-                id="s1",
-                expression="False",
-                on_false="abort",
-            ),
-            ImageOpStep(id="s2", op="FxGrayscale"),
-        ]
-        executor = make_executor(steps, image_service, script_engine)
-        executor.execute(page, batch, app_ctx)
-        assert page.flags.needs_review is True
 
 
 class TestExecutorImageFlow:

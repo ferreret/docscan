@@ -28,8 +28,6 @@ from app.pipeline.steps import (
     STEP_TYPE_MAP,
     AiStep,
     BarcodeStep,
-    ConditionStep,
-    HttpRequestStep,
     ImageOpStep,
     OcrStep,
     PipelineStep,
@@ -45,8 +43,6 @@ STEP_TYPE_LABELS = {
     "ocr": "OCR",
     "ai": "IA",
     "script": "Script",
-    "condition": "Condición",
-    "http_request": "HTTP",
 }
 
 
@@ -68,10 +64,6 @@ def _step_display_text(step: PipelineStep) -> str:
             detail += f" · plantilla {step.template_id}"
     elif isinstance(step, ScriptStep):
         detail = step.label or step.entry_point or "(sin nombre)"
-    elif isinstance(step, ConditionStep):
-        detail = step.label or step.expression[:40] or "(vacía)"
-    elif isinstance(step, HttpRequestStep):
-        detail = step.label or f"{step.method} {step.url[:30]}" or "(vacía)"
     else:
         detail = step.id
 
@@ -132,7 +124,8 @@ class PipelineTab(QWidget):
         """Carga los pasos desde el JSON de la aplicación."""
         try:
             self._steps = deserialize(app.pipeline_json)
-        except Exception:
+        except Exception as e:
+            log.error("Error al deserializar pipeline: %s", e)
             self._steps = []
         self._refresh_list()
 
@@ -225,8 +218,6 @@ class PipelineTab(QWidget):
         from app.ui.configurator.step_dialogs.ocr_step_dialog import OcrStepDialog
         from app.ui.configurator.step_dialogs.ai_step_dialog import AiStepDialog
         from app.ui.configurator.step_dialogs.script_step_dialog import ScriptStepDialog
-        from app.ui.configurator.step_dialogs.condition_step_dialog import ConditionStepDialog
-        from app.ui.configurator.step_dialogs.http_request_dialog import HttpRequestDialog
 
         dialogs = {
             "image_op": ImageOpDialog,
@@ -234,8 +225,6 @@ class PipelineTab(QWidget):
             "ocr": OcrStepDialog,
             "ai": AiStepDialog,
             "script": ScriptStepDialog,
-            "condition": ConditionStepDialog,
-            "http_request": HttpRequestDialog,
         }
         dialog_cls = dialogs.get(step.type)
         if dialog_cls:
