@@ -52,7 +52,21 @@ def main() -> int:
         log.info("Abrir workbench para app %d (pendiente de implementar)", app_id)
 
     def on_app_configure(app_id: int):
-        log.info("Configurar app %d (pendiente de implementar)", app_id)
+        from app.db.repositories.application_repo import ApplicationRepository
+        from app.ui.configurator.app_configurator import AppConfigurator
+
+        with session_factory() as session:
+            repo = ApplicationRepository(session)
+            app = repo.get_by_id(app_id)
+            if app is None:
+                log.error("App %d no encontrada", app_id)
+                return
+            # Expunge para que sea independiente de la sesión
+            session.expunge(app)
+
+        dialog = AppConfigurator(app, session_factory, parent=launcher)
+        dialog.exec()
+        launcher._load_apps()  # Refrescar la lista
 
     launcher.app_opened.connect(on_app_opened)
     launcher.app_configure.connect(on_app_configure)
