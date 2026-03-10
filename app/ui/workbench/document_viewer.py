@@ -114,16 +114,30 @@ class DocumentViewer(QGraphicsView):
 
             role = getattr(bc, "role", "")
             if role == "separator":
-                color = QColor(251, 140, 0, 80)  # naranja
+                fill_color = QColor(251, 140, 0, 50)  # naranja semi
+                pen_color = QColor(230, 81, 0)         # naranja fuerte
             else:
-                color = QColor(67, 160, 71, 80)  # verde
+                fill_color = QColor(0, 200, 83, 50)    # verde semi
+                pen_color = QColor(0, 150, 60)          # verde fuerte
 
             rect = self._scene.addRect(
                 x, y, w, h,
-                QPen(color.darker(120), 2),
-                QBrush(color),
+                QPen(pen_color, 3),
+                QBrush(fill_color),
             )
             self._overlay_items.append(rect)
+
+            # Etiqueta con el valor del barcode
+            value = getattr(bc, "value", "")
+            if value:
+                label = self._scene.addSimpleText(value)
+                label.setBrush(QBrush(pen_color))
+                font = label.font()
+                font.setPointSize(max(8, min(h // 3, 14)))
+                font.setBold(True)
+                label.setFont(font)
+                label.setPos(x, max(0, y - label.boundingRect().height() - 2))
+                self._overlay_items.append(label)
 
     def clear_overlays(self) -> None:
         """Elimina todos los overlays."""
@@ -153,6 +167,11 @@ class DocumentViewer(QGraphicsView):
     def zoom_out(self) -> None:
         """Aleja la vista."""
         self._apply_zoom(ZOOM_OUT_FACTOR)
+
+    def zoom_reset(self) -> None:
+        """Restaura al tamaño real (100%)."""
+        self.resetTransform()
+        self._current_zoom = 1.0
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Zoom con la rueda del ratón."""

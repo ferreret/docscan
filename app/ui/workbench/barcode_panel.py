@@ -44,9 +44,11 @@ class BarcodePanel(QWidget):
         self._table.setHorizontalHeaderLabels(
             ["Valor", "Simbología", "Motor", "Rol"],
         )
-        self._table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.Stretch,
-        )
+        header = self._table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        header.setStretchLastSection(True)
+        header.setDefaultSectionSize(100)
+        header.resizeSection(0, 200)  # Valor más ancho por defecto
         self._table.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows,
         )

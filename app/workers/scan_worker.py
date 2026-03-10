@@ -33,7 +33,7 @@ class ScanWorker(QThread):
     def __init__(
         self,
         mode: str,
-        source: str,
+        source: str | list[str] = "",
         scanner: Any = None,
         import_service: Any = None,
         scan_config: Any = None,
@@ -41,7 +41,7 @@ class ScanWorker(QThread):
         parent: Any = None,
     ) -> None:
         super().__init__(parent)
-        self._mode = mode  # "scanner", "import_file", "import_folder", "import_pdf"
+        self._mode = mode  # "scanner", "import_file", "import_files", "import_folder", "import_pdf"
         self._source = source
         self._scanner = scanner
         self._import_service = import_service
@@ -75,6 +75,16 @@ class ScanWorker(QThread):
                 return self._import_service.import_file(
                     self._source, dpi=self._dpi,
                 )
+            case "import_files":
+                if self._import_service is None:
+                    raise RuntimeError("ImportService no disponible")
+                all_images: list[np.ndarray] = []
+                for path in self._source:
+                    images = self._import_service.import_file(
+                        path, dpi=self._dpi,
+                    )
+                    all_images.extend(images)
+                return all_images
             case "import_folder":
                 if self._import_service is None:
                     raise RuntimeError("ImportService no disponible")

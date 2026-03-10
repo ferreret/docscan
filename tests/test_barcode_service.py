@@ -6,6 +6,7 @@ Motor 1 (pyzbar) puede no estar disponible si falta libzbar.
 
 from __future__ import annotations
 
+import cv2
 import numpy as np
 import pytest
 
@@ -34,14 +35,27 @@ def _generate_barcode_image(
     text: str,
     fmt: str = "Code128",
 ) -> np.ndarray:
-    """Genera una imagen con un barcode usando zxingcpp."""
+    """Genera una imagen con un barcode usando zxingcpp.
+
+    Escala la imagen para que pyzbar pueda leerla (necesita mínimo ~200px).
+    """
     if not _HAS_ZXINGCPP:
         pytest.skip("zxing-cpp no disponible")
 
     barcode_format = getattr(zxingcpp.BarcodeFormat, fmt)
     bc = zxingcpp.create_barcode(text, barcode_format)
     img = bc.to_image()
-    return np.array(img)
+    arr = np.array(img)
+
+    # Escalar para que pyzbar detecte el código (mínimo ~200px de ancho)
+    h, w = arr.shape[:2]
+    if w < 300:
+        scale = 300 / w
+        arr = cv2.resize(
+            arr, (int(w * scale), int(h * scale)),
+            interpolation=cv2.INTER_NEAREST,
+        )
+    return arr
 
 
 # ------------------------------------------------------------------

@@ -40,6 +40,7 @@ from app.models.barcode import Barcode
 from app.models.page import Page
 from app.pipeline.executor import PipelineExecutor
 from app.pipeline.serializer import deserialize
+from app.services.barcode_service import BarcodeService
 from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
@@ -98,6 +99,7 @@ class WorkbenchWindow(QMainWindow):
         # Servicios
         self._script_engine = ScriptEngine()
         self._image_service = ImagePipelineService()
+        self._barcode_service = BarcodeService()
         self._import_service = ImportService()
         self._transfer_service = TransferService()
         self._executor: PipelineExecutor | None = None
@@ -147,11 +149,12 @@ class WorkbenchWindow(QMainWindow):
         # Compilar eventos
         self._compile_events()
 
-        # Crear executor (barcode/ocr/ai opcionales por ahora)
+        # Crear executor con todos los servicios disponibles
         self._executor = PipelineExecutor(
             steps=steps,
             image_service=self._image_service,
             script_engine=self._script_engine,
+            barcode_service=self._barcode_service,
         )
 
     def _compile_events(self) -> None:
@@ -289,7 +292,26 @@ class WorkbenchWindow(QMainWindow):
         toolbar.addWidget(self._btn_next_review)
         toolbar.addSeparator()
 
+        # Zoom
+        toolbar.addSeparator()
+        self._btn_zoom_in = QPushButton("+")
+        self._btn_zoom_in.setToolTip("Acercar (Ctrl++)")
+        self._btn_zoom_in.setFixedWidth(30)
+        self._btn_zoom_out = QPushButton("-")
+        self._btn_zoom_out.setToolTip("Alejar (Ctrl+-)")
+        self._btn_zoom_out.setFixedWidth(30)
+        self._btn_zoom_fit = QPushButton("Ajustar")
+        self._btn_zoom_fit.setToolTip("Ajustar a página (Ctrl+F)")
+        self._btn_zoom_100 = QPushButton("100%")
+        self._btn_zoom_100.setToolTip("Tamaño real")
+
+        toolbar.addWidget(self._btn_zoom_in)
+        toolbar.addWidget(self._btn_zoom_out)
+        toolbar.addWidget(self._btn_zoom_fit)
+        toolbar.addWidget(self._btn_zoom_100)
+
         # Manipulación (UI-07)
+        toolbar.addSeparator()
         self._btn_mark = QPushButton("Marcar")
         self._btn_mark.setToolTip("Marcar/desmarcar página (excluir)")
         self._btn_rotate = QPushButton("Rotar 90°")
@@ -351,6 +373,12 @@ class WorkbenchWindow(QMainWindow):
         self._btn_last.clicked.connect(self._on_last)
         self._btn_next_barcode.clicked.connect(self._on_next_barcode)
         self._btn_next_review.clicked.connect(self._on_next_review)
+
+        # Zoom
+        self._btn_zoom_in.clicked.connect(self._viewer.zoom_in)
+        self._btn_zoom_out.clicked.connect(self._viewer.zoom_out)
+        self._btn_zoom_fit.clicked.connect(self._viewer.fit_to_page)
+        self._btn_zoom_100.clicked.connect(self._on_zoom_100)
 
         # Miniaturas
         self._thumbnail_panel.page_selected.connect(self._navigate_to)
@@ -478,24 +506,30 @@ class WorkbenchWindow(QMainWindow):
         self._start_workers()
 
     def _start_import(self) -> None:
-        """Inicia importación desde fichero o carpeta."""
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Importar documento",
+        """Inicia importación desde uno o más ficheros."""
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Importar documentos",
             str(Path.home()),
             "Documentos (*.pdf *.tiff *.tif *.jpg *.jpeg *.png *.bmp);;"
             "Todos (*)",
         )
-        if not path:
+        if not paths:
             return
 
-        suffix = Path(path).suffix.lower()
-        mode = "import_pdf" if suffix == ".pdf" else "import_file"
-
-        self._scan_worker = ScanWorker(
-            mode=mode,
-            source=path,
-            import_service=self._import_service,
-        )
+        if len(paths) == 1:
+            suffix = Path(paths[0]).suffix.lower()
+            mode = "import_pdf" if suffix == ".pdf" else "import_file"
+            self._scan_worker = ScanWorker(
+                mode=mode,
+                source=paths[0],
+                import_service=self._import_service,
+            )
+        else:
+            self._scan_worker = ScanWorker(
+                mode="import_files",
+                source=paths,
+                import_service=self._import_service,
+            )
         self._start_workers()
 
     def _start_workers(self) -> None:
@@ -557,6 +591,7 @@ class WorkbenchWindow(QMainWindow):
             )
             session.commit()
             for p in pages:
+                session.refresh(p)
                 session.expunge(p)
                 self._pages.append(p)
 
@@ -708,19 +743,22 @@ class WorkbenchWindow(QMainWindow):
             return
 
         self._current_page_index = page_index
-        page = self._pages[page_index]
 
-        # Cargar imagen
-        image = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
-        if image is None:
-            log.error("No se pudo cargar imagen: %s", page.image_path)
-            return
-
-        # Determinar estado
+        # Leer todo desde BD para evitar DetachedInstanceError
         with self._session_factory() as session:
             page_repo = PageRepository(session)
-            db_page = page_repo.get_by_id(page.id)
-            barcodes = db_page.barcodes if db_page else []
+            pages = page_repo.get_by_batch(self._batch_id)
+            if page_index >= len(pages):
+                return
+            page = pages[page_index]
+
+            # Cargar imagen
+            image = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
+            if image is None:
+                log.error("No se pudo cargar imagen: %s", page.image_path)
+                return
+
+            barcodes = page.barcodes
             state = determine_page_state(
                 needs_review=page.needs_review,
                 barcodes=barcodes,
@@ -734,22 +772,26 @@ class WorkbenchWindow(QMainWindow):
             # Actualizar panel de barcodes
             self._barcode_panel.set_page_barcodes(barcodes)
 
-        # Actualizar metadatos
-        try:
-            idx_fields = json.loads(page.index_fields_json)
-        except (json.JSONDecodeError, TypeError):
-            idx_fields = {}
-        self._metadata_panel.set_index_fields(idx_fields)
-        self._metadata_panel.set_verification_data(
-            ocr_text=page.ocr_text,
-            ai_fields_json=page.ai_fields_json,
-            errors_json=page.processing_errors_json,
-            script_errors_json=page.script_errors_json,
-        )
+            # Actualizar metadatos
+            try:
+                idx_fields = json.loads(page.index_fields_json)
+            except (json.JSONDecodeError, TypeError):
+                idx_fields = {}
+            self._metadata_panel.set_index_fields(idx_fields)
+            self._metadata_panel.set_verification_data(
+                ocr_text=page.ocr_text,
+                ai_fields_json=page.ai_fields_json,
+                errors_json=page.processing_errors_json,
+                script_errors_json=page.script_errors_json,
+            )
 
         # Actualizar thumbnail y página info
         self._thumbnail_panel.set_current(page_index)
         self._update_page_info()
+
+    def _on_zoom_100(self) -> None:
+        """Restaura el visor al 100%."""
+        self._viewer.zoom_reset()
 
     def _on_first(self) -> None:
         self._navigate_to(0)
