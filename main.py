@@ -48,8 +48,25 @@ def main() -> int:
 
     launcher = LauncherWindow(session_factory=session_factory)
 
+    _workbenches: list = []  # Mantener referencia para evitar GC
+
     def on_app_opened(app_id: int):
-        log.info("Abrir workbench para app %d (pendiente de implementar)", app_id)
+        from app.ui.workbench.workbench_window import WorkbenchWindow
+
+        log.info("Abriendo workbench para app %d", app_id)
+        try:
+            workbench = WorkbenchWindow(app_id, session_factory)
+            workbench.closed.connect(launcher.show)
+            _workbenches.append(workbench)
+            launcher.hide()
+            workbench.show()
+        except Exception as e:
+            log.error("Error abriendo workbench: %s", e)
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                launcher, "Error",
+                f"No se pudo abrir la aplicación:\n{e}",
+            )
 
     def on_app_configure(app_id: int):
         from app.db.repositories.application_repo import ApplicationRepository
