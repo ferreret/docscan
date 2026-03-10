@@ -16,6 +16,7 @@ from app.models.batch import Batch  # noqa: F401
 from app.models.page import Page  # noqa: F401
 from app.models.barcode import Barcode  # noqa: F401
 from app.models.template import Template  # noqa: F401
+from app.models.operation_history import OperationHistory  # noqa: F401
 
 
 def setup_logging(settings) -> None:
@@ -85,8 +86,20 @@ def main() -> int:
         dialog.exec()
         launcher._load_apps()  # Refrescar la lista
 
+    _batch_managers: list = []  # Mantener referencia para evitar GC
+
+    def on_batch_manager():
+        from app.ui.batch_manager.batch_manager_window import BatchManagerWindow
+
+        log.info("Abriendo gestor de lotes")
+        bm = BatchManagerWindow(session_factory)
+        bm.closed.connect(lambda: log.info("Gestor de lotes cerrado"))
+        _batch_managers.append(bm)
+        bm.show()
+
     launcher.app_opened.connect(on_app_opened)
     launcher.app_configure.connect(on_app_configure)
+    launcher.batch_manager_requested.connect(on_batch_manager)
     launcher.show()
 
     return qt_app.exec()

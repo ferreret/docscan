@@ -66,6 +66,11 @@ class Batch(Base):
         cascade="all, delete-orphan",
         order_by="Page.page_index",
     )
+    history: Mapped[list["OperationHistory"]] = relationship(  # noqa: F821
+        back_populates="batch",
+        cascade="all, delete-orphan",
+        order_by="OperationHistory.timestamp.desc()",
+    )
 
     def __repr__(self) -> str:
         return f"<Batch(id={self.id}, state='{self.state}')>"

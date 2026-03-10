@@ -38,6 +38,7 @@ class LauncherWindow(QMainWindow):
 
     app_opened = Signal(int)
     app_configure = Signal(int)
+    batch_manager_requested = Signal()
 
     def __init__(self, session_factory: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -67,6 +68,9 @@ class LauncherWindow(QMainWindow):
         toolbar.addWidget(self._btn_delete)
         toolbar.addSeparator()
         toolbar.addWidget(self._btn_refresh)
+        toolbar.addSeparator()
+        self._btn_batch_manager = QPushButton("Gestor de Lotes")
+        toolbar.addWidget(self._btn_batch_manager)
 
         # --- Central widget ---
         central = QWidget()
@@ -104,6 +108,7 @@ class LauncherWindow(QMainWindow):
         self._btn_configure.clicked.connect(self._on_configure_app)
         self._btn_delete.clicked.connect(self._on_delete_app)
         self._btn_refresh.clicked.connect(self._load_apps)
+        self._btn_batch_manager.clicked.connect(self.batch_manager_requested.emit)
         self._filter_edit.textChanged.connect(self._app_list.filter_apps)
         self._app_list.currentItemChanged.connect(self._on_selection_changed)
         self._app_list.itemDoubleClicked.connect(self._on_open_app)
