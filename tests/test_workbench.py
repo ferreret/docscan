@@ -1145,11 +1145,12 @@ class TestBarcodePanel:
         panel.set_page_barcodes(barcodes)
 
         assert panel._table.rowCount() == 2
-        assert panel._table.item(0, 0).text() == "ABC-123"
-        assert panel._table.item(0, 1).text() == "CODE128"
-        assert panel._table.item(0, 2).text() == "pyzbar"
-        assert panel._table.item(0, 3).text() == ""
-        assert panel._table.item(1, 3).text() == "separator"
+        # Columna 0 es indicador de color, datos empiezan en columna 1
+        assert panel._table.item(0, 1).text() == "ABC-123"
+        assert panel._table.item(0, 2).text() == "CODE128"
+        assert panel._table.item(0, 3).text() == "pyzbar"
+        assert panel._table.item(0, 4).text() == ""
+        assert panel._table.item(1, 4).text() == "separator"
 
     def test_set_page_barcodes_replaces_previous(self, qtbot):
         panel = BarcodePanel()
@@ -1163,7 +1164,7 @@ class TestBarcodePanel:
         ])
 
         assert panel._table.rowCount() == 3
-        assert panel._table.item(0, 0).text() == "NEW-1"
+        assert panel._table.item(0, 1).text() == "NEW-1"
 
     def test_set_page_barcodes_empty_clears_table(self, qtbot):
         panel = BarcodePanel()
@@ -1219,16 +1220,16 @@ class TestBarcodePanel:
         assert "0" in panel._lbl_separators.text()
         assert "0" in panel._lbl_review.text()
 
-    def test_table_has_four_columns(self, qtbot):
+    def test_table_has_five_columns(self, qtbot):
         panel = BarcodePanel()
         qtbot.addWidget(panel)
-        assert panel._table.columnCount() == 4
+        assert panel._table.columnCount() == 5
 
     def test_table_headers(self, qtbot):
         panel = BarcodePanel()
         qtbot.addWidget(panel)
-        headers = [panel._table.horizontalHeaderItem(i).text() for i in range(4)]
-        assert headers == ["Valor", "Simbología", "Motor", "Rol"]
+        headers = [panel._table.horizontalHeaderItem(i).text() for i in range(5)]
+        assert headers == ["", "Valor", "Simbología", "Motor", "Rol"]
 
 
 # ==================================================================
@@ -1559,7 +1560,7 @@ class TestWorkbenchWindow:
 
     def test_page_info_starts_at_zero(self, workbench):
         """El indicador de páginas comienza en 0/0."""
-        assert "0" in workbench._lbl_page_info.text()
+        assert "0" in workbench._viewer_overlay._lbl_page_info.text()
 
     def test_process_button_exists(self, workbench):
         assert workbench._btn_process is not None
@@ -1570,10 +1571,11 @@ class TestWorkbenchWindow:
         assert workbench._btn_transfer.isEnabled()
 
     def test_navigation_buttons_exist(self, workbench):
-        assert workbench._btn_first is not None
-        assert workbench._btn_prev is not None
-        assert workbench._btn_next is not None
-        assert workbench._btn_last is not None
+        overlay = workbench._viewer_overlay
+        assert overlay._btn_first is not None
+        assert overlay._btn_prev is not None
+        assert overlay._btn_next is not None
+        assert overlay._btn_last is not None
 
     def test_navigate_to_empty_does_nothing(self, workbench):
         """_navigate_to cuando no hay páginas no lanza excepción."""
@@ -1644,7 +1646,7 @@ class TestWorkbenchWindow:
                 workbench._pages.append(p)
 
         workbench._update_page_info()
-        assert "2" in workbench._lbl_page_info.text()
+        assert "2" in workbench._viewer_overlay._lbl_page_info.text()
 
     def test_update_lot_counters_no_error(self, workbench):
         """_update_lot_counters no lanza con lote vacío."""

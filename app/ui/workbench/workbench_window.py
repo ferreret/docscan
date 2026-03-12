@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QRadioButton,
+    QSizePolicy,
     QSplitter,
     QStatusBar,
     QToolBar,
@@ -54,6 +55,7 @@ from app.ui.workbench.page_state import (
     determine_page_state,
 )
 from app.ui.workbench.thumbnail_panel import ThumbnailPanel
+from app.ui.workbench.viewer_overlay import ViewerOverlay
 from app.workers.recognition_worker import (
     AppContext,
     BatchContext,
@@ -85,6 +87,8 @@ class WorkbenchWindow(QMainWindow):
         app_id: int,
         session_factory: Any,
         parent: QWidget | None = None,
+        *,
+        batch_id: int | None = None,
     ) -> None:
         super().__init__(parent)
         self._app_id = app_id
@@ -114,7 +118,11 @@ class WorkbenchWindow(QMainWindow):
         self._setup_ui()
         self._connect_signals()
         self._setup_shortcuts()
-        self._create_batch()
+
+        if batch_id is not None:
+            self._load_existing_batch(batch_id)
+        else:
+            self._restore_or_create_batch()
         self._fire_event("on_app_start")
 
     # ==================================================================
@@ -178,8 +186,9 @@ class WorkbenchWindow(QMainWindow):
     def _setup_ui(self) -> None:
         """Construye toda la interfaz gráfica."""
         app_name = self._application.name if self._application else "Workbench"
-        self.setWindowTitle(f"DocScan Studio — {app_name}")
-        self.setMinimumSize(1024, 700)
+        self.setWindowTitle(f"DocScan Studio \u2014 {app_name}")
+        self.setMinimumSize(1280, 800)
+        self.setAcceptDrops(True)
 
         # Color de fondo personalizado (APP-04)
         if self._application and self._application.background_color:
@@ -188,7 +197,7 @@ class WorkbenchWindow(QMainWindow):
                 f"{self._application.background_color}; }}"
             )
 
-        # --- Toolbar ---
+        # --- Toolbar: Adquisición + Transferencia ---
         self._create_toolbar()
 
         # --- Layout principal con splitter ---
@@ -199,23 +208,21 @@ class WorkbenchWindow(QMainWindow):
 
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Panel izquierdo: miniaturas + botones
-        left_widget = QWidget()
-        left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-
+        # Panel izquierdo: miniaturas
         self._thumbnail_panel = ThumbnailPanel()
-        left_layout.addWidget(self._thumbnail_panel)
-        left_layout.addWidget(self._create_action_buttons())
 
-        # Panel central: visor + barra de origen
+        # Panel central: visor con overlay
         center_widget = QWidget()
         center_layout = QVBoxLayout(center_widget)
         center_layout.setContentsMargins(0, 0, 0, 0)
+        center_layout.setSpacing(0)
 
         self._viewer = DocumentViewer()
         center_layout.addWidget(self._viewer, stretch=1)
-        center_layout.addWidget(self._create_source_bar())
+
+        # Overlay flotante sobre el visor
+        self._viewer_overlay = ViewerOverlay(self._viewer)
+        self._viewer_overlay.setVisible(True)
 
         # Panel derecho: barcodes + metadatos
         right_widget = QWidget()
@@ -229,12 +236,14 @@ class WorkbenchWindow(QMainWindow):
         right_layout.addWidget(self._metadata_panel, stretch=2)
 
         # Armar splitter
-        self._splitter.addWidget(left_widget)
+        self._splitter.addWidget(self._thumbnail_panel)
         self._splitter.addWidget(center_widget)
         self._splitter.addWidget(right_widget)
-        self._splitter.setStretchFactor(0, 1)  # ~15%
-        self._splitter.setStretchFactor(1, 4)  # ~55%
-        self._splitter.setStretchFactor(2, 2)  # ~30%
+        self._splitter.setStretchFactor(0, 0)   # miniaturas: ancho fijo
+        self._splitter.setStretchFactor(1, 7)   # visor: máximo
+        self._splitter.setStretchFactor(2, 2)   # derecha: menor
+        # Tamaños iniciales en píxeles: miniaturas 170, visor 750, derecha 300
+        self._splitter.setSizes([170, 750, 300])
 
         main_layout.addWidget(self._splitter)
 
@@ -257,154 +266,139 @@ class WorkbenchWindow(QMainWindow):
             )
 
     def _create_toolbar(self) -> None:
-        """Crea la barra de herramientas principal."""
+        """Crea la barra de herramientas: adquisición y transferencia."""
         toolbar = QToolBar("Workbench")
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
-        # Procesar / Transferir
-        self._btn_process = QPushButton("Procesar")
-        self._btn_transfer = QPushButton("Transferir")
-        toolbar.addWidget(self._btn_process)
-        toolbar.addWidget(self._btn_transfer)
-        toolbar.addSeparator()
-
-        # Navegación (UI-09)
-        self._btn_first = QPushButton("|<")
-        self._btn_prev = QPushButton("<")
-        self._btn_next = QPushButton(">")
-        self._btn_last = QPushButton(">|")
-        self._lbl_page_info = QLabel(" 0 / 0 ")
-
-        toolbar.addWidget(self._btn_first)
-        toolbar.addWidget(self._btn_prev)
-        toolbar.addWidget(self._lbl_page_info)
-        toolbar.addWidget(self._btn_next)
-        toolbar.addWidget(self._btn_last)
-        toolbar.addSeparator()
-
-        # Navegación inteligente
-        self._btn_next_barcode = QPushButton("BC>")
-        self._btn_next_barcode.setToolTip("Siguiente con barcode")
-        self._btn_next_review = QPushButton("R>")
-        self._btn_next_review.setToolTip("Siguiente con revisión")
-        toolbar.addWidget(self._btn_next_barcode)
-        toolbar.addWidget(self._btn_next_review)
-        toolbar.addSeparator()
-
-        # Zoom
-        toolbar.addSeparator()
-        self._btn_zoom_in = QPushButton("+")
-        self._btn_zoom_in.setToolTip("Acercar (Ctrl++)")
-        self._btn_zoom_in.setFixedWidth(30)
-        self._btn_zoom_out = QPushButton("-")
-        self._btn_zoom_out.setToolTip("Alejar (Ctrl+-)")
-        self._btn_zoom_out.setFixedWidth(30)
-        self._btn_zoom_fit = QPushButton("Ajustar")
-        self._btn_zoom_fit.setToolTip("Ajustar a página (Ctrl+F)")
-        self._btn_zoom_100 = QPushButton("100%")
-        self._btn_zoom_100.setToolTip("Tamaño real")
-
-        toolbar.addWidget(self._btn_zoom_in)
-        toolbar.addWidget(self._btn_zoom_out)
-        toolbar.addWidget(self._btn_zoom_fit)
-        toolbar.addWidget(self._btn_zoom_100)
-
-        # Manipulación (UI-07)
-        toolbar.addSeparator()
-        self._btn_mark = QPushButton("Marcar")
-        self._btn_mark.setToolTip("Marcar/desmarcar página (excluir)")
-        self._btn_rotate = QPushButton("Rotar 90°")
-        self._btn_delete_from = QPushButton("Borrar desde aquí")
-
-        toolbar.addWidget(self._btn_mark)
-        toolbar.addWidget(self._btn_rotate)
-        toolbar.addWidget(self._btn_delete_from)
-
-    def _create_action_buttons(self) -> QWidget:
-        """Botones de acción bajo las miniaturas."""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(2, 2, 2, 2)
-
-        self._btn_insert_bc = QPushButton("+ Barcode manual")
-        self._btn_delete_bc = QPushButton("- Barcode")
-
-        layout.addWidget(self._btn_insert_bc)
-        layout.addWidget(self._btn_delete_bc)
-        return widget
-
-    def _create_source_bar(self) -> QWidget:
-        """Barra de origen: escáner o importar (UI-05, UI-13)."""
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(4, 4, 4, 4)
-
-        self._radio_scanner = QRadioButton("Escáner")
+        # Origen: Escáner / Importar
+        self._radio_scanner = QRadioButton("Esc\u00e1ner")
         self._radio_import = QRadioButton("Importar")
         self._radio_import.setChecked(True)
 
         self._combo_source = QComboBox()
-        self._combo_source.setMinimumWidth(200)
+        self._combo_source.setMinimumWidth(180)
         self._combo_source.setEditable(False)
         self._combo_source.setPlaceholderText("Seleccionar origen...")
 
-        self._btn_scan = QPushButton("Escanear / Importar")
+        toolbar.addWidget(self._radio_scanner)
+        toolbar.addWidget(self._radio_import)
+        toolbar.addWidget(self._combo_source)
+        toolbar.addSeparator()
 
-        layout.addWidget(self._radio_scanner)
-        layout.addWidget(self._radio_import)
-        layout.addWidget(self._combo_source)
-        layout.addStretch()
-        layout.addWidget(self._btn_scan)
+        # Botón principal de acción
+        self._btn_process = QPushButton("Escanear / Importar")
+        self._btn_process.setProperty("cssClass", "primary")
+        toolbar.addWidget(self._btn_process)
 
-        return widget
+        toolbar.addSeparator()
+
+        # Transferir
+        self._btn_transfer = QPushButton("Transferir")
+        toolbar.addWidget(self._btn_transfer)
+
+        # Spacer
+        spacer = QWidget()
+        spacer.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,
+        )
+        toolbar.addWidget(spacer)
+
+        # Toggle tema
+        from app.ui.theme_manager import ThemeManager
+        self._theme_manager = ThemeManager()
+        self._btn_theme = QPushButton()
+        self._btn_theme.setToolTip("Cambiar tema claro/oscuro")
+        self._update_theme_button()
+        toolbar.addWidget(self._btn_theme)
+
+        from app.ui.icon_factory import icon_font_decrease, icon_font_increase
+        icon_color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+
+        self._btn_font_up = QPushButton()
+        self._btn_font_up.setIcon(icon_font_increase(icon_color, 32))
+        self._btn_font_up.setToolTip("Aumentar tamaño de fuente")
+        self._btn_font_up.setFixedSize(34, 34)
+        self._btn_font_down = QPushButton()
+        self._btn_font_down.setIcon(icon_font_decrease(icon_color, 32))
+        self._btn_font_down.setToolTip("Reducir tamaño de fuente")
+        self._btn_font_down.setFixedSize(34, 34)
+        toolbar.addWidget(self._btn_font_up)
+        toolbar.addWidget(self._btn_font_down)
+
+    def _update_theme_button(self) -> None:
+        from app.ui.icon_factory import icon_moon, icon_sun
+        if self._theme_manager.is_dark:
+            self._btn_theme.setText("")
+            self._btn_theme.setIcon(icon_sun())
+        else:
+            self._btn_theme.setText("")
+            self._btn_theme.setIcon(icon_moon("#5c5f77"))
 
     def _connect_signals(self) -> None:
         """Conecta todas las señales de la UI."""
         # Procesar / Transferir
         self._btn_process.clicked.connect(self._on_process)
         self._btn_transfer.clicked.connect(self._on_transfer)
-        self._btn_scan.clicked.connect(self._on_process)
 
-        # Navegación
-        self._btn_first.clicked.connect(self._on_first)
-        self._btn_prev.clicked.connect(self._on_prev)
-        self._btn_next.clicked.connect(self._on_next)
-        self._btn_last.clicked.connect(self._on_last)
-        self._btn_next_barcode.clicked.connect(self._on_next_barcode)
-        self._btn_next_review.clicked.connect(self._on_next_review)
+        # Origen
+        self._radio_scanner.toggled.connect(self._on_source_changed)
 
-        # Zoom
-        self._btn_zoom_in.clicked.connect(self._viewer.zoom_in)
-        self._btn_zoom_out.clicked.connect(self._viewer.zoom_out)
-        self._btn_zoom_fit.clicked.connect(self._viewer.fit_to_page)
-        self._btn_zoom_100.clicked.connect(self._on_zoom_100)
+        # Visor resize → reposicionar overlay
+        self._viewer.viewer_resized.connect(self._reposition_overlay)
+
+        # Tema y fuente
+        self._btn_theme.clicked.connect(self._on_toggle_theme)
+        self._btn_font_up.clicked.connect(self._theme_manager.increase_font)
+        self._btn_font_down.clicked.connect(self._theme_manager.decrease_font)
+        self._theme_manager.theme_changed.connect(self._on_theme_changed)
+
+        # Overlay: navegación
+        self._viewer_overlay.nav_first.connect(self._on_first)
+        self._viewer_overlay.nav_prev.connect(self._on_prev)
+        self._viewer_overlay.nav_next.connect(self._on_next)
+        self._viewer_overlay.nav_last.connect(self._on_last)
+        self._viewer_overlay.nav_next_barcode.connect(self._on_next_barcode)
+        self._viewer_overlay.nav_next_review.connect(self._on_next_review)
+
+        # Overlay: zoom
+        self._viewer_overlay.zoom_in_requested.connect(self._viewer.zoom_in)
+        self._viewer_overlay.zoom_out_requested.connect(self._viewer.zoom_out)
+        self._viewer_overlay.zoom_fit_requested.connect(
+            self._viewer.fit_to_page,
+        )
+        self._viewer_overlay.zoom_100_requested.connect(self._on_zoom_100)
+
+        # Overlay: herramientas
+        self._viewer_overlay.rotate_requested.connect(self._on_rotate_90)
+        self._viewer_overlay.mark_requested.connect(self._on_mark_page)
+        self._viewer_overlay.delete_current_requested.connect(
+            self._on_delete_current_page,
+        )
+        self._viewer_overlay.delete_from_requested.connect(
+            self._on_delete_from_current,
+        )
 
         # Miniaturas
         self._thumbnail_panel.page_selected.connect(self._navigate_to)
         self._thumbnail_panel.page_double_clicked.connect(self._navigate_to)
 
-        # Manipulación
-        self._btn_mark.clicked.connect(self._on_mark_page)
-        self._btn_rotate.clicked.connect(self._on_rotate_90)
-        self._btn_delete_from.clicked.connect(self._on_delete_from_current)
-
-        # Origen
-        self._radio_scanner.toggled.connect(self._on_source_changed)
+        # Barcode panel buttons
+        self._barcode_panel.insert_barcode_requested.connect(
+            self._on_insert_barcode,
+        )
+        self._barcode_panel.delete_barcode_requested.connect(
+            self._on_delete_barcode,
+        )
 
     def _setup_shortcuts(self) -> None:
         """Atajos de teclado."""
-        # Ctrl+P: re-procesar página actual (UI-11)
         QShortcut(
             QKeySequence("Ctrl+P"), self,
         ).activated.connect(self._on_reprocess_page)
-
-        # Ctrl+F: ajustar a página
         QShortcut(
             QKeySequence("Ctrl+F"), self,
         ).activated.connect(self._viewer.fit_to_page)
-
-        # Ctrl++/-: zoom
         QShortcut(
             QKeySequence("Ctrl++"), self,
         ).activated.connect(self._viewer.zoom_in)
@@ -424,14 +418,46 @@ class WorkbenchWindow(QMainWindow):
             index_fields = json.loads(self._application.index_fields_json)
         except (json.JSONDecodeError, TypeError):
             index_fields = []
-
         self._metadata_panel.configure(batch_fields, index_fields)
+
+    # ==================================================================
+    # Tema
+    # ==================================================================
+
+    def _on_toggle_theme(self) -> None:
+        self._theme_manager.toggle_theme()
+
+    def _on_theme_changed(self, _theme_name: str) -> None:
+        self._update_theme_button()
+        self._update_font_icons()
+
+    def _update_font_icons(self) -> None:
+        from app.ui.icon_factory import icon_font_decrease, icon_font_increase
+        color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+        self._btn_font_up.setIcon(icon_font_increase(color, 32))
+        self._btn_font_down.setIcon(icon_font_decrease(color, 32))
 
     # ==================================================================
     # Gestión de lote
     # ==================================================================
 
-    def _create_batch(self) -> None:
+    def _restore_or_create_batch(self) -> None:
+        """Busca un lote abierto (no transferido) o crea uno nuevo."""
+        from app.db.repositories.batch_repo import BatchRepository
+
+        with self._session_factory() as session:
+            batch_repo = BatchRepository(session)
+            batches = batch_repo.get_by_application(self._app_id)
+            # Buscar el lote más reciente que no esté transferido ni con error
+            for b in batches:
+                if b.state in ("created", "read", "verified", "ready_to_export"):
+                    self._load_existing_batch(b.id)
+                    return
+
+        # No hay lote abierto: crear uno nuevo
+        self._create_new_batch()
+
+    def _create_new_batch(self) -> None:
         """Crea un lote nuevo para esta sesión de trabajo."""
         images_dir = APP_DATA_DIR / "images"
         with self._session_factory() as session:
@@ -447,6 +473,41 @@ class WorkbenchWindow(QMainWindow):
             f"Lote {self._batch_id} creado", 3000,
         )
 
+    def _load_existing_batch(self, batch_id: int) -> None:
+        """Carga un lote existente con sus páginas y miniaturas."""
+        from app.db.repositories.batch_repo import BatchRepository
+
+        with self._session_factory() as session:
+            batch_repo = BatchRepository(session)
+            batch = batch_repo.get_by_id(batch_id)
+            if batch is None:
+                self._create_new_batch()
+                return
+            self._batch_id = batch.id
+
+        self._reload_pages()
+        self._thumbnail_panel.clear()
+        for i, page in enumerate(self._pages):
+            img = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
+            if img is not None:
+                state = determine_page_state(
+                    needs_review=page.needs_review,
+                    ai_fields_json=page.ai_fields_json,
+                    is_excluded=page.is_excluded,
+                )
+                self._thumbnail_panel.add_thumbnail(i, img, state)
+
+        if self._pages:
+            self._navigate_to(0)
+        else:
+            self._current_page_index = -1
+
+        self._update_page_info()
+        self._update_lot_counters()
+        self._status_bar.showMessage(
+            f"Lote {self._batch_id} cargado ({len(self._pages)} páginas)", 3000,
+        )
+
     def _reload_pages(self) -> None:
         """Recarga la lista de páginas desde BD."""
         if self._batch_id is None:
@@ -454,7 +515,6 @@ class WorkbenchWindow(QMainWindow):
         with self._session_factory() as session:
             page_repo = PageRepository(session)
             self._pages = page_repo.get_by_batch(self._batch_id)
-            # Expunge para desacoplar de la sesión
             for p in self._pages:
                 session.expunge(p)
 
@@ -507,12 +567,31 @@ class WorkbenchWindow(QMainWindow):
 
     def _start_import(self) -> None:
         """Inicia importación desde uno o más ficheros."""
+        # Recuperar última ruta usada
+        settings = QSettings("DocScanStudio", "Workbench")
+        last_dir = settings.value(
+            f"last_import_dir/{self._app_id}", str(Path.home()),
+        )
+
         paths, _ = QFileDialog.getOpenFileNames(
             self, "Importar documentos",
-            str(Path.home()),
+            last_dir,
             "Documentos (*.pdf *.tiff *.tif *.jpg *.jpeg *.png *.bmp);;"
             "Todos (*)",
         )
+        if not paths:
+            return
+
+        # Persistir la ruta del directorio
+        settings.setValue(
+            f"last_import_dir/{self._app_id}",
+            str(Path(paths[0]).parent),
+        )
+
+        self._import_paths(paths)
+
+    def _import_paths(self, paths: list[str]) -> None:
+        """Importa una lista de rutas de fichero (común para diálogo y drag&drop)."""
         if not paths:
             return
 
@@ -534,7 +613,6 @@ class WorkbenchWindow(QMainWindow):
 
     def _start_workers(self) -> None:
         """Arranca ScanWorker y RecognitionWorker en paralelo."""
-        # Preparar contextos ligeros
         app_ctx = AppContext(
             id=self._app_id,
             name=self._application.name if self._application else "",
@@ -622,10 +700,8 @@ class WorkbenchWindow(QMainWindow):
 
     def _on_page_processed(self, page_index: int, page_ctx: Any) -> None:
         """Una página ha sido procesada por el pipeline."""
-        # Persistir resultados
         self._persist_page_results(page_index, page_ctx)
 
-        # Actualizar thumbnail
         state = determine_page_state(
             needs_review=page_ctx.flags.needs_review,
             barcodes=page_ctx.barcodes,
@@ -713,7 +789,6 @@ class WorkbenchWindow(QMainWindow):
         self._reload_pages()
         self._update_lot_counters()
 
-        # Transicionar estado del lote
         if self._batch_id:
             with self._session_factory() as session:
                 svc = BatchService(session, APP_DATA_DIR / "images")
@@ -744,7 +819,6 @@ class WorkbenchWindow(QMainWindow):
 
         self._current_page_index = page_index
 
-        # Leer todo desde BD para evitar DetachedInstanceError
         with self._session_factory() as session:
             page_repo = PageRepository(session)
             pages = page_repo.get_by_batch(self._batch_id)
@@ -752,7 +826,6 @@ class WorkbenchWindow(QMainWindow):
                 return
             page = pages[page_index]
 
-            # Cargar imagen
             image = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
             if image is None:
                 log.error("No se pudo cargar imagen: %s", page.image_path)
@@ -763,16 +836,13 @@ class WorkbenchWindow(QMainWindow):
                 needs_review=page.needs_review,
                 barcodes=barcodes,
                 ai_fields_json=page.ai_fields_json,
+                is_excluded=page.is_excluded,
             )
 
-            # Actualizar visor
             self._viewer.set_image(image, state)
             self._viewer.set_overlays(barcodes=barcodes)
-
-            # Actualizar panel de barcodes
             self._barcode_panel.set_page_barcodes(barcodes)
 
-            # Actualizar metadatos
             try:
                 idx_fields = json.loads(page.index_fields_json)
             except (json.JSONDecodeError, TypeError):
@@ -785,12 +855,10 @@ class WorkbenchWindow(QMainWindow):
                 script_errors_json=page.script_errors_json,
             )
 
-        # Actualizar thumbnail y página info
         self._thumbnail_panel.set_current(page_index)
         self._update_page_info()
 
     def _on_zoom_100(self) -> None:
-        """Restaura el visor al 100%."""
         self._viewer.zoom_reset()
 
     def _on_first(self) -> None:
@@ -829,10 +897,10 @@ class WorkbenchWindow(QMainWindow):
         self._status_bar.showMessage("No hay más páginas pendientes", 2000)
 
     def _update_page_info(self) -> None:
-        """Actualiza el indicador de página."""
+        """Actualiza el indicador de página en el overlay."""
         total = len(self._pages)
         current = self._current_page_index + 1 if total > 0 else 0
-        self._lbl_page_info.setText(f" {current} / {total} ")
+        self._viewer_overlay.update_page_info(current, total)
 
     # ==================================================================
     # Transferencia (UI-06)
@@ -915,7 +983,6 @@ class WorkbenchWindow(QMainWindow):
         self._btn_transfer.setEnabled(True)
 
         if result.success:
-            # Transicionar estado
             if self._batch_id:
                 with self._session_factory() as session:
                     svc = BatchService(session, APP_DATA_DIR / "images")
@@ -961,11 +1028,18 @@ class WorkbenchWindow(QMainWindow):
                 session.commit()
                 page.is_excluded = db_page.is_excluded
 
+        # Actualizar borde en thumbnail y visor
+        state = self._determine_current_state(page)
+        self._thumbnail_panel.update_thumbnail_state(
+            self._current_page_index, state,
+        )
+        self._viewer.set_state(state)
+
         status = "excluida" if page.is_excluded else "incluida"
         self._status_bar.showMessage(f"Página {status}", 2000)
 
     def _on_rotate_90(self) -> None:
-        """Rota la página actual 90° en sentido horario."""
+        """Rota la página actual 90° en sentido horario y ajusta coords de barcodes."""
         if self._current_page_index < 0:
             return
         page = self._pages[self._current_page_index]
@@ -974,11 +1048,83 @@ class WorkbenchWindow(QMainWindow):
         if image is None:
             return
 
+        img_h, img_w = image.shape[:2]
+
         rotated = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
         cv2.imwrite(page.image_path, rotated)
 
-        # Refrescar visor
+        # Rotar coordenadas de barcodes: (x, y, w, h) -> 90° CW
+        # Nuevo sistema: new_x = img_h - y - h, new_y = x, new_w = h, new_h = w
+        with self._session_factory() as session:
+            page_repo = PageRepository(session)
+            db_page = page_repo.get_by_id(page.id)
+            if db_page:
+                for bc in db_page.barcodes:
+                    old_x, old_y = bc.pos_x, bc.pos_y
+                    old_w, old_h = bc.pos_w, bc.pos_h
+                    bc.pos_x = img_h - old_y - old_h
+                    bc.pos_y = old_x
+                    bc.pos_w = old_h
+                    bc.pos_h = old_w
+                session.commit()
+
         self._navigate_to(self._current_page_index)
+
+    def _determine_current_state(self, page: Page) -> PageState:
+        """Calcula el PageState de una página considerando is_excluded."""
+        barcodes = []
+        with self._session_factory() as session:
+            page_repo = PageRepository(session)
+            db_page = page_repo.get_by_id(page.id)
+            if db_page:
+                barcodes = list(db_page.barcodes)
+        return determine_page_state(
+            needs_review=page.needs_review,
+            barcodes=barcodes,
+            ai_fields_json=page.ai_fields_json,
+            is_excluded=page.is_excluded,
+        )
+
+    def _on_delete_current_page(self) -> None:
+        """Elimina solo la página actual."""
+        if self._current_page_index < 0:
+            return
+
+        reply = QMessageBox.question(
+            self, "Confirmar eliminación",
+            "¿Eliminar la página actual?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        page = self._pages[self._current_page_index]
+        images_dir = APP_DATA_DIR / "images"
+
+        with self._session_factory() as session:
+            svc = BatchService(session, images_dir)
+            svc.remove_page(page.id)
+            session.commit()
+
+        self._reload_pages()
+        self._thumbnail_panel.clear()
+        for i, p in enumerate(self._pages):
+            img = cv2.imread(p.image_path, cv2.IMREAD_UNCHANGED)
+            if img is not None:
+                state = determine_page_state(
+                    needs_review=p.needs_review,
+                    ai_fields_json=p.ai_fields_json,
+                    is_excluded=p.is_excluded,
+                )
+                self._thumbnail_panel.add_thumbnail(i, img, state)
+
+        if self._pages:
+            idx = min(self._current_page_index, len(self._pages) - 1)
+            self._navigate_to(idx)
+        else:
+            self._current_page_index = -1
+            self._viewer.clear()
+        self._update_page_info()
 
     def _on_delete_from_current(self) -> None:
         """Elimina páginas desde la actual hasta el final."""
@@ -1003,7 +1149,6 @@ class WorkbenchWindow(QMainWindow):
                 svc.remove_page(page.id)
             session.commit()
 
-        # Recargar
         self._reload_pages()
         self._thumbnail_panel.clear()
         for i, page in enumerate(self._pages):
@@ -1012,6 +1157,7 @@ class WorkbenchWindow(QMainWindow):
                 state = determine_page_state(
                     needs_review=page.needs_review,
                     ai_fields_json=page.ai_fields_json,
+                    is_excluded=page.is_excluded,
                 )
                 self._thumbnail_panel.add_thumbnail(i, img, state)
 
@@ -1022,6 +1168,22 @@ class WorkbenchWindow(QMainWindow):
             self._current_page_index = -1
             self._viewer.clear()
         self._update_page_info()
+
+    # ==================================================================
+    # Barcode manual
+    # ==================================================================
+
+    def _on_insert_barcode(self) -> None:
+        """Placeholder para insertar barcode manual."""
+        self._status_bar.showMessage(
+            "Insertar barcode manual: pendiente de implementar", 3000,
+        )
+
+    def _on_delete_barcode(self) -> None:
+        """Placeholder para eliminar barcode seleccionado."""
+        self._status_bar.showMessage(
+            "Eliminar barcode: pendiente de implementar", 3000,
+        )
 
     # ==================================================================
     # Re-procesamiento (UI-11)
@@ -1043,7 +1205,6 @@ class WorkbenchWindow(QMainWindow):
         )
         batch_ctx = BatchContext(id=self._batch_id or 0)
 
-        # Re-usar el recognition worker para una sola página
         self._recognition_worker = RecognitionWorker(
             executor=self._executor,
             app_context=app_ctx,
@@ -1053,7 +1214,9 @@ class WorkbenchWindow(QMainWindow):
             self._on_page_processed,
         )
         self._recognition_worker.all_processed.connect(
-            lambda: self._status_bar.showMessage("Re-procesado completado", 3000),
+            lambda: self._status_bar.showMessage(
+                "Re-procesado completado", 3000,
+            ),
         )
         self._recognition_worker.start()
         self._recognition_worker.enqueue_page(
@@ -1093,7 +1256,6 @@ class WorkbenchWindow(QMainWindow):
             svc = BatchService(session, APP_DATA_DIR / "images")
             stats = svc.get_stats(self._batch_id)
 
-        # Contar barcodes
         total_barcodes = 0
         separators = 0
         with self._session_factory() as session:
@@ -1160,12 +1322,69 @@ class WorkbenchWindow(QMainWindow):
         super().keyPressEvent(event)
 
     # ==================================================================
+    # Resize — reposicionar overlay
+    # ==================================================================
+
+    def resizeEvent(self, event) -> None:
+        """Reposiciona el overlay del visor al redimensionar."""
+        super().resizeEvent(event)
+        self._reposition_overlay()
+
+    def showEvent(self, event) -> None:
+        """Posiciona el overlay cuando la ventana se muestra."""
+        super().showEvent(event)
+        self._reposition_overlay()
+
+    def _reposition_overlay(self) -> None:
+        """Centra el overlay en la parte inferior del visor."""
+        viewer = self._viewer
+        overlay = self._viewer_overlay
+        overlay.adjustSize()
+        ow = overlay.sizeHint().width()
+        oh = overlay.sizeHint().height()
+        vw = viewer.width()
+        vh = viewer.height()
+        x = max(0, (vw - ow) // 2)
+        y = max(0, vh - oh - 10)
+        overlay.move(x, y)
+
+    # ==================================================================
+    # Drag & drop
+    # ==================================================================
+
+    _IMPORT_SUFFIXES = {
+        ".pdf", ".tiff", ".tif", ".jpg", ".jpeg", ".png", ".bmp",
+    }
+
+    def dragEnterEvent(self, event) -> None:
+        """Acepta drag de archivos importables."""
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.isLocalFile():
+                    suffix = Path(url.toLocalFile()).suffix.lower()
+                    if suffix in self._IMPORT_SUFFIXES:
+                        event.acceptProposedAction()
+                        return
+        event.ignore()
+
+    def dropEvent(self, event) -> None:
+        """Importa los archivos soltados."""
+        paths = []
+        for url in event.mimeData().urls():
+            if url.isLocalFile():
+                p = url.toLocalFile()
+                if Path(p).suffix.lower() in self._IMPORT_SUFFIXES:
+                    paths.append(p)
+        if paths:
+            event.acceptProposedAction()
+            self._import_paths(paths)
+
+    # ==================================================================
     # Cierre
     # ==================================================================
 
     def closeEvent(self, event) -> None:
         """Detiene workers y ejecuta on_app_end."""
-        # Detener workers
         for worker in (
             self._scan_worker,
             self._recognition_worker,

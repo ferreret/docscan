@@ -72,6 +72,7 @@ class BatchManagerWindow(QMainWindow):
     """
 
     closed = Signal()
+    open_batch_requested = Signal(int, int)  # (app_id, batch_id)
 
     def __init__(
         self,
@@ -113,11 +114,13 @@ class BatchManagerWindow(QMainWindow):
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(4, 4, 4, 4)
+        main_layout.setSpacing(4)
 
-        # Filtros
-        main_layout.addWidget(self._create_filter_bar())
+        # Filtros (tamaño fijo, no crece)
+        filter_bar = self._create_filter_bar()
+        main_layout.addWidget(filter_bar, stretch=0)
 
-        # Splitter: lista + detalle
+        # Splitter: lista + detalle (ocupa todo el espacio restante)
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
 
         self._batch_list = BatchListWidget()
@@ -128,7 +131,7 @@ class BatchManagerWindow(QMainWindow):
         self._splitter.setStretchFactor(0, 3)
         self._splitter.setStretchFactor(1, 2)
 
-        main_layout.addWidget(self._splitter)
+        main_layout.addWidget(self._splitter, stretch=1)
 
         # Status bar
         self._status_bar = QStatusBar()
@@ -143,13 +146,18 @@ class BatchManagerWindow(QMainWindow):
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
+        self._btn_open_batch = QPushButton("Abrir lote")
+        self._btn_open_batch.setProperty("cssClass", "primary")
         self._btn_refresh = QPushButton("Actualizar")
         self._btn_transition = QPushButton("Cambiar estado")
         self._btn_reprocess = QPushButton("Re-procesar errores")
         self._btn_delete = QPushButton("Eliminar")
         self._btn_supervisor = QPushButton("Modo Supervisor")
         self._btn_supervisor.setCheckable(True)
+        self._btn_supervisor.setProperty("cssClass", "danger")
 
+        toolbar.addWidget(self._btn_open_batch)
+        toolbar.addSeparator()
         toolbar.addWidget(self._btn_refresh)
         toolbar.addSeparator()
         toolbar.addWidget(self._btn_transition)
@@ -161,6 +169,7 @@ class BatchManagerWindow(QMainWindow):
     def _create_filter_bar(self) -> QWidget:
         """Barra de filtros."""
         widget = QWidget()
+        widget.setFixedHeight(44)
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(4, 4, 4, 4)
 
@@ -213,6 +222,7 @@ class BatchManagerWindow(QMainWindow):
     def _connect_signals(self) -> None:
         """Conecta señales de la UI."""
         self._batch_list.batch_selected.connect(self._on_batch_selected)
+        self._btn_open_batch.clicked.connect(self._on_open_batch)
         self._btn_refresh.clicked.connect(self._refresh_batches)
         self._btn_filter.clicked.connect(self._refresh_batches)
         self._btn_transition.clicked.connect(self._on_transition)
@@ -361,6 +371,22 @@ class BatchManagerWindow(QMainWindow):
     # ==================================================================
     # Acciones
     # ==================================================================
+
+    def _on_open_batch(self) -> None:
+        """Abre el lote seleccionado en el workbench."""
+        batch_id = self._batch_list.get_selected_batch_id()
+        if batch_id is None:
+            QMessageBox.information(self, "Sin selección", "Selecciona un lote.")
+            return
+
+        with self._session_factory() as session:
+            batch_repo = BatchRepository(session)
+            batch = batch_repo.get_by_id(batch_id)
+            if batch is None:
+                return
+            app_id = batch.application_id
+
+        self.open_batch_requested.emit(app_id, batch_id)
 
     def _on_transition(self) -> None:
         """Cambiar estado del lote seleccionado."""
@@ -516,9 +542,6 @@ class BatchManagerWindow(QMainWindow):
             )
             if ok and password == SUPERVISOR_PASSWORD:
                 self._supervisor_mode = True
-                self._btn_supervisor.setStyleSheet(
-                    "QPushButton { background-color: #FF8A80; font-weight: bold; }"
-                )
                 self._status_bar.showMessage("Modo Supervisor activado", 3000)
             else:
                 self._btn_supervisor.setChecked(False)
@@ -528,7 +551,6 @@ class BatchManagerWindow(QMainWindow):
                     )
         else:
             self._supervisor_mode = False
-            self._btn_supervisor.setStyleSheet("")
             self._status_bar.showMessage("Modo Supervisor desactivado", 3000)
 
     # ==================================================================

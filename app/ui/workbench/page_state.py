@@ -16,6 +16,7 @@ from PySide6.QtGui import QImage, QPixmap
 class PageState(Enum):
     """Estado visual de una página (UI-03)."""
 
+    EXCLUDED = "excluded"
     NEEDS_REVIEW = "needs_review"
     SEPARATOR_BARCODE = "separator"
     AI_FIELDS = "ai_fields"
@@ -24,6 +25,7 @@ class PageState(Enum):
 
 
 STATE_COLORS: dict[PageState, str] = {
+    PageState.EXCLUDED: "#d32f2f",
     PageState.NEEDS_REVIEW: "#e53935",
     PageState.SEPARATOR_BARCODE: "#fb8c00",
     PageState.AI_FIELDS: "#1e88e5",
@@ -36,6 +38,7 @@ def determine_page_state(
     needs_review: bool = False,
     barcodes: list | None = None,
     ai_fields_json: str = "{}",
+    is_excluded: bool = False,
 ) -> PageState:
     """Determina el estado visual de una página (prioridad UI-03).
 
@@ -43,7 +46,11 @@ def determine_page_state(
         needs_review: Si la página necesita revisión.
         barcodes: Lista de objetos barcode (con atributo ``role``).
         ai_fields_json: JSON de campos IA extraídos.
+        is_excluded: Si la página está marcada para excluir.
     """
+    if is_excluded:
+        return PageState.EXCLUDED
+
     if needs_review:
         return PageState.NEEDS_REVIEW
 
@@ -63,15 +70,44 @@ def determine_page_state(
     return PageState.NO_RECOGNITION
 
 
+def _is_binary(image: np.ndarray) -> bool:
+    """Detecta si una imagen 2D tiene solo valores 0 y 255 (1-bit efectivo)."""
+    if image.ndim != 2:
+        return False
+    unique = np.unique(image)
+    return len(unique) <= 2 and set(unique.tolist()).issubset({0, 255})
+
+
+def _antialias_binary(image: np.ndarray) -> np.ndarray:
+    """Aplica anti-aliasing a una imagen binaria (0/255) sin cambiar dimensiones.
+
+    Un Gaussian blur ligero (kernel 3x3, sigma=0.8) crea valores intermedios
+    de gris en los bordes del texto. Esto permite que la interpolación bilineal
+    de Qt produzca transiciones suaves al hacer zoom out, igual que los visores
+    profesionales. A zoom 1:1 en 300 DPI el efecto es imperceptible.
+    """
+    if not _is_binary(image):
+        return image
+    return cv2.GaussianBlur(image, (3, 3), sigmaX=0.8)
+
+
 def ndarray_to_qpixmap(image: np.ndarray) -> QPixmap:
-    """Convierte una imagen numpy (BGR u gris) a QPixmap."""
+    """Convierte una imagen numpy (BGR u gris) a QPixmap.
+
+    Las imágenes binarias (1-bit, valores 0/255) se suavizan con un
+    Gaussian blur ligero para que la interpolación bilineal de Qt
+    produzca bordes anti-aliased al escalar.
+    """
     if image is None:
         return QPixmap()
 
-    if len(image.shape) == 2:
-        # Escala de grises
-        h, w = image.shape
-        qimg = QImage(image.data, w, h, w, QImage.Format.Format_Grayscale8)
+    if image.ndim == 2:
+        # Gris o binario — anti-alias si es binario
+        display_image = _antialias_binary(image)
+        h, w = display_image.shape
+        qimg = QImage(
+            display_image.data, w, h, w, QImage.Format.Format_Grayscale8,
+        )
     elif image.shape[2] == 4:
         # BGRA -> RGBA
         rgba = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)

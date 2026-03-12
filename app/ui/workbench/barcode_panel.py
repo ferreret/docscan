@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (
     QApplication,
     QGroupBox,
@@ -16,17 +17,50 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QMenu,
+    QPushButton,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from app.ui.workbench.document_viewer import _BARCODE_PALETTE
+
 log = logging.getLogger(__name__)
+
+_DOT_RADIUS = 6
+
+
+class _ColorDotDelegate(QStyledItemDelegate):
+    """Pinta un círculo de color en la celda usando el UserRole data."""
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color_hex = index.data(Qt.ItemDataRole.UserRole)
+        if color_hex:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(color_hex))
+            center = QPoint(
+                option.rect.center().x(),
+                option.rect.center().y(),
+            )
+            painter.drawEllipse(center, _DOT_RADIUS, _DOT_RADIUS)
+        painter.restore()
 
 
 class BarcodePanel(QWidget):
-    """Panel derecho superior: barcodes y contadores."""
+    """Panel derecho superior: barcodes y contadores.
+
+    Signals:
+        insert_barcode_requested: Solicita añadir barcode manual.
+        delete_barcode_requested: Solicita eliminar barcode seleccionado.
+    """
+
+    insert_barcode_requested = Signal()
+    delete_barcode_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -40,15 +74,16 @@ class BarcodePanel(QWidget):
         group = QGroupBox("Barcodes de la página")
         group_layout = QVBoxLayout(group)
 
-        self._table = QTableWidget(0, 4)
+        self._table = QTableWidget(0, 5)
         self._table.setHorizontalHeaderLabels(
-            ["Valor", "Simbología", "Motor", "Rol"],
+            ["", "Valor", "Simbología", "Motor", "Rol"],
         )
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setStretchLastSection(True)
         header.setDefaultSectionSize(100)
-        header.resizeSection(0, 200)  # Valor más ancho por defecto
+        header.resizeSection(0, 28)   # Columna de color (estrecha)
+        header.resizeSection(1, 180)  # Valor
         self._table.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows,
         )
@@ -57,8 +92,20 @@ class BarcodePanel(QWidget):
             Qt.ContextMenuPolicy.CustomContextMenu,
         )
         self._table.customContextMenuRequested.connect(self._on_context_menu)
+        self._table.setItemDelegateForColumn(0, _ColorDotDelegate(self._table))
 
         group_layout.addWidget(self._table)
+
+        # Botones de barcode
+        bc_buttons = QHBoxLayout()
+        self._btn_insert_bc = QPushButton("+ Barcode manual")
+        self._btn_delete_bc = QPushButton("\u2212 Barcode")
+        self._btn_insert_bc.clicked.connect(self.insert_barcode_requested)
+        self._btn_delete_bc.clicked.connect(self.delete_barcode_requested)
+        bc_buttons.addWidget(self._btn_insert_bc)
+        bc_buttons.addWidget(self._btn_delete_bc)
+        group_layout.addLayout(bc_buttons)
+
         layout.addWidget(group)
 
         # Contadores del lote
@@ -81,23 +128,31 @@ class BarcodePanel(QWidget):
     # ------------------------------------------------------------------
 
     def set_page_barcodes(self, barcodes: list) -> None:
-        """Muestra los barcodes de la página actual."""
+        """Muestra los barcodes de la página actual con indicador de color."""
         self._table.setRowCount(0)
-        for bc in barcodes:
+        for idx, bc in enumerate(barcodes):
             row = self._table.rowCount()
             self._table.insertRow(row)
+
+            # Columna 0: círculo de color (mismo que el overlay del visor)
+            pen_hex, _fill_hex = _BARCODE_PALETTE[idx % len(_BARCODE_PALETTE)]
+            color_item = QTableWidgetItem()
+            color_item.setData(Qt.ItemDataRole.UserRole, pen_hex)
+            color_item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self._table.setItem(row, 0, color_item)
+
             self._table.setItem(
-                row, 0,
+                row, 1,
                 QTableWidgetItem(getattr(bc, "value", str(bc))),
             )
             self._table.setItem(
-                row, 1, QTableWidgetItem(getattr(bc, "symbology", "")),
+                row, 2, QTableWidgetItem(getattr(bc, "symbology", "")),
             )
             self._table.setItem(
-                row, 2, QTableWidgetItem(getattr(bc, "engine", "")),
+                row, 3, QTableWidgetItem(getattr(bc, "engine", "")),
             )
             self._table.setItem(
-                row, 3, QTableWidgetItem(getattr(bc, "role", "")),
+                row, 4, QTableWidgetItem(getattr(bc, "role", "")),
             )
 
     def set_lot_counters(self, stats: dict) -> None:
@@ -139,13 +194,13 @@ class BarcodePanel(QWidget):
         if action == act_copy:
             row = self._table.currentRow()
             if row >= 0:
-                item = self._table.item(row, 0)
+                item = self._table.item(row, 1)
                 if item:
                     clipboard.setText(item.text())
         elif action == act_copy_all:
             values = []
             for r in range(self._table.rowCount()):
-                item = self._table.item(r, 0)
+                item = self._table.item(r, 1)
                 if item:
                     values.append(item.text())
             clipboard.setText("\n".join(values))

@@ -16,22 +16,35 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.ui.theme_manager import ThemeManager
+
 log = logging.getLogger(__name__)
 
-# Colores por estado
-STATE_COLORS: dict[str, str] = {
-    "created": "#E0E0E0",       # Gris claro
-    "read": "#BBDEFB",          # Azul claro
-    "verified": "#C8E6C9",      # Verde claro
-    "ready_to_export": "#FFF9C4",  # Amarillo claro
-    "exported": "#A5D6A7",      # Verde
-    "error_read": "#FFCDD2",    # Rojo claro
-    "error_export": "#EF9A9A",  # Rojo
+# Colores por estado: (dark, light)
+STATE_COLORS_THEMED: dict[str, tuple[str, str]] = {
+    "created":         ("#585b70", "#E0E0E0"),
+    "read":            ("#3b5998", "#BBDEFB"),
+    "verified":        ("#2e7d32", "#C8E6C9"),
+    "ready_to_export": ("#8d6e00", "#FFF9C4"),
+    "exported":        ("#1b5e20", "#A5D6A7"),
+    "error_read":      ("#b71c1c", "#FFCDD2"),
+    "error_export":    ("#c62828", "#EF9A9A"),
+}
+
+# Colores de texto para estado (dark, light)
+STATE_TEXT_COLORS: dict[str, tuple[str, str]] = {
+    "created":         ("#a6adc8", "#666666"),
+    "read":            ("#89b4fa", "#1565C0"),
+    "verified":        ("#a6e3a1", "#2E7D32"),
+    "ready_to_export": ("#f9e2af", "#F57F17"),
+    "exported":        ("#a6e3a1", "#1B5E20"),
+    "error_read":      ("#f38ba8", "#C62828"),
+    "error_export":    ("#f38ba8", "#B71C1C"),
 }
 
 STATE_LABELS: dict[str, str] = {
     "created": "Creado",
-    "read": "Leído",
+    "read": "Le\u00eddo",
     "verified": "Verificado",
     "ready_to_export": "Listo exportar",
     "exported": "Exportado",
@@ -39,7 +52,7 @@ STATE_LABELS: dict[str, str] = {
     "error_export": "Error export.",
 }
 
-COLUMNS = ["ID", "Aplicación", "Estado", "Páginas", "Estación", "Creado", "Actualizado"]
+COLUMNS = ["ID", "Aplicaci\u00f3n", "Estado", "P\u00e1ginas", "Estaci\u00f3n", "Creado", "Actualizado"]
 
 
 class BatchListWidget(QTableWidget):
@@ -65,6 +78,7 @@ class BatchListWidget(QTableWidget):
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.setAlternatingRowColors(False)
         self.verticalHeader().setVisible(False)
+        self.setShowGrid(False)
 
         header = self.horizontalHeader()
         header.setStretchLastSection(True)
@@ -77,22 +91,26 @@ class BatchListWidget(QTableWidget):
         self.itemSelectionChanged.connect(self._on_selection_changed)
 
     def set_batches(self, batches: list[dict[str, Any]]) -> None:
-        """Carga la lista de lotes.
-
-        Args:
-            batches: Lista de dicts con keys: id, app_name, state,
-                     page_count, hostname, created_at, updated_at.
-        """
+        """Carga la lista de lotes."""
         self.setRowCount(0)
         self._batch_ids.clear()
+
+        is_dark = ThemeManager().is_dark
+        theme_idx = 0 if is_dark else 1
 
         for row_idx, batch in enumerate(batches):
             self.insertRow(row_idx)
             self._batch_ids.append(batch["id"])
 
             state = batch.get("state", "created")
-            color = QColor(STATE_COLORS.get(state, "#FFFFFF"))
-            brush = QBrush(color)
+            state_text_color = QColor(
+                STATE_TEXT_COLORS.get(state, ("#cdd6f4", "#4c4f69"))[theme_idx]
+            )
+            # Fondo sutil para la fila según estado
+            state_bg = QColor(
+                STATE_COLORS_THEMED.get(state, ("#313244", "#FFFFFF"))[theme_idx]
+            )
+            state_bg.setAlpha(40 if is_dark else 60)
 
             items = [
                 str(batch["id"]),
@@ -106,11 +124,17 @@ class BatchListWidget(QTableWidget):
 
             for col_idx, text in enumerate(items):
                 item = QTableWidgetItem(text)
-                item.setBackground(brush)
+                item.setBackground(QBrush(state_bg))
+
+                if col_idx == 2:  # Columna Estado: texto coloreado
+                    item.setForeground(QBrush(state_text_color))
+                    font = item.font()
+                    font.setBold(True)
+                    item.setFont(font)
+
                 if col_idx in (0, 3):  # ID y Páginas centrados
-                    item.setTextAlignment(
-                        Qt.AlignmentFlag.AlignCenter
-                    )
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
                 self.setItem(row_idx, col_idx, item)
 
     def get_selected_batch_id(self) -> int | None:

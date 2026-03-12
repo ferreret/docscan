@@ -7,11 +7,10 @@ de barcodes/campos IA, y borde coloreado por estado de página.
 from __future__ import annotations
 
 import logging
-import math
 
 import numpy as np
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QPen, QWheelEvent
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QWheelEvent
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem,
     QGraphicsRectItem,
@@ -33,15 +32,29 @@ ZOOM_OUT_FACTOR = 1.0 / ZOOM_IN_FACTOR
 MIN_ZOOM = 0.1
 MAX_ZOOM = 10.0
 
+# Paleta de colores vivos para distinguir múltiples barcodes
+_BARCODE_PALETTE = [
+    ("#e53935", "#ffcdd2"),   # rojo
+    ("#1e88e5", "#bbdefb"),   # azul
+    ("#43a047", "#c8e6c9"),   # verde
+    ("#fb8c00", "#ffe0b2"),   # naranja
+    ("#8e24aa", "#e1bee7"),   # púrpura
+    ("#00acc1", "#b2ebf2"),   # cian
+    ("#d81b60", "#f8bbd0"),   # rosa
+    ("#6d4c41", "#d7ccc8"),   # marrón
+]
+
 
 class DocumentViewer(QGraphicsView):
     """Visor de documentos con zoom, arrastre y overlays.
 
     Signals:
         rotation_requested: Emitida al solicitar rotación de 90°.
+        viewer_resized: Emitida al cambiar el tamaño del visor.
     """
 
     rotation_requested = Signal()
+    viewer_resized = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -49,19 +62,24 @@ class DocumentViewer(QGraphicsView):
         self.setScene(self._scene)
 
         self._pixmap_item: QGraphicsPixmapItem | None = None
-        self._overlay_items: list[QGraphicsRectItem] = []
+        self._overlay_items: list = []
         self._current_zoom: float = 1.0
 
         # Configurar vista
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-        from PySide6.QtGui import QPainter
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.setRenderHint(QPainter.RenderHint.LosslessImageRendering)
         self.setTransformationAnchor(
             QGraphicsView.ViewportAnchor.AnchorUnderMouse,
         )
         self.setViewportUpdateMode(
             QGraphicsView.ViewportUpdateMode.FullViewportUpdate,
         )
+
+    def resizeEvent(self, event) -> None:
+        """Notifica que el visor ha cambiado de tamaño."""
+        super().resizeEvent(event)
+        self.viewer_resized.emit()
 
     # ------------------------------------------------------------------
     # Imagen y estado
@@ -74,6 +92,9 @@ class DocumentViewer(QGraphicsView):
         pixmap = ndarray_to_qpixmap(image)
         if self._pixmap_item is None:
             self._pixmap_item = self._scene.addPixmap(pixmap)
+            self._pixmap_item.setTransformationMode(
+                Qt.TransformationMode.SmoothTransformation,
+            )
         else:
             self._pixmap_item.setPixmap(pixmap)
 
@@ -100,11 +121,18 @@ class DocumentViewer(QGraphicsView):
         barcodes: list | None = None,
         ai_fields: dict | None = None,
     ) -> None:
-        """Dibuja overlays semitransparentes sobre barcodes y campos IA."""
+        """Dibuja overlays sobre barcodes con colores distintos por cada uno."""
         self.clear_overlays()
         barcodes = barcodes or []
 
-        for bc in barcodes:
+        # Escalar grosor de borde y fuente proporcionalmente a la imagen
+        scene_rect = self._scene.sceneRect()
+        img_diag = max(1, (scene_rect.width() ** 2 + scene_rect.height() ** 2) ** 0.5)
+        # Para una imagen de ~3000px diagonal, pen_width ~6, font ~24
+        pen_width = max(4, int(img_diag / 500))
+        margin = pen_width * 2  # Margen extra alrededor del barcode
+
+        for idx, bc in enumerate(barcodes):
             x = getattr(bc, "pos_x", 0)
             y = getattr(bc, "pos_y", 0)
             w = getattr(bc, "pos_w", 0)
@@ -112,32 +140,29 @@ class DocumentViewer(QGraphicsView):
             if w <= 0 or h <= 0:
                 continue
 
-            role = getattr(bc, "role", "")
-            if role == "separator":
-                fill_color = QColor(251, 140, 0, 50)  # naranja semi
-                pen_color = QColor(230, 81, 0)         # naranja fuerte
-            else:
-                fill_color = QColor(0, 200, 83, 50)    # verde semi
-                pen_color = QColor(0, 150, 60)          # verde fuerte
+            # Color distinto por barcode (cíclico)
+            pen_hex, fill_hex = _BARCODE_PALETTE[idx % len(_BARCODE_PALETTE)]
+            pen_color = QColor(pen_hex)
+            fill_color = QColor(fill_hex)
+            fill_color.setAlpha(100)
+
+            pen = QPen(pen_color, pen_width)
+            pen.setStyle(Qt.PenStyle.SolidLine)
+
+            # Rect con margen para que sea más visible
+            rx = x - margin
+            ry = y - margin
+            rw = w + margin * 2
+            rh = h + margin * 2
 
             rect = self._scene.addRect(
-                x, y, w, h,
-                QPen(pen_color, 3),
+                rx, ry, rw, rh,
+                pen,
                 QBrush(fill_color),
             )
             self._overlay_items.append(rect)
 
-            # Etiqueta con el valor del barcode
-            value = getattr(bc, "value", "")
-            if value:
-                label = self._scene.addSimpleText(value)
-                label.setBrush(QBrush(pen_color))
-                font = label.font()
-                font.setPointSize(max(8, min(h // 3, 14)))
-                font.setBold(True)
-                label.setFont(font)
-                label.setPos(x, max(0, y - label.boundingRect().height() - 2))
-                self._overlay_items.append(label)
+            # Sin etiqueta de texto — el valor se muestra en el panel de barcodes
 
     def clear_overlays(self) -> None:
         """Elimina todos los overlays."""

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QStatusBar,
     QToolBar,
     QVBoxLayout,
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.launcher.app_list_widget import AppListWidget
+from app.ui.theme_manager import ThemeManager
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ class LauncherWindow(QMainWindow):
     Signals:
         app_opened: Emitida cuando el usuario abre una aplicación (app_id).
         app_configure: Emitida cuando se quiere configurar una app (app_id).
+        batch_manager_requested: Emitida para abrir el gestor de lotes.
     """
 
     app_opened = Signal(int)
@@ -43,13 +46,14 @@ class LauncherWindow(QMainWindow):
     def __init__(self, session_factory: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._session_factory = session_factory
+        self._theme_manager = ThemeManager()
         self._setup_ui()
         self._connect_signals()
         self._load_apps()
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("DocScan Studio")
-        self.setMinimumSize(700, 500)
+        self.setMinimumSize(800, 560)
 
         # --- Toolbar ---
         toolbar = QToolBar("Principal")
@@ -57,10 +61,13 @@ class LauncherWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         self._btn_new = QPushButton("Nueva")
+        self._btn_new.setProperty("cssClass", "primary")
         self._btn_open = QPushButton("Abrir")
         self._btn_configure = QPushButton("Configurar")
         self._btn_delete = QPushButton("Eliminar")
+        self._btn_delete.setProperty("cssClass", "danger")
         self._btn_refresh = QPushButton("Actualizar")
+        self._btn_batch_manager = QPushButton("Gestor de Lotes")
 
         toolbar.addWidget(self._btn_new)
         toolbar.addWidget(self._btn_open)
@@ -69,29 +76,73 @@ class LauncherWindow(QMainWindow):
         toolbar.addSeparator()
         toolbar.addWidget(self._btn_refresh)
         toolbar.addSeparator()
-        self._btn_batch_manager = QPushButton("Gestor de Lotes")
         toolbar.addWidget(self._btn_batch_manager)
+
+        # Spacer para empujar el toggle de tema a la derecha
+        spacer = QWidget()
+        spacer.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,
+        )
+        toolbar.addWidget(spacer)
+
+        from app.ui.icon_factory import (
+            icon_font_decrease,
+            icon_font_increase,
+        )
+
+        self._btn_theme = QPushButton()
+        self._btn_theme.setToolTip("Cambiar tema claro/oscuro")
+        self._update_theme_button()
+        toolbar.addWidget(self._btn_theme)
+
+        icon_size = 20
+        icon_color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+
+        self._btn_font_up = QPushButton()
+        self._btn_font_up.setIcon(icon_font_increase(icon_color, 32))
+        self._btn_font_up.setToolTip("Aumentar tamaño de fuente")
+        self._btn_font_up.setFixedSize(34, 34)
+        self._btn_font_down = QPushButton()
+        self._btn_font_down.setIcon(icon_font_decrease(icon_color, 32))
+        self._btn_font_down.setToolTip("Reducir tamaño de fuente")
+        self._btn_font_down.setFixedSize(34, 34)
+        toolbar.addWidget(self._btn_font_up)
+        toolbar.addWidget(self._btn_font_down)
 
         # --- Central widget ---
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
+        layout.setContentsMargins(16, 12, 16, 8)
+        layout.setSpacing(12)
 
-        # Filtro de búsqueda
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("Buscar:"))
+        # Header
+        header_layout = QVBoxLayout()
+        header_layout.setSpacing(2)
+
+        title_label = QLabel("DocScan Studio")
+        title_label.setProperty("cssClass", "title")
+        header_layout.addWidget(title_label)
+
+        subtitle_label = QLabel("Selecciona una aplicación para comenzar")
+        subtitle_label.setProperty("cssClass", "subtitle")
+        header_layout.addWidget(subtitle_label)
+
+        layout.addLayout(header_layout)
+
+        # Barra de búsqueda
         self._filter_edit = QLineEdit()
-        self._filter_edit.setPlaceholderText("Filtrar aplicaciones...")
+        self._filter_edit.setPlaceholderText("Buscar aplicaciones...")
         self._filter_edit.setClearButtonEnabled(True)
-        filter_layout.addWidget(self._filter_edit)
-        layout.addLayout(filter_layout)
+        layout.addWidget(self._filter_edit)
 
-        # Lista de aplicaciones
+        # Lista de aplicaciones (cards)
         self._app_list = AppListWidget()
-        layout.addWidget(self._app_list)
+        layout.addWidget(self._app_list, stretch=1)
 
         # Info de la app seleccionada
         self._info_label = QLabel("")
+        self._info_label.setProperty("cssClass", "info")
         self._info_label.setWordWrap(True)
         layout.addWidget(self._info_label)
 
@@ -109,9 +160,43 @@ class LauncherWindow(QMainWindow):
         self._btn_delete.clicked.connect(self._on_delete_app)
         self._btn_refresh.clicked.connect(self._load_apps)
         self._btn_batch_manager.clicked.connect(self.batch_manager_requested.emit)
+        self._btn_theme.clicked.connect(self._on_toggle_theme)
+        self._btn_font_up.clicked.connect(self._theme_manager.increase_font)
+        self._btn_font_down.clicked.connect(self._theme_manager.decrease_font)
         self._filter_edit.textChanged.connect(self._app_list.filter_apps)
         self._app_list.currentItemChanged.connect(self._on_selection_changed)
         self._app_list.itemDoubleClicked.connect(self._on_open_app)
+        self._theme_manager.theme_changed.connect(self._on_theme_changed)
+
+    # ------------------------------------------------------------------
+    # Tema
+    # ------------------------------------------------------------------
+
+    def _on_toggle_theme(self) -> None:
+        """Alterna entre tema claro y oscuro."""
+        self._theme_manager.toggle_theme()
+
+    def _on_theme_changed(self, _theme_name: str) -> None:
+        """Actualiza el botón de tema cuando cambia."""
+        self._update_theme_button()
+        self._update_font_icons()
+        # Forzar repintado de la lista para actualizar colores del delegate
+        self._app_list.viewport().update()
+
+    def _update_theme_button(self) -> None:
+        from app.ui.icon_factory import icon_moon, icon_sun
+        if self._theme_manager.is_dark:
+            self._btn_theme.setText("")
+            self._btn_theme.setIcon(icon_sun())
+        else:
+            self._btn_theme.setText("")
+            self._btn_theme.setIcon(icon_moon("#5c5f77"))
+
+    def _update_font_icons(self) -> None:
+        from app.ui.icon_factory import icon_font_decrease, icon_font_increase
+        color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+        self._btn_font_up.setIcon(icon_font_increase(color, 32))
+        self._btn_font_down.setIcon(icon_font_decrease(color, 32))
 
     # ------------------------------------------------------------------
     # Carga de datos
@@ -126,8 +211,9 @@ class LauncherWindow(QMainWindow):
             apps = repo.get_all()
             self._app_list.populate(apps)
 
+        count = self._app_list.count()
         self._status_bar.showMessage(
-            f"{self._app_list.count()} aplicación(es)", 3000,
+            f"{count} aplicación(es) disponible(s)", 3000,
         )
         self._update_button_state()
 
@@ -208,10 +294,13 @@ class LauncherWindow(QMainWindow):
         self._update_button_state()
         app_data = self._app_list.selected_app_data()
         if app_data:
+            desc = app_data.get("description", "")
+            desc_text = f" — {desc}" if desc else ""
+            created = app_data.get("created_at", "")[:10]
+            status = "Activa" if app_data.get("active", True) else "Inactiva"
             self._info_label.setText(
-                f"<b>{app_data['name']}</b><br>"
-                f"{app_data.get('description', '')}<br>"
-                f"<small>Creada: {app_data.get('created_at', '')}</small>"
+                f"<b>{app_data['name']}</b>{desc_text} · "
+                f"{status} · Creada: {created}"
             )
         else:
             self._info_label.setText("")
