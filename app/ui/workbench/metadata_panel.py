@@ -141,7 +141,7 @@ class MetadataPanel(QWidget):
             required = fdef.get("required", False)
 
             label_text = f"{name}{'*' if required else ''}"
-            widget = self._create_field_widget(ftype, choices)
+            widget = self._create_field_widget(ftype, choices, fdef)
             widgets[name] = widget
 
             # Conectar cambio
@@ -165,15 +165,21 @@ class MetadataPanel(QWidget):
             form_layout.addRow(label_text, widget)
 
     def _create_field_widget(
-        self, ftype: str, choices: list[str],
+        self,
+        ftype: str,
+        choices: list[str],
+        fdef: dict[str, Any] | None = None,
     ) -> QWidget:
         """Crea el widget adecuado según el tipo de campo."""
+        fdef = fdef or {}
         match ftype:
             case "Fecha":
                 return QDateEdit()
             case "Número":
                 w = QSpinBox()
-                w.setMaximum(999999999)
+                w.setMinimum(int(fdef.get("min", 0)))
+                w.setMaximum(int(fdef.get("max", 999999)))
+                w.setSingleStep(int(fdef.get("step", 1)))
                 return w
             case "Booleano":
                 return QCheckBox()
@@ -273,7 +279,7 @@ class MetadataPanel(QWidget):
             widget.setChecked(value.lower() in ("true", "1"))
         elif isinstance(widget, QSpinBox):
             try:
-                widget.setValue(int(value))
+                widget.setValue(int(float(value)))
             except (ValueError, TypeError):
                 widget.setValue(0)
 

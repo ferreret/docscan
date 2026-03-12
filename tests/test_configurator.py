@@ -6,6 +6,7 @@ import json
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QCheckBox, QComboBox, QSpinBox, QLineEdit
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -15,6 +16,7 @@ from app.models.batch import Batch  # noqa: F401
 from app.models.page import Page  # noqa: F401
 from app.models.barcode import Barcode  # noqa: F401
 from app.models.template import Template  # noqa: F401
+from app.models.operation_history import OperationHistory  # noqa: F401
 from app.pipeline.steps import (
     ImageOpStep,
     BarcodeStep,
@@ -28,6 +30,7 @@ from app.ui.configurator.tabs.tab_general import GeneralTab
 from app.ui.configurator.tabs.tab_pipeline import PipelineTab, _step_display_text
 from app.ui.configurator.tabs.tab_events import EventsTab
 from app.ui.configurator.tabs.tab_transfer import TransferTab
+from app.ui.configurator.tabs.tab_batch_fields import BatchFieldsTab
 from app.ui.configurator.step_dialogs.image_op_dialog import ImageOpDialog
 from app.ui.configurator.step_dialogs.barcode_step_dialog import BarcodeStepDialog
 from app.ui.configurator.step_dialogs.ocr_step_dialog import OcrStepDialog
@@ -319,9 +322,227 @@ class TestScriptStepDialog:
 # ------------------------------------------------------------------
 
 
+class TestBatchFieldsTab:
+    def test_empty_fields(self, qtbot, sample_app):
+        sample_app.batch_fields_json = "[]"
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+        assert tab._table.rowCount() == 0
+
+    @staticmethod
+    def _get_label(tab, row):
+        """Obtiene el QLineEdit de etiqueta de una fila."""
+        return tab._table.cellWidget(row, 0).findChild(QLineEdit)
+
+    @staticmethod
+    def _get_type_combo(tab, row):
+        """Obtiene el QComboBox de tipo de una fila."""
+        return tab._table.cellWidget(row, 1).findChild(QComboBox)
+
+    def test_loads_existing_fields(self, qtbot, sample_app):
+        sample_app.batch_fields_json = json.dumps([
+            {"label": "Expediente", "type": "texto", "required": True},
+            {"label": "Prioridad", "type": "lista", "required": False,
+             "config": {"values": ["Alta", "Media", "Baja"]}},
+            {"label": "Páginas", "type": "numérico", "required": False,
+             "config": {"min": 1, "max": 500, "step": 1}},
+        ])
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+        assert tab._table.rowCount() == 3
+
+        # Verificar primera fila: texto
+        label_w = self._get_label(tab, 0)
+        assert isinstance(label_w, QLineEdit)
+        assert label_w.text() == "Expediente"
+        type_w = self._get_type_combo(tab, 0)
+        assert isinstance(type_w, QComboBox)
+        assert type_w.currentText() == "texto"
+
+        # Verificar segunda fila: lista
+        label_w = self._get_label(tab, 1)
+        assert label_w.text() == "Prioridad"
+        config_w = tab._table.cellWidget(1, 2)
+        values_edit = config_w.findChild(QLineEdit, "listValues")
+        assert values_edit is not None
+        assert "Alta" in values_edit.text()
+
+        # Verificar tercera fila: numérico
+        config_w = tab._table.cellWidget(2, 2)
+        spin_min = config_w.findChild(QSpinBox, "numMin")
+        assert spin_min is not None
+        assert spin_min.value() == 1
+
+    def test_add_field(self, qtbot, sample_app):
+        sample_app.batch_fields_json = "[]"
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+        assert tab._table.rowCount() == 0
+
+        # Simular click en "Añadir campo"
+        tab._add_empty_row()
+        assert tab._table.rowCount() == 1
+
+        # La fila nueva tiene tipo "texto" por defecto
+        type_w = self._get_type_combo(tab, 0)
+        assert type_w.currentText() == "texto"
+
+    def test_change_type_updates_config_widget(self, qtbot, sample_app):
+        sample_app.batch_fields_json = json.dumps([
+            {"label": "Campo1", "type": "texto", "required": False},
+        ])
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+
+        # Cambiar a numérico
+        type_w = self._get_type_combo(tab, 0)
+        type_w.setCurrentText("numérico")
+
+        config_w = tab._table.cellWidget(0, 2)
+        assert config_w.findChild(QSpinBox, "numMin") is not None
+
+        # Cambiar a lista
+        type_w = self._get_type_combo(tab, 0)
+        type_w.setCurrentText("lista")
+
+        config_w = tab._table.cellWidget(0, 2)
+        assert config_w.findChild(QLineEdit, "listValues") is not None
+
+    def test_apply_to_serializes_all_types(self, qtbot, sample_app):
+        sample_app.batch_fields_json = json.dumps([
+            {"label": "Nombre", "type": "texto", "required": True},
+            {"label": "Estado", "type": "lista", "required": False,
+             "config": {"values": ["Abierto", "Cerrado"]}},
+            {"label": "Cantidad", "type": "numérico", "required": True,
+             "config": {"min": 0, "max": 999, "step": 5}},
+        ])
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+
+        result_app = Application(name="Result")
+        tab.apply_to(result_app)
+
+        fields = json.loads(result_app.batch_fields_json)
+        assert len(fields) == 3
+
+        assert fields[0]["label"] == "Nombre"
+        assert fields[0]["type"] == "texto"
+        assert fields[0]["required"] is True
+
+        assert fields[1]["label"] == "Estado"
+        assert fields[1]["type"] == "lista"
+        assert fields[1]["config"]["values"] == ["Abierto", "Cerrado"]
+
+        assert fields[2]["label"] == "Cantidad"
+        assert fields[2]["type"] == "numérico"
+        assert fields[2]["config"]["min"] == 0
+        assert fields[2]["config"]["max"] == 999
+        assert fields[2]["config"]["step"] == 5
+
+    def test_empty_label_rows_skipped_on_apply(self, qtbot, sample_app):
+        sample_app.batch_fields_json = "[]"
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+
+        tab._add_empty_row()  # Label vacío
+        tab._add_empty_row()
+        # Poner label solo en la segunda
+        label_w = self._get_label(tab, 1)
+        label_w.setText("Campo Real")
+
+        result_app = Application(name="R")
+        tab.apply_to(result_app)
+        fields = json.loads(result_app.batch_fields_json)
+        assert len(fields) == 1
+        assert fields[0]["label"] == "Campo Real"
+
+    def test_remove_row(self, qtbot, sample_app):
+        sample_app.batch_fields_json = json.dumps([
+            {"label": "A", "type": "texto", "required": False},
+            {"label": "B", "type": "texto", "required": False},
+            {"label": "C", "type": "texto", "required": False},
+        ])
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+        assert tab._table.rowCount() == 3
+
+        tab._remove_row(1)  # Eliminar "B"
+        assert tab._table.rowCount() == 2
+
+        labels = []
+        for r in range(tab._table.rowCount()):
+            w = self._get_label(tab, r)
+            labels.append(w.text())
+        assert labels == ["A", "C"]
+
+    def test_move_row_down(self, qtbot, sample_app):
+        sample_app.batch_fields_json = json.dumps([
+            {"label": "Primero", "type": "texto", "required": False},
+            {"label": "Segundo", "type": "lista", "required": True,
+             "config": {"values": ["X", "Y"]}},
+        ])
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+
+        tab._move_row(0, 1)  # Mover "Primero" abajo
+
+        label_0 = self._get_label(tab, 0).text()
+        label_1 = self._get_label(tab, 1).text()
+        assert label_0 == "Segundo"
+        assert label_1 == "Primero"
+
+    def test_move_row_up(self, qtbot, sample_app):
+        sample_app.batch_fields_json = json.dumps([
+            {"label": "A", "type": "texto", "required": False},
+            {"label": "B", "type": "numérico", "required": True,
+             "config": {"min": 0, "max": 10, "step": 1}},
+        ])
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+
+        tab._move_row(1, -1)  # Mover "B" arriba
+
+        label_0 = self._get_label(tab, 0).text()
+        label_1 = self._get_label(tab, 1).text()
+        assert label_0 == "B"
+        assert label_1 == "A"
+
+    def test_move_row_boundary_no_crash(self, qtbot, sample_app):
+        sample_app.batch_fields_json = json.dumps([
+            {"label": "Solo", "type": "texto", "required": False},
+        ])
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+
+        tab._move_row(0, -1)  # No puede subir más
+        tab._move_row(0, 1)   # No puede bajar más
+        assert tab._table.rowCount() == 1
+
+    def test_required_checkbox_state(self, qtbot, sample_app):
+        sample_app.batch_fields_json = json.dumps([
+            {"label": "Req", "type": "texto", "required": True},
+            {"label": "Opt", "type": "texto", "required": False},
+        ])
+        tab = BatchFieldsTab(sample_app)
+        qtbot.addWidget(tab)
+
+        req_w = tab._table.cellWidget(0, 3)
+        cb0 = req_w.findChild(QCheckBox)
+        assert cb0.isChecked() is True
+
+        opt_w = tab._table.cellWidget(1, 3)
+        cb1 = opt_w.findChild(QCheckBox)
+        assert cb1.isChecked() is False
+
+
+# ------------------------------------------------------------------
+# App Configurator
+# ------------------------------------------------------------------
+
+
 class TestAppConfigurator:
     def test_creates_with_tabs(self, qtbot, sample_app, session_factory):
         dialog = AppConfigurator(sample_app, session_factory)
         qtbot.addWidget(dialog)
-        assert dialog._tabs.count() == 4
+        assert dialog._tabs.count() == 5
         assert dialog.windowTitle().startswith("Configurar")

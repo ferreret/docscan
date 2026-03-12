@@ -81,7 +81,7 @@ def sample_app(db_session) -> Application:
         pipeline_json="[]",
         events_json="{}",
         transfer_json="{}",
-        batch_fields_json='[{"name": "cliente", "type": "Texto", "required": false}]',
+        batch_fields_json='[{"label": "cliente", "type": "texto", "required": false}]',
         index_fields_json='[{"name": "referencia", "type": "Texto", "required": true}]',
         default_tab="lote",
     )

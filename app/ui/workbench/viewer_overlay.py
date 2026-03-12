@@ -400,6 +400,21 @@ class ViewerOverlay(QWidget):
         """Actualiza el indicador de página."""
         self._lbl_page_info.setText(f" {current} / {total} ")
 
+    def update_icon_color(self, color: str) -> None:
+        """Regenera los iconos con un color nuevo (al cambiar tema)."""
+        self._btn_first.setIcon(_icon_first(color))
+        self._btn_prev.setIcon(_icon_prev(color))
+        self._btn_next.setIcon(_icon_next(color))
+        self._btn_last.setIcon(_icon_last(color))
+        self._btn_next_bc.setIcon(_icon_next_bc(color))
+        self._btn_next_review.setIcon(_icon_next_review(color))
+        self._btn_zoom_in.setIcon(_icon_zoom_in(color))
+        self._btn_zoom_out.setIcon(_icon_zoom_out(color))
+        self._btn_zoom_fit.setIcon(_icon_zoom_fit(color))
+        self._btn_zoom_100.setIcon(_icon_zoom_100(color))
+        self._btn_rotate.setIcon(_icon_rotate(color))
+        self._btn_mark.setIcon(_icon_mark(color))
+
     def _separator(self) -> QWidget:
         """Crea un separador vertical delgado."""
         sep = QWidget()

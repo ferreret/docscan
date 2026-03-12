@@ -259,6 +259,9 @@ class WorkbenchWindow(QMainWindow):
         # Configurar metadatos
         self._configure_metadata()
 
+        # Iconos del overlay según tema actual
+        self._update_overlay_icons()
+
         # Pestaña por defecto (APP-07)
         if self._application:
             self._metadata_panel.set_default_tab(
@@ -418,13 +421,32 @@ class WorkbenchWindow(QMainWindow):
         if self._application is None:
             return
         try:
-            batch_fields = json.loads(self._application.batch_fields_json)
+            raw_batch = json.loads(self._application.batch_fields_json)
         except (json.JSONDecodeError, TypeError):
-            batch_fields = []
+            raw_batch = []
         try:
             index_fields = json.loads(self._application.index_fields_json)
         except (json.JSONDecodeError, TypeError):
             index_fields = []
+
+        # Mapear formato tab_batch_fields → MetadataPanel.configure()
+        type_map = {"texto": "Texto", "lista": "Lista", "numérico": "Número"}
+        batch_fields = []
+        for f in raw_batch:
+            cfg = f.get("config", {})
+            entry: dict[str, Any] = {
+                "name": f.get("label", ""),
+                "type": type_map.get(f.get("type", "texto"), "Texto"),
+                "required": f.get("required", False),
+            }
+            if f.get("type") == "lista":
+                entry["choices"] = cfg.get("values", [])
+            elif f.get("type") == "numérico":
+                entry["min"] = cfg.get("min", 0)
+                entry["max"] = cfg.get("max", 100)
+                entry["step"] = cfg.get("step", 1)
+            batch_fields.append(entry)
+
         self._metadata_panel.configure(batch_fields, index_fields)
 
     # ==================================================================
@@ -437,12 +459,17 @@ class WorkbenchWindow(QMainWindow):
     def _on_theme_changed(self, _theme_name: str) -> None:
         self._update_theme_button()
         self._update_font_icons()
+        self._update_overlay_icons()
 
     def _update_font_icons(self) -> None:
         from app.ui.icon_factory import icon_font_decrease, icon_font_increase
         color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
         self._btn_font_up.setIcon(icon_font_increase(color, 32))
         self._btn_font_down.setIcon(icon_font_decrease(color, 32))
+
+    def _update_overlay_icons(self) -> None:
+        color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+        self._viewer_overlay.update_icon_color(color)
 
     # ==================================================================
     # Gestión de lote
