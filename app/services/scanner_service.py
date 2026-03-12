@@ -36,6 +36,7 @@ class ScanConfig:
     page_size: str = ""  # "", "A4", "Letter"
     brightness: int | None = None
     contrast: int | None = None
+    source_type: str = "flatbed"  # "flatbed" o "adf"
 
 
 # ------------------------------------------------------------------
@@ -110,16 +111,27 @@ class SaneScanner(BaseScanner):
         dev = sane.open(source)
         try:
             self._apply_config(dev, config)
-            # Escanear una página
-            pil_image = dev.snap()
-            image = np.array(pil_image)
+            images: list[np.ndarray] = []
 
-            # PIL devuelve RGB; convertir a BGR para OpenCV
-            if len(image.shape) == 3 and image.shape[2] == 3:
-                import cv2
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            while True:
+                try:
+                    pil_image = dev.snap()
+                except Exception:
+                    if images:
+                        break  # ADF agotado, retornamos lo capturado
+                    raise  # Error real si no hay ninguna imagen
 
-            return [image]
+                image = np.array(pil_image)
+                if len(image.shape) == 3 and image.shape[2] == 3:
+                    import cv2
+                    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                images.append(image)
+
+                # Solo capturar una página en modo flatbed
+                if config.source_type != "adf":
+                    break
+
+            return images
         finally:
             dev.close()
 
@@ -131,6 +143,15 @@ class SaneScanner(BaseScanner):
 
     def _apply_config(self, dev: Any, config: ScanConfig) -> None:
         """Aplica la configuración al dispositivo SANE."""
+        # Seleccionar fuente ADF si corresponde
+        if config.source_type == "adf":
+            for source_name in ("ADF", "Automatic Document Feeder", "adf"):
+                try:
+                    dev.source = source_name
+                    break
+                except Exception:
+                    continue
+
         try:
             dev.resolution = config.resolution
         except Exception:

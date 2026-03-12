@@ -371,11 +371,23 @@ class TestBatchContext:
         assert ctx.id == 0
         assert ctx.fields == {}
         assert ctx.state == "created"
+        assert ctx.page_count == 0
+        assert ctx.folder_path == ""
+        assert ctx.hostname == ""
 
     def test_custom(self):
         ctx = BatchContext(id=42, state="read", fields={"ref": "001"})
         assert ctx.id == 42
         assert ctx.state == "read"
+
+    def test_enriched_fields(self):
+        ctx = BatchContext(
+            id=10, state="read", fields={"ref": "X"},
+            page_count=5, folder_path="/tmp/batch", hostname="host1",
+        )
+        assert ctx.page_count == 5
+        assert ctx.folder_path == "/tmp/batch"
+        assert ctx.hostname == "host1"
 
 
 class TestAppContext:
@@ -385,11 +397,28 @@ class TestAppContext:
         assert ctx.name == ""
         assert ctx.description == ""
         assert ctx.config == {}
+        assert ctx.batch_fields_def == []
+        assert ctx.transfer_config == {}
+        assert ctx.auto_transfer is False
+        assert ctx.output_format == "tiff"
 
     def test_custom(self):
         ctx = AppContext(id=7, name="Facturas", description="Procesa facturas")
         assert ctx.id == 7
         assert ctx.name == "Facturas"
+
+    def test_enriched_fields(self):
+        ctx = AppContext(
+            id=1, name="App",
+            batch_fields_def=[{"name": "ref", "type": "text"}],
+            transfer_config={"mode": "folder", "destination": "/tmp"},
+            auto_transfer=True,
+            output_format="png",
+        )
+        assert len(ctx.batch_fields_def) == 1
+        assert ctx.transfer_config["mode"] == "folder"
+        assert ctx.auto_transfer is True
+        assert ctx.output_format == "png"
 
 
 # ==================================================================
@@ -633,12 +662,11 @@ class TestTransferWorker:
             worker.start()
 
         worker.wait()
-        mock_service.transfer.assert_called_once_with(
-            pages=pages,
-            config=config,
-            batch_fields=batch_fields,
-            batch_id=42,
-        )
+        call_kwargs = mock_service.transfer.call_args
+        assert call_kwargs.kwargs["pages"] == pages
+        assert call_kwargs.kwargs["config"] is config
+        assert call_kwargs.kwargs["batch_fields"] == batch_fields
+        assert call_kwargs.kwargs["batch_id"] == 42
 
 
 # ==================================================================
@@ -1698,3 +1726,32 @@ class TestWorkbenchWindow:
         """El radio button de importar está seleccionado por defecto."""
         assert workbench._radio_import.isChecked()
         assert not workbench._radio_scanner.isChecked()
+
+    def test_build_app_context_enriched(self, workbench):
+        """_build_app_context devuelve campos enriquecidos."""
+        ctx = workbench._build_app_context()
+        assert ctx.id == workbench._app_id
+        assert ctx.name == workbench._application.name
+        assert isinstance(ctx.config, dict)
+        assert isinstance(ctx.batch_fields_def, list)
+        assert isinstance(ctx.transfer_config, dict)
+        assert ctx.output_format == (workbench._application.output_format or "tiff")
+
+    def test_build_batch_context_enriched(self, workbench):
+        """_build_batch_context devuelve campos enriquecidos."""
+        ctx = workbench._build_batch_context()
+        assert ctx.id == workbench._batch_id
+        assert isinstance(ctx.fields, dict)
+        assert isinstance(ctx.state, str)
+
+    def test_fire_event_with_extra_kwargs(self, workbench):
+        """_fire_event pasa extra_ctx correctamente."""
+        result = workbench._fire_event("on_key_event", key="A")
+        assert result is None  # No hay script, pero no debe crashear
+
+    def test_source_type_combo_exists(self, workbench):
+        """El combo de source_type (ADF/Flatbed) existe en la toolbar."""
+        assert hasattr(workbench, "_combo_source_type")
+        assert workbench._combo_source_type.count() == 2
+        assert workbench._combo_source_type.itemData(0) == "flatbed"
+        assert workbench._combo_source_type.itemData(1) == "adf"

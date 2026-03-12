@@ -7,18 +7,24 @@ Se almacenan en ``Application.events_json``.
 from __future__ import annotations
 
 import json
+import logging
 
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from app.models.application import Application
+from app.services.external_editor_service import detect_editor, edit_script
+
+log = logging.getLogger(__name__)
 
 # Entry points de ciclo de vida definidos en CLAUDE.md
 EVENT_NAMES = [
@@ -50,6 +56,21 @@ EVENT_DESCRIPTIONS = {
 }
 
 
+class _EditorWorker(QThread):
+    """Hilo para edición bloqueante en VS Code."""
+
+    finished = Signal(object)  # str | None
+
+    def __init__(self, code: str, event_name: str) -> None:
+        super().__init__()
+        self._code = code
+        self._event_name = event_name
+
+    def run(self) -> None:
+        result = edit_script(self._code, "event", self._event_name)
+        self.finished.emit(result)
+
+
 class EventsTab(QWidget):
     """Editor de entry points de ciclo de vida."""
 
@@ -57,6 +78,7 @@ class EventsTab(QWidget):
         super().__init__(parent)
         self._events: dict[str, str] = {}
         self._current_event: str = ""
+        self._editor_worker: _EditorWorker | None = None
         self._setup_ui()
         self._load_from_app(app)
 
@@ -72,6 +94,15 @@ class EventsTab(QWidget):
             self._event_combo.addItem(f"{name} — {desc}", name)
         top.addWidget(self._event_combo, 1)
         layout.addLayout(top)
+
+        # Barra con botón VS Code
+        code_bar = QHBoxLayout()
+        code_bar.addStretch()
+        self._btn_vscode = QPushButton("Abrir en VS Code")
+        self._btn_vscode.setVisible(detect_editor() is not None)
+        self._btn_vscode.clicked.connect(self._open_in_vscode)
+        code_bar.addWidget(self._btn_vscode)
+        layout.addLayout(code_bar)
 
         # Editor de código
         self._code_edit = QPlainTextEdit()
@@ -115,6 +146,24 @@ class EventsTab(QWidget):
         self._code_edit.setPlainText(
             self._events.get(self._current_event, "")
         )
+
+    def _open_in_vscode(self) -> None:
+        """Lanza VS Code para editar el evento actual."""
+        self._btn_vscode.setEnabled(False)
+        self._btn_vscode.setText("Editando en VS Code...")
+        self._editor_worker = _EditorWorker(
+            self._code_edit.toPlainText(),
+            self._current_event,
+        )
+        self._editor_worker.finished.connect(self._on_editor_done)
+        self._editor_worker.start()
+
+    def _on_editor_done(self, result: str | None) -> None:
+        """Actualiza el código al volver de VS Code."""
+        self._btn_vscode.setEnabled(True)
+        self._btn_vscode.setText("Abrir en VS Code")
+        if result is not None:
+            self._code_edit.setPlainText(result)
 
     def apply_to(self, app: Application) -> None:
         """Guarda los eventos en el JSON de la aplicación."""

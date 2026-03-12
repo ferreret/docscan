@@ -70,6 +70,7 @@ class TransferService:
         config: TransferConfig,
         batch_fields: dict[str, str] | None = None,
         batch_id: int | None = None,
+        on_page_callback: Any = None,
     ) -> TransferResult:
         """Ejecuta la transferencia de un lote.
 
@@ -86,7 +87,9 @@ class TransferService:
         batch_fields = batch_fields or {}
 
         if config.mode == "folder":
-            return self._transfer_folder(pages, config, batch_fields, batch_id)
+            return self._transfer_folder(
+                pages, config, batch_fields, batch_id, on_page_callback,
+            )
         elif config.mode in ("pdf", "pdfa"):
             return self._transfer_pdf(pages, config, batch_fields, batch_id)
         elif config.mode == "csv":
@@ -107,6 +110,7 @@ class TransferService:
         config: TransferConfig,
         batch_fields: dict[str, str],
         batch_id: int | None,
+        on_page_callback: Any = None,
     ) -> TransferResult:
         """Copia imágenes a una carpeta destino."""
         dest = Path(config.destination)
@@ -134,8 +138,13 @@ class TransferService:
                 if config.include_metadata:
                     self._write_metadata(dst, page)
 
+                if on_page_callback:
+                    on_page_callback(page.get("page_index", 0), True)
+
             except Exception as e:
                 result.errors.append(f"Error copiando página {page.get('page_index')}: {e}")
+                if on_page_callback:
+                    on_page_callback(page.get("page_index", 0), False)
 
         result.success = len(result.errors) == 0
         log.info(

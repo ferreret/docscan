@@ -284,9 +284,15 @@ class WorkbenchWindow(QMainWindow):
         self._combo_source.setEditable(False)
         self._combo_source.setPlaceholderText("Seleccionar origen...")
 
+        self._combo_source_type = QComboBox()
+        self._combo_source_type.addItem("Flatbed", "flatbed")
+        self._combo_source_type.addItem("ADF", "adf")
+        self._combo_source_type.setFixedWidth(90)
+
         toolbar.addWidget(self._radio_scanner)
         toolbar.addWidget(self._radio_import)
         toolbar.addWidget(self._combo_source)
+        toolbar.addWidget(self._combo_source_type)
         toolbar.addSeparator()
 
         # Botón principal de acción
@@ -591,16 +597,22 @@ class WorkbenchWindow(QMainWindow):
             QMessageBox.critical(self, "Error de escáner", str(e))
             return
 
+        source_type = self._combo_source_type.currentData() or "flatbed"
         self._scan_worker = ScanWorker(
             mode="scanner",
             source=source,
             scanner=scanner,
-            scan_config=ScanConfig(),
+            scan_config=ScanConfig(source_type=source_type),
         )
         self._start_workers()
 
     def _start_import(self) -> None:
         """Inicia importación desde uno o más ficheros."""
+        # Si on_import está definido, delegar al script
+        result = self._fire_event("on_import")
+        if result is not None:
+            return
+
         # Recuperar última ruta usada
         settings = QSettings("DocScanStudio", "Workbench")
         last_dir = settings.value(
@@ -647,16 +659,8 @@ class WorkbenchWindow(QMainWindow):
 
     def _start_workers(self) -> None:
         """Arranca ScanWorker y RecognitionWorker en paralelo."""
-        app_ctx = AppContext(
-            id=self._app_id,
-            name=self._application.name if self._application else "",
-            description=(
-                self._application.description if self._application else ""
-            ),
-        )
-        batch_ctx = BatchContext(
-            id=self._batch_id or 0,
-        )
+        app_ctx = self._build_app_context()
+        batch_ctx = self._build_batch_context()
 
         self._recognition_worker = RecognitionWorker(
             executor=self._executor,
@@ -899,11 +903,17 @@ class WorkbenchWindow(QMainWindow):
         self._navigate_to(0)
 
     def _on_prev(self) -> None:
-        if self._current_page_index > 0:
+        result = self._fire_event("on_navigate_prev")
+        if isinstance(result, int) and 0 <= result < len(self._pages):
+            self._navigate_to(result)
+        elif self._current_page_index > 0:
             self._navigate_to(self._current_page_index - 1)
 
     def _on_next(self) -> None:
-        if self._current_page_index < len(self._pages) - 1:
+        result = self._fire_event("on_navigate_next")
+        if isinstance(result, int) and 0 <= result < len(self._pages):
+            self._navigate_to(result)
+        elif self._current_page_index < len(self._pages) - 1:
             self._navigate_to(self._current_page_index + 1)
 
     def _on_last(self) -> None:
@@ -995,22 +1005,47 @@ class WorkbenchWindow(QMainWindow):
                 "ai_fields": page.ai_fields_json,
             })
 
-        # 4. Lanzar worker
-        self._transfer_worker = TransferWorker(
-            transfer_service=self._transfer_service,
-            config=config,
-            pages=pages_data,
-            batch_fields=batch_fields,
-            batch_id=self._batch_id,
-        )
+        # 4. Lanzar worker (modo avanzado o estándar)
+        if self._script_engine.is_compiled("on_transfer_advanced"):
+            self._transfer_worker = TransferWorker(
+                transfer_service=self._transfer_service,
+                config=config,
+                pages=pages_data,
+                batch_fields=batch_fields,
+                batch_id=self._batch_id,
+                script_engine=self._script_engine,
+                advanced_contexts={
+                    "app": self._build_app_context(),
+                    "batch": self._build_batch_context(),
+                },
+            )
+        else:
+            self._transfer_worker = TransferWorker(
+                transfer_service=self._transfer_service,
+                config=config,
+                pages=pages_data,
+                batch_fields=batch_fields,
+                batch_id=self._batch_id,
+            )
         self._transfer_worker.transfer_finished.connect(
             self._on_transfer_finished,
         )
         self._transfer_worker.transfer_error.connect(
             self._on_transfer_error,
         )
+        self._transfer_worker.page_transferred.connect(
+            self._on_page_transferred,
+        )
         self._btn_transfer.setEnabled(False)
         self._transfer_worker.start()
+
+    def _on_page_transferred(self, page_index: int, success: bool) -> None:
+        """Notifica por cada página transferida (on_transfer_page)."""
+        self._fire_event(
+            "on_transfer_page",
+            page_index=page_index,
+            success=success,
+        )
 
     def _on_transfer_finished(self, result: Any) -> None:
         """Transferencia completada."""
@@ -1277,11 +1312,8 @@ class WorkbenchWindow(QMainWindow):
         if image is None:
             return
 
-        app_ctx = AppContext(
-            id=self._app_id,
-            name=self._application.name if self._application else "",
-        )
-        batch_ctx = BatchContext(id=self._batch_id or 0)
+        app_ctx = self._build_app_context()
+        batch_ctx = self._build_batch_context()
 
         self._recognition_worker = RecognitionWorker(
             executor=self._executor,
@@ -1304,22 +1336,62 @@ class WorkbenchWindow(QMainWindow):
         self._status_bar.showMessage("Re-procesando página...")
 
     # ==================================================================
+    # Builders de contextos (reutilizables)
+    # ==================================================================
+
+    def _build_app_context(self) -> AppContext:
+        """Construye un AppContext enriquecido desde la aplicación cargada."""
+        app = self._application
+        if app is None:
+            return AppContext(id=self._app_id)
+        return AppContext(
+            id=self._app_id,
+            name=app.name,
+            description=app.description,
+            config=json.loads(app.ai_config_json or "{}"),
+            batch_fields_def=json.loads(app.batch_fields_json or "[]"),
+            transfer_config=json.loads(app.transfer_json or "{}"),
+            auto_transfer=app.auto_transfer,
+            output_format=app.output_format or "tiff",
+        )
+
+    def _build_batch_context(self) -> BatchContext:
+        """Construye un BatchContext enriquecido desde la BD."""
+        if not self._batch_id:
+            return BatchContext()
+        try:
+            from app.db.repositories.batch_repo import BatchRepository
+            with self._session_factory() as session:
+                repo = BatchRepository(session)
+                batch = repo.get_by_id(self._batch_id)
+                if batch is None:
+                    return BatchContext(id=self._batch_id)
+                return BatchContext(
+                    id=batch.id,
+                    fields=json.loads(batch.fields_json or "{}"),
+                    state=batch.state,
+                    page_count=batch.page_count,
+                    folder_path=batch.folder_path or "",
+                    hostname=batch.hostname or "",
+                )
+        except Exception:
+            return BatchContext(id=self._batch_id)
+
+    # ==================================================================
     # Eventos de ciclo de vida
     # ==================================================================
 
-    def _fire_event(self, event_name: str) -> Any:
+    def _fire_event(self, event_name: str, **extra_ctx) -> Any:
         """Ejecuta un entry point de ciclo de vida."""
-        app_ctx = AppContext(
-            id=self._app_id,
-            name=self._application.name if self._application else "",
-        )
-        batch_ctx = BatchContext(id=self._batch_id or 0)
+        app_ctx = self._build_app_context()
+        batch_ctx = self._build_batch_context()
 
         return self._script_engine.run_event(
             script_id=event_name,
             entry_point=event_name,
             app=app_ctx,
             batch=batch_ctx,
+            **extra_ctx,
         )
 
     # ==================================================================
@@ -1390,13 +1462,7 @@ class WorkbenchWindow(QMainWindow):
         )
         if has_mod and event.text():
             key_str = event.keyCombination().key().name.decode()
-            self._script_engine.run_event(
-                script_id="on_key_event",
-                entry_point="on_key_event",
-                app=AppContext(id=self._app_id),
-                batch=BatchContext(id=self._batch_id or 0),
-                key=key_str,
-            )
+            self._fire_event("on_key_event", key=key_str)
         super().keyPressEvent(event)
 
     # ==================================================================
