@@ -1291,8 +1291,9 @@ class TestMetadataPanel:
     def test_creates_without_error(self, panel):
         assert panel is not None
 
-    def test_three_tabs(self, panel):
-        assert panel._tabs.count() == 3
+    def test_single_tab_lote(self, panel):
+        assert panel._tabs.count() == 1
+        assert panel._tabs.tabText(0) == "Lote"
 
     def test_configure_creates_batch_widgets(self, panel, batch_fields_def, index_fields_def):
         panel.configure(batch_fields_def, index_fields_def)
@@ -1300,11 +1301,6 @@ class TestMetadataPanel:
         assert "tipo" in panel._batch_widgets
         assert "activo" in panel._batch_widgets
         assert "cantidad" in panel._batch_widgets
-
-    def test_configure_creates_index_widgets(self, panel, batch_fields_def, index_fields_def):
-        panel.configure(batch_fields_def, index_fields_def)
-        assert "referencia" in panel._index_widgets
-        assert "fecha" in panel._index_widgets
 
     def test_configure_creates_correct_widget_types(self, panel, batch_fields_def, index_fields_def):
         from PySide6.QtWidgets import QLineEdit, QComboBox, QCheckBox, QSpinBox
@@ -1342,21 +1338,13 @@ class TestMetadataPanel:
         values = panel.get_batch_fields()
         assert values["cliente"] == "TestCliente"
 
-    def test_set_index_fields(self, panel, batch_fields_def, index_fields_def):
-        panel.configure(batch_fields_def, index_fields_def)
-        panel.set_index_fields({"referencia": "REF-2024-001"})
+    def test_set_index_fields_stub(self, panel):
+        """set_index_fields es un stub que no hace nada (pestaña desactivada)."""
+        panel.set_index_fields({"referencia": "REF-001"})  # No debe crashear
 
-        from PySide6.QtWidgets import QLineEdit
-
-        assert isinstance(panel._index_widgets["referencia"], QLineEdit)
-        assert panel._index_widgets["referencia"].text() == "REF-2024-001"
-
-    def test_get_index_fields(self, panel, batch_fields_def, index_fields_def):
-        panel.configure(batch_fields_def, index_fields_def)
-        panel.set_index_fields({"referencia": "REF-001"})
-
-        values = panel.get_index_fields()
-        assert values["referencia"] == "REF-001"
+    def test_get_index_fields_returns_empty(self, panel):
+        """get_index_fields retorna dict vacío (pestaña desactivada)."""
+        assert panel.get_index_fields() == {}
 
     def test_set_batch_fields_missing_key_uses_empty(self, panel, batch_fields_def, index_fields_def):
         panel.configure(batch_fields_def, index_fields_def)
@@ -1366,60 +1354,13 @@ class TestMetadataPanel:
 
         assert panel._batch_widgets["cliente"].text() == ""
 
-    def test_set_verification_data_ocr(self, panel):
+    def test_set_verification_data_stub(self, panel):
+        """set_verification_data es un stub que no crashea."""
         panel.set_verification_data(ocr_text="Texto OCR de prueba")
-        assert "Texto OCR de prueba" in panel._ocr_text.toPlainText()
-
-    def test_set_verification_data_ai_fields(self, panel):
-        panel.set_verification_data(ai_fields_json='{"nombre": "Juan", "importe": 100}')
-        text = panel._ai_text.toPlainText()
-        assert "Juan" in text
-        assert "importe" in text
-
-    def test_set_verification_data_ai_fields_invalid_json(self, panel):
-        """JSON inválido en ai_fields_json se muestra tal cual sin excepción."""
-        panel.set_verification_data(ai_fields_json="NO ES JSON")
-        assert "NO ES JSON" in panel._ai_text.toPlainText()
-
-    def test_set_verification_data_errors(self, panel):
-        panel.set_verification_data(errors_json='["Error tipo 1", "Error tipo 2"]')
-        text = panel._errors_text.toPlainText()
-        assert "Error tipo 1" in text
-        assert "Error tipo 2" in text
-
-    def test_set_verification_data_script_errors(self, panel):
-        panel.set_verification_data(
-            errors_json="[]",
-            script_errors_json='["Script error en paso 1"]',
-        )
-        text = panel._errors_text.toPlainText()
-        assert "Script error" in text
-
-    def test_set_verification_data_combines_errors(self, panel):
-        """Los errores de processing y script se combinan en el mismo texto."""
-        panel.set_verification_data(
-            errors_json='["Err A"]',
-            script_errors_json='["Err B"]',
-        )
-        text = panel._errors_text.toPlainText()
-        assert "Err A" in text
-        assert "Err B" in text
-
-    def test_set_verification_data_invalid_errors_json(self, panel):
-        """JSON inválido en errors_json no lanza excepción."""
-        panel.set_verification_data(errors_json="INVALID")  # no debe lanzar
 
     def test_set_default_tab_lote(self, panel):
         panel.set_default_tab("lote")
         assert panel._tabs.currentIndex() == 0
-
-    def test_set_default_tab_indexacion(self, panel):
-        panel.set_default_tab("indexacion")
-        assert panel._tabs.currentIndex() == 1
-
-    def test_set_default_tab_verificacion(self, panel):
-        panel.set_default_tab("verificacion")
-        assert panel._tabs.currentIndex() == 2
 
     def test_set_default_tab_unknown_defaults_to_lote(self, panel):
         panel.set_default_tab("desconocido")
@@ -1434,22 +1375,12 @@ class TestMetadataPanel:
 
         assert panel._batch_widgets["cliente"].text() == ""
 
-    def test_clear_resets_index_fields(self, panel, batch_fields_def, index_fields_def):
+    def test_clear_no_crash(self, panel, batch_fields_def, index_fields_def):
+        """clear() no crashea incluso sin widgets configurados."""
         panel.configure(batch_fields_def, index_fields_def)
-        panel.set_index_fields({"referencia": "REF-001"})
+        panel.set_batch_fields({"cliente": "Test"})
         panel.clear()
-
-        from PySide6.QtWidgets import QLineEdit
-
-        assert panel._index_widgets["referencia"].text() == ""
-
-    def test_clear_resets_verification_texts(self, panel):
-        panel.set_verification_data(ocr_text="texto OCR", ai_fields_json='{"x": 1}')
-        panel.clear()
-
-        assert panel._ocr_text.toPlainText() == ""
-        assert panel._ai_text.toPlainText() == ""
-        assert panel._errors_text.toPlainText() == ""
+        assert panel._batch_widgets["cliente"].text() == ""
 
     def test_batch_field_changed_signal(self, panel, batch_fields_def, index_fields_def, qtbot):
         panel.configure(batch_fields_def, index_fields_def)
@@ -1465,21 +1396,6 @@ class TestMetadataPanel:
 
         assert sig.args[0] == "cliente"
         assert sig.args[1] == "NuevoValor"
-
-    def test_index_field_changed_signal(self, panel, batch_fields_def, index_fields_def, qtbot):
-        panel.configure(batch_fields_def, index_fields_def)
-
-        from PySide6.QtWidgets import QLineEdit
-
-        widget = panel._index_widgets["referencia"]
-        assert isinstance(widget, QLineEdit)
-
-        with qtbot.waitSignal(panel.index_field_changed, timeout=1000) as sig:
-            widget.setText("REF-SEÑAL")
-            widget.editingFinished.emit()
-
-        assert sig.args[0] == "referencia"
-        assert sig.args[1] == "REF-SEÑAL"
 
     def test_configure_clears_previous_widgets(self, panel, batch_fields_def, index_fields_def):
         panel.configure(batch_fields_def, index_fields_def)
@@ -1681,10 +1597,8 @@ class TestWorkbenchWindow:
         workbench._update_lot_counters()  # no debe lanzar
 
     def test_metadata_panel_configured(self, workbench):
-        """Los campos de lote e indexación se configuran desde la app."""
-        # La app tiene batch_fields con "cliente" e index_fields con "referencia"
+        """Los campos de lote se configuran desde la app."""
         assert "cliente" in workbench._metadata_panel._batch_widgets
-        assert "referencia" in workbench._metadata_panel._index_widgets
 
     def test_default_tab_set_from_app(self, workbench):
         """La pestaña por defecto del panel de metadatos se configura desde la app."""
