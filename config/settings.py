@@ -17,6 +17,7 @@ import platformdirs
 
 # Directorio de datos de la aplicación (~/.local/share/docscan en Linux)
 APP_DATA_DIR = Path(platformdirs.user_data_dir("docscan", appauthor=False))
+APP_IMAGES_DIR = APP_DATA_DIR / "images"
 APP_CONFIG_DIR = Path(platformdirs.user_config_dir("docscan", appauthor=False))
 
 

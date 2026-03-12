@@ -1,7 +1,7 @@
-"""Ventana del Gestor de Lotes (BAT-04 a BAT-10).
+"""Ventana del Gestor de Lotes.
 
-Interfaz de gestión de lotes con filtros, lista coloreada por estado,
-panel de detalle con pestañas, modo supervisor y refresco automático.
+Interfaz de histórico de lotes con filtros, lista, panel de detalle
+y posibilidad de reabrir cualquier lote en el workbench.
 """
 
 from __future__ import annotations
@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from getpass import getuser
 from typing import Any
 
 from PySide6.QtCore import QDate, Qt, Signal, QTimer
@@ -17,9 +16,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -34,34 +31,19 @@ from app.db.repositories.application_repo import ApplicationRepository
 from app.db.repositories.batch_repo import BatchRepository
 from app.db.repositories.operation_history_repo import OperationHistoryRepository
 from app.db.repositories.page_repo import PageRepository
-from app.models.batch import BATCH_STATES
-from app.models.operation_history import OperationHistory
 from app.services.batch_service import BatchService
 from app.ui.batch_manager.batch_detail_panel import BatchDetailPanel
-from app.ui.batch_manager.batch_list_widget import BatchListWidget, STATE_LABELS
-from config.settings import APP_DATA_DIR
+from app.ui.batch_manager.batch_list_widget import BatchListWidget
+from config.settings import APP_IMAGES_DIR
 
 log = logging.getLogger(__name__)
-
-# Transiciones válidas en modo usuario
-VALID_TRANSITIONS: dict[str, list[str]] = {
-    "created": ["read"],
-    "read": ["verified", "error_read"],
-    "verified": ["ready_to_export"],
-    "ready_to_export": ["exported", "error_export"],
-    "error_read": ["read"],
-    "error_export": ["ready_to_export"],
-}
-
-# Contraseña supervisor por defecto (debería ser configurable)
-SUPERVISOR_PASSWORD = "supervisor"
 
 # Intervalo de refresco por defecto (ms)
 DEFAULT_REFRESH_INTERVAL = 20_000
 
 
 class BatchManagerWindow(QMainWindow):
-    """Ventana principal del gestor de lotes.
+    """Ventana principal del gestor de lotes (histórico).
 
     Args:
         session_factory: Fábrica de sesiones SQLAlchemy.
@@ -69,6 +51,7 @@ class BatchManagerWindow(QMainWindow):
 
     Signals:
         closed: Emitida al cerrar la ventana.
+        open_batch_requested: Emitida para abrir un lote (app_id, batch_id).
     """
 
     closed = Signal()
@@ -81,7 +64,6 @@ class BatchManagerWindow(QMainWindow):
     ) -> None:
         super().__init__(parent)
         self._session_factory = session_factory
-        self._supervisor_mode = False
         self._selected_batch_id: int | None = None
 
         # Cache de apps para filtro
@@ -92,7 +74,7 @@ class BatchManagerWindow(QMainWindow):
         self._load_filter_data()
         self._refresh_batches()
 
-        # Auto-refresco (BAT-07)
+        # Auto-refresco
         self._refresh_timer = QTimer(self)
         self._refresh_timer.timeout.connect(self._refresh_batches)
         self._refresh_timer.start(DEFAULT_REFRESH_INTERVAL)
@@ -103,7 +85,7 @@ class BatchManagerWindow(QMainWindow):
 
     def _setup_ui(self) -> None:
         """Construye la interfaz completa."""
-        self.setWindowTitle("DocScan Studio — Gestor de Lotes")
+        self.setWindowTitle("DocScan Studio — Histórico de Lotes")
         self.setMinimumSize(1000, 600)
 
         # --- Toolbar ---
@@ -149,22 +131,14 @@ class BatchManagerWindow(QMainWindow):
         self._btn_open_batch = QPushButton("Abrir lote")
         self._btn_open_batch.setProperty("cssClass", "primary")
         self._btn_refresh = QPushButton("Actualizar")
-        self._btn_transition = QPushButton("Cambiar estado")
-        self._btn_reprocess = QPushButton("Re-procesar errores")
         self._btn_delete = QPushButton("Eliminar")
-        self._btn_supervisor = QPushButton("Modo Supervisor")
-        self._btn_supervisor.setCheckable(True)
-        self._btn_supervisor.setProperty("cssClass", "danger")
+        self._btn_delete.setProperty("cssClass", "danger")
 
         toolbar.addWidget(self._btn_open_batch)
         toolbar.addSeparator()
         toolbar.addWidget(self._btn_refresh)
         toolbar.addSeparator()
-        toolbar.addWidget(self._btn_transition)
-        toolbar.addWidget(self._btn_reprocess)
         toolbar.addWidget(self._btn_delete)
-        toolbar.addSeparator()
-        toolbar.addWidget(self._btn_supervisor)
 
     def _create_filter_bar(self) -> QWidget:
         """Barra de filtros."""
@@ -172,15 +146,6 @@ class BatchManagerWindow(QMainWindow):
         widget.setFixedHeight(44)
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(4, 4, 4, 4)
-
-        # Estado
-        layout.addWidget(QLabel("Estado:"))
-        self._combo_state = QComboBox()
-        self._combo_state.addItem("Todos", "")
-        for state, label in STATE_LABELS.items():
-            self._combo_state.addItem(label, state)
-        self._combo_state.setMinimumWidth(130)
-        layout.addWidget(self._combo_state)
 
         # Aplicación
         layout.addWidget(QLabel("Aplicación:"))
@@ -222,13 +187,11 @@ class BatchManagerWindow(QMainWindow):
     def _connect_signals(self) -> None:
         """Conecta señales de la UI."""
         self._batch_list.batch_selected.connect(self._on_batch_selected)
+        self._batch_list.batch_double_clicked.connect(self._on_open_batch)
         self._btn_open_batch.clicked.connect(self._on_open_batch)
         self._btn_refresh.clicked.connect(self._refresh_batches)
         self._btn_filter.clicked.connect(self._refresh_batches)
-        self._btn_transition.clicked.connect(self._on_transition)
-        self._btn_reprocess.clicked.connect(self._on_reprocess_errors)
         self._btn_delete.clicked.connect(self._on_delete)
-        self._btn_supervisor.clicked.connect(self._on_toggle_supervisor)
 
     # ==================================================================
     # Carga de datos
@@ -253,29 +216,21 @@ class BatchManagerWindow(QMainWindow):
 
     def _refresh_batches(self) -> None:
         """Recarga la lista de lotes aplicando los filtros actuales."""
-        # Leer filtros
-        state = self._combo_state.currentData() or None
+        # Evitar refrescos del timer cuando la ventana no es visible,
+        # pero permitir la carga inicial (sender() es None)
+        if not self.isVisible() and self.sender() is not None:
+            return
+
         app_id = self._combo_app.currentData() or None
-        if app_id == 0:
-            app_id = None
         hostname = self._combo_hostname.currentData() or None
 
-        date_from = datetime(
-            self._date_from.date().year(),
-            self._date_from.date().month(),
-            self._date_from.date().day(),
-        )
-        date_to = datetime(
-            self._date_to.date().year(),
-            self._date_to.date().month(),
-            self._date_to.date().day(),
-            23, 59, 59,
-        )
+        date_from = self._qdate_to_datetime(self._date_from.date())
+        date_to = self._qdate_to_datetime(self._date_to.date(), end_of_day=True)
 
         with self._session_factory() as session:
             batch_repo = BatchRepository(session)
             batches = batch_repo.get_filtered(
-                state=state,
+                state=None,
                 application_id=app_id,
                 hostname=hostname,
                 date_from=date_from,
@@ -286,6 +241,7 @@ class BatchManagerWindow(QMainWindow):
             for b in batches:
                 batch_dicts.append({
                     "id": b.id,
+                    "application_id": b.application_id,
                     "app_name": self._apps_cache.get(b.application_id, f"App {b.application_id}"),
                     "state": b.state,
                     "page_count": b.page_count,
@@ -294,12 +250,21 @@ class BatchManagerWindow(QMainWindow):
                     "updated_at": b.updated_at,
                 })
 
+        self._batch_app_map = {b["id"]: b["application_id"] for b in batch_dicts}
         self._batch_list.set_batches(batch_dicts)
         self._lbl_count.setText(f"{len(batch_dicts)} lote(s)")
 
-        # Si había un lote seleccionado, intentar re-seleccionarlo
+        # Re-seleccionar fila si había un lote seleccionado
         if self._selected_batch_id is not None:
-            self._on_batch_selected(self._selected_batch_id)
+            ids = self._batch_list._batch_ids
+            if self._selected_batch_id in ids:
+                self._batch_list.selectRow(ids.index(self._selected_batch_id))
+
+    @staticmethod
+    def _qdate_to_datetime(qdate: QDate, end_of_day: bool = False) -> datetime:
+        """Convierte QDate a datetime."""
+        t = (23, 59, 59) if end_of_day else (0, 0, 0)
+        return datetime(qdate.year(), qdate.month(), qdate.day(), *t)
 
     # ==================================================================
     # Detalle del lote
@@ -313,7 +278,6 @@ class BatchManagerWindow(QMainWindow):
             batch_repo = BatchRepository(session)
             page_repo = PageRepository(session)
             history_repo = OperationHistoryRepository(session)
-            batch_svc = BatchService(session, APP_DATA_DIR / "images")
 
             batch = batch_repo.get_by_id(batch_id)
             if batch is None:
@@ -335,12 +299,19 @@ class BatchManagerWindow(QMainWindow):
                 "folder_path": batch.folder_path,
             })
 
-            # Estadísticas
-            stats = batch_svc.get_stats(batch_id)
+            # Páginas (una sola query, derivar stats en memoria)
+            pages = page_repo.get_by_batch(batch_id)
+            stats = {
+                "total_pages": len(pages),
+                "needs_review": sum(1 for p in pages if p.needs_review),
+                "excluded": sum(1 for p in pages if p.is_excluded),
+                "blank": sum(1 for p in pages if p.is_blank),
+                "with_errors": sum(
+                    1 for p in pages if p.processing_errors_json != "[]"
+                ),
+            }
             self._detail_panel.set_stats(stats, batch.stats_json)
 
-            # Páginas
-            pages = page_repo.get_by_batch(batch_id)
             page_dicts = []
             for p in pages:
                 errors = json.loads(p.processing_errors_json) if p.processing_errors_json != "[]" else []
@@ -372,141 +343,29 @@ class BatchManagerWindow(QMainWindow):
     # Acciones
     # ==================================================================
 
-    def _on_open_batch(self) -> None:
-        """Abre el lote seleccionado en el workbench."""
+    def _require_selected_batch(self) -> int | None:
+        """Devuelve el batch_id seleccionado o muestra aviso."""
         batch_id = self._batch_list.get_selected_batch_id()
         if batch_id is None:
             QMessageBox.information(self, "Sin selección", "Selecciona un lote.")
+        return batch_id
+
+    def _on_open_batch(self) -> None:
+        """Abre el lote seleccionado en el workbench."""
+        batch_id = self._require_selected_batch()
+        if batch_id is None:
             return
 
-        with self._session_factory() as session:
-            batch_repo = BatchRepository(session)
-            batch = batch_repo.get_by_id(batch_id)
-            if batch is None:
-                return
-            app_id = batch.application_id
+        app_id = self._batch_app_map.get(batch_id)
+        if app_id is None:
+            return
 
         self.open_batch_requested.emit(app_id, batch_id)
 
-    def _on_transition(self) -> None:
-        """Cambiar estado del lote seleccionado."""
-        batch_id = self._batch_list.get_selected_batch_id()
-        if batch_id is None:
-            QMessageBox.information(self, "Sin selección", "Selecciona un lote.")
-            return
-
-        with self._session_factory() as session:
-            batch_repo = BatchRepository(session)
-            batch = batch_repo.get_by_id(batch_id)
-            if batch is None:
-                return
-
-            current = batch.state
-
-        # Determinar estados posibles
-        if self._supervisor_mode:
-            options = list(BATCH_STATES)
-        else:
-            options = VALID_TRANSITIONS.get(current, [])
-
-        if not options:
-            QMessageBox.information(
-                self, "Sin transiciones",
-                f"No hay transiciones válidas desde '{STATE_LABELS.get(current, current)}'.",
-            )
-            return
-
-        labels = [STATE_LABELS.get(s, s) for s in options]
-        chosen, ok = QInputDialog.getItem(
-            self, "Cambiar estado",
-            f"Estado actual: {STATE_LABELS.get(current, current)}\n"
-            "Selecciona el nuevo estado:",
-            labels, 0, False,
-        )
-        if not ok:
-            return
-
-        new_state = options[labels.index(chosen)]
-
-        with self._session_factory() as session:
-            batch_svc = BatchService(session, APP_DATA_DIR / "images")
-            old_state = current
-            batch_svc.transition_state(batch_id, new_state)
-
-            # Registrar en historial
-            history_repo = OperationHistoryRepository(session)
-            entry = OperationHistory(
-                batch_id=batch_id,
-                operation="state_change",
-                old_state=old_state,
-                new_state=new_state,
-                username=getuser(),
-                message=f"{'Supervisor: ' if self._supervisor_mode else ''}Cambio de estado",
-            )
-            history_repo.add(entry)
-            session.commit()
-
-        self._refresh_batches()
-        self._status_bar.showMessage(
-            f"Lote {batch_id}: {STATE_LABELS.get(old_state, old_state)} → "
-            f"{STATE_LABELS.get(new_state, new_state)}",
-            5000,
-        )
-
-    def _on_reprocess_errors(self) -> None:
-        """Re-procesar páginas con errores del lote seleccionado (BAT-10)."""
-        batch_id = self._batch_list.get_selected_batch_id()
-        if batch_id is None:
-            QMessageBox.information(self, "Sin selección", "Selecciona un lote.")
-            return
-
-        with self._session_factory() as session:
-            page_repo = PageRepository(session)
-            pages = page_repo.get_needs_review(batch_id)
-
-            if not pages:
-                QMessageBox.information(
-                    self, "Sin páginas",
-                    "No hay páginas pendientes de revisión en este lote.",
-                )
-                return
-
-            reply = QMessageBox.question(
-                self, "Re-procesar",
-                f"¿Re-procesar {len(pages)} página(s) con errores?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return
-
-            # Registrar operación
-            history_repo = OperationHistoryRepository(session)
-            entry = OperationHistory(
-                batch_id=batch_id,
-                operation="reprocess_errors",
-                username=getuser(),
-                message=f"Re-procesado de {len(pages)} página(s) con errores",
-            )
-            history_repo.add(entry)
-            session.commit()
-
-        self._status_bar.showMessage(
-            f"Solicitud de re-procesado registrada para lote {batch_id}",
-            5000,
-        )
-
     def _on_delete(self) -> None:
         """Eliminar el lote seleccionado."""
-        batch_id = self._batch_list.get_selected_batch_id()
+        batch_id = self._require_selected_batch()
         if batch_id is None:
-            QMessageBox.information(self, "Sin selección", "Selecciona un lote.")
-            return
-
-        if not self._supervisor_mode:
-            QMessageBox.warning(
-                self, "Acceso denegado",
-                "Se requiere modo Supervisor para eliminar lotes.",
-            )
             return
 
         reply = QMessageBox.question(
@@ -519,7 +378,7 @@ class BatchManagerWindow(QMainWindow):
             return
 
         with self._session_factory() as session:
-            batch_svc = BatchService(session, APP_DATA_DIR / "images")
+            batch_svc = BatchService(session, APP_IMAGES_DIR)
             batch_svc.delete_batch(batch_id)
             session.commit()
 
@@ -527,31 +386,6 @@ class BatchManagerWindow(QMainWindow):
         self._detail_panel.clear_all()
         self._refresh_batches()
         self._status_bar.showMessage(f"Lote {batch_id} eliminado", 5000)
-
-    # ==================================================================
-    # Modo Supervisor (BAT-05)
-    # ==================================================================
-
-    def _on_toggle_supervisor(self) -> None:
-        """Activa/desactiva el modo supervisor."""
-        if self._btn_supervisor.isChecked():
-            password, ok = QInputDialog.getText(
-                self, "Modo Supervisor",
-                "Contraseña de supervisor:",
-                echo=QLineEdit.EchoMode.Password,
-            )
-            if ok and password == SUPERVISOR_PASSWORD:
-                self._supervisor_mode = True
-                self._status_bar.showMessage("Modo Supervisor activado", 3000)
-            else:
-                self._btn_supervisor.setChecked(False)
-                if ok:
-                    QMessageBox.warning(
-                        self, "Acceso denegado", "Contraseña incorrecta.",
-                    )
-        else:
-            self._supervisor_mode = False
-            self._status_bar.showMessage("Modo Supervisor desactivado", 3000)
 
     # ==================================================================
     # Cierre

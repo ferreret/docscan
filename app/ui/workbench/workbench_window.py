@@ -63,7 +63,7 @@ from app.workers.recognition_worker import (
 )
 from app.workers.scan_worker import ScanWorker
 from app.workers.transfer_worker import TransferWorker
-from config.settings import APP_DATA_DIR
+from config.settings import APP_DATA_DIR, APP_IMAGES_DIR
 
 log = logging.getLogger(__name__)
 
@@ -297,6 +297,12 @@ class WorkbenchWindow(QMainWindow):
         self._btn_transfer = QPushButton("Transferir")
         toolbar.addWidget(self._btn_transfer)
 
+        toolbar.addSeparator()
+
+        # Cerrar lote (sin transferir)
+        self._btn_close_batch = QPushButton("Cerrar lote")
+        toolbar.addWidget(self._btn_close_batch)
+
         # Spacer
         spacer = QWidget()
         spacer.setSizePolicy(
@@ -337,9 +343,10 @@ class WorkbenchWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         """Conecta todas las señales de la UI."""
-        # Procesar / Transferir
+        # Procesar / Transferir / Cerrar lote
         self._btn_process.clicked.connect(self._on_process)
         self._btn_transfer.clicked.connect(self._on_transfer)
+        self._btn_close_batch.clicked.connect(self._on_close_batch)
 
         # Origen
         self._radio_scanner.toggled.connect(self._on_source_changed)
@@ -459,7 +466,7 @@ class WorkbenchWindow(QMainWindow):
 
     def _create_new_batch(self) -> None:
         """Crea un lote nuevo para esta sesión de trabajo."""
-        images_dir = APP_DATA_DIR / "images"
+        images_dir = APP_IMAGES_DIR
         with self._session_factory() as session:
             svc = BatchService(session, images_dir)
             batch = svc.create_batch(application_id=self._app_id)
@@ -657,7 +664,7 @@ class WorkbenchWindow(QMainWindow):
 
     def _on_page_acquired(self, page_index: int, image: np.ndarray) -> None:
         """Una página ha sido adquirida: guardar, thumbnail, encolar."""
-        images_dir = APP_DATA_DIR / "images"
+        images_dir = APP_IMAGES_DIR
         output_format = (
             self._application.output_format if self._application else "tiff"
         )
@@ -791,7 +798,7 @@ class WorkbenchWindow(QMainWindow):
 
         if self._batch_id:
             with self._session_factory() as session:
-                svc = BatchService(session, APP_DATA_DIR / "images")
+                svc = BatchService(session, APP_IMAGES_DIR)
                 svc.transition_state(self._batch_id, "read")
                 session.commit()
 
@@ -942,7 +949,7 @@ class WorkbenchWindow(QMainWindow):
         batch_fields = {}
         if self._batch_id:
             with self._session_factory() as session:
-                svc = BatchService(session, APP_DATA_DIR / "images")
+                svc = BatchService(session, APP_IMAGES_DIR)
                 batch_fields = svc.get_fields(self._batch_id)
 
         pages_data = []
@@ -985,7 +992,7 @@ class WorkbenchWindow(QMainWindow):
         if result.success:
             if self._batch_id:
                 with self._session_factory() as session:
-                    svc = BatchService(session, APP_DATA_DIR / "images")
+                    svc = BatchService(session, APP_IMAGES_DIR)
                     svc.transition_state(self._batch_id, "exported")
                     session.commit()
 
@@ -1009,6 +1016,50 @@ class WorkbenchWindow(QMainWindow):
         """Error durante la transferencia."""
         self._btn_transfer.setEnabled(True)
         QMessageBox.critical(self, "Error de transferencia", error)
+
+    # ==================================================================
+    # Cerrar lote sin transferir
+    # ==================================================================
+
+    def _on_close_batch(self) -> None:
+        """Cierra el lote actual y crea uno nuevo."""
+        if self._batch_id is None or not self._pages:
+            QMessageBox.information(
+                self, "Sin lote", "No hay un lote activo con páginas.",
+            )
+            return
+
+        if self._recognition_worker and self._recognition_worker.isRunning():
+            QMessageBox.warning(
+                self, "Procesando",
+                "Espera a que termine el reconocimiento antes de cerrar el lote.",
+            )
+            return
+
+        reply = QMessageBox.question(
+            self, "Cerrar lote",
+            f"¿Cerrar el lote {self._batch_id} sin transferir?\n"
+            "Se podrá reabrir desde el gestor de lotes.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        # Transicionar a "verified" para indicar que está cerrado pero no transferido
+        with self._session_factory() as session:
+            svc = BatchService(session, APP_IMAGES_DIR)
+            svc.transition_state(self._batch_id, "verified")
+            session.commit()
+
+        self._status_bar.showMessage(
+            f"Lote {self._batch_id} cerrado", 3000,
+        )
+
+        # Crear nuevo lote
+        self._create_new_batch()
+        self._thumbnail_panel.clear()
+        self._viewer.clear()
+        self._barcode_panel.clear()
 
     # ==================================================================
     # Manipulación de páginas (UI-07)
@@ -1099,7 +1150,7 @@ class WorkbenchWindow(QMainWindow):
             return
 
         page = self._pages[self._current_page_index]
-        images_dir = APP_DATA_DIR / "images"
+        images_dir = APP_IMAGES_DIR
 
         with self._session_factory() as session:
             svc = BatchService(session, images_dir)
@@ -1141,7 +1192,7 @@ class WorkbenchWindow(QMainWindow):
             return
 
         pages_to_delete = self._pages[self._current_page_index:]
-        images_dir = APP_DATA_DIR / "images"
+        images_dir = APP_IMAGES_DIR
 
         with self._session_factory() as session:
             svc = BatchService(session, images_dir)
@@ -1253,7 +1304,7 @@ class WorkbenchWindow(QMainWindow):
         if self._batch_id is None:
             return
         with self._session_factory() as session:
-            svc = BatchService(session, APP_DATA_DIR / "images")
+            svc = BatchService(session, APP_IMAGES_DIR)
             stats = svc.get_stats(self._batch_id)
 
         total_barcodes = 0

@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from config.settings import get_settings, APP_DATA_DIR
+from config.settings import get_settings, APP_DATA_DIR, APP_IMAGES_DIR
 from app.db.database import create_db_engine, create_tables, get_session_factory
 
 # Importar todos los modelos para que SQLAlchemy registre las relaciones
@@ -108,7 +108,7 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
         max_repeats=settings.pipeline.max_step_repeats,
     )
     import_service = ImportService()
-    images_dir = APP_DATA_DIR / "images"
+    images_dir = APP_IMAGES_DIR
     images_dir.mkdir(parents=True, exist_ok=True)
 
     # Escanear usando el backend configurado

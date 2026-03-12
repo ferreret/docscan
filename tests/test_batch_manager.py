@@ -430,7 +430,7 @@ class TestBatchManagerWindow:
         window = BatchManagerWindow(session_factory=factory)
         qtbot.addWidget(window)
 
-        assert window.windowTitle() == "DocScan Studio — Gestor de Lotes"
+        assert window.windowTitle() == "DocScan Studio — Histórico de Lotes"
         assert window._lbl_count.text() == "0 lote(s)"
 
     def test_refresh_with_batches(self, qtbot, engine):
@@ -460,28 +460,6 @@ class TestBatchManagerWindow:
         qtbot.addWidget(window)
 
         assert window._lbl_count.text() == "3 lote(s)"
-
-    def test_supervisor_mode_toggle(self, qtbot, engine, monkeypatch):
-        from app.ui.batch_manager.batch_manager_window import BatchManagerWindow
-
-        factory = sessionmaker(bind=engine)
-        with factory() as s:
-            s.add(Application(name="App", description=""))
-            s.commit()
-
-        window = BatchManagerWindow(session_factory=factory)
-        qtbot.addWidget(window)
-
-        assert window._supervisor_mode is False
-
-        # Simular contraseña correcta
-        monkeypatch.setattr(
-            "app.ui.batch_manager.batch_manager_window.QInputDialog.getText",
-            staticmethod(lambda *a, **kw: ("supervisor", True)),
-        )
-        window._btn_supervisor.setChecked(True)
-        window._on_toggle_supervisor()
-        assert window._supervisor_mode is True
 
     def test_timer_running(self, qtbot, engine):
         from app.ui.batch_manager.batch_manager_window import (

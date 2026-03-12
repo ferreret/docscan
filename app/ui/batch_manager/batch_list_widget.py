@@ -1,4 +1,4 @@
-"""Widget de lista de lotes con colores por estado (BAT-04)."""
+"""Widget de lista de lotes con colores por estado."""
 
 from __future__ import annotations
 
@@ -31,17 +31,6 @@ STATE_COLORS_THEMED: dict[str, tuple[str, str]] = {
     "error_export":    ("#c62828", "#EF9A9A"),
 }
 
-# Colores de texto para estado (dark, light)
-STATE_TEXT_COLORS: dict[str, tuple[str, str]] = {
-    "created":         ("#a6adc8", "#666666"),
-    "read":            ("#89b4fa", "#1565C0"),
-    "verified":        ("#a6e3a1", "#2E7D32"),
-    "ready_to_export": ("#f9e2af", "#F57F17"),
-    "exported":        ("#a6e3a1", "#1B5E20"),
-    "error_read":      ("#f38ba8", "#C62828"),
-    "error_export":    ("#f38ba8", "#B71C1C"),
-}
-
 STATE_LABELS: dict[str, str] = {
     "created": "Creado",
     "read": "Le\u00eddo",
@@ -52,21 +41,24 @@ STATE_LABELS: dict[str, str] = {
     "error_export": "Error export.",
 }
 
-COLUMNS = ["ID", "Aplicaci\u00f3n", "Estado", "P\u00e1ginas", "Estaci\u00f3n", "Creado", "Actualizado"]
+COLUMNS = ["ID", "Aplicaci\u00f3n", "P\u00e1ginas", "Estaci\u00f3n", "Creado", "Actualizado"]
 
 
 class BatchListWidget(QTableWidget):
-    """Tabla de lotes con colores por estado.
+    """Tabla de lotes.
 
     Signals:
         batch_selected: Emitida al seleccionar un lote (batch_id).
+        batch_double_clicked: Emitida al hacer doble click en un lote.
     """
 
     batch_selected = Signal(int)
+    batch_double_clicked = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._batch_ids: list[int] = []
+        self._theme_manager = ThemeManager()
         self._setup_table()
 
     def _setup_table(self) -> None:
@@ -86,16 +78,24 @@ class BatchListWidget(QTableWidget):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
 
         self.itemSelectionChanged.connect(self._on_selection_changed)
+        self.cellDoubleClicked.connect(self._on_double_click)
 
     def set_batches(self, batches: list[dict[str, Any]]) -> None:
         """Carga la lista de lotes."""
+        self.blockSignals(True)
+        try:
+            self._set_batches_inner(batches)
+        finally:
+            self.blockSignals(False)
+
+    def _set_batches_inner(self, batches: list[dict[str, Any]]) -> None:
+        """Carga interna sin señales."""
         self.setRowCount(0)
         self._batch_ids.clear()
 
-        is_dark = ThemeManager().is_dark
+        is_dark = self._theme_manager.is_dark
         theme_idx = 0 if is_dark else 1
 
         for row_idx, batch in enumerate(batches):
@@ -103,9 +103,6 @@ class BatchListWidget(QTableWidget):
             self._batch_ids.append(batch["id"])
 
             state = batch.get("state", "created")
-            state_text_color = QColor(
-                STATE_TEXT_COLORS.get(state, ("#cdd6f4", "#4c4f69"))[theme_idx]
-            )
             # Fondo sutil para la fila según estado
             state_bg = QColor(
                 STATE_COLORS_THEMED.get(state, ("#313244", "#FFFFFF"))[theme_idx]
@@ -115,7 +112,6 @@ class BatchListWidget(QTableWidget):
             items = [
                 str(batch["id"]),
                 batch.get("app_name", ""),
-                STATE_LABELS.get(state, state),
                 str(batch.get("page_count", 0)),
                 batch.get("hostname", ""),
                 self._format_datetime(batch.get("created_at")),
@@ -126,13 +122,7 @@ class BatchListWidget(QTableWidget):
                 item = QTableWidgetItem(text)
                 item.setBackground(QBrush(state_bg))
 
-                if col_idx == 2:  # Columna Estado: texto coloreado
-                    item.setForeground(QBrush(state_text_color))
-                    font = item.font()
-                    font.setBold(True)
-                    item.setFont(font)
-
-                if col_idx in (0, 3):  # ID y Páginas centrados
+                if col_idx in (0, 2):  # ID y Páginas centrados
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
                 self.setItem(row_idx, col_idx, item)
@@ -149,6 +139,11 @@ class BatchListWidget(QTableWidget):
         batch_id = self.get_selected_batch_id()
         if batch_id is not None:
             self.batch_selected.emit(batch_id)
+
+    def _on_double_click(self, row: int, _col: int) -> None:
+        """Emite señal de doble click para abrir el lote."""
+        if 0 <= row < len(self._batch_ids):
+            self.batch_double_clicked.emit(self._batch_ids[row])
 
     @staticmethod
     def _format_datetime(dt: datetime | str | None) -> str:
