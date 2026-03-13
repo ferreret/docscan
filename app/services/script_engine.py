@@ -184,7 +184,23 @@ class ScriptEngine:
                     script_id,
                 )
                 return None
-            return func(**kwargs)
+            # Solo pasar los argumentos que la función acepta
+            import inspect
+            try:
+                sig = inspect.signature(func)
+                if any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD
+                    for p in sig.parameters.values()
+                ):
+                    filtered = kwargs
+                else:
+                    filtered = {
+                        k: v for k, v in kwargs.items()
+                        if k in sig.parameters
+                    }
+            except (ValueError, TypeError):
+                filtered = kwargs
+            return func(**filtered)
         except Exception as e:
             log.error(
                 "Error ejecutando evento '%s.%s': %s",

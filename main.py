@@ -259,11 +259,11 @@ def main() -> int:
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName(settings.app_name)
 
-    # Aplicar tema
-    from app.ui.theme_manager import ThemeManager, Theme
+    # Aplicar tema (restaura preferencias guardadas)
+    from app.ui.theme_manager import ThemeManager
 
     theme_mgr = ThemeManager()
-    theme_mgr.apply_theme(Theme.DARK)
+    theme_mgr.apply_theme(theme_mgr.current_theme)
 
     # Ejecutar init_global si alguna aplicación lo define
     _run_init_global(session_factory)

@@ -42,10 +42,20 @@ def reset_theme_manager_singleton():
 
     Garantiza aislamiento total entre tests: cada uno obtiene una
     instancia fresca con estado inicial predeterminado.
+    Usa QSettings de test aislado para no leer preferencias reales.
     """
+    from PySide6.QtCore import QSettings
+
     ThemeManager._instance = None
+    # Limpiar preferencias de test para que cada test arranque con defaults
+    settings = QSettings("DocScanStudio", "DocScanStudio")
+    settings.remove("appearance")
+    settings.sync()
     yield
     ThemeManager._instance = None
+    settings = QSettings("DocScanStudio", "DocScanStudio")
+    settings.remove("appearance")
+    settings.sync()
 
 
 # ================================================================== #

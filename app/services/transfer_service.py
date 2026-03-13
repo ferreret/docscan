@@ -131,6 +131,7 @@ class TransferService:
                     config.filename_pattern, page, batch_fields, batch_id,
                 ) + src.suffix
                 dst = dest / filename
+                dst.parent.mkdir(parents=True, exist_ok=True)
 
                 shutil.copy2(str(src), str(dst))
                 result.files_transferred += 1
@@ -300,15 +301,29 @@ class TransferService:
         batch_fields: dict[str, str],
         batch_id: int | None,
     ) -> str:
-        """Construye un nombre de fichero interpolando variables."""
+        """Construye un nombre de fichero interpolando variables.
+
+        Las claves de batch_fields se normalizan: espacios → guiones bajos,
+        para que "fecha lote" sea accesible como {fecha_lote}.
+        """
+        # Normalizar claves: "fecha lote" → "fecha_lote"
+        normalized = {
+            k.replace(" ", "_"): v for k, v in batch_fields.items()
+        }
         try:
             return pattern.format(
                 batch_id=batch_id or 0,
                 page_index=page.get("page_index", 0),
-                **batch_fields,
+                first_barcode=page.get("first_barcode", ""),
+                **normalized,
             )
-        except (KeyError, IndexError, ValueError):
-            # Fallback seguro
+        except (KeyError, IndexError, ValueError) as e:
+            log.warning(
+                "Error interpolando patrón '%s': %s. "
+                "Variables: batch_id=%s, page_index=%s, first_barcode=%s, campos=%s",
+                pattern, e, batch_id, page.get("page_index"),
+                page.get("first_barcode"), list(normalized.keys()),
+            )
             return f"batch_{batch_id or 0}_page_{page.get('page_index', 0):04d}"
 
     def _write_metadata(self, image_path: Path, page: dict[str, Any]) -> None:

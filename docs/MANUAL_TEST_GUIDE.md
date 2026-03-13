@@ -18,9 +18,9 @@
 3. Guardar
 
 **Verificaciones**:
-- [ ] La app aparece en la lista del Launcher
-- [ ] Doble-click abre el Workbench sin errores
-- [ ] El título muestra "DocScan Studio — Test Manual"
+- [x] La app aparece en la lista del Launcher
+- [x] Doble-click abre el Workbench sin errores
+- [x] El título muestra "DocScan Studio — Test Manual"
 
 ---
 
@@ -35,9 +35,9 @@
 4. Guardar
 
 **Verificaciones**:
-- [ ] El paso aparece en la lista del pipeline
-- [ ] Al guardar, no hay errores
-- [ ] Al reabrir el configurador, el paso sigue ahí
+- [x] El paso aparece en la lista del pipeline
+- [x] Al guardar, no hay errores
+- [x] Al reabrir el configurador, el paso sigue ahí
 
 ---
 
@@ -64,9 +64,9 @@ def process(app, batch, page, pipeline):
 4. Guardar
 
 **Verificaciones**:
-- [ ] El script compila sin errores (no hay warning en log)
-- [ ] Al importar una imagen con barcode, el script asigna roles
-- [ ] `page.fields['barcode_count']` se refleja en la indexación
+- [x] El script compila sin errores (no hay warning en log)
+- [x] Al importar una imagen con barcode, el script asigna roles
+- [x] `page.fields['barcode_count']` se refleja en la indexación
 
 ---
 
@@ -81,10 +81,10 @@ def process(app, batch, page, pipeline):
 4. Cerrar la pestaña de VS Code (Ctrl+W)
 
 **Verificaciones**:
-- [ ] VS Code se abre con stubs de contexto al inicio
-- [ ] Los stubs están marcados con delimitadores
-- [ ] Al cerrar, el código modificado aparece en el diálogo
-- [ ] Los stubs NO se incluyen en el código guardado
+- [x] VS Code se abre con stubs de contexto al inicio
+- [x] Los stubs están marcados con delimitadores
+- [x] Al cerrar, el código modificado aparece en el diálogo
+- [x] Los stubs NO se incluyen en el código guardado
 
 ---
 
@@ -98,9 +98,9 @@ def process(app, batch, page, pipeline):
 3. Guardar, abrir Workbench
 
 **Verificaciones**:
-- [ ] Los campos aparecen en la pestaña "Lote" del panel de metadatos
-- [ ] Se pueden editar los valores
-- [ ] Un script puede leer `batch.fields` con los valores introducidos
+- [x] Los campos aparecen en la pestaña "Lote" del panel de metadatos
+- [x] Se pueden editar los valores
+- [x] Un script puede leer `batch.fields` con los valores introducidos
 
 Script de verificación:
 ```python
@@ -121,11 +121,11 @@ def process(app, batch, page, pipeline):
 3. Esperar procesamiento
 
 **Verificaciones**:
-- [ ] Thumbnail aparece en panel izquierdo
-- [ ] Barcodes detectados aparecen en panel de barcodes
-- [ ] Overlays de barcode visibles en el visor
-- [ ] Barra de progreso muestra avance
-- [ ] Estado final: "Procesamiento completado"
+- [x] Thumbnail aparece en panel izquierdo
+- [x] Barcodes detectados aparecen en panel de barcodes
+- [x] Overlays de barcode visibles en el visor
+- [x] Barra de progreso muestra avance
+- [x] Estado final: "Procesamiento completado"
 
 ---
 
@@ -147,8 +147,8 @@ def on_scan_complete(app, batch):
 4. Guardar, abrir Workbench, importar imagen
 
 **Verificaciones**:
-- [ ] Mensaje aparece en log tras completar el pipeline
-- [ ] `batch.page_count` y `batch.state` tienen valores correctos
+- [x] Mensaje aparece en log tras completar el pipeline
+- [x] `batch.page_count` y `batch.state` tienen valores correctos
 
 ---
 
@@ -162,10 +162,10 @@ def on_scan_complete(app, batch):
 3. Guardar, abrir Workbench, importar, click "Transferir"
 
 **Verificaciones**:
-- [ ] Diálogo de confirmación aparece
-- [ ] Archivos copiados a `/tmp/docscan_test/batch_N/`
-- [ ] Mensaje "Transferencia completada" con conteo
-- [ ] Estado del lote cambia a "exported"
+- [x] Diálogo de confirmación aparece
+- [x] Archivos copiados a `/tmp/docscan_test/batch_N/`
+- [x] Mensaje "Transferencia completada" con conteo
+- [x] Estado del lote cambia a "exported"
 
 ---
 
@@ -189,9 +189,9 @@ def on_transfer_advanced(app, batch, pages):
 3. Guardar, importar, transferir
 
 **Verificaciones**:
-- [ ] El script se ejecuta en lugar de la transferencia estándar
-- [ ] No bloquea la UI (se ejecuta en QThread)
-- [ ] Mensaje de éxito al terminar
+- [x] El script se ejecuta en lugar de la transferencia estándar
+- [x] No bloquea la UI (se ejecuta en QThread)
+- [x] Mensaje de éxito al terminar
 
 ---
 
@@ -206,9 +206,9 @@ def on_transfer_advanced(app, batch, pages):
 4. Click "Escanear / Importar"
 
 **Verificaciones**:
-- [ ] Lista de escáneres se puebla
-- [ ] Imagen capturada aparece como thumbnail
-- [ ] Pipeline se ejecuta sobre la imagen
+- [x] Lista de escáneres se puebla
+- [x] Imagen capturada aparece como thumbnail
+- [x] Pipeline se ejecuta sobre la imagen
 
 ---
 
@@ -223,32 +223,37 @@ def on_transfer_advanced(app, batch, pages):
 4. Click "Escanear / Importar"
 
 **Verificaciones**:
-- [ ] Múltiples páginas capturadas (una por hoja)
-- [ ] Todas las thumbnails aparecen
-- [ ] Pipeline se ejecuta en cada página
+- [x] Múltiples páginas capturadas (una por hoja)
+- [x] Todas las thumbnails aparecen
+- [x] Pipeline se ejecuta en cada página
 
 ---
 
 ## 12. Navegación scriptable
 
-**Prerrequisitos**: Evento `on_navigate_next` definido.
+**Prerrequisitos**: Evento `on_navigate_next` definido, varias páginas importadas (algunas con barcode, otras sin).
 
 **Pasos**:
 1. Configurador > Eventos > `on_navigate_next`
 2. Código:
 
 ```python
-def on_navigate_next(app, batch):
-    # Saltar a la última página siempre
-    return 999  # El workbench clampea al rango válido
+def on_navigate_next(app, batch, current_page_index, total_pages):
+    # Saltar páginas pares (ejemplo simple de navegación custom)
+    next_idx = current_page_index + 2
+    if next_idx < total_pages:
+        log.info("Saltando a página %d (skip par)", next_idx)
+        return next_idx
+    log.info("No hay más páginas, navegación estándar")
+    return None  # None = navegación estándar (+1)
 ```
 
-3. Importar varias páginas, usar botón "Siguiente"
+3. Importar varias páginas (mezcla con y sin barcode), usar botón "Siguiente"
 
 **Verificaciones**:
-- [ ] Si retorna un índice válido, navega a esa página
-- [ ] Si retorna valor fuera de rango, navegación estándar
-- [ ] Si no hay evento, navegación normal (+1)
+- [x] Si retorna un índice válido, navega a esa página
+- [x] Si retorna valor fuera de rango, navegación estándar
+- [x] Si no hay evento, navegación normal (+1)
 
 ---
 
@@ -262,9 +267,9 @@ def on_navigate_next(app, batch):
 3. Click en un lote > "Abrir"
 
 **Verificaciones**:
-- [ ] Lista muestra todos los lotes
-- [ ] Filtros por estado funcionan
-- [ ] Abrir lote carga páginas correctamente
+- [x] Lista muestra todos los lotes
+- [x] Filtros por estado funcionan
+- [x] Abrir lote carga páginas correctamente
 
 ---
 
@@ -276,9 +281,9 @@ def on_navigate_next(app, batch):
 1. Arrastrar un archivo .jpg/.png/.pdf desde el explorador al Workbench
 
 **Verificaciones**:
-- [ ] El archivo se importa automáticamente
-- [ ] Pipeline se ejecuta
-- [ ] Thumbnail aparece
+- [x] El archivo se importa automáticamente
+- [x] Pipeline se ejecuta
+- [x] Thumbnail aparece
 
 ---
 
@@ -291,6 +296,6 @@ def on_navigate_next(app, batch):
 2. Ctrl+P
 
 **Verificaciones**:
-- [ ] Pipeline se re-ejecuta en la página actual
-- [ ] Resultados actualizados (barcodes, OCR, etc.)
-- [ ] Mensaje "Re-procesado completado"
+- [x] Pipeline se re-ejecuta en la página actual
+- [x] Resultados actualizados (barcodes, OCR, etc.)
+- [x] Mensaje "Re-procesado completado"

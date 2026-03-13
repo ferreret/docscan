@@ -37,6 +37,7 @@ EVENT_NAMES = [
     "on_transfer_page",
     "on_navigate_prev",
     "on_navigate_next",
+    "on_navigate_script",
     "on_key_event",
     "init_global",
 ]
@@ -51,6 +52,7 @@ EVENT_DESCRIPTIONS = {
     "on_transfer_page": "Post-copia por página",
     "on_navigate_prev": "Navegación previa programable",
     "on_navigate_next": "Navegación siguiente programable",
+    "on_navigate_script": "Botón de navegación programable del visor",
     "on_key_event": "Tecla personalizada",
     "init_global": "Al iniciar el programa (script global del launcher)",
 }
@@ -126,6 +128,8 @@ class EventsTab(QWidget):
         except Exception:
             self._events = {}
 
+        self._refresh_combo_labels()
+
         if EVENT_NAMES:
             self._current_event = EVENT_NAMES[0]
             self._code_edit.setPlainText(
@@ -140,12 +144,24 @@ class EventsTab(QWidget):
                 self._events[self._current_event] = code
             else:
                 self._events.pop(self._current_event, None)
+            self._refresh_combo_labels()
 
         # Cargar el nuevo
         self._current_event = self._event_combo.currentData()
         self._code_edit.setPlainText(
             self._events.get(self._current_event, "")
         )
+
+    def _refresh_combo_labels(self) -> None:
+        """Actualiza las etiquetas del combo marcando los eventos con código."""
+        self._event_combo.blockSignals(True)
+        for i in range(self._event_combo.count()):
+            name = self._event_combo.itemData(i)
+            desc = EVENT_DESCRIPTIONS.get(name, "")
+            has_code = bool(self._events.get(name, "").strip())
+            marker = "[*] " if has_code else ""
+            self._event_combo.setItemText(i, f"{marker}{name} — {desc}")
+        self._event_combo.blockSignals(False)
 
     def _open_in_vscode(self) -> None:
         """Lanza VS Code para editar el evento actual."""

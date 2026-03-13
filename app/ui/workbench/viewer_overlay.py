@@ -87,31 +87,26 @@ def _icon_last(color: str = "#cdd6f4") -> QIcon:
     return QIcon(pm)
 
 
-def _icon_next_bc(color: str = "#cdd6f4") -> QIcon:
-    """Siguiente con barcode: triángulo + barras verticales."""
+def _icon_nav_script(color: str = "#cdd6f4") -> QIcon:
+    """Flecha + engranaje: navegación programable."""
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    # Flecha derecha pequeña
     p.setPen(_pen(color, 2.5))
-    p.drawLine(4, 8, 13, 16)
-    p.drawLine(13, 16, 4, 24)
-    for bx in (19, 22, 25, 28):
-        p.drawLine(bx, 9, bx, 23)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_next_review(color: str = "#cdd6f4") -> QIcon:
-    """Siguiente pendiente: triángulo + signo de exclamación."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawLine(4, 8, 13, 16)
-    p.drawLine(13, 16, 4, 24)
-    p.setPen(_pen("#fb8c00", 3.0))
-    p.drawLine(24, 8, 24, 19)
-    p.drawPoint(24, 24)
+    p.drawLine(4, 10, 12, 16)
+    p.drawLine(12, 16, 4, 22)
+    # Engranaje simplificado (círculo con muescas)
+    p.setPen(_pen(color, 2.0))
+    p.drawEllipse(QPoint(22, 16), 5, 5)
+    for angle_offset in range(0, 360, 60):
+        import math
+        rad = math.radians(angle_offset)
+        x1 = 22 + int(6 * math.cos(rad))
+        y1 = 16 + int(6 * math.sin(rad))
+        x2 = 22 + int(8 * math.cos(rad))
+        y2 = 16 + int(8 * math.sin(rad))
+        p.drawLine(x1, y1, x2, y2)
     p.end()
     return QIcon(pm)
 
@@ -254,7 +249,7 @@ class ViewerOverlay(QWidget):
 
     Signals:
         nav_first, nav_prev, nav_next, nav_last: Navegación básica.
-        nav_next_barcode, nav_next_review: Navegación inteligente.
+        nav_script: Navegación programable por script.
         zoom_in, zoom_out, zoom_fit, zoom_100: Control de zoom.
         rotate_requested: Rotar 90°.
         mark_requested: Marcar/desmarcar página.
@@ -267,8 +262,7 @@ class ViewerOverlay(QWidget):
     nav_prev = Signal()
     nav_next = Signal()
     nav_last = Signal()
-    nav_next_barcode = Signal()
-    nav_next_review = Signal()
+    nav_script = Signal()
 
     # Zoom
     zoom_in_requested = Signal()
@@ -300,7 +294,7 @@ class ViewerOverlay(QWidget):
         self._lbl_page_info = QLabel(" 0 / 0 ")
         self._lbl_page_info.setObjectName("pageInfoLabel")
         self._lbl_page_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_page_info.setMinimumWidth(70)
+        self._lbl_page_info.setMinimumWidth(90)
         self._btn_next = _make_button(_icon_next(c), "Siguiente (Right)")
         self._btn_last = _make_button(_icon_last(c), "Última página (End)")
 
@@ -314,15 +308,11 @@ class ViewerOverlay(QWidget):
         layout.addSpacing(6)
         layout.addWidget(self._separator())
 
-        # Navegación inteligente
-        self._btn_next_bc = _make_button(
-            _icon_next_bc(c), "Siguiente con barcode",
+        # Navegación programable
+        self._btn_nav_script = _make_button(
+            _icon_nav_script(c), "Navegación programable (script)",
         )
-        self._btn_next_review = _make_button(
-            _icon_next_review(c), "Siguiente pendiente revisión",
-        )
-        layout.addWidget(self._btn_next_bc)
-        layout.addWidget(self._btn_next_review)
+        layout.addWidget(self._btn_nav_script)
 
         layout.addSpacing(6)
         layout.addWidget(self._separator())
@@ -367,8 +357,7 @@ class ViewerOverlay(QWidget):
         self._btn_prev.clicked.connect(self.nav_prev)
         self._btn_next.clicked.connect(self.nav_next)
         self._btn_last.clicked.connect(self.nav_last)
-        self._btn_next_bc.clicked.connect(self.nav_next_barcode)
-        self._btn_next_review.clicked.connect(self.nav_next_review)
+        self._btn_nav_script.clicked.connect(self.nav_script)
         self._btn_zoom_in.clicked.connect(self.zoom_in_requested)
         self._btn_zoom_out.clicked.connect(self.zoom_out_requested)
         self._btn_zoom_fit.clicked.connect(self.zoom_fit_requested)
@@ -388,8 +377,7 @@ class ViewerOverlay(QWidget):
         self._btn_prev.setIcon(_icon_prev(color))
         self._btn_next.setIcon(_icon_next(color))
         self._btn_last.setIcon(_icon_last(color))
-        self._btn_next_bc.setIcon(_icon_next_bc(color))
-        self._btn_next_review.setIcon(_icon_next_review(color))
+        self._btn_nav_script.setIcon(_icon_nav_script(color))
         self._btn_zoom_in.setIcon(_icon_zoom_in(color))
         self._btn_zoom_out.setIcon(_icon_zoom_out(color))
         self._btn_zoom_fit.setIcon(_icon_zoom_fit(color))

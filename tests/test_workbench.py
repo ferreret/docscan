@@ -1291,9 +1291,10 @@ class TestMetadataPanel:
     def test_creates_without_error(self, panel):
         assert panel is not None
 
-    def test_single_tab_lote(self, panel):
-        assert panel._tabs.count() == 1
+    def test_tabs_lote_and_log(self, panel):
+        assert panel._tabs.count() == 2
         assert panel._tabs.tabText(0) == "Lote"
+        assert panel._tabs.tabText(1) == "Log"
 
     def test_configure_creates_batch_widgets(self, panel, batch_fields_def, index_fields_def):
         panel.configure(batch_fields_def, index_fields_def)

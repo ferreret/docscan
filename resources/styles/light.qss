@@ -298,9 +298,9 @@ QToolBar::separator {
 }
 
 #viewerOverlay #pageInfoLabel {
-    color: #6c6f85;
-    font-size: 12px;
-    font-weight: 600;
+    color: #d20f39;
+    font-size: 36px;
+    font-weight: 800;
 }
 
 #viewerOverlay #overlaySeparator {
@@ -428,19 +428,28 @@ QTabWidget::pane {
     border-top: none;
 }
 
+QTabBar {
+    qproperty-expanding: false;
+}
+
 QTabBar::tab {
     background-color: #e6e9ef;
     color: #7c7f93;
     border: 1px solid #ccd0da;
     border-bottom: none;
-    padding: 6px 14px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    padding: 8px 20px;
     margin-right: 2px;
+    min-width: 100px;
+    font-weight: 500;
 }
 
 QTabBar::tab:selected {
     background-color: #eff1f5;
     color: #4c4f69;
     border-bottom: 2px solid #1e66f5;
+    font-weight: 600;
 }
 
 QTabBar::tab:hover:!selected {
@@ -453,9 +462,9 @@ QDateEdit {
     background-color: #ffffff;
     color: #4c4f69;
     border: 1px solid #bcc0cc;
-    border-radius: 6px;
-    padding: 5px 8px;
-    min-height: 24px;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
 }
 
 QDateEdit:focus {
@@ -463,8 +472,26 @@ QDateEdit:focus {
 }
 
 QDateEdit::drop-down {
-    border: none;
-    width: 20px;
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 28px;
+    border-left: 1px solid #bcc0cc;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    background-color: #e8ecf5;
+}
+
+QDateEdit::down-arrow {
+    image: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #4c4f69;
+    border-radius: 3px;
+    background-color: transparent;
+}
+
+QDateEdit::drop-down:hover {
+    background-color: #d5daf0;
 }
 
 QDateEdit QAbstractItemView {
@@ -508,6 +535,82 @@ QFormLayout QLabel {
 /* === Alternate row color override === */
 QTableWidget {
     alternate-background-color: transparent;
+}
+
+/* === Pipeline toolbar === */
+#pipelineToolbar {
+    background-color: #e6e9ef;
+    border: 1px solid #ccd0da;
+    border-radius: 8px;
+}
+
+#pipelineToolbar QPushButton {
+    background-color: #ffffff;
+    color: #4c4f69;
+    border: 1px solid #ccd0da;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-weight: 500;
+    min-height: 28px;
+}
+
+#pipelineToolbar QPushButton:hover {
+    background-color: #dce0e8;
+    border-color: #bcc0cc;
+}
+
+#pipelineToolbar QPushButton:pressed {
+    background-color: #ccd0da;
+}
+
+#pipelineToolbar QPushButton[cssClass="primary"] {
+    background-color: #1e66f5;
+    color: #ffffff;
+    border-color: #1e66f5;
+    font-weight: 600;
+}
+
+#pipelineToolbar QPushButton[cssClass="primary"]:hover {
+    background-color: #4080f7;
+}
+
+#pipelineToolbar QPushButton[cssClass="danger"] {
+    color: #d20f39;
+    border-color: #d20f39;
+}
+
+#pipelineToolbar QPushButton[cssClass="danger"]:hover {
+    background-color: #d20f39;
+    color: #ffffff;
+}
+
+/* === Pipeline step list === */
+#pipelineStepList {
+    background-color: #eff1f5;
+    border: 1px solid #ccd0da;
+    border-radius: 6px;
+    outline: none;
+}
+
+#pipelineStepList::item {
+    background-color: #ffffff;
+    color: #4c4f69;
+    border: 1px solid #ccd0da;
+    border-radius: 6px;
+    margin: 3px 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+#pipelineStepList::item:selected {
+    background-color: #dce0e8;
+    border: 1px solid #1e66f5;
+    color: #4c4f69;
+}
+
+#pipelineStepList::item:hover:!selected {
+    background-color: #e6e9ef;
+    border-color: #bcc0cc;
 }
 
 /* === Input dialog === */

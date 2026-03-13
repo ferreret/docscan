@@ -17,6 +17,7 @@ import numpy as np
 from PySide6.QtCore import Qt, Signal, QSettings
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
@@ -61,6 +62,8 @@ from app.workers.recognition_worker import (
     BatchContext,
     RecognitionWorker,
 )
+from app.services.scanner_service import ScanConfig
+from app.ui.workbench.scanner_config_dialog import ScannerConfigDialog
 from app.workers.scan_worker import ScanWorker
 from app.workers.transfer_worker import TransferWorker
 from config.settings import APP_DATA_DIR, APP_IMAGES_DIR
@@ -106,6 +109,8 @@ class WorkbenchWindow(QMainWindow):
         self._barcode_service = BarcodeService()
         self._import_service = ImportService()
         self._transfer_service = TransferService()
+        self._scanner: Any = None  # Instancia reutilizable de BaseScanner
+        self._last_scan_options: dict[str, Any] = {}  # Opciones del último escaneo
         self._executor: PipelineExecutor | None = None
 
         # Workers
@@ -293,6 +298,13 @@ class WorkbenchWindow(QMainWindow):
         toolbar.addWidget(self._radio_import)
         toolbar.addWidget(self._combo_source)
         toolbar.addWidget(self._combo_source_type)
+
+        self._chk_scanner_config = QCheckBox("Configurar")
+        self._chk_scanner_config.setToolTip(
+            "Mostrar opciones del escáner antes de digitalizar"
+        )
+        self._chk_scanner_config.setChecked(False)
+        toolbar.addWidget(self._chk_scanner_config)
         toolbar.addSeparator()
 
         # Botón principal de acción
@@ -374,8 +386,7 @@ class WorkbenchWindow(QMainWindow):
         self._viewer_overlay.nav_prev.connect(self._on_prev)
         self._viewer_overlay.nav_next.connect(self._on_next)
         self._viewer_overlay.nav_last.connect(self._on_last)
-        self._viewer_overlay.nav_next_barcode.connect(self._on_next_barcode)
-        self._viewer_overlay.nav_next_review.connect(self._on_next_review)
+        self._viewer_overlay.nav_script.connect(self._on_nav_script)
 
         # Overlay: zoom
         self._viewer_overlay.zoom_in_requested.connect(self._viewer.zoom_in)
@@ -394,6 +405,9 @@ class WorkbenchWindow(QMainWindow):
         self._viewer_overlay.delete_from_requested.connect(
             self._on_delete_from_current,
         )
+
+        # Campos de lote
+        self._metadata_panel.batch_field_changed.connect(self._on_batch_field_changed)
 
         # Miniaturas
         self._thumbnail_panel.page_selected.connect(self._navigate_to)
@@ -436,7 +450,10 @@ class WorkbenchWindow(QMainWindow):
             index_fields = []
 
         # Mapear formato tab_batch_fields → MetadataPanel.configure()
-        type_map = {"texto": "Texto", "lista": "Lista", "numérico": "Número"}
+        type_map = {
+            "texto": "Texto", "fecha": "Fecha",
+            "lista": "Lista", "numérico": "Número",
+        }
         batch_fields = []
         for f in raw_batch:
             cfg = f.get("config", {})
@@ -451,9 +468,29 @@ class WorkbenchWindow(QMainWindow):
                 entry["min"] = cfg.get("min", 0)
                 entry["max"] = cfg.get("max", 100)
                 entry["step"] = cfg.get("step", 1)
+            elif f.get("type") == "fecha":
+                entry["date_format"] = cfg.get("format", "dd/MM/yyyy")
             batch_fields.append(entry)
 
         self._metadata_panel.configure(batch_fields, index_fields)
+
+    def _on_batch_field_changed(self, field_name: str, value: str) -> None:
+        """Persiste un campo de lote editado en BD."""
+        if not self._batch_id:
+            return
+        try:
+            from app.db.repositories.batch_repo import BatchRepository
+            with self._session_factory() as session:
+                repo = BatchRepository(session)
+                batch = repo.get_by_id(self._batch_id)
+                if batch is None:
+                    return
+                fields = json.loads(batch.fields_json or "{}")
+                fields[field_name] = value
+                batch.fields_json = json.dumps(fields, ensure_ascii=False)
+                session.commit()
+        except Exception as e:
+            log.error("Error guardando campo de lote '%s': %s", field_name, e)
 
     # ==================================================================
     # Tema
@@ -524,6 +561,9 @@ class WorkbenchWindow(QMainWindow):
                 self._create_new_batch()
                 return
             self._batch_id = batch.id
+            batch_fields = json.loads(batch.fields_json or "{}")
+
+        self._metadata_panel.set_batch_fields(batch_fields)
 
         self._reload_pages()
         self._thumbnail_panel.clear()
@@ -576,6 +616,16 @@ class WorkbenchWindow(QMainWindow):
         else:
             self._start_import()
 
+    def _get_scanner(self) -> Any:
+        """Devuelve la instancia reutilizable de escáner."""
+        if self._scanner is None:
+            from app.services.scanner_service import create_scanner
+            self._scanner = create_scanner(
+                self._application.scanner_backend
+                if self._application else None,
+            )
+        return self._scanner
+
     def _start_scanner(self) -> None:
         """Inicia adquisición desde escáner."""
         source = self._combo_source.currentText()
@@ -586,23 +636,49 @@ class WorkbenchWindow(QMainWindow):
             )
             return
 
-        from app.services.scanner_service import ScanConfig, create_scanner
-
         try:
-            scanner = create_scanner(
-                self._application.scanner_backend
-                if self._application else None,
-            )
+            scanner = self._get_scanner()
         except RuntimeError as e:
             QMessageBox.critical(self, "Error de escáner", str(e))
             return
 
         source_type = self._combo_source_type.currentData() or "flatbed"
+        scan_config = ScanConfig(source_type=source_type)
+
+        if self._chk_scanner_config.isChecked():
+            if scanner.supports_native_ui:
+                # TWAIN/WIA: activar diálogo nativo del driver
+                scan_config.show_ui = True
+            else:
+                # SANE: consultar opciones del dispositivo y mostrar diálogo
+                try:
+                    options = scanner.get_device_options(source)
+                except Exception as e:
+                    log.warning("Error consultando opciones: %s", e)
+                    options = []
+
+                if options:
+                    # Aplicar valores de la sesión anterior
+                    if self._last_scan_options:
+                        for opt in options:
+                            if opt.name in self._last_scan_options:
+                                opt.value = self._last_scan_options[opt.name]
+
+                    dialog = ScannerConfigDialog(options, self)
+                    if dialog.exec() != ScannerConfigDialog.DialogCode.Accepted:
+                        return
+                    scan_config.extra_options = dialog.get_selected_options()
+                    self._last_scan_options = dict(scan_config.extra_options)
+                    # Sincronizar source_type si el usuario cambió 'source'
+                    src_val = scan_config.extra_options.get("source", "")
+                    if "adf" in str(src_val).lower():
+                        scan_config.source_type = "adf"
+
         self._scan_worker = ScanWorker(
             mode="scanner",
             source=source,
             scanner=scanner,
-            scan_config=ScanConfig(source_type=source_type),
+            scan_config=scan_config,
         )
         self._start_workers()
 
@@ -856,20 +932,23 @@ class WorkbenchWindow(QMainWindow):
             return
 
         self._current_page_index = page_index
+        cached_page = self._pages[page_index]
 
         with self._session_factory() as session:
             page_repo = PageRepository(session)
-            pages = page_repo.get_by_batch(self._batch_id)
-            if page_index >= len(pages):
+            page = page_repo.get_by_id(cached_page.id)
+            if page is None:
+                log.error("Página id=%d no encontrada en BD", cached_page.id)
                 return
-            page = pages[page_index]
+
+            # Leer barcodes dentro de la sesión (lazy-loaded)
+            barcodes = list(page.barcodes)
 
             image = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
             if image is None:
                 log.error("No se pudo cargar imagen: %s", page.image_path)
                 return
 
-            barcodes = page.barcodes
             state = determine_page_state(
                 needs_review=page.needs_review,
                 barcodes=barcodes,
@@ -903,14 +982,22 @@ class WorkbenchWindow(QMainWindow):
         self._navigate_to(0)
 
     def _on_prev(self) -> None:
-        result = self._fire_event("on_navigate_prev")
+        result = self._fire_event(
+            "on_navigate_prev",
+            current_page_index=self._current_page_index,
+            total_pages=len(self._pages),
+        )
         if isinstance(result, int) and 0 <= result < len(self._pages):
             self._navigate_to(result)
         elif self._current_page_index > 0:
             self._navigate_to(self._current_page_index - 1)
 
     def _on_next(self) -> None:
-        result = self._fire_event("on_navigate_next")
+        result = self._fire_event(
+            "on_navigate_next",
+            current_page_index=self._current_page_index,
+            total_pages=len(self._pages),
+        )
         if isinstance(result, int) and 0 <= result < len(self._pages):
             self._navigate_to(result)
         elif self._current_page_index < len(self._pages) - 1:
@@ -920,25 +1007,38 @@ class WorkbenchWindow(QMainWindow):
         if self._pages:
             self._navigate_to(len(self._pages) - 1)
 
-    def _on_next_barcode(self) -> None:
-        """Navega a la siguiente página con barcodes."""
-        for i in range(self._current_page_index + 1, len(self._pages)):
-            page = self._pages[i]
-            with self._session_factory() as session:
-                page_repo = PageRepository(session)
-                db_page = page_repo.get_by_id(page.id)
+    def _on_nav_script(self) -> None:
+        """Ejecuta el evento on_navigate_script para navegación programable."""
+        # Construir resumen de páginas para el script
+        pages_info = []
+        with self._session_factory() as session:
+            page_repo = PageRepository(session)
+            for cached in self._pages:
+                db_page = page_repo.get_by_id(cached.id)
+                barcodes = []
                 if db_page and db_page.barcodes:
-                    self._navigate_to(i)
-                    return
-        self._status_bar.showMessage("No hay más páginas con barcode", 2000)
+                    barcodes = [
+                        {"value": b.value, "symbology": b.symbology, "role": b.role or ""}
+                        for b in db_page.barcodes
+                    ]
+                pages_info.append({
+                    "page_index": cached.page_index,
+                    "barcodes": barcodes,
+                    "needs_review": db_page.needs_review if db_page else False,
+                })
 
-    def _on_next_review(self) -> None:
-        """Navega a la siguiente página con needs_review."""
-        for i in range(self._current_page_index + 1, len(self._pages)):
-            if self._pages[i].needs_review:
-                self._navigate_to(i)
-                return
-        self._status_bar.showMessage("No hay más páginas pendientes", 2000)
+        result = self._fire_event(
+            "on_navigate_script",
+            current_page_index=self._current_page_index,
+            total_pages=len(self._pages),
+            pages=pages_info,
+        )
+        if isinstance(result, int) and 0 <= result < len(self._pages):
+            self._navigate_to(result)
+        else:
+            self._status_bar.showMessage(
+                "Script de navegación: sin destino", 2000,
+            )
 
     def _update_page_info(self) -> None:
         """Actualiza el indicador de página en el overlay."""
@@ -983,27 +1083,40 @@ class WorkbenchWindow(QMainWindow):
         config = parse_transfer_config(
             self._application.transfer_json if self._application else "{}",
         )
-        batch_fields = {}
+        # Leer campos actuales del panel (incluye valores por defecto no tocados)
+        batch_fields = self._metadata_panel.get_batch_fields()
+        # Persistir en BD por si no se habían guardado aún
         if self._batch_id:
             with self._session_factory() as session:
-                svc = BatchService(session, APP_IMAGES_DIR)
-                batch_fields = svc.get_fields(self._batch_id)
+                from app.db.repositories.batch_repo import BatchRepository
+                repo = BatchRepository(session)
+                batch = repo.get_by_id(self._batch_id)
+                if batch:
+                    batch.fields_json = json.dumps(batch_fields, ensure_ascii=False)
+                    session.commit()
 
         pages_data = []
-        for page in self._pages:
-            if page.is_excluded:
-                continue
-            try:
-                idx_fields = json.loads(page.index_fields_json)
-            except (json.JSONDecodeError, TypeError):
-                idx_fields = {}
-            pages_data.append({
-                "image_path": page.image_path,
-                "page_index": page.page_index,
-                "index_fields": idx_fields,
-                "ocr_text": page.ocr_text,
-                "ai_fields": page.ai_fields_json,
-            })
+        with self._session_factory() as session:
+            page_repo = PageRepository(session)
+            for page in self._pages:
+                if page.is_excluded:
+                    continue
+                try:
+                    idx_fields = json.loads(page.index_fields_json)
+                except (json.JSONDecodeError, TypeError):
+                    idx_fields = {}
+                # Obtener primer barcode para el patrón de nombre
+                db_page = page_repo.get_by_id(page.id)
+                barcodes = list(db_page.barcodes) if db_page else []
+                first_bc = barcodes[0].value if barcodes else ""
+                pages_data.append({
+                    "image_path": page.image_path,
+                    "page_index": page.page_index,
+                    "index_fields": idx_fields,
+                    "ocr_text": page.ocr_text,
+                    "ai_fields": page.ai_fields_json,
+                    "first_barcode": first_bc,
+                })
 
         # 4. Lanzar worker (modo avanzado o estándar)
         if self._script_engine.is_compiled("on_transfer_advanced"):
@@ -1067,6 +1180,8 @@ class WorkbenchWindow(QMainWindow):
             # Cerrar después de transferencia (APP-03)
             if self._application and self._application.close_after_transfer:
                 self.close()
+            else:
+                self._start_new_batch_after_export()
         else:
             errors = "\n".join(result.errors[:5])
             QMessageBox.warning(
@@ -1082,6 +1197,29 @@ class WorkbenchWindow(QMainWindow):
     # ==================================================================
     # Cerrar lote sin transferir
     # ==================================================================
+
+    def _start_new_batch_after_export(self) -> None:
+        """Cierra el lote exportado y prepara uno nuevo conservando campos de lote."""
+        saved_fields = self._metadata_panel.get_batch_fields()
+
+        self._thumbnail_panel.clear()
+        self._viewer.clear()
+        self._barcode_panel.clear()
+
+        self._create_new_batch()
+        self._metadata_panel.set_batch_fields(saved_fields)
+
+        # Persistir los campos en el nuevo lote
+        if self._batch_id:
+            with self._session_factory() as session:
+                from app.db.repositories.batch_repo import BatchRepository
+                repo = BatchRepository(session)
+                batch = repo.get_by_id(self._batch_id)
+                if batch:
+                    batch.fields_json = json.dumps(saved_fields, ensure_ascii=False)
+                    session.commit()
+
+        self._status_bar.showMessage("Nuevo lote creado", 3000)
 
     def _on_close_batch(self) -> None:
         """Cierra el lote actual y crea uno nuevo."""
@@ -1116,12 +1254,7 @@ class WorkbenchWindow(QMainWindow):
         self._status_bar.showMessage(
             f"Lote {self._batch_id} cerrado", 3000,
         )
-
-        # Crear nuevo lote
-        self._create_new_batch()
-        self._thumbnail_panel.clear()
-        self._viewer.clear()
-        self._barcode_panel.clear()
+        self.close()
 
     # ==================================================================
     # Manipulación de páginas (UI-07)
@@ -1429,22 +1562,38 @@ class WorkbenchWindow(QMainWindow):
 
     def _on_source_changed(self, scanner_checked: bool) -> None:
         """Actualiza el combo de origen según escáner o importar."""
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import Qt as QtCore_Qt
+
         self._combo_source.clear()
         if scanner_checked:
+            self._status_bar.showMessage("Buscando escáneres…")
+            QApplication.setOverrideCursor(QtCore_Qt.CursorShape.WaitCursor)
+            QApplication.processEvents()
             try:
-                from app.services.scanner_service import create_scanner
-                scanner = create_scanner(
-                    self._application.scanner_backend
-                    if self._application else None,
-                )
+                scanner = self._get_scanner()
                 sources = scanner.list_sources()
                 self._combo_source.addItems(sources)
+                if sources:
+                    self._status_bar.showMessage(
+                        f"{len(sources)} escáner(es) encontrado(s)", 3000,
+                    )
+                else:
+                    self._status_bar.showMessage(
+                        "No se encontraron escáneres", 5000,
+                    )
             except Exception as e:
                 log.warning("No se pudieron listar escáneres: %s", e)
+                self._status_bar.showMessage(
+                    "Error al buscar escáneres", 5000,
+                )
+            finally:
+                QApplication.restoreOverrideCursor()
         else:
             self._combo_source.setPlaceholderText(
                 "Usa el botón para seleccionar archivo...",
             )
+            self._status_bar.clearMessage()
 
     # ==================================================================
     # Teclado (UI-12)
@@ -1539,5 +1688,12 @@ class WorkbenchWindow(QMainWindow):
                 worker.wait(3000)
 
         self._fire_event("on_app_end")
+        self._metadata_panel.cleanup()
+        if self._scanner is not None:
+            try:
+                self._scanner.close()
+            except Exception:
+                pass
+            self._scanner = None
         self.closed.emit()
         super().closeEvent(event)

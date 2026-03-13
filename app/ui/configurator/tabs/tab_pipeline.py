@@ -10,7 +10,7 @@ import uuid
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -84,7 +84,11 @@ class PipelineTab(QWidget):
         layout = QVBoxLayout(self)
 
         # Barra de acciones
-        actions_layout = QHBoxLayout()
+        actions_bar = QWidget()
+        actions_bar.setObjectName("pipelineToolbar")
+        actions_layout = QHBoxLayout(actions_bar)
+        actions_layout.setContentsMargins(4, 4, 4, 4)
+        actions_layout.setSpacing(6)
 
         self._type_combo = QComboBox()
         for type_key, label in STEP_TYPE_LABELS.items():
@@ -92,8 +96,10 @@ class PipelineTab(QWidget):
         actions_layout.addWidget(self._type_combo)
 
         self._btn_add = QPushButton("Añadir")
+        self._btn_add.setProperty("cssClass", "primary")
         self._btn_edit = QPushButton("Editar")
         self._btn_delete = QPushButton("Eliminar")
+        self._btn_delete.setProperty("cssClass", "danger")
         self._btn_toggle = QPushButton("On/Off")
         self._btn_up = QPushButton("↑")
         self._btn_down = QPushButton("↓")
@@ -104,10 +110,11 @@ class PipelineTab(QWidget):
         ):
             actions_layout.addWidget(btn)
 
-        layout.addLayout(actions_layout)
+        layout.addWidget(actions_bar)
 
         # Lista de pasos
         self._list = QListWidget()
+        self._list.setObjectName("pipelineStepList")
         self._list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         layout.addWidget(self._list)
 
@@ -134,6 +141,7 @@ class PipelineTab(QWidget):
         self._list.clear()
         for step in self._steps:
             item = QListWidgetItem(_step_display_text(step))
+            item.setSizeHint(QSize(0, 38))
             self._list.addItem(item)
 
     def _selected_index(self) -> int | None:

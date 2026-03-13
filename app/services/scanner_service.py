@@ -37,6 +37,23 @@ class ScanConfig:
     brightness: int | None = None
     contrast: int | None = None
     source_type: str = "flatbed"  # "flatbed" o "adf"
+    show_ui: bool = False  # Mostrar diálogo nativo (TWAIN/WIA)
+    extra_options: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class DeviceOption:
+    """Opción individual de un dispositivo SANE."""
+
+    name: str  # Nombre Python-safe (ej: "resolution")
+    title: str  # Título legible (ej: "Scan resolution")
+    description: str  # Descripción larga
+    type: str  # "bool", "int", "fixed", "string", "button"
+    unit: str  # "none", "pixel", "bit", "mm", "dpi", "percent", "microsecond"
+    constraint: Any  # None, (min, max, step), o list de valores
+    value: Any  # Valor actual
+    is_active: bool = True
+    is_settable: bool = True
 
 
 # ------------------------------------------------------------------
@@ -55,15 +72,7 @@ class BaseScanner(ABC):
     def acquire(
         self, source: str, config: ScanConfig,
     ) -> list[np.ndarray]:
-        """Adquiere una o más páginas del escáner.
-
-        Args:
-            source: Identificador del dispositivo.
-            config: Parámetros de captura.
-
-        Returns:
-            Lista de imágenes (una por página escaneada).
-        """
+        """Adquiere una o más páginas del escáner."""
 
     @abstractmethod
     def close(self) -> None:
@@ -74,10 +83,49 @@ class BaseScanner(ABC):
     def backend_name(self) -> str:
         """Nombre del backend ("sane", "twain", "wia")."""
 
+    def get_device_options(self, source: str) -> list[DeviceOption]:
+        """Consulta las opciones disponibles del dispositivo.
+
+        Solo implementado en SANE. TWAIN/WIA usan diálogo nativo.
+        """
+        return []
+
+    @property
+    def supports_native_ui(self) -> bool:
+        """Indica si el backend tiene diálogo nativo de configuración."""
+        return False
+
 
 # ------------------------------------------------------------------
 # Backend SANE (Linux)
 # ------------------------------------------------------------------
+
+# Mapeo de constantes de tipo SANE a strings legibles
+_SANE_TYPE_MAP: dict[int, str] = {}
+_SANE_UNIT_MAP: dict[int, str] = {}
+
+
+def _init_sane_maps() -> None:
+    """Inicializa los mapas de tipos/unidades SANE bajo demanda."""
+    if _SANE_TYPE_MAP:
+        return
+    import _sane
+    _SANE_TYPE_MAP.update({
+        _sane.TYPE_BOOL: "bool",
+        _sane.TYPE_INT: "int",
+        _sane.TYPE_FIXED: "fixed",
+        _sane.TYPE_STRING: "string",
+        _sane.TYPE_BUTTON: "button",
+    })
+    _SANE_UNIT_MAP.update({
+        _sane.UNIT_NONE: "none",
+        _sane.UNIT_PIXEL: "pixel",
+        _sane.UNIT_BIT: "bit",
+        _sane.UNIT_MM: "mm",
+        _sane.UNIT_DPI: "dpi",
+        _sane.UNIT_PERCENT: "percent",
+        _sane.UNIT_MICROSECOND: "microsecond",
+    })
 
 
 class SaneScanner(BaseScanner):
@@ -85,12 +133,23 @@ class SaneScanner(BaseScanner):
 
     def __init__(self) -> None:
         self._initialized = False
+        self._init_thread_id: int | None = None
+        self._cached_options: dict[str, list[DeviceOption]] = {}
 
     def _ensure_init(self) -> None:
-        if not self._initialized:
+        import threading
+        current = threading.current_thread().ident
+        if self._initialized and self._init_thread_id == current:
+            return
+        # Reinicializar si cambiamos de hilo (SANE no es thread-safe)
+        if self._initialized:
             import sane
-            sane.init()
-            self._initialized = True
+            sane.exit()
+            self._initialized = False
+        import sane
+        sane.init()
+        self._initialized = True
+        self._init_thread_id = current
 
     @property
     def backend_name(self) -> str:
@@ -102,38 +161,158 @@ class SaneScanner(BaseScanner):
         devices = sane.get_devices()
         return [dev[0] for dev in devices]
 
-    def acquire(
-        self, source: str, config: ScanConfig,
-    ) -> list[np.ndarray]:
+    def get_device_options(self, source: str) -> list[DeviceOption]:
+        """Consulta las opciones reales del dispositivo SANE.
+
+        Cachea el resultado para evitar reabrir el dispositivo USB
+        antes de la adquisición.
+        """
+        if source in self._cached_options:
+            return self._cached_options[source]
+
         self._ensure_init()
+        _init_sane_maps()
         import sane
 
         dev = sane.open(source)
         try:
-            self._apply_config(dev, config)
-            images: list[np.ndarray] = []
+            options: list[DeviceOption] = []
+            for py_name, opt in dev.opt.items():
+                if not opt.is_active() or not opt.is_settable():
+                    continue
 
-            while True:
+                type_str = _SANE_TYPE_MAP.get(opt.type, "unknown")
+                if type_str in ("button", "unknown"):
+                    continue
+
+                unit_str = _SANE_UNIT_MAP.get(opt.unit, "none")
+
+                # Leer valor actual
                 try:
-                    pil_image = dev.snap()
+                    value = getattr(dev, py_name)
                 except Exception:
-                    if images:
-                        break  # ADF agotado, retornamos lo capturado
-                    raise  # Error real si no hay ninguna imagen
+                    value = None
 
-                image = np.array(pil_image)
-                if len(image.shape) == 3 and image.shape[2] == 3:
-                    import cv2
-                    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-                images.append(image)
-
-                # Solo capturar una página en modo flatbed
-                if config.source_type != "adf":
-                    break
-
-            return images
+                options.append(DeviceOption(
+                    name=py_name,
+                    title=opt.title or py_name,
+                    description=opt.desc or "",
+                    type=type_str,
+                    unit=unit_str,
+                    constraint=opt.constraint,
+                    value=value,
+                    is_active=opt.is_active(),
+                    is_settable=opt.is_settable(),
+                ))
+            self._cached_options[source] = options
+            return options
         finally:
             dev.close()
+
+    def acquire(
+        self, source: str, config: ScanConfig,
+    ) -> list[np.ndarray]:
+        """Adquiere páginas usando scanimage (subprocess).
+
+        SANE no es thread-safe, así que delegamos la captura al CLI
+        ``scanimage`` que se ejecuta en su propio proceso.
+        """
+        import subprocess
+        import tempfile
+        import cv2
+
+        # Construir opciones desde extra_options (diálogo) o config
+        resolution = config.extra_options.get("resolution", config.resolution)
+        mode = config.extra_options.get("mode", config.mode)
+        sane_source = config.extra_options.get("source", "")
+
+        # Si no hay source explícito, inferir de source_type
+        if not sane_source and config.source_type == "adf":
+            sane_source = "ADF Front"
+
+        log.info(
+            "Escaneando con scanimage: device='%s', resolution=%s, mode=%s, source='%s'",
+            source, resolution, mode, sane_source,
+        )
+
+        images: list[np.ndarray] = []
+        page_index = 0
+
+        while True:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                tmp_path = tmp.name
+
+            cmd = [
+                "scanimage",
+                "-d", source,
+                "--resolution", str(resolution),
+                "--mode", mode,
+                "--format=png",
+                "-o", tmp_path,
+            ]
+            if sane_source:
+                cmd.extend(["--source", sane_source])
+
+            # Opciones numéricas extra
+            for opt_name in ("brightness", "contrast", "threshold", "swdespeck"):
+                val = config.extra_options.get(opt_name)
+                if val is None:
+                    val = getattr(config, opt_name, None)
+                if val is not None and val != 0:
+                    cmd.extend([f"--{opt_name.replace('_', '-')}", str(val)])
+
+            # Opciones booleanas extra
+            for opt_name in ("swdeskew", "swcrop", "rollerdeskew",
+                             "df_thickness", "df_length", "stapledetect"):
+                if config.extra_options.get(opt_name):
+                    cmd.extend([f"--{opt_name.replace('_', '-')}=yes"])
+
+            # Dropout color
+            for opt_name in ("dropout_front", "dropout_back"):
+                val = config.extra_options.get(opt_name)
+                if val and val != "None":
+                    cmd.extend([f"--{opt_name.replace('_', '-')}", val])
+
+            log.debug("Ejecutando: %s", " ".join(cmd))
+
+            result = subprocess.run(
+                cmd, capture_output=True, timeout=120,
+            )
+
+            if result.returncode != 0:
+                stderr = result.stderr.decode(errors="replace").strip()
+                if "out of documents" in stderr.lower() and images:
+                    log.info("ADF agotado tras %d páginas", len(images))
+                    break
+                if images:
+                    log.info("ADF finalizado tras %d páginas: %s", len(images), stderr)
+                    break
+                raise RuntimeError(
+                    f"Error de escaneo: {stderr or 'código ' + str(result.returncode)}"
+                )
+
+            # Leer imagen capturada
+            from pathlib import Path
+            tmp_file = Path(tmp_path)
+            if tmp_file.exists() and tmp_file.stat().st_size > 0:
+                image = cv2.imread(tmp_path, cv2.IMREAD_COLOR)
+                if image is not None:
+                    images.append(image)
+                    log.debug("Página %d capturada OK (%s)", page_index, image.shape)
+                    page_index += 1
+                tmp_file.unlink(missing_ok=True)
+            else:
+                tmp_file.unlink(missing_ok=True)
+                if images:
+                    break
+                raise RuntimeError("scanimage no generó imagen de salida")
+
+            # En modo flatbed, solo una página
+            if config.source_type != "adf" and "adf" not in sane_source.lower():
+                break
+
+        log.info("Captura completada: %d páginas", len(images))
+        return images
 
     def close(self) -> None:
         if self._initialized:
@@ -143,34 +322,49 @@ class SaneScanner(BaseScanner):
 
     def _apply_config(self, dev: Any, config: ScanConfig) -> None:
         """Aplica la configuración al dispositivo SANE."""
+        # Primero aplicar opciones extra (dinámicas del diálogo)
+        for opt_name, opt_value in config.extra_options.items():
+            # Saltar valores vacíos o None que pueden crashear el driver
+            if opt_value is None or opt_value == "":
+                continue
+            try:
+                setattr(dev, opt_name, opt_value)
+            except Exception as e:
+                log.debug("No se pudo establecer %s=%r: %s", opt_name, opt_value, e)
+
         # Seleccionar fuente ADF si corresponde
         if config.source_type == "adf":
-            for source_name in ("ADF", "Automatic Document Feeder", "adf"):
-                try:
-                    dev.source = source_name
-                    break
-                except Exception:
-                    continue
+            # Si ya se estableció 'source' via extra_options, no sobreescribir
+            if "source" not in config.extra_options:
+                for source_name in ("ADF", "ADF Front", "Automatic Document Feeder", "adf"):
+                    try:
+                        dev.source = source_name
+                        break
+                    except Exception:
+                        continue
 
-        try:
-            dev.resolution = config.resolution
-        except Exception:
-            log.debug("No se pudo establecer resolución %d", config.resolution)
+        # Solo aplicar si no vienen en extra_options (el diálogo tiene prioridad)
+        if "resolution" not in config.extra_options:
+            try:
+                dev.resolution = config.resolution
+            except Exception:
+                log.debug("No se pudo establecer resolución %d", config.resolution)
 
-        mode_map = {"Color": "Color", "Gray": "Gray", "Lineart": "Lineart"}
-        sane_mode = mode_map.get(config.mode, "Color")
-        try:
-            dev.mode = sane_mode
-        except Exception:
-            log.debug("No se pudo establecer modo '%s'", sane_mode)
+        if "mode" not in config.extra_options:
+            mode_map = {"Color": "Color", "Gray": "Gray", "Lineart": "Lineart"}
+            sane_mode = mode_map.get(config.mode, "Color")
+            try:
+                dev.mode = sane_mode
+            except Exception:
+                log.debug("No se pudo establecer modo '%s'", sane_mode)
 
-        if config.brightness is not None:
+        if config.brightness is not None and "brightness" not in config.extra_options:
             try:
                 dev.brightness = config.brightness
             except Exception:
                 pass
 
-        if config.contrast is not None:
+        if config.contrast is not None and "contrast" not in config.extra_options:
             try:
                 dev.contrast = config.contrast
             except Exception:
@@ -191,6 +385,10 @@ class TwainScanner(BaseScanner):
     @property
     def backend_name(self) -> str:
         return "twain"
+
+    @property
+    def supports_native_ui(self) -> bool:
+        return True
 
     def list_sources(self) -> list[str]:
         try:
@@ -225,15 +423,15 @@ class TwainScanner(BaseScanner):
                 twain.ICAP_PIXELTYPE, twain.TWTY_UINT16, pixel_type,
             )
 
-            src.request_acquire(0, 0)
+            # show_ui=1 muestra el diálogo nativo del driver TWAIN
+            show_ui = 1 if config.show_ui else 0
+            src.request_acquire(show_ui, show_ui)
             info = src.get_image_info()
 
             # Transferir imagen
             handle = src.xfer_image_natively()
             if handle:
                 import ctypes
-                # Convertir DIB handle a numpy array
-                # (implementación simplificada)
                 bmp_data = twain.dib_to_bm_file(handle)
                 twain.global_handle_free(handle)
 
@@ -270,6 +468,10 @@ class WiaScanner(BaseScanner):
     def backend_name(self) -> str:
         return "wia"
 
+    @property
+    def supports_native_ui(self) -> bool:
+        return True
+
     def list_sources(self) -> list[str]:
         try:
             import win32com.client
@@ -290,6 +492,10 @@ class WiaScanner(BaseScanner):
         from PIL import Image
         import io
 
+        # Si show_ui, usar CommonDialog con interfaz nativa
+        if config.show_ui:
+            return self._acquire_with_dialog()
+
         wia = win32com.client.Dispatch("WIA.DeviceManager")
         device = None
 
@@ -308,7 +514,7 @@ class WiaScanner(BaseScanner):
         self._set_property(item, 6146, config.resolution)  # DPI horizontal
         self._set_property(item, 6147, config.resolution)  # DPI vertical
 
-        # Modo color: 1=Color, 2=Grayscale, 4=B&W (WIA_IPS_CUR_INTENT = 6146 no, 4103)
+        # Modo color: 1=Color, 2=Grayscale, 4=B&W
         mode_map = {"Color": 1, "Gray": 2, "Lineart": 4}
         self._set_property(
             item, 4103, mode_map.get(config.mode, 1),
@@ -316,6 +522,31 @@ class WiaScanner(BaseScanner):
 
         transfer = item.Transfer("{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}")  # BMP
         img_data = transfer.FileData.BinaryData
+        pil_img = Image.open(io.BytesIO(bytes(img_data)))
+        image = np.array(pil_img)
+
+        if len(image.shape) == 3:
+            import cv2
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+        return [image]
+
+    def _acquire_with_dialog(self) -> list[np.ndarray]:
+        """Adquiere usando el diálogo nativo WIA."""
+        import win32com.client
+        from PIL import Image
+        import io
+
+        dlg = win32com.client.Dispatch("WIA.CommonDialog")
+        # ScannerDeviceType=1, ColorIntent=1 (Color)
+        wia_image = dlg.ShowAcquireImage(1, 1, 0,
+            "{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}",  # BMP
+            False, True, False,
+        )
+        if wia_image is None:
+            return []  # Usuario canceló
+
+        img_data = wia_image.FileData.BinaryData
         pil_img = Image.open(io.BytesIO(bytes(img_data)))
         image = np.array(pil_img)
 

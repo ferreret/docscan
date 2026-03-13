@@ -1,62 +1,108 @@
 """Generador de stubs inline para scripts de usuario.
 
-Produce un bloque de comentarios con las clases/funciones disponibles
-según el contexto (ScriptStep o evento de ciclo de vida). El bloque se
-inyecta al inicio de archivos temporales para que IDEs externos ofrezcan
-autocompletado.
+Produce un bloque de código Python con declaraciones de tipo para que
+IDEs externos (Pylance, Pyright) ofrezcan autocompletado y no muestren
+warnings. El bloque se inyecta al inicio de archivos temporales y se
+elimina automáticamente al guardar.
 """
 
 from __future__ import annotations
 
 STUB_DELIMITER = "# === DOCSCAN STUBS (no editar) ==="
 
-_COMMON_BUILTINS = """\
-# Builtins disponibles:
-#   log       — logging.Logger
-#   http      — httpx.Client | None
-#   re        — módulo re
-#   json      — módulo json
-#   datetime  — módulo datetime
-#   Path      — pathlib.Path"""
+_IMPORTS = """\
+from __future__ import annotations
+import logging
+import re
+import json
+import datetime
+from pathlib import Path
+from typing import Any
+"""
 
-_APP_CONTEXT = """\
-# app: AppContext
-#   .id: int
-#   .name: str
-#   .description: str
-#   .config: dict[str, Any]          — AI config
-#   .batch_fields_def: list[dict]    — definición de campos de lote
-#   .transfer_config: dict[str, Any] — config de transferencia
-#   .auto_transfer: bool
-#   .output_format: str"""
+_TYPE_DEFS = """\
+class BarcodeResult:
+    \"\"\"Código de barras detectado por un BarcodeStep.\"\"\"
+    value: str              # Contenido decodificado
+    symbology: str          # Tipo: CODE128, QR_CODE, EAN13, etc.
+    engine: str             # Motor que lo detectó: "pyzbar" o "zxing"
+    step_id: str            # ID del BarcodeStep que lo encontró
+    quality: float          # Calidad de lectura (0.0 - 1.0)
+    pos_x: int              # Posición X del bounding box (píxeles)
+    pos_y: int              # Posición Y del bounding box
+    pos_w: int              # Ancho del bounding box
+    pos_h: int              # Alto del bounding box
+    role: str               # Rol asignado por script ("separator", "content", etc.)
 
-_BATCH_CONTEXT = """\
-# batch: BatchContext
-#   .id: int
-#   .fields: dict[str, Any]          — campos del lote (valores)
-#   .state: str                      — estado actual
-#   .page_count: int
-#   .folder_path: str
-#   .hostname: str"""
+class PageFlags:
+    \"\"\"Flags mutables de la página durante el procesamiento.\"\"\"
+    needs_review: bool          # True si la página requiere revisión manual
+    review_reason: str          # Motivo de la revisión
+    script_errors: list[dict[str, Any]]   # Errores de scripts (no detienen el pipeline)
+    processing_errors: list[str]          # Errores de procesamiento general
 
-_PAGE_CONTEXT = """\
-# page: PageContext
-#   .page_index: int
-#   .image: numpy.ndarray | None
-#   .barcodes: list[BarcodeResult]   — .value, .symbology, .engine, .role, ...
-#   .ocr_text: str
-#   .ai_fields: dict[str, Any]
-#   .flags: PageFlags                — .needs_review, .review_reason, .script_errors
-#   .fields: dict[str, Any]          — campos de indexación"""
+class AppContext:
+    \"\"\"Configuración de la aplicación activa (solo lectura).\"\"\"
+    id: int
+    name: str                                   # Nombre de la aplicación
+    description: str
+    config: dict[str, Any]                      # Config de AI (provider, model, etc.)
+    batch_fields_def: list[dict[str, Any]]      # Definición de campos de lote
+    transfer_config: dict[str, Any]             # Config de transferencia (modo, destino)
+    auto_transfer: bool                         # Transferir automáticamente al cerrar lote
+    output_format: str                          # Formato de salida: "tiff", "pdf", "jpeg"
 
-_PIPELINE_CONTEXT = """\
-# pipeline: PipelineContext
-#   .skip_step()                     — salta el paso actual
-#   .skip_to(step_id)                — salta hasta un paso
-#   .abort(reason)                   — aborta el pipeline
-#   .repeat_step()                   — repite el paso actual
-#   .replace_image(image)            — reemplaza imagen de la página
-#   .get_metadata(key) / .set_metadata(key, value)"""
+class BatchContext:
+    \"\"\"Lote activo (lectura y escritura en .fields).\"\"\"
+    id: int
+    fields: dict[str, Any]      # Valores de los campos del lote (editable)
+    state: str                  # Estado: "created", "open", "ready_to_export", "exported"
+    page_count: int             # Número de páginas en el lote
+    folder_path: str            # Ruta de la carpeta del lote en disco
+    hostname: str               # Nombre del equipo que creó el lote
+
+class PageContext:
+    \"\"\"Página actual del pipeline (lectura y escritura).\"\"\"
+    page_index: int                     # Índice de la página en el lote (base 0)
+    image: Any                          # numpy.ndarray (BGR) o None
+    barcodes: list[BarcodeResult]       # Barcodes acumulados por BarcodeSteps
+    ocr_text: str                       # Texto OCR extraído
+    ai_fields: dict[str, Any]           # Campos extraídos por AI
+    flags: PageFlags                    # Flags de revisión y errores
+    fields: dict[str, Any]              # Campos de indexación (editable)
+
+class PipelineContext:
+    \"\"\"Control de flujo del pipeline (solo disponible en ScriptStep).\"\"\"
+    def skip_step(self) -> None: ...                            # Salta el paso actual
+    def skip_to(self, step_id: str) -> None: ...                # Salta hasta el paso con este ID
+    def abort(self, reason: str) -> None: ...                   # Aborta el pipeline completo
+    def repeat_step(self) -> None: ...                          # Repite el paso actual (máx 3 veces)
+    def replace_image(self, image: Any) -> None: ...            # Reemplaza la imagen de la página
+    def get_metadata(self, key: str) -> Any: ...                # Lee metadato del pipeline
+    def set_metadata(self, key: str, value: Any) -> None: ...   # Escribe metadato del pipeline
+"""
+
+_VARS_PIPELINE = """\
+# --- Variables disponibles en ScriptStep ---
+log: logging.Logger         # Logger para mensajes (log.info, log.warning, etc.)
+http: Any                   # Cliente HTTP (httpx.Client) o None si no configurado
+app: AppContext             # Aplicación activa (solo lectura)
+batch: BatchContext         # Lote activo
+page: PageContext           # Página actual del pipeline
+pipeline: PipelineContext   # Control de flujo del pipeline
+"""
+
+_VARS_EVENT_BASE = """\
+# --- Variables disponibles en este evento ---
+log: logging.Logger         # Logger para mensajes (log.info, log.warning, etc.)
+http: Any                   # Cliente HTTP (httpx.Client) o None si no configurado
+app: AppContext             # Aplicación activa (solo lectura)
+batch: BatchContext         # Lote activo
+"""
+
+_VARS_EVENT_PAGE = """\
+page: PageContext           # Página actual
+"""
 
 # Eventos que reciben page como argumento
 _EVENTS_WITH_PAGE = {
@@ -74,32 +120,21 @@ def generate_stubs(context_type: str, event_name: str = "") -> str:
         event_name: Nombre del evento (solo si context_type="event").
 
     Returns:
-        Bloque de comentarios delimitado.
+        Bloque de código Python con tipos, delimitado por marcadores.
     """
-    lines = [STUB_DELIMITER, "#"]
+    parts = [STUB_DELIMITER, _IMPORTS, _TYPE_DEFS]
 
     if context_type == "pipeline":
-        lines.append("# Contexto: ScriptStep del pipeline")
-        lines.append("#")
-        lines.append(_APP_CONTEXT)
-        lines.append(_BATCH_CONTEXT)
-        lines.append(_PAGE_CONTEXT)
-        lines.append(_PIPELINE_CONTEXT)
+        parts.append(_VARS_PIPELINE)
     else:
-        lines.append(f"# Contexto: evento '{event_name}'")
-        lines.append("#")
-        lines.append(_APP_CONTEXT)
-        lines.append(_BATCH_CONTEXT)
+        parts.append(_VARS_EVENT_BASE)
         if event_name in _EVENTS_WITH_PAGE:
-            lines.append(_PAGE_CONTEXT)
+            parts.append(_VARS_EVENT_PAGE)
 
-    lines.append("#")
-    lines.append(_COMMON_BUILTINS)
-    lines.append("#")
-    lines.append(STUB_DELIMITER)
-    lines.append("")
+    parts.append(STUB_DELIMITER)
+    parts.append("")
 
-    return "\n".join(lines)
+    return "\n".join(parts)
 
 
 def strip_stubs(code: str) -> str:

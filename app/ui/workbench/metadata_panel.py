@@ -8,19 +8,23 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDateEdit,
     QFormLayout,
+    QLabel,
     QLineEdit,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
+
+from app.ui.workbench.log_panel import LogPanel
 
 log = logging.getLogger(__name__)
 
@@ -51,10 +55,23 @@ class MetadataPanel(QWidget):
         # Pestaña Lote (única pestaña activa por ahora)
         self._tab_lote = QWidget()
         self._lote_layout = QFormLayout(self._tab_lote)
+        self._lote_layout.setLabelAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self._lote_layout.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+        self._lote_layout.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        self._lote_layout.setVerticalSpacing(8)
+        self._lote_layout.setContentsMargins(6, 8, 6, 8)
         lote_scroll = QScrollArea()
         lote_scroll.setWidgetResizable(True)
         lote_scroll.setWidget(self._tab_lote)
         self._tabs.addTab(lote_scroll, "Lote")
+
+        # Pestaña Log
+        self._log_panel = LogPanel()
+        self._tabs.addTab(self._log_panel, "Log")
 
         layout.addWidget(self._tabs)
 
@@ -116,8 +133,17 @@ class MetadataPanel(QWidget):
                 widget.valueChanged.connect(
                     lambda val, n=name: signal.emit(n, str(val)),
                 )
+            elif isinstance(widget, QDateEdit):
+                widget.dateChanged.connect(
+                    lambda d, n=name, w=widget: signal.emit(
+                        n, d.toString(w.displayFormat()),
+                    ),
+                )
 
-            form_layout.addRow(label_text, widget)
+            lbl = QLabel(label_text)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setMinimumWidth(80)
+            form_layout.addRow(lbl, widget)
 
     def _create_field_widget(
         self,
@@ -129,7 +155,12 @@ class MetadataPanel(QWidget):
         fdef = fdef or {}
         match ftype:
             case "Fecha":
-                return QDateEdit()
+                w = QDateEdit()
+                w.setCalendarPopup(True)
+                w.setDate(QDate.currentDate())
+                w.setDisplayFormat(fdef.get("date_format", "dd/MM/yyyy"))
+                w.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                return w
             case "Número":
                 w = QSpinBox()
                 w.setMinimum(int(fdef.get("min", 0)))
@@ -189,6 +220,10 @@ class MetadataPanel(QWidget):
         for widget in self._batch_widgets.values():
             self._set_widget_value(widget, "")
 
+    def cleanup(self) -> None:
+        """Libera recursos (handler de logging)."""
+        self._log_panel.cleanup()
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -197,6 +232,10 @@ class MetadataPanel(QWidget):
     def _set_widget_value(widget: QWidget, value: str) -> None:
         if isinstance(widget, QLineEdit):
             widget.setText(value)
+        elif isinstance(widget, QDateEdit):
+            date = QDate.fromString(value, widget.displayFormat())
+            if date.isValid():
+                widget.setDate(date)
         elif isinstance(widget, QComboBox):
             widget.setCurrentText(value)
         elif isinstance(widget, QCheckBox):
@@ -211,6 +250,8 @@ class MetadataPanel(QWidget):
     def _get_widget_value(widget: QWidget) -> str:
         if isinstance(widget, QLineEdit):
             return widget.text()
+        elif isinstance(widget, QDateEdit):
+            return widget.date().toString(widget.displayFormat())
         elif isinstance(widget, QComboBox):
             return widget.currentText()
         elif isinstance(widget, QCheckBox):

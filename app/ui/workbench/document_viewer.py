@@ -90,7 +90,8 @@ class DocumentViewer(QGraphicsView):
         self.clear_overlays()
 
         pixmap = ndarray_to_qpixmap(image)
-        if self._pixmap_item is None:
+        first_load = self._pixmap_item is None
+        if first_load:
             self._pixmap_item = self._scene.addPixmap(pixmap)
             self._pixmap_item.setTransformationMode(
                 Qt.TransformationMode.SmoothTransformation,
@@ -100,7 +101,14 @@ class DocumentViewer(QGraphicsView):
 
         self._scene.setSceneRect(self._pixmap_item.boundingRect())
         self._set_border_color(state)
-        self.fit_to_page()
+
+        if first_load:
+            # En la primera carga el layout puede no haberse resuelto aún;
+            # diferimos el ajuste al siguiente ciclo del event loop.
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, self.fit_to_page)
+        else:
+            self.fit_to_page()
 
     def set_state(self, state: PageState) -> None:
         """Actualiza solo el color del borde."""
