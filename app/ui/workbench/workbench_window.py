@@ -197,6 +197,7 @@ class WorkbenchWindow(QMainWindow):
         app_name = self._application.name if self._application else "Workbench"
         self.setWindowTitle(f"DocScan Studio \u2014 {app_name}")
         self.setMinimumSize(1280, 800)
+        self.resize(1440, 900)
         self.setAcceptDrops(True)
 
         # Color de fondo personalizado (APP-04)

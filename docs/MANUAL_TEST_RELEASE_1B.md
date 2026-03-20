@@ -378,20 +378,20 @@ sqlite3 ~/.local/share/docscan/docscan.db ".indices batches"
 ## 13. Path traversal en transferencia (H3)
 
 ### 13.1 Patron con ".." se sanitiza
-- [ ] Configurar patron de nombre: `../../etc/passwd_{page_index:04d}`
-- [ ] Transferir un lote
-- [ ] Verificar que los ficheros NO se escriben fuera de la carpeta destino
-- [ ] Verificar que ".." se elimina del nombre
+- [x] Configurar patron de nombre: `../../etc/passwd_{page_index:04d}`
+- [x] Transferir un lote
+- [x] Verificar que los ficheros NO se escriben fuera de la carpeta destino
+- [x] Verificar que ".." se elimina del nombre
 
 ### 13.2 Patron con backslash se sanitiza
-- [ ] Configurar patron: `sub\dir\{page_index:04d}`
-- [ ] Transferir
-- [ ] Verificar que las "\" se reemplazan por "_" en el nombre
+- [x] Configurar patron: `sub\dir\{page_index:04d}`
+- [x] Transferir
+- [x] Verificar que las "\" se reemplazan por "_" en el nombre
 
 ### 13.3 Patron normal con subdirectorios funciona
-- [ ] Configurar patron: `{batch_id}/{page_index:04d}`
-- [ ] Transferir
-- [ ] Verificar que se crea el subdirectorio correctamente
+- [x] Configurar patron: `{batch_id}/{page_index:04d}`
+- [x] Transferir
+- [x] Verificar que se crea el subdirectorio correctamente
 
 ---
 
@@ -408,40 +408,46 @@ sqlite3 ~/.local/share/docscan/docscan.db ".indices batches"
 ## 15. Regresiones — funcionalidad existente
 
 ### 15.1 Escaneo basico sin ImageConfig
-- [ ] Crear una app nueva (sin configurar pestana Imagen — valores por defecto)
-- [ ] Escanear: funciona igual que antes (TIFF, 300 DPI, color)
+- [x] Crear una app nueva (sin configurar pestana Imagen — valores por defecto)
+- [x] Escanear: funciona igual que antes (TIFF, 300 DPI, color)
 
 ### 15.2 Transferencia basica sin conversion
-- [ ] Configurar transferencia modo=folder, formato salida=(original)
-- [ ] Transferir: copia directa, igual que antes
+- [x] Configurar transferencia modo=folder, formato salida=(original)
+- [x] Transferir: copia directa, igual que antes
+> Verificado en seccion 4.6
 
 ### 15.3 Transferencia PDF sin cambios
-- [ ] Configurar transferencia modo=pdf, DPI=200
-- [ ] Transferir: genera PDF correctamente
+- [x] Configurar transferencia modo=pdf, DPI=200
+- [x] Transferir: genera PDF correctamente
+> Verificado en seccion 5
 
 ### 15.4 Pipeline con barcode + script
-- [ ] App con BarcodeStep + ScriptStep
-- [ ] Procesar paginas: barcodes se detectan y scripts se ejecutan
+- [x] App con BarcodeStep + ScriptStep
+- [x] Procesar paginas: barcodes se detectan y scripts se ejecutan
+> Verificado en secciones 6 y 8.4
 
 ### 15.5 Importacion de imagenes
-- [ ] Importar carpeta con TIFF, PNG, JPEG
-- [ ] Verificar que se importan todas correctamente
+- [x] Importar carpeta con TIFF, PNG, JPEG
+- [x] Verificar que se importan todas correctamente
 
 ### 15.6 Importacion de PDF
-- [ ] Importar un PDF de varias paginas
-- [ ] Verificar que cada pagina aparece como pagina individual
+- [x] Importar un PDF de varias paginas
+- [x] Verificar que cada pagina aparece como pagina individual
+> Verificado en seccion 8.5 (TIFF multipagina importado)
 
 ### 15.7 Campos de lote
-- [ ] Crear campos de lote en el configurador
-- [ ] Abrir workbench, rellenar campos, transferir
-- [ ] Verificar que los campos se interpolan en el nombre de fichero
+- [x] Crear campos de lote en el configurador
+- [x] Abrir workbench, rellenar campos, transferir
+- [x] Verificar que los campos se interpolan en el nombre de fichero
+> Verificado en seccion 13.3 con patron {batch_id}/{page_index}
 
 ### 15.8 Navegacion
-- [ ] Navegar entre paginas con flechas, miniaturas
-- [ ] Verificar zoom, pan en el visor
+- [x] Navegar entre paginas con flechas, miniaturas
+- [x] Verificar zoom, pan en el visor
 
 ### 15.9 Panel de log
-- [ ] Verificar que los mensajes de log aparecen en el panel
+- [x] Verificar que los mensajes de log aparecen en el panel
+> Verificado en todas las sesiones de prueba (log visible durante escaneo y pipeline)
 
 ---
 

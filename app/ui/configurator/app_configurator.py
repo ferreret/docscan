@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from app.models.application import Application
 from app.ui.configurator.tabs.tab_general import GeneralTab
+from app.ui.configurator.tabs.tab_image import ImageTab
 from app.ui.configurator.tabs.tab_batch_fields import BatchFieldsTab
 from app.ui.configurator.tabs.tab_pipeline import PipelineTab
 from app.ui.configurator.tabs.tab_events import EventsTab
@@ -52,6 +53,7 @@ class AppConfigurator(QDialog):
     def _setup_ui(self) -> None:
         self.setWindowTitle(f"Configurar — {self._app.name}")
         self.setMinimumSize(800, 600)
+        self.resize(950, 700)
 
         layout = QVBoxLayout(self)
 
@@ -59,12 +61,14 @@ class AppConfigurator(QDialog):
         self._tabs = QTabWidget()
 
         self._tab_general = GeneralTab(self._app)
+        self._tab_image = ImageTab(self._app)
         self._tab_batch_fields = BatchFieldsTab(self._app)
         self._tab_pipeline = PipelineTab(self._app)
         self._tab_events = EventsTab(self._app)
         self._tab_transfer = TransferTab(self._app)
 
         self._tabs.addTab(self._tab_general, "General")
+        self._tabs.addTab(self._tab_image, "Imagen")
         self._tabs.addTab(self._tab_batch_fields, "Campos de Lote")
         self._tabs.addTab(self._tab_pipeline, "Pipeline")
         self._tabs.addTab(self._tab_events, "Eventos")
@@ -88,6 +92,7 @@ class AppConfigurator(QDialog):
         try:
             # Recoger datos de cada pestaña
             self._tab_general.apply_to(self._app)
+            self._tab_image.apply_to(self._app)
             self._tab_batch_fields.apply_to(self._app)
             self._tab_pipeline.apply_to(self._app)
             self._tab_events.apply_to(self._app)
