@@ -166,11 +166,18 @@ def _compile_lifecycle_events(
         return events
 
     for event_name, event_config in events_data.items():
-        if not isinstance(event_config, dict):
+        # Soportar ambos formatos:
+        #   - str: código fuente directo (formato de tab_events.py)
+        #   - dict: {"script": "...", "entry_point": "..."} (formato extendido)
+        if isinstance(event_config, str):
+            source = event_config
+            entry_point = event_name
+        elif isinstance(event_config, dict):
+            source = event_config.get("script", "")
+            entry_point = event_config.get("entry_point", event_name)
+        else:
             continue
-        source = event_config.get("script", "")
-        entry_point = event_config.get("entry_point", event_name)
-        if not source:
+        if not source or not source.strip():
             continue
         try:
             script_engine.compile_script(event_name, source, label=event_name)

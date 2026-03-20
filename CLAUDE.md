@@ -56,10 +56,10 @@ ruff format app/
 
 ### Pipeline -- the central processing model
 
-Each page is processed through a **dynamic, composable pipeline**: an ordered list of steps defined per application. Step types: `image_op`, `barcode`, `ocr`, `script`, `condition`, `http_request`.
+Each page is processed through a **dynamic, composable pipeline**: an ordered list of steps defined per application. Step types: `image_op`, `barcode`, `ocr`, `script`.
 
 Key files:
-- `app/pipeline/steps.py` -- dataclasses for all step types (PipelineStep, ImageOpStep, BarcodeStep, OcrStep, ScriptStep, ConditionStep, HttpRequestStep)
+- `app/pipeline/steps.py` -- dataclasses for all step types (PipelineStep, ImageOpStep, BarcodeStep, OcrStep, ScriptStep)
 - `app/pipeline/context.py` -- PipelineContext with flow control (skip_step, skip_to, abort, repeat_step, replace_image, get/set_metadata)
 - `app/pipeline/executor.py` -- PipelineExecutor (stateless between pages, one instance per app)
 - `app/pipeline/serializer.py` -- JSON <-> list[PipelineStep] (serialize/deserialize)

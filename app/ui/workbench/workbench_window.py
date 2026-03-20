@@ -391,6 +391,8 @@ class WorkbenchWindow(QMainWindow):
         self._viewer_overlay.nav_prev.connect(self._on_prev)
         self._viewer_overlay.nav_next.connect(self._on_next)
         self._viewer_overlay.nav_last.connect(self._on_last)
+        self._viewer_overlay.nav_next_barcode.connect(self._on_next_barcode)
+        self._viewer_overlay.nav_next_review.connect(self._on_next_review)
         self._viewer_overlay.nav_script.connect(self._on_nav_script)
 
         # Overlay: zoom
@@ -1145,6 +1147,33 @@ class WorkbenchWindow(QMainWindow):
     def _on_last(self) -> None:
         if self._pages:
             self._navigate_to(len(self._pages) - 1)
+
+    def _on_next_barcode(self) -> None:
+        """Navega a la siguiente página que tenga barcodes."""
+        if not self._pages:
+            return
+        start = self._current_page_index + 1
+        with self._session_factory() as session:
+            page_repo = PageRepository(session)
+            for i in range(start, len(self._pages)):
+                db_page = page_repo.get_by_id(self._pages[i].id)
+                if db_page and list(db_page.barcodes):
+                    self._navigate_to(i)
+                    return
+        self._status_bar.showMessage("No hay más páginas con barcode", 3000)
+
+    def _on_next_review(self) -> None:
+        """Navega a la siguiente página pendiente de revisión."""
+        if not self._pages:
+            return
+        start = self._current_page_index + 1
+        for i in range(start, len(self._pages)):
+            if self._pages[i].needs_review:
+                self._navigate_to(i)
+                return
+        self._status_bar.showMessage(
+            "No hay más páginas pendientes de revisión", 3000,
+        )
 
     def _on_nav_script(self) -> None:
         """Ejecuta el evento on_navigate_script para navegación programable."""
