@@ -55,14 +55,15 @@ class PageContext:
 
     Compatible duck-type con los accesos que hace el executor:
     ``page.image``, ``page.barcodes``, ``page.ocr_text``,
-    ``page.ai_fields``, ``page.flags``.
+    ``page.custom_fields``, ``page.flags``.
     """
 
     page_index: int
     image: np.ndarray | None = None
+    image_replaced: bool = False
     barcodes: list[BarcodeResult] = field(default_factory=list)
     ocr_text: str = ""
-    ai_fields: dict[str, Any] = field(default_factory=dict)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
     flags: PageFlags = field(default_factory=PageFlags)
     fields: dict[str, Any] = field(default_factory=dict)
 

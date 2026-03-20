@@ -32,7 +32,7 @@ class Page(Base):
 
     # Resultados del pipeline
     ocr_text: Mapped[str] = mapped_column(Text, default="")
-    ai_fields_json: Mapped[str] = mapped_column(Text, default="{}")
+    custom_fields_json: Mapped[str] = mapped_column(Text, default="{}")
     index_fields_json: Mapped[str] = mapped_column(Text, default="{}")
 
     # Flags

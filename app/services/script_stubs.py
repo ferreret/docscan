@@ -67,7 +67,7 @@ class PageContext:
     image: Any                          # numpy.ndarray (BGR) o None
     barcodes: list[BarcodeResult]       # Barcodes acumulados por BarcodeSteps
     ocr_text: str                       # Texto OCR extraído
-    ai_fields: dict[str, Any]           # Campos extraídos por AI
+    custom_fields: dict[str, Any]        # Campos personalizados (scripts/eventos/IA)
     flags: PageFlags                    # Flags de revisión y errores
     fields: dict[str, Any]              # Campos de indexación (editable)
 

@@ -19,7 +19,7 @@ class PageState(Enum):
     EXCLUDED = "excluded"
     NEEDS_REVIEW = "needs_review"
     SEPARATOR_BARCODE = "separator"
-    AI_FIELDS = "ai_fields"
+    CUSTOM_FIELDS = "custom_fields"
     BARCODE_NO_ROLE = "barcode_no_role"
     NO_RECOGNITION = "no_recognition"
 
@@ -28,7 +28,7 @@ STATE_COLORS: dict[PageState, str] = {
     PageState.EXCLUDED: "#d32f2f",
     PageState.NEEDS_REVIEW: "#e53935",
     PageState.SEPARATOR_BARCODE: "#fb8c00",
-    PageState.AI_FIELDS: "#1e88e5",
+    PageState.CUSTOM_FIELDS: "#1e88e5",
     PageState.BARCODE_NO_ROLE: "#43a047",
     PageState.NO_RECOGNITION: "#9e9e9e",
 }
@@ -37,7 +37,7 @@ STATE_COLORS: dict[PageState, str] = {
 def determine_page_state(
     needs_review: bool = False,
     barcodes: list | None = None,
-    ai_fields_json: str = "{}",
+    custom_fields_json: str = "{}",
     is_excluded: bool = False,
 ) -> PageState:
     """Determina el estado visual de una página (prioridad UI-03).
@@ -45,7 +45,7 @@ def determine_page_state(
     Args:
         needs_review: Si la página necesita revisión.
         barcodes: Lista de objetos barcode (con atributo ``role``).
-        ai_fields_json: JSON de campos IA extraídos.
+        custom_fields_json: JSON de campos personalizados.
         is_excluded: Si la página está marcada para excluir.
     """
     if is_excluded:
@@ -61,8 +61,8 @@ def determine_page_state(
     if has_separator:
         return PageState.SEPARATOR_BARCODE
 
-    if ai_fields_json not in ("", "{}", "null"):
-        return PageState.AI_FIELDS
+    if custom_fields_json not in ("", "{}", "null"):
+        return PageState.CUSTOM_FIELDS
 
     if barcodes:
         return PageState.BARCODE_NO_ROLE

@@ -147,7 +147,7 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                 log.error("Error pipeline página %d: %s", page_db.page_index, exc)
 
             page_db.ocr_text = page_ctx.ocr_text
-            page_db.ai_fields_json = json.dumps(page_ctx.ai_fields)
+            page_db.custom_fields_json = json.dumps(page_ctx.custom_fields)
             page_db.index_fields_json = json.dumps(page_ctx.fields)
             page_db.needs_review = page_ctx.flags.needs_review
             page_db.processing_errors_json = json.dumps(
@@ -173,7 +173,7 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                     "page_index": p.page_index,
                     "index_fields": json.loads(p.index_fields_json),
                     "ocr_text": p.ocr_text,
-                    "ai_fields": json.loads(p.ai_fields_json),
+                    "custom_fields": json.loads(p.custom_fields_json),
                 }
                 for p in pages_db
             ]
@@ -259,6 +259,9 @@ def main() -> int:
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName(settings.app_name)
 
+    # H1: Liberar engine al salir
+    qt_app.aboutToQuit.connect(lambda: engine.dispose())
+
     # Aplicar tema (restaura preferencias guardadas)
     from app.ui.theme_manager import ThemeManager
 
@@ -282,6 +285,9 @@ def main() -> int:
         try:
             workbench = WorkbenchWindow(app_id, session_factory)
             workbench.closed.connect(launcher.show)
+            workbench.closed.connect(
+                lambda w=workbench: _workbenches.remove(w) if w in _workbenches else None
+            )
             _workbenches.append(workbench)
             launcher.hide()
             workbench.show()
@@ -321,6 +327,9 @@ def main() -> int:
                 app_id, session_factory, batch_id=batch_id,
             )
             workbench.closed.connect(launcher.show)
+            workbench.closed.connect(
+                lambda w=workbench: _workbenches.remove(w) if w in _workbenches else None
+            )
             _workbenches.append(workbench)
             launcher.hide()
             workbench.show()
@@ -338,6 +347,9 @@ def main() -> int:
         log.info("Abriendo gestor de lotes")
         bm = BatchManagerWindow(session_factory)
         bm.closed.connect(lambda: log.info("Gestor de lotes cerrado"))
+        bm.closed.connect(
+            lambda b=bm: _batch_managers.remove(b) if b in _batch_managers else None
+        )
         bm.open_batch_requested.connect(on_open_batch)
         _batch_managers.append(bm)
         bm.show()

@@ -30,6 +30,7 @@ class TransferConfig:
     Se deserializa desde ``Application.transfer_json``.
     """
 
+    standard_enabled: bool = True  # False = solo on_transfer_advanced
     mode: str = "folder"  # "folder", "pdf", "pdfa", "csv"
     destination: str = ""  # Ruta destino o patrón
     filename_pattern: str = "{batch_id}_{page_index:04d}"
@@ -38,6 +39,18 @@ class TransferConfig:
     csv_separator: str = ";"
     csv_fields: list[str] = field(default_factory=list)
     include_metadata: bool = False
+
+    # Formato de salida (modo carpeta)
+    output_format: str = ""           # "" = original, "tiff", "png", "jpg", "pdf"
+    output_dpi: int = 0               # 0 = original
+    output_color_mode: str = ""       # "" = original, "color", "grayscale", "bw"
+    output_jpeg_quality: int = 85
+    output_tiff_compression: str = "lzw"
+    output_png_compression: int = 6
+    output_bw_threshold: int = 128
+
+    # Calidad JPEG dentro del PDF
+    pdf_jpeg_quality: int = 85
 
 
 def parse_transfer_config(json_str: str) -> TransferConfig:
@@ -76,7 +89,7 @@ class TransferService:
 
         Args:
             pages: Lista de dicts con keys: image_path, page_index,
-                   index_fields, ocr_text, ai_fields.
+                   index_fields, ocr_text, custom_fields.
             config: Configuración de transferencia.
             batch_fields: Campos del lote (para interpolación).
             batch_id: ID del lote (para nombres de fichero).
@@ -119,6 +132,7 @@ class TransferService:
         dest.mkdir(parents=True, exist_ok=True)
 
         result = TransferResult(output_path=str(dest))
+        needs_conversion = bool(config.output_format)
 
         for page in pages:
             try:
@@ -127,13 +141,23 @@ class TransferService:
                     result.errors.append(f"Imagen no encontrada: {src}")
                     continue
 
+                # Determinar extensión destino
+                if needs_conversion:
+                    out_ext = f".{config.output_format.lower().strip('.')}"
+                else:
+                    out_ext = src.suffix
+
                 filename = self._build_filename(
                     config.filename_pattern, page, batch_fields, batch_id,
-                ) + src.suffix
+                ) + out_ext
                 dst = dest / filename
                 dst.parent.mkdir(parents=True, exist_ok=True)
 
-                shutil.copy2(str(src), str(dst))
+                if needs_conversion:
+                    self._convert_and_save(src, dst, config)
+                else:
+                    shutil.copy2(str(src), str(dst))
+
                 result.files_transferred += 1
 
                 if config.include_metadata:
@@ -153,6 +177,43 @@ class TransferService:
             result.files_transferred, len(pages), dest,
         )
         return result
+
+    def _convert_and_save(
+        self,
+        src: Path,
+        dst: Path,
+        config: TransferConfig,
+    ) -> None:
+        """Carga, convierte y guarda imagen según config de salida."""
+        from app.services.image_lib import ImageLib
+
+        imgs = ImageLib.load(src)
+        if not imgs:
+            raise ValueError(f"No se pudo cargar: {src}")
+        img = imgs[0]
+
+        # Conversión de color
+        if config.output_color_mode == "grayscale":
+            img = ImageLib.to_grayscale(img)
+        elif config.output_color_mode == "bw":
+            img = ImageLib.to_bw(img, config.output_bw_threshold)
+        elif config.output_color_mode == "color":
+            img = ImageLib.to_color(img)
+
+        # Resize DPI
+        if config.output_dpi > 0:
+            src_dpi = ImageLib.get_dpi(src)
+            src_dpi_val = int(src_dpi[0]) if src_dpi[0] > 0 else 300
+            if src_dpi_val != config.output_dpi:
+                img = ImageLib.resize_to_dpi(img, src_dpi_val, config.output_dpi)
+
+        ImageLib.save(
+            img, dst,
+            quality=config.output_jpeg_quality,
+            compression=config.output_tiff_compression,
+            png_level=config.output_png_compression,
+            dpi=config.output_dpi if config.output_dpi > 0 else None,
+        )
 
     # ------------------------------------------------------------------
     # Transferencia a PDF
@@ -201,7 +262,12 @@ class TransferService:
                 pdf_page = doc.new_page(width=page_w, height=page_h)
 
                 # Insertar imagen
-                img_bytes = cv2.imencode(".jpg", img)[1].tobytes()
+                encode_params = [
+                    cv2.IMWRITE_JPEG_QUALITY, config.pdf_jpeg_quality,
+                ]
+                img_bytes = cv2.imencode(
+                    ".jpg", img, encode_params,
+                )[1].tobytes()
                 pdf_page.insert_image(
                     pymupdf.Rect(0, 0, page_w, page_h),
                     stream=img_bytes,
@@ -311,7 +377,7 @@ class TransferService:
             k.replace(" ", "_"): v for k, v in batch_fields.items()
         }
         try:
-            return pattern.format(
+            result = pattern.format(
                 batch_id=batch_id or 0,
                 page_index=page.get("page_index", 0),
                 first_barcode=page.get("first_barcode", ""),
@@ -324,7 +390,15 @@ class TransferService:
                 pattern, e, batch_id, page.get("page_index"),
                 page.get("first_barcode"), list(normalized.keys()),
             )
-            return f"batch_{batch_id or 0}_page_{page.get('page_index', 0):04d}"
+            result = f"batch_{batch_id or 0}_page_{page.get('page_index', 0):04d}"
+
+        # Sanitizar path traversal: reemplazar separadores sospechosos
+        result = result.replace("\\", "_")
+        # Permitir "/" como separador de subdirectorios intencionado
+        # pero verificar que no haya ".." para evitar traversal
+        parts = result.split("/")
+        parts = [p for p in parts if p != ".."]
+        return "/".join(parts)
 
     def _write_metadata(self, image_path: Path, page: dict[str, Any]) -> None:
         """Escribe un fichero .json de metadatos junto a la imagen."""
@@ -332,7 +406,7 @@ class TransferService:
         metadata = {
             "page_index": page.get("page_index"),
             "ocr_text": page.get("ocr_text", ""),
-            "ai_fields": page.get("ai_fields", {}),
+            "custom_fields": page.get("custom_fields", {}),
             "index_fields": page.get("index_fields", {}),
         }
         meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2))

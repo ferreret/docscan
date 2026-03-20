@@ -38,7 +38,7 @@ class MockPage:
     )
     barcodes: list = field(default_factory=list)
     ocr_text: str = ""
-    ai_fields: dict[str, str] = field(default_factory=dict)
+    custom_fields: dict[str, str] = field(default_factory=dict)
     flags: MockFlags = field(default_factory=MockFlags)
 
 

@@ -417,7 +417,7 @@ class TestProcessFiles:
         page = MagicMock(spec=Page)
         page.page_index = index
         page.ocr_text = ""
-        page.ai_fields_json = "{}"
+        page.custom_fields_json = "{}"
         page.index_fields_json = "{}"
         page.needs_review = False
         page.review_reason = ""
@@ -838,7 +838,7 @@ class TestTransferBatch:
         included_page.page_index = 0
         included_page.index_fields_json = "{}"
         included_page.ocr_text = ""
-        included_page.ai_fields_json = "{}"
+        included_page.custom_fields_json = "{}"
 
         (batch_svc, transfer_svc, notification_svc,
          script_engine, session, app_ctx, batch_ctx) = self._make_transfer_context(tmp_path)
@@ -917,7 +917,7 @@ class TestProcessPendingBatches:
         page_mock = MagicMock(spec=Page)
         page_mock.page_index = 0
         page_mock.ocr_text = ""
-        page_mock.ai_fields_json = "{}"
+        page_mock.custom_fields_json = "{}"
         page_mock.index_fields_json = "{}"
         page_mock.needs_review = False
         page_mock.review_reason = ""
@@ -1035,7 +1035,7 @@ class TestProcessPendingBatches:
         page_mock = MagicMock(spec=Page)
         page_mock.page_index = 0
         page_mock.ocr_text = ""
-        page_mock.ai_fields_json = "{}"
+        page_mock.custom_fields_json = "{}"
         page_mock.index_fields_json = "{}"
         page_mock.needs_review = False
         page_mock.review_reason = ""

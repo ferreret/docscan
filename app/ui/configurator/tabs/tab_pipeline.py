@@ -26,7 +26,6 @@ from app.models.application import Application
 from app.pipeline.serializer import serialize, deserialize
 from app.pipeline.steps import (
     STEP_TYPE_MAP,
-    AiStep,
     BarcodeStep,
     ImageOpStep,
     OcrStep,
@@ -41,7 +40,6 @@ STEP_TYPE_LABELS = {
     "image_op": "Imagen",
     "barcode": "Barcode",
     "ocr": "OCR",
-    "ai": "IA",
     "script": "Script",
 }
 
@@ -58,10 +56,6 @@ def _step_display_text(step: PipelineStep) -> str:
     elif isinstance(step, OcrStep):
         langs = ", ".join(step.languages)
         detail = f"{step.engine} [{langs}]"
-    elif isinstance(step, AiStep):
-        detail = f"{step.provider}"
-        if step.template_id:
-            detail += f" · plantilla {step.template_id}"
     elif isinstance(step, ScriptStep):
         detail = step.label or step.entry_point or "(sin nombre)"
     else:
@@ -224,14 +218,12 @@ class PipelineTab(QWidget):
         from app.ui.configurator.step_dialogs.image_op_dialog import ImageOpDialog
         from app.ui.configurator.step_dialogs.barcode_step_dialog import BarcodeStepDialog
         from app.ui.configurator.step_dialogs.ocr_step_dialog import OcrStepDialog
-        from app.ui.configurator.step_dialogs.ai_step_dialog import AiStepDialog
         from app.ui.configurator.step_dialogs.script_step_dialog import ScriptStepDialog
 
         dialogs = {
             "image_op": ImageOpDialog,
             "barcode": BarcodeStepDialog,
             "ocr": OcrStepDialog,
-            "ai": AiStepDialog,
             "script": ScriptStepDialog,
         }
         dialog_cls = dialogs.get(step.type)

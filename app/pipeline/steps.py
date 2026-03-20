@@ -13,7 +13,6 @@ StepType = Literal[
     "image_op",
     "barcode",
     "ocr",
-    "ai",
     "script",
 ]
 
@@ -77,16 +76,6 @@ class OcrStep(PipelineStep):
 
 
 @dataclass
-class AiStep(PipelineStep):
-    """Extracción de campos o clasificación por IA."""
-
-    type: Literal["ai"] = "ai"
-    provider: Literal["anthropic", "openai", "local_ocr"] = "anthropic"
-    template_id: int | None = None
-    fallback_provider: str | None = None
-
-
-@dataclass
 class ScriptStep(PipelineStep):
     """Código Python con acceso al contexto completo y control del pipeline."""
 
@@ -96,11 +85,13 @@ class ScriptStep(PipelineStep):
     script: str = ""
 
 
+# Tipos eliminados: el serializer los salta con warning por compatibilidad
+REMOVED_STEP_TYPES: frozenset[str] = frozenset({"ai"})
+
 # Mapa tipo -> clase para deserialización
 STEP_TYPE_MAP: dict[str, type[PipelineStep]] = {
     "image_op": ImageOpStep,
     "barcode": BarcodeStep,
     "ocr": OcrStep,
-    "ai": AiStep,
     "script": ScriptStep,
 }

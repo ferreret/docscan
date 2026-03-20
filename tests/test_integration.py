@@ -52,7 +52,7 @@ class _PageCtx:
     image: np.ndarray | None = None
     barcodes: list[Any] = field(default_factory=list)
     ocr_text: str = ""
-    ai_fields: dict[str, Any] = field(default_factory=dict)
+    custom_fields: dict[str, Any] = field(default_factory=dict)
     flags: _Flags = field(default_factory=_Flags)
     fields: dict[str, Any] = field(default_factory=dict)
 
@@ -92,7 +92,6 @@ def _make_executor(
     steps: list,
     barcode_service: Any = None,
     ocr_service: Any = None,
-    ai_service: Any = None,
     max_repeats: int = 3,
 ) -> PipelineExecutor:
     image_service = ImagePipelineService()
@@ -109,7 +108,6 @@ def _make_executor(
         script_engine=script_engine,
         barcode_service=barcode_service,
         ocr_service=ocr_service,
-        ai_service=ai_service,
         max_repeats=max_repeats,
     )
 

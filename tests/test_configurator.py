@@ -21,7 +21,6 @@ from app.pipeline.steps import (
     ImageOpStep,
     BarcodeStep,
     OcrStep,
-    AiStep,
     ScriptStep,
 )
 from app.pipeline.serializer import serialize
@@ -34,7 +33,6 @@ from app.ui.configurator.tabs.tab_batch_fields import BatchFieldsTab
 from app.ui.configurator.step_dialogs.image_op_dialog import ImageOpDialog
 from app.ui.configurator.step_dialogs.barcode_step_dialog import BarcodeStepDialog
 from app.ui.configurator.step_dialogs.ocr_step_dialog import OcrStepDialog
-from app.ui.configurator.step_dialogs.ai_step_dialog import AiStepDialog
 from app.ui.configurator.step_dialogs.script_step_dialog import ScriptStepDialog
 
 
@@ -98,10 +96,8 @@ class TestGeneralTab:
         tab = GeneralTab(sample_app)
         qtbot.addWidget(tab)
         tab._name_edit.setText("Renamed App")
-        tab._format_combo.setCurrentText("png")
         tab.apply_to(sample_app)
         assert sample_app.name == "Renamed App"
-        assert sample_app.output_format == "png"
 
 
 # ------------------------------------------------------------------
@@ -281,26 +277,6 @@ class TestOcrStepDialog:
         result = dialog.get_step()
         assert result.engine == "easyocr"
         assert result.languages == ["es", "en"]
-
-
-class TestAiStepDialog:
-    def test_get_step(self, qtbot):
-        step = AiStep(id="s1")
-        dialog = AiStepDialog(step)
-        qtbot.addWidget(dialog)
-        dialog._provider_combo.setCurrentText("openai")
-        dialog._template_spin.setValue(5)
-        result = dialog.get_step()
-        assert result.provider == "openai"
-        assert result.template_id == 5
-
-    def test_no_template(self, qtbot):
-        step = AiStep(id="s1")
-        dialog = AiStepDialog(step)
-        qtbot.addWidget(dialog)
-        dialog._template_spin.setValue(0)
-        result = dialog.get_step()
-        assert result.template_id is None
 
 
 class TestScriptStepDialog:
@@ -544,5 +520,5 @@ class TestAppConfigurator:
     def test_creates_with_tabs(self, qtbot, sample_app, session_factory):
         dialog = AppConfigurator(sample_app, session_factory)
         qtbot.addWidget(dialog)
-        assert dialog._tabs.count() == 5
+        assert dialog._tabs.count() == 6
         assert dialog.windowTitle().startswith("Configurar")

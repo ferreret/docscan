@@ -204,7 +204,7 @@ class MetadataPanel(QWidget):
     def set_verification_data(
         self,
         ocr_text: str = "",
-        ai_fields_json: str = "{}",
+        custom_fields_json: str = "{}",
         errors_json: str = "[]",
         script_errors_json: str = "[]",
     ) -> None:

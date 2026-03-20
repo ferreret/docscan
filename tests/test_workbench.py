@@ -349,7 +349,7 @@ class TestPageContext:
         assert page.image is None
         assert page.barcodes == []
         assert page.ocr_text == ""
-        assert page.ai_fields == {}
+        assert page.custom_fields == {}
         assert isinstance(page.flags, PageFlags)
         assert page.fields == {}
 
@@ -645,7 +645,8 @@ class TestTransferWorker:
         mock_result.success = True
         mock_service.transfer.return_value = mock_result
 
-        config = MagicMock(spec_set=[])
+        config = MagicMock()
+        config.standard_enabled = True
         pages = [{"image_path": "/img/p1.tiff", "page_index": 0}]
         batch_fields = {"ref": "REF-001"}
 
@@ -681,7 +682,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=True,
             barcodes=[bc],
-            ai_fields_json='{"campo": "valor"}',
+            custom_fields_json='{"campo": "valor"}',
         )
         assert state is PageState.NEEDS_REVIEW
 
@@ -691,19 +692,19 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            ai_fields_json='{"campo": "valor"}',
+            custom_fields_json='{"campo": "valor"}',
         )
         assert state is PageState.SEPARATOR_BARCODE
 
-    def test_ai_fields_priority_over_barcode_no_role(self):
+    def test_custom_fields_priority_over_barcode_no_role(self):
         """Campos IA tienen prioridad sobre barcodes sin rol."""
         bc = BarcodeResult(role="")
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            ai_fields_json='{"nombre": "Juan"}',
+            custom_fields_json='{"nombre": "Juan"}',
         )
-        assert state is PageState.AI_FIELDS
+        assert state is PageState.CUSTOM_FIELDS
 
     def test_barcode_no_role(self):
         """Barcode sin rol devuelve BARCODE_NO_ROLE."""
@@ -711,7 +712,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            ai_fields_json="{}",
+            custom_fields_json="{}",
         )
         assert state is PageState.BARCODE_NO_ROLE
 
@@ -720,7 +721,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            ai_fields_json="{}",
+            custom_fields_json="{}",
         )
         assert state is PageState.NO_RECOGNITION
 
@@ -734,32 +735,32 @@ class TestDeterminePageState:
         state = determine_page_state(needs_review=False, barcodes=None)
         assert state is PageState.NO_RECOGNITION
 
-    def test_ai_fields_json_null_is_no_recognition(self):
-        """ai_fields_json 'null' se trata como vacío."""
+    def test_custom_fields_json_null_is_no_recognition(self):
+        """custom_fields_json 'null' se trata como vacío."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            ai_fields_json="null",
+            custom_fields_json="null",
         )
         assert state is PageState.NO_RECOGNITION
 
-    def test_ai_fields_json_empty_string(self):
-        """ai_fields_json '' se trata como vacío."""
+    def test_custom_fields_json_empty_string(self):
+        """custom_fields_json '' se trata como vacío."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            ai_fields_json="",
+            custom_fields_json="",
         )
         assert state is PageState.NO_RECOGNITION
 
-    def test_ai_fields_non_empty(self):
-        """JSON no vacío activa el estado AI_FIELDS."""
+    def test_custom_fields_non_empty(self):
+        """JSON no vacío activa el estado CUSTOM_FIELDS."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            ai_fields_json='{"key": "val"}',
+            custom_fields_json='{"key": "val"}',
         )
-        assert state is PageState.AI_FIELDS
+        assert state is PageState.CUSTOM_FIELDS
 
     def test_multiple_barcodes_one_separator(self):
         """Uno de varios barcodes con rol separator activa SEPARATOR_BARCODE."""
@@ -1005,9 +1006,9 @@ class TestDocumentViewer:
         qtbot.addWidget(viewer)
 
         viewer.set_image(color_image, PageState.NO_RECOGNITION)
-        viewer.set_state(PageState.AI_FIELDS)
+        viewer.set_state(PageState.CUSTOM_FIELDS)
         style = viewer.styleSheet()
-        assert "#1e88e5" in style  # azul para AI_FIELDS
+        assert "#1e88e5" in style  # azul para CUSTOM_FIELDS
 
     def test_clear_removes_pixmap(self, qtbot, color_image):
         viewer = DocumentViewer()

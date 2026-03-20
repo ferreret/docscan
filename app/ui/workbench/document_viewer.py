@@ -1,7 +1,7 @@
 """Visor principal de documentos (UI-02, UI-03, UI-04).
 
 QGraphicsView con zoom (rueda), arrastre, overlays semitransparentes
-de barcodes/campos IA, y borde coloreado por estado de página.
+de barcodes y borde coloreado por estado de página.
 """
 
 from __future__ import annotations
@@ -127,7 +127,7 @@ class DocumentViewer(QGraphicsView):
     def set_overlays(
         self,
         barcodes: list | None = None,
-        ai_fields: dict | None = None,
+        custom_fields: dict | None = None,
     ) -> None:
         """Dibuja overlays sobre barcodes con colores distintos por cada uno."""
         self.clear_overlays()
