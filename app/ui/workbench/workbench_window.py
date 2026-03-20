@@ -95,6 +95,7 @@ class WorkbenchWindow(QMainWindow):
         batch_id: int | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self._app_id = app_id
         self._session_factory = session_factory
 
@@ -592,6 +593,9 @@ class WorkbenchWindow(QMainWindow):
             f"Lote {self._batch_id} cargado ({len(self._pages)} páginas)", 3000,
         )
 
+        # Reanudar pipeline para páginas no procesadas
+        self._resume_pending_pipeline()
+
     def _reload_pages(self) -> None:
         """Recarga la lista de páginas desde BD."""
         if self._batch_id is None:
@@ -860,6 +864,8 @@ class WorkbenchWindow(QMainWindow):
 
     def _on_page_processed(self, page_index: int, page_ctx: Any) -> None:
         """Una página ha sido procesada por el pipeline."""
+        if self._script_engine is None:
+            return  # Ventana cerrada, ignorar señales tardías
         self._persist_page_results(page_index, page_ctx)
 
         state = determine_page_state(
@@ -958,6 +964,8 @@ class WorkbenchWindow(QMainWindow):
 
     def _on_all_processed(self) -> None:
         """Todo el pipeline ha terminado."""
+        if self._script_engine is None:
+            return  # Ventana cerrada, ignorar señales tardías
         self._progress_bar.setVisible(False)
         self._btn_process.setEnabled(True)
         self._reload_pages()
@@ -981,6 +989,76 @@ class WorkbenchWindow(QMainWindow):
         if total > 0:
             self._progress_bar.setMaximum(total)
             self._progress_bar.setValue(completed)
+
+    def _resume_pending_pipeline(self) -> None:
+        """Detecta páginas sin procesar y lanza el pipeline para ellas.
+
+        Una página se considera no procesada si todos sus campos de
+        resultado están en su valor por defecto (sin OCR, sin campos,
+        sin barcodes, sin errores y sin marcas de revisión).
+        """
+        if not self._pages or self._executor is None:
+            return
+
+        pending: list[tuple[int, Page]] = []
+        with self._session_factory() as session:
+            page_repo = PageRepository(session)
+            for page in self._pages:
+                db_page = page_repo.get_by_id(page.id)
+                if db_page is None:
+                    continue
+                has_barcodes = len(list(db_page.barcodes)) > 0
+                has_results = (
+                    db_page.ocr_text != ""
+                    or db_page.index_fields_json not in ("", "{}")
+                    or db_page.needs_review
+                    or db_page.processing_errors_json not in ("", "[]")
+                    or db_page.script_errors_json not in ("", "[]")
+                    or has_barcodes
+                )
+                if not has_results:
+                    pending.append((page.page_index, page))
+
+        if not pending:
+            return
+
+        log.info(
+            "Reanudando pipeline para %d página(s) no procesada(s)",
+            len(pending),
+        )
+
+        app_ctx = self._build_app_context()
+        batch_ctx = self._build_batch_context()
+
+        self._recognition_worker = RecognitionWorker(
+            executor=self._executor,
+            app_context=app_ctx,
+            batch_context=batch_ctx,
+        )
+        self._recognition_worker.page_processed.connect(
+            self._on_page_processed,
+        )
+        self._recognition_worker.all_processed.connect(
+            self._on_all_processed,
+        )
+        self._recognition_worker.page_error.connect(self._on_page_error)
+        self._recognition_worker.progress.connect(self._on_progress)
+
+        self._progress_bar.setValue(0)
+        self._progress_bar.setVisible(True)
+        self._btn_process.setEnabled(False)
+
+        self._recognition_worker.start()
+
+        for page_index, page in pending:
+            img = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
+            if img is not None:
+                self._recognition_worker.enqueue_page(page_index, img)
+
+        self._recognition_worker.signal_no_more_pages()
+        self._status_bar.showMessage(
+            f"Procesando {len(pending)} página(s) pendiente(s)...",
+        )
 
     # ==================================================================
     # Navegación (UI-09)
@@ -1655,6 +1733,8 @@ class WorkbenchWindow(QMainWindow):
 
     def _fire_event(self, event_name: str, **extra_ctx) -> Any:
         """Ejecuta un entry point de ciclo de vida."""
+        if self._script_engine is None:
+            return None
         app_ctx = self._build_app_context()
         batch_ctx = self._build_batch_context()
 
@@ -1886,5 +1966,15 @@ class WorkbenchWindow(QMainWindow):
             except Exception:
                 pass
             self._scanner = None
+
+        # Liberar referencias pesadas para que el GC pueda actuar
+        self._pages.clear()
+        self._scan_worker = None
+        self._recognition_worker = None
+        self._transfer_worker = None
+        self._script_engine = None
+        self._transfer_service = None
+
         self.closed.emit()
         super().closeEvent(event)
+        self.deleteLater()
