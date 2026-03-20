@@ -41,8 +41,7 @@ def sample_pages(tmp_path: Path) -> list[dict]:
             "image_path": str(path),
             "page_index": i,
             "ocr_text": f"Texto OCR página {i}",
-            "custom_fields": {"numero": f"F-{i:03d}"},
-            "index_fields": {"ref": f"REF-{i}", "tipo": "factura"},
+            "fields": {"numero": f"F-{i:03d}", "ref": f"REF-{i}", "tipo": "factura"},
         })
     return pages
 

@@ -72,7 +72,7 @@ Defined in Events tab, executed outside the pipeline: `on_app_start`, `on_app_en
 
 ### Script context
 
-All scripts (ScriptStep + lifecycle events) receive: `app` (AppContext), `batch` (BatchContext), `page` (PageContext with `.barcodes`, `.ocr_text`, `.custom_fields`, `.flags`), `pipeline` (PipelineContext -- only in ScriptStep). Built-in: `log`, `http` (httpx), `re`, `json`, `datetime`, `Path`.
+All scripts (ScriptStep + lifecycle events) receive: `app` (AppContext), `batch` (BatchContext), `page` (PageContext with `.barcodes`, `.ocr_text`, `.fields`, `.flags`), `pipeline` (PipelineContext -- only in ScriptStep). Built-in: `log`, `http` (httpx), `re`, `json`, `datetime`, `Path`.
 
 ### Key services
 

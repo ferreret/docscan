@@ -127,7 +127,6 @@ class DocumentViewer(QGraphicsView):
     def set_overlays(
         self,
         barcodes: list | None = None,
-        custom_fields: dict | None = None,
     ) -> None:
         """Dibuja overlays sobre barcodes con colores distintos por cada uno."""
         self.clear_overlays()

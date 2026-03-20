@@ -290,7 +290,6 @@ def _process_files(
         # 5. Actualizar páginas en BD con resultados del pipeline
         for page_db, page_ctx in page_contexts:
             page_db.ocr_text = page_ctx.ocr_text
-            page_db.custom_fields_json = json.dumps(page_ctx.custom_fields)
             page_db.index_fields_json = json.dumps(page_ctx.fields)
             page_db.needs_review = page_ctx.flags.needs_review
             page_db.review_reason = page_ctx.flags.review_reason
@@ -390,9 +389,8 @@ def _transfer_batch(
         pages_data.append({
             "image_path": p.image_path,
             "page_index": p.page_index,
-            "index_fields": json.loads(p.index_fields_json),
+            "fields": json.loads(p.index_fields_json),
             "ocr_text": p.ocr_text,
-            "custom_fields": json.loads(p.custom_fields_json),
         })
 
     batch_fields = batch_svc.get_fields(batch_id)
@@ -505,7 +503,6 @@ def _process_pending_batches(
                     continue
 
                 page_db.ocr_text = page_ctx.ocr_text
-                page_db.custom_fields_json = json.dumps(page_ctx.custom_fields)
                 page_db.index_fields_json = json.dumps(page_ctx.fields)
                 page_db.needs_review = page_ctx.flags.needs_review
                 page_db.review_reason = page_ctx.flags.review_reason

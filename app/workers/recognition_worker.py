@@ -55,7 +55,7 @@ class PageContext:
 
     Compatible duck-type con los accesos que hace el executor:
     ``page.image``, ``page.barcodes``, ``page.ocr_text``,
-    ``page.custom_fields``, ``page.flags``.
+    ``page.flags``.
     """
 
     page_index: int
@@ -63,7 +63,6 @@ class PageContext:
     image_replaced: bool = False
     barcodes: list[BarcodeResult] = field(default_factory=list)
     ocr_text: str = ""
-    custom_fields: dict[str, Any] = field(default_factory=dict)
     flags: PageFlags = field(default_factory=PageFlags)
     fields: dict[str, Any] = field(default_factory=dict)
 

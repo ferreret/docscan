@@ -67,9 +67,8 @@ class PageContext:
     image: Any                          # numpy.ndarray (BGR) o None
     barcodes: list[BarcodeResult]       # Barcodes acumulados por BarcodeSteps
     ocr_text: str                       # Texto OCR extraído
-    custom_fields: dict[str, Any]        # Campos personalizados (scripts/eventos/IA)
     flags: PageFlags                    # Flags de revisión y errores
-    fields: dict[str, Any]              # Campos de indexación (editable)
+    fields: dict[str, Any]              # Campos de página (indexación, IA, etc.)
 
 class PipelineContext:
     \"\"\"Control de flujo del pipeline (solo disponible en ScriptStep).\"\"\"

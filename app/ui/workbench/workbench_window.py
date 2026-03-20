@@ -576,7 +576,7 @@ class WorkbenchWindow(QMainWindow):
             if img is not None:
                 state = determine_page_state(
                     needs_review=page.needs_review,
-                    custom_fields_json=page.custom_fields_json,
+                    fields_json=page.index_fields_json,
                     is_excluded=page.is_excluded,
                 )
                 self._thumbnail_panel.add_thumbnail(i, img, state)
@@ -865,7 +865,7 @@ class WorkbenchWindow(QMainWindow):
         state = determine_page_state(
             needs_review=page_ctx.flags.needs_review,
             barcodes=page_ctx.barcodes,
-            custom_fields_json="{}" if not page_ctx.custom_fields else "{x}",
+            fields_json="{}" if not page_ctx.fields else "{x}",
         )
         self._thumbnail_panel.update_thumbnail_state(page_index, state)
 
@@ -888,7 +888,7 @@ class WorkbenchWindow(QMainWindow):
                 page = self._pages[page_index]
                 self._metadata_panel.set_verification_data(
                     ocr_text=page.ocr_text,
-                    custom_fields_json=page.custom_fields_json,
+                    fields_json=page.index_fields_json,
                     errors_json=page.processing_errors_json,
                     script_errors_json=page.script_errors_json,
                 )
@@ -916,9 +916,9 @@ class WorkbenchWindow(QMainWindow):
                     log.error("Error guardando imagen procesada: %s", e)
 
             page.ocr_text = page_ctx.ocr_text or ""
-            page.custom_fields_json = json.dumps(
-                page_ctx.custom_fields, ensure_ascii=False,
-            ) if page_ctx.custom_fields else "{}"
+            page.index_fields_json = json.dumps(
+                page_ctx.fields, ensure_ascii=False,
+            ) if page_ctx.fields else "{}"
             page.needs_review = page_ctx.flags.needs_review
             page.review_reason = page_ctx.flags.review_reason
             page.processing_errors_json = json.dumps(
@@ -1012,7 +1012,7 @@ class WorkbenchWindow(QMainWindow):
             state = determine_page_state(
                 needs_review=page.needs_review,
                 barcodes=barcodes,
-                custom_fields_json=page.custom_fields_json,
+                fields_json=page.index_fields_json,
                 is_excluded=page.is_excluded,
             )
 
@@ -1027,7 +1027,7 @@ class WorkbenchWindow(QMainWindow):
             self._metadata_panel.set_index_fields(idx_fields)
             self._metadata_panel.set_verification_data(
                 ocr_text=page.ocr_text,
-                custom_fields_json=page.custom_fields_json,
+                fields_json=page.index_fields_json,
                 errors_json=page.processing_errors_json,
                 script_errors_json=page.script_errors_json,
             )
@@ -1162,9 +1162,9 @@ class WorkbenchWindow(QMainWindow):
                 if page.is_excluded:
                     continue
                 try:
-                    idx_fields = json.loads(page.index_fields_json)
+                    fields = json.loads(page.index_fields_json)
                 except (json.JSONDecodeError, TypeError):
-                    idx_fields = {}
+                    fields = {}
                 # Obtener primer barcode para el patrón de nombre
                 db_page = page_repo.get_by_id(page.id)
                 barcodes = list(db_page.barcodes) if db_page else []
@@ -1172,9 +1172,8 @@ class WorkbenchWindow(QMainWindow):
                 pages_data.append({
                     "image_path": page.image_path,
                     "page_index": page.page_index,
-                    "index_fields": idx_fields,
+                    "fields": fields,
                     "ocr_text": page.ocr_text,
-                    "custom_fields": json.loads(page.custom_fields_json or "{}"),
                     "first_barcode": first_bc,
                 })
 
@@ -1387,7 +1386,7 @@ class WorkbenchWindow(QMainWindow):
         return determine_page_state(
             needs_review=page.needs_review,
             barcodes=barcodes,
-            custom_fields_json=page.custom_fields_json,
+            fields_json=page.index_fields_json,
             is_excluded=page.is_excluded,
         )
 
@@ -1419,7 +1418,7 @@ class WorkbenchWindow(QMainWindow):
             if img is not None:
                 state = determine_page_state(
                     needs_review=p.needs_review,
-                    custom_fields_json=p.custom_fields_json,
+                    fields_json=p.index_fields_json,
                     is_excluded=p.is_excluded,
                 )
                 self._thumbnail_panel.add_thumbnail(i, img, state)
@@ -1462,7 +1461,7 @@ class WorkbenchWindow(QMainWindow):
             if img is not None:
                 state = determine_page_state(
                     needs_review=page.needs_review,
-                    custom_fields_json=page.custom_fields_json,
+                    fields_json=page.index_fields_json,
                     is_excluded=page.is_excluded,
                 )
                 self._thumbnail_panel.add_thumbnail(i, img, state)

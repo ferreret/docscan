@@ -147,7 +147,6 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                 log.error("Error pipeline página %d: %s", page_db.page_index, exc)
 
             page_db.ocr_text = page_ctx.ocr_text
-            page_db.custom_fields_json = json.dumps(page_ctx.custom_fields)
             page_db.index_fields_json = json.dumps(page_ctx.fields)
             page_db.needs_review = page_ctx.flags.needs_review
             page_db.processing_errors_json = json.dumps(
@@ -171,9 +170,8 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                 {
                     "image_path": p.image_path,
                     "page_index": p.page_index,
-                    "index_fields": json.loads(p.index_fields_json),
+                    "fields": json.loads(p.index_fields_json),
                     "ocr_text": p.ocr_text,
-                    "custom_fields": json.loads(p.custom_fields_json),
                 }
                 for p in pages_db
             ]

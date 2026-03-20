@@ -349,7 +349,7 @@ class TestPageContext:
         assert page.image is None
         assert page.barcodes == []
         assert page.ocr_text == ""
-        assert page.custom_fields == {}
+        assert page.fields == {}
         assert isinstance(page.flags, PageFlags)
         assert page.fields == {}
 
@@ -682,7 +682,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=True,
             barcodes=[bc],
-            custom_fields_json='{"campo": "valor"}',
+            fields_json='{"campo": "valor"}',
         )
         assert state is PageState.NEEDS_REVIEW
 
@@ -692,19 +692,19 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            custom_fields_json='{"campo": "valor"}',
+            fields_json='{"campo": "valor"}',
         )
         assert state is PageState.SEPARATOR_BARCODE
 
-    def test_custom_fields_priority_over_barcode_no_role(self):
+    def test_has_fields_priority_over_barcode_no_role(self):
         """Campos IA tienen prioridad sobre barcodes sin rol."""
         bc = BarcodeResult(role="")
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            custom_fields_json='{"nombre": "Juan"}',
+            fields_json='{"nombre": "Juan"}',
         )
-        assert state is PageState.CUSTOM_FIELDS
+        assert state is PageState.HAS_FIELDS
 
     def test_barcode_no_role(self):
         """Barcode sin rol devuelve BARCODE_NO_ROLE."""
@@ -712,7 +712,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            custom_fields_json="{}",
+            fields_json="{}",
         )
         assert state is PageState.BARCODE_NO_ROLE
 
@@ -721,7 +721,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            custom_fields_json="{}",
+            fields_json="{}",
         )
         assert state is PageState.NO_RECOGNITION
 
@@ -735,32 +735,32 @@ class TestDeterminePageState:
         state = determine_page_state(needs_review=False, barcodes=None)
         assert state is PageState.NO_RECOGNITION
 
-    def test_custom_fields_json_null_is_no_recognition(self):
-        """custom_fields_json 'null' se trata como vacío."""
+    def test_fields_json_null_is_no_recognition(self):
+        """fields_json 'null' se trata como vacío."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            custom_fields_json="null",
+            fields_json="null",
         )
         assert state is PageState.NO_RECOGNITION
 
-    def test_custom_fields_json_empty_string(self):
-        """custom_fields_json '' se trata como vacío."""
+    def test_fields_json_empty_string(self):
+        """fields_json '' se trata como vacío."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            custom_fields_json="",
+            fields_json="",
         )
         assert state is PageState.NO_RECOGNITION
 
-    def test_custom_fields_non_empty(self):
-        """JSON no vacío activa el estado CUSTOM_FIELDS."""
+    def test_fields_non_empty(self):
+        """JSON no vacío activa el estado HAS_FIELDS."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            custom_fields_json='{"key": "val"}',
+            fields_json='{"key": "val"}',
         )
-        assert state is PageState.CUSTOM_FIELDS
+        assert state is PageState.HAS_FIELDS
 
     def test_multiple_barcodes_one_separator(self):
         """Uno de varios barcodes con rol separator activa SEPARATOR_BARCODE."""
@@ -1006,9 +1006,9 @@ class TestDocumentViewer:
         qtbot.addWidget(viewer)
 
         viewer.set_image(color_image, PageState.NO_RECOGNITION)
-        viewer.set_state(PageState.CUSTOM_FIELDS)
+        viewer.set_state(PageState.HAS_FIELDS)
         style = viewer.styleSheet()
-        assert "#1e88e5" in style  # azul para CUSTOM_FIELDS
+        assert "#1e88e5" in style  # azul para HAS_FIELDS
 
     def test_clear_removes_pixmap(self, qtbot, color_image):
         viewer = DocumentViewer()

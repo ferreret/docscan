@@ -89,7 +89,7 @@ class TransferService:
 
         Args:
             pages: Lista de dicts con keys: image_path, page_index,
-                   index_fields, ocr_text, custom_fields.
+                   fields, ocr_text.
             config: Configuración de transferencia.
             batch_fields: Campos del lote (para interpolación).
             batch_id: ID del lote (para nombres de fichero).
@@ -320,7 +320,7 @@ class TransferService:
         if not csv_fields:
             # Auto-detectar de los campos indexados de la primera página
             if pages:
-                index_fields = pages[0].get("index_fields", {})
+                index_fields = pages[0].get("fields", {})
                 csv_fields = list(index_fields.keys())
 
         headers = ["page_index", "image_path"] + csv_fields
@@ -338,7 +338,7 @@ class TransferService:
                         "page_index": page_data.get("page_index", ""),
                         "image_path": page_data.get("image_path", ""),
                     }
-                    index_fields = page_data.get("index_fields", {})
+                    index_fields = page_data.get("fields", {})
                     for field_name in csv_fields:
                         row[field_name] = index_fields.get(field_name, "")
 
@@ -406,7 +406,6 @@ class TransferService:
         metadata = {
             "page_index": page.get("page_index"),
             "ocr_text": page.get("ocr_text", ""),
-            "custom_fields": page.get("custom_fields", {}),
-            "index_fields": page.get("index_fields", {}),
+            "fields": page.get("fields", {}),
         }
         meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
