@@ -418,7 +418,6 @@ class TestProcessFiles:
         page.page_index = index
         page.ocr_text = ""
         page.index_fields_json = "{}"
-        page.index_fields_json = "{}"
         page.needs_review = False
         page.review_reason = ""
         page.processing_errors_json = "[]"
@@ -838,7 +837,6 @@ class TestTransferBatch:
         included_page.page_index = 0
         included_page.index_fields_json = "{}"
         included_page.ocr_text = ""
-        included_page.index_fields_json = "{}"
 
         (batch_svc, transfer_svc, notification_svc,
          script_engine, session, app_ctx, batch_ctx) = self._make_transfer_context(tmp_path)

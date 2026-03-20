@@ -52,7 +52,6 @@ class _PageCtx:
     image: np.ndarray | None = None
     barcodes: list[Any] = field(default_factory=list)
     ocr_text: str = ""
-    fields: dict[str, Any] = field(default_factory=dict)
     flags: _Flags = field(default_factory=_Flags)
     fields: dict[str, Any] = field(default_factory=dict)
 

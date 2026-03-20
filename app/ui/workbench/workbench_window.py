@@ -865,7 +865,7 @@ class WorkbenchWindow(QMainWindow):
         state = determine_page_state(
             needs_review=page_ctx.flags.needs_review,
             barcodes=page_ctx.barcodes,
-            fields_json="{}" if not page_ctx.fields else "{x}",
+            fields_json=json.dumps(page_ctx.fields) if page_ctx.fields else "{}",
         )
         self._thumbnail_panel.update_thumbnail_state(page_index, state)
 
