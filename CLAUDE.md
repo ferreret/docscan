@@ -56,10 +56,10 @@ ruff format app/
 
 ### Pipeline -- the central processing model
 
-Each page is processed through a **dynamic, composable pipeline**: an ordered list of steps defined per application. Step types: `image_op`, `barcode`, `ocr`, `ai`, `script`, `condition`, `http_request`.
+Each page is processed through a **dynamic, composable pipeline**: an ordered list of steps defined per application. Step types: `image_op`, `barcode`, `ocr`, `script`.
 
 Key files:
-- `app/pipeline/steps.py` -- dataclasses for all step types (PipelineStep, ImageOpStep, BarcodeStep, OcrStep, AiStep, ScriptStep, ConditionStep, HttpRequestStep)
+- `app/pipeline/steps.py` -- dataclasses for all step types (PipelineStep, ImageOpStep, BarcodeStep, OcrStep, ScriptStep)
 - `app/pipeline/context.py` -- PipelineContext with flow control (skip_step, skip_to, abort, repeat_step, replace_image, get/set_metadata)
 - `app/pipeline/executor.py` -- PipelineExecutor (stateless between pages, one instance per app)
 - `app/pipeline/serializer.py` -- JSON <-> list[PipelineStep] (serialize/deserialize)
@@ -72,7 +72,7 @@ Defined in Events tab, executed outside the pipeline: `on_app_start`, `on_app_en
 
 ### Script context
 
-All scripts (ScriptStep + lifecycle events) receive: `app` (AppContext), `batch` (BatchContext), `page` (PageContext with `.barcodes`, `.ocr_text`, `.ai_fields`, `.flags`), `pipeline` (PipelineContext -- only in ScriptStep). Built-in: `log`, `http` (httpx), `re`, `json`, `datetime`, `Path`.
+All scripts (ScriptStep + lifecycle events) receive: `app` (AppContext), `batch` (BatchContext), `page` (PageContext with `.barcodes`, `.ocr_text`, `.fields`, `.flags`), `pipeline` (PipelineContext -- only in ScriptStep). Built-in: `log`, `http` (httpx), `re`, `json`, `datetime`, `Path`.
 
 ### Key services
 
@@ -120,7 +120,7 @@ SQLite with **mandatory WAL mode** for UI + DocScanWorker concurrency. Repositor
 7. `app/services/script_engine.py`
 8. `app/services/image_pipeline.py`
 9. `app/services/barcode_service.py`
-10. `app/providers/` + `app/services/ai_service.py` + `app/services/ocr_service.py`
+10. `app/providers/` + `app/services/ocr_service.py`
 11. `app/pipeline/executor.py`
 12. `app/services/scanner_service.py`
 13. `app/services/import_service.py`

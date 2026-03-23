@@ -147,7 +147,6 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                 log.error("Error pipeline página %d: %s", page_db.page_index, exc)
 
             page_db.ocr_text = page_ctx.ocr_text
-            page_db.ai_fields_json = json.dumps(page_ctx.ai_fields)
             page_db.index_fields_json = json.dumps(page_ctx.fields)
             page_db.needs_review = page_ctx.flags.needs_review
             page_db.processing_errors_json = json.dumps(
@@ -171,9 +170,8 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                 {
                     "image_path": p.image_path,
                     "page_index": p.page_index,
-                    "index_fields": json.loads(p.index_fields_json),
+                    "fields": json.loads(p.index_fields_json),
                     "ocr_text": p.ocr_text,
-                    "ai_fields": json.loads(p.ai_fields_json),
                 }
                 for p in pages_db
             ]
@@ -193,6 +191,39 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
             log.warning("Sin destino de transferencia configurado")
 
     return 0
+
+
+def _run_init_global(session_factory) -> None:
+    """Busca y ejecuta init_global en las aplicaciones configuradas."""
+    _log = logging.getLogger(__name__)
+    from app.db.repositories.application_repo import ApplicationRepository
+    from app.services.script_engine import ScriptEngine
+
+    with session_factory() as session:
+        repo = ApplicationRepository(session)
+        apps = repo.get_all()
+        for app_record in apps:
+            if not app_record.active:
+                continue
+            try:
+                events = json.loads(app_record.events_json or "{}")
+            except Exception:
+                continue
+            source = events.get("init_global", "")
+            if source and source.strip():
+                engine = ScriptEngine()
+                try:
+                    engine.compile_script("init_global", source, "init_global")
+                    engine.run_event(
+                        script_id="init_global",
+                        entry_point="init_global",
+                    )
+                    _log.info(
+                        "init_global ejecutado desde app '%s'", app_record.name,
+                    )
+                except Exception as e:
+                    _log.error("Error en init_global: %s", e)
+                return  # Solo ejecutar una vez
 
 
 def main() -> int:
@@ -226,11 +257,17 @@ def main() -> int:
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName(settings.app_name)
 
-    # Aplicar tema
-    from app.ui.theme_manager import ThemeManager, Theme
+    # H1: Liberar engine al salir
+    qt_app.aboutToQuit.connect(lambda: engine.dispose())
+
+    # Aplicar tema (restaura preferencias guardadas)
+    from app.ui.theme_manager import ThemeManager
 
     theme_mgr = ThemeManager()
-    theme_mgr.apply_theme(Theme.DARK)
+    theme_mgr.apply_theme(theme_mgr.current_theme)
+
+    # Ejecutar init_global si alguna aplicación lo define
+    _run_init_global(session_factory)
 
     # Launcher
     from app.ui.launcher.launcher_window import LauncherWindow
@@ -246,6 +283,9 @@ def main() -> int:
         try:
             workbench = WorkbenchWindow(app_id, session_factory)
             workbench.closed.connect(launcher.show)
+            workbench.closed.connect(
+                lambda w=workbench: _workbenches.remove(w) if w in _workbenches else None
+            )
             _workbenches.append(workbench)
             launcher.hide()
             workbench.show()
@@ -285,6 +325,9 @@ def main() -> int:
                 app_id, session_factory, batch_id=batch_id,
             )
             workbench.closed.connect(launcher.show)
+            workbench.closed.connect(
+                lambda w=workbench: _workbenches.remove(w) if w in _workbenches else None
+            )
             _workbenches.append(workbench)
             launcher.hide()
             workbench.show()
@@ -302,6 +345,9 @@ def main() -> int:
         log.info("Abriendo gestor de lotes")
         bm = BatchManagerWindow(session_factory)
         bm.closed.connect(lambda: log.info("Gestor de lotes cerrado"))
+        bm.closed.connect(
+            lambda b=bm: _batch_managers.remove(b) if b in _batch_managers else None
+        )
         bm.open_batch_requested.connect(on_open_batch)
         _batch_managers.append(bm)
         bm.show()

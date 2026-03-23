@@ -10,7 +10,6 @@ from app.pipeline.serializer import (
     serialize,
 )
 from app.pipeline.steps import (
-    AiStep,
     BarcodeStep,
     ImageOpStep,
     OcrStep,
@@ -40,7 +39,6 @@ def sample_steps() -> list:
             script="def classify(app, batch, page, pipeline): pass",
         ),
         OcrStep(id="s4", engine="rapidocr", languages=["es", "en"]),
-        AiStep(id="s5", provider="anthropic", template_id=1),
     ]
 
 
@@ -140,7 +138,7 @@ class TestPipelineContext:
         ids = []
         while ctx.has_next():
             ids.append(ctx.next_step().id)
-        assert ids == ["s1", "s2", "s3", "s4", "s5"]
+        assert ids == ["s1", "s2", "s3", "s4"]
 
     def test_skip_step(self, sample_steps):
         ctx = PipelineContext(sample_steps)

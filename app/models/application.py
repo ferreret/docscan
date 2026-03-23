@@ -43,7 +43,10 @@ class Application(Base):
     background_color: Mapped[str] = mapped_column(String(7), default="")
     output_format: Mapped[str] = mapped_column(String(20), default="tiff")
     default_tab: Mapped[str] = mapped_column(String(20), default="lote")
-    scanner_backend: Mapped[str] = mapped_column(String(10), default="twain")
+    scanner_backend: Mapped[str] = mapped_column(String(10), default="")
+
+    # Configuración de imagen (formato, DPI, compresión)
+    image_config_json: Mapped[str] = mapped_column(Text, default="{}")
 
     # IA / OCR
     ai_config_json: Mapped[str] = mapped_column(Text, default="{}")

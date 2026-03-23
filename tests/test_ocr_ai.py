@@ -1,16 +1,12 @@
-"""Tests de OcrService y AiService."""
+"""Tests de OcrService."""
 
 from __future__ import annotations
-
-from typing import Any
 
 import cv2
 import numpy as np
 import pytest
 
 from app.services.ocr_service import OcrService
-from app.services.ai_service import AiService
-from app.providers.base_provider import BaseProvider
 
 
 # ------------------------------------------------------------------
@@ -26,23 +22,6 @@ def _make_text_image(text: str = "Hello World 123") -> np.ndarray:
         cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 3,
     )
     return img
-
-
-class MockProvider(BaseProvider):
-    """Proveedor mock para tests sin API externa."""
-
-    def __init__(self, fields: dict[str, str] | None = None) -> None:
-        self._fields = fields or {"numero": "12345"}
-
-    def extract_fields(
-        self, image: Any, prompt: str, fields: list[dict[str, str]],
-    ) -> dict[str, str]:
-        return {f["name"]: self._fields.get(f["name"], "") for f in fields}
-
-    def classify_document(
-        self, image: Any, classes: list[str],
-    ) -> str:
-        return classes[0] if classes else ""
 
 
 # ------------------------------------------------------------------
@@ -87,74 +66,3 @@ class TestOcrService:
         blank = np.ones((100, 200, 3), dtype=np.uint8) * 255
         text = service.recognize(blank, engine="unknown_engine")
         assert text == ""
-
-
-# ------------------------------------------------------------------
-# AI Service
-# ------------------------------------------------------------------
-
-
-class TestAiService:
-    def test_extract_with_mock_provider(self):
-        provider = MockProvider(fields={"numero": "F-2024-001"})
-        service = AiService(providers={"mock": provider})
-
-        template = {
-            "prompt": "Extrae los campos",
-            "fields": [
-                {"name": "numero", "type": "text", "description": "Número"},
-            ],
-        }
-        service._template_loader = lambda tid: template
-
-        img = np.ones((100, 100, 3), dtype=np.uint8)
-        result = service.extract(img, provider="mock", template_id=1)
-        assert result["numero"] == "F-2024-001"
-
-    def test_classify_with_mock_provider(self):
-        provider = MockProvider()
-        service = AiService(providers={"mock": provider})
-
-        img = np.ones((100, 100, 3), dtype=np.uint8)
-        result = service.classify(
-            img, provider="mock",
-            classes=["factura", "albarán", "contrato"],
-        )
-        assert result == "factura"
-
-    def test_local_ocr_provider(self):
-        ocr = OcrService()
-        service = AiService(ocr_service=ocr)
-
-        img = _make_text_image("Factura 12345")
-        result = service.extract(img, provider="local_ocr")
-        assert "ocr_text" in result
-        assert len(result["ocr_text"]) > 0
-
-    def test_unknown_provider_raises(self):
-        service = AiService()
-        img = np.ones((100, 100, 3), dtype=np.uint8)
-        with pytest.raises(ValueError, match="no configurado"):
-            service.extract(img, provider="nonexistent", template_id=1)
-
-    def test_missing_template_raises(self):
-        provider = MockProvider()
-        service = AiService(providers={"mock": provider})
-        img = np.ones((100, 100, 3), dtype=np.uint8)
-        with pytest.raises(ValueError, match="no encontrada"):
-            service.extract(img, provider="mock", template_id=999)
-
-    def test_register_provider(self):
-        service = AiService()
-        provider = MockProvider()
-        service.register_provider("test", provider)
-
-        template = {
-            "prompt": "Test",
-            "fields": [{"name": "x", "type": "text"}],
-        }
-        service._template_loader = lambda tid: template
-
-        img = np.ones((100, 100, 3), dtype=np.uint8)
-        result = service.extract(img, provider="test", template_id=1)
-        assert isinstance(result, dict)

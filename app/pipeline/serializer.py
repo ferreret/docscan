@@ -12,7 +12,7 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from app.pipeline.steps import STEP_TYPE_MAP, PipelineStep
+from app.pipeline.steps import REMOVED_STEP_TYPES, STEP_TYPE_MAP, PipelineStep
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +63,9 @@ def deserialize(json_str: str) -> list[PipelineStep]:
             raise PipelineSerializationError(
                 f"Paso {i}: se esperaba un objeto, se obtuvo {type(data).__name__}"
             )
-        steps.append(_dict_to_step(data, index=i))
+        step = _dict_to_step(data, index=i)
+        if step is not None:
+            steps.append(step)
 
     return steps
 
@@ -78,18 +80,27 @@ def _step_to_dict(step: PipelineStep) -> dict[str, Any]:
     return data
 
 
-def _dict_to_step(data: dict[str, Any], index: int) -> PipelineStep:
+def _dict_to_step(data: dict[str, Any], index: int) -> PipelineStep | None:
     """Convierte un diccionario a la subclase correcta de PipelineStep.
 
     Args:
         data: Diccionario con los campos del paso.
         index: Posición en la lista (para mensajes de error).
+
+    Returns:
+        La subclase correcta de PipelineStep, o None si el tipo está
+        en REMOVED_STEP_TYPES (compatibilidad con pipelines antiguos).
     """
     step_type = data.get("type")
     if not step_type:
         raise PipelineSerializationError(
             f"Paso {index}: falta el campo 'type'"
         )
+
+    # Tolerancia: tipos eliminados se saltan (compatibilidad con pipelines antiguos)
+    if step_type in REMOVED_STEP_TYPES:
+        log.debug("Paso %d: tipo '%s' eliminado, saltando", index, step_type)
+        return None
 
     cls = STEP_TYPE_MAP.get(step_type)
     if cls is None:

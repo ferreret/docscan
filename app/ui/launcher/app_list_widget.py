@@ -31,6 +31,10 @@ TEXT_MARGIN_LEFT = AVATAR_MARGIN_LEFT + AVATAR_SIZE + 14
 class AppCardDelegate(QStyledItemDelegate):
     """Delegate que dibuja cada aplicación como una card visual."""
 
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._theme_manager = ThemeManager()
+
     def paint(self, painter: QPainter, option, index) -> None:
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -44,7 +48,7 @@ class AppCardDelegate(QStyledItemDelegate):
         is_active = app_data.get("active", True)
         is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
         is_hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-        is_dark = ThemeManager().is_dark
+        is_dark = self._theme_manager.is_dark
 
         # --- Colores según tema ---
         if is_dark:
@@ -53,7 +57,7 @@ class AppCardDelegate(QStyledItemDelegate):
                 bg_color = QColor("#3b3d52")
             text_color = QColor("#cdd6f4")
             subtext_color = QColor("#a6adc8")
-            date_color = QColor("#6c7086")
+            date_color = QColor("#a6adc8")
             avatar_bg = QColor("#585b70")
             avatar_text = QColor("#cdd6f4")
             active_color = QColor("#a6e3a1")
@@ -65,7 +69,7 @@ class AppCardDelegate(QStyledItemDelegate):
                 bg_color = QColor("#f4f5fa")
             text_color = QColor("#4c4f69")
             subtext_color = QColor("#6c6f85")
-            date_color = QColor("#9ca0b0")
+            date_color = QColor("#6c6f85")
             avatar_bg = QColor("#dce0e8")
             avatar_text = QColor("#4c4f69")
             active_color = QColor("#40a02b")

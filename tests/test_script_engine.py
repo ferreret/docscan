@@ -34,7 +34,7 @@ class MockPage:
     page_index: int = 0
     barcodes: list[MockBarcode] = field(default_factory=list)
     ocr_text: str = ""
-    ai_fields: dict[str, str] = field(default_factory=dict)
+    fields: dict[str, str] = field(default_factory=dict)
     flags: MockFlags = field(default_factory=MockFlags)
 
 

@@ -64,6 +64,7 @@ class LauncherWindow(QMainWindow):
         self._btn_new.setProperty("cssClass", "primary")
         self._btn_open = QPushButton("Abrir")
         self._btn_configure = QPushButton("Configurar")
+        self._btn_clone = QPushButton("Clonar")
         self._btn_delete = QPushButton("Eliminar")
         self._btn_delete.setProperty("cssClass", "danger")
         self._btn_refresh = QPushButton("Actualizar")
@@ -72,6 +73,7 @@ class LauncherWindow(QMainWindow):
         toolbar.addWidget(self._btn_new)
         toolbar.addWidget(self._btn_open)
         toolbar.addWidget(self._btn_configure)
+        toolbar.addWidget(self._btn_clone)
         toolbar.addWidget(self._btn_delete)
         toolbar.addSeparator()
         toolbar.addWidget(self._btn_refresh)
@@ -157,6 +159,7 @@ class LauncherWindow(QMainWindow):
         self._btn_new.clicked.connect(self._on_new_app)
         self._btn_open.clicked.connect(self._on_open_app)
         self._btn_configure.clicked.connect(self._on_configure_app)
+        self._btn_clone.clicked.connect(self._on_clone_app)
         self._btn_delete.clicked.connect(self._on_delete_app)
         self._btn_refresh.clicked.connect(self._load_apps)
         self._btn_batch_manager.clicked.connect(self.batch_manager_requested.emit)
@@ -252,15 +255,71 @@ class LauncherWindow(QMainWindow):
 
     def _on_open_app(self) -> None:
         app_id = self._app_list.selected_app_id()
-        if app_id is not None:
-            log.info("Abriendo aplicación %d", app_id)
-            self.app_opened.emit(app_id)
+        if app_id is None:
+            return
+        app_data = self._app_list.selected_app_data()
+        if app_data and not app_data.get("active", True):
+            QMessageBox.information(
+                self, "Aplicación inactiva",
+                "Esta aplicación está inactiva. Actívala desde "
+                "el configurador antes de abrirla.",
+            )
+            return
+        log.info("Abriendo aplicación %d", app_id)
+        self.app_opened.emit(app_id)
 
     def _on_configure_app(self) -> None:
         app_id = self._app_list.selected_app_id()
         if app_id is not None:
             log.info("Configurar aplicación %d", app_id)
             self.app_configure.emit(app_id)
+
+    def _on_clone_app(self) -> None:
+        """Clona la aplicación seleccionada."""
+        app_id = self._app_list.selected_app_id()
+        if app_id is None:
+            return
+
+        from app.db.repositories.application_repo import ApplicationRepository
+        from app.models.application import Application
+
+        with self._session_factory() as session:
+            repo = ApplicationRepository(session)
+            original = repo.get_by_id(app_id)
+            if original is None:
+                return
+
+            # Generar nombre único (una sola query)
+            existing_names = {a.name for a in repo.get_all()}
+            clone_name = f"{original.name} (copia)"
+            counter = 2
+            while clone_name in existing_names:
+                clone_name = f"{original.name} (copia {counter})"
+                counter += 1
+
+            clone = Application(
+                name=clone_name,
+                description=original.description,
+                active=original.active,
+                pipeline_json=original.pipeline_json,
+                events_json=original.events_json,
+                transfer_json=original.transfer_json,
+                batch_fields_json=original.batch_fields_json,
+                index_fields_json=original.index_fields_json,
+                auto_transfer=original.auto_transfer,
+                close_after_transfer=original.close_after_transfer,
+                background_color=original.background_color,
+                output_format=original.output_format,
+                default_tab=original.default_tab,
+                scanner_backend=original.scanner_backend,
+                image_config_json=original.image_config_json,
+                ai_config_json=original.ai_config_json,
+            )
+            repo.save(clone)
+            session.commit()
+
+        self._load_apps()
+        self._status_bar.showMessage(f"Aplicación clonada como '{clone_name}'", 3000)
 
     def _on_delete_app(self) -> None:
         app_id = self._app_list.selected_app_id()
@@ -309,4 +368,5 @@ class LauncherWindow(QMainWindow):
         has_selection = self._app_list.selected_app_id() is not None
         self._btn_open.setEnabled(has_selection)
         self._btn_configure.setEnabled(has_selection)
+        self._btn_clone.setEnabled(has_selection)
         self._btn_delete.setEnabled(has_selection)

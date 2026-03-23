@@ -7,18 +7,24 @@ Se almacenan en ``Application.events_json``.
 from __future__ import annotations
 
 import json
+import logging
 
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from app.models.application import Application
+from app.services.external_editor_service import detect_editor, edit_script
+
+log = logging.getLogger(__name__)
 
 # Entry points de ciclo de vida definidos en CLAUDE.md
 EVENT_NAMES = [
@@ -31,6 +37,7 @@ EVENT_NAMES = [
     "on_transfer_page",
     "on_navigate_prev",
     "on_navigate_next",
+    "on_navigate_script",
     "on_key_event",
     "init_global",
 ]
@@ -45,9 +52,25 @@ EVENT_DESCRIPTIONS = {
     "on_transfer_page": "Post-copia por página",
     "on_navigate_prev": "Navegación previa programable",
     "on_navigate_next": "Navegación siguiente programable",
+    "on_navigate_script": "Botón de navegación programable del visor",
     "on_key_event": "Tecla personalizada",
     "init_global": "Al iniciar el programa (script global del launcher)",
 }
+
+
+class _EditorWorker(QThread):
+    """Hilo para edición bloqueante en VS Code."""
+
+    finished = Signal(object)  # str | None
+
+    def __init__(self, code: str, event_name: str) -> None:
+        super().__init__()
+        self._code = code
+        self._event_name = event_name
+
+    def run(self) -> None:
+        result = edit_script(self._code, "event", self._event_name)
+        self.finished.emit(result)
 
 
 class EventsTab(QWidget):
@@ -57,6 +80,7 @@ class EventsTab(QWidget):
         super().__init__(parent)
         self._events: dict[str, str] = {}
         self._current_event: str = ""
+        self._editor_worker: _EditorWorker | None = None
         self._setup_ui()
         self._load_from_app(app)
 
@@ -72,6 +96,15 @@ class EventsTab(QWidget):
             self._event_combo.addItem(f"{name} — {desc}", name)
         top.addWidget(self._event_combo, 1)
         layout.addLayout(top)
+
+        # Barra con botón VS Code
+        code_bar = QHBoxLayout()
+        code_bar.addStretch()
+        self._btn_vscode = QPushButton("Abrir en VS Code")
+        self._btn_vscode.setVisible(detect_editor() is not None)
+        self._btn_vscode.clicked.connect(self._open_in_vscode)
+        code_bar.addWidget(self._btn_vscode)
+        layout.addLayout(code_bar)
 
         # Editor de código
         self._code_edit = QPlainTextEdit()
@@ -95,6 +128,8 @@ class EventsTab(QWidget):
         except Exception:
             self._events = {}
 
+        self._refresh_combo_labels()
+
         if EVENT_NAMES:
             self._current_event = EVENT_NAMES[0]
             self._code_edit.setPlainText(
@@ -109,12 +144,42 @@ class EventsTab(QWidget):
                 self._events[self._current_event] = code
             else:
                 self._events.pop(self._current_event, None)
+            self._refresh_combo_labels()
 
         # Cargar el nuevo
         self._current_event = self._event_combo.currentData()
         self._code_edit.setPlainText(
             self._events.get(self._current_event, "")
         )
+
+    def _refresh_combo_labels(self) -> None:
+        """Actualiza las etiquetas del combo marcando los eventos con código."""
+        self._event_combo.blockSignals(True)
+        for i in range(self._event_combo.count()):
+            name = self._event_combo.itemData(i)
+            desc = EVENT_DESCRIPTIONS.get(name, "")
+            has_code = bool(self._events.get(name, "").strip())
+            marker = "[*] " if has_code else ""
+            self._event_combo.setItemText(i, f"{marker}{name} — {desc}")
+        self._event_combo.blockSignals(False)
+
+    def _open_in_vscode(self) -> None:
+        """Lanza VS Code para editar el evento actual."""
+        self._btn_vscode.setEnabled(False)
+        self._btn_vscode.setText("Editando en VS Code...")
+        self._editor_worker = _EditorWorker(
+            self._code_edit.toPlainText(),
+            self._current_event,
+        )
+        self._editor_worker.finished.connect(self._on_editor_done)
+        self._editor_worker.start()
+
+    def _on_editor_done(self, result: str | None) -> None:
+        """Actualiza el código al volver de VS Code."""
+        self._btn_vscode.setEnabled(True)
+        self._btn_vscode.setText("Abrir en VS Code")
+        if result is not None:
+            self._code_edit.setPlainText(result)
 
     def apply_to(self, app: Application) -> None:
         """Guarda los eventos en el JSON de la aplicación."""

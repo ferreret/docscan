@@ -63,6 +63,7 @@ class BatchManagerWindow(QMainWindow):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self._session_factory = session_factory
         self._selected_batch_id: int | None = None
 
@@ -396,3 +397,4 @@ class BatchManagerWindow(QMainWindow):
         self._refresh_timer.stop()
         self.closed.emit()
         super().closeEvent(event)
+        self.deleteLater()

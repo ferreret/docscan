@@ -55,14 +55,14 @@ class PageContext:
 
     Compatible duck-type con los accesos que hace el executor:
     ``page.image``, ``page.barcodes``, ``page.ocr_text``,
-    ``page.ai_fields``, ``page.flags``.
+    ``page.flags``.
     """
 
     page_index: int
     image: np.ndarray | None = None
+    image_replaced: bool = False
     barcodes: list[BarcodeResult] = field(default_factory=list)
     ocr_text: str = ""
-    ai_fields: dict[str, Any] = field(default_factory=dict)
     flags: PageFlags = field(default_factory=PageFlags)
     fields: dict[str, Any] = field(default_factory=dict)
 
@@ -74,6 +74,9 @@ class BatchContext:
     id: int = 0
     fields: dict[str, Any] = field(default_factory=dict)
     state: str = "created"
+    page_count: int = 0
+    folder_path: str = ""
+    hostname: str = ""
 
 
 @dataclass
@@ -84,6 +87,11 @@ class AppContext:
     name: str = ""
     description: str = ""
     config: dict[str, Any] = field(default_factory=dict)
+    batch_fields_def: list[dict[str, Any]] = field(default_factory=list)
+    transfer_config: dict[str, Any] = field(default_factory=dict)
+    pipeline_steps: list[dict[str, Any]] = field(default_factory=list)
+    auto_transfer: bool = False
+    output_format: str = "tiff"
 
 
 # ------------------------------------------------------------------

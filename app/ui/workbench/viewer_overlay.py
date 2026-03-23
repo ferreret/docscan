@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 log = logging.getLogger(__name__)
 
-_SZ = 24  # Tamaño base de los iconos
+_SZ = 32  # Tamaño base de los iconos
 
 
 def _pm() -> QPixmap:
@@ -41,14 +41,12 @@ def _icon_first(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    # Barra izquierda
-    p.drawLine(5, 6, 5, 18)
-    # Dos triángulos <<
-    p.drawLine(14, 6, 8, 12)
-    p.drawLine(8, 12, 14, 18)
-    p.drawLine(20, 6, 14, 12)
-    p.drawLine(14, 12, 20, 18)
+    p.setPen(_pen(color, 3.0))
+    p.drawLine(7, 8, 7, 24)
+    p.drawLine(19, 8, 11, 16)
+    p.drawLine(11, 16, 19, 24)
+    p.drawLine(27, 8, 19, 16)
+    p.drawLine(19, 16, 27, 24)
     p.end()
     return QIcon(pm)
 
@@ -57,9 +55,9 @@ def _icon_prev(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawLine(16, 5, 8, 12)
-    p.drawLine(8, 12, 16, 19)
+    p.setPen(_pen(color, 3.0))
+    p.drawLine(21, 7, 11, 16)
+    p.drawLine(11, 16, 21, 25)
     p.end()
     return QIcon(pm)
 
@@ -68,9 +66,9 @@ def _icon_next(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawLine(8, 5, 16, 12)
-    p.drawLine(16, 12, 8, 19)
+    p.setPen(_pen(color, 3.0))
+    p.drawLine(11, 7, 21, 16)
+    p.drawLine(21, 16, 11, 25)
     p.end()
     return QIcon(pm)
 
@@ -79,48 +77,70 @@ def _icon_last(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    # Dos triángulos >>
-    p.drawLine(4, 6, 10, 12)
-    p.drawLine(10, 12, 4, 18)
-    p.drawLine(10, 6, 16, 12)
-    p.drawLine(16, 12, 10, 18)
-    # Barra derecha
-    p.drawLine(19, 6, 19, 18)
+    p.setPen(_pen(color, 3.0))
+    p.drawLine(5, 8, 13, 16)
+    p.drawLine(13, 16, 5, 24)
+    p.drawLine(13, 8, 21, 16)
+    p.drawLine(21, 16, 13, 24)
+    p.drawLine(25, 8, 25, 24)
     p.end()
     return QIcon(pm)
 
 
-def _icon_next_bc(color: str = "#cdd6f4") -> QIcon:
-    """Siguiente con barcode: triángulo + barras verticales."""
+def _icon_nav_script(color: str = "#cdd6f4") -> QIcon:
+    """Flecha + engranaje: navegación programable."""
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    # Flecha derecha pequeña
+    p.setPen(_pen(color, 2.5))
+    p.drawLine(4, 10, 12, 16)
+    p.drawLine(12, 16, 4, 22)
+    # Engranaje simplificado (círculo con muescas)
     p.setPen(_pen(color, 2.0))
-    # Triángulo
-    p.drawLine(3, 6, 10, 12)
-    p.drawLine(10, 12, 3, 18)
-    # Mini barras de barcode
-    for bx in (14, 17, 19, 21):
-        p.drawLine(bx, 7, bx, 17)
+    p.drawEllipse(QPoint(22, 16), 5, 5)
+    for angle_offset in range(0, 360, 60):
+        import math
+        rad = math.radians(angle_offset)
+        x1 = 22 + int(6 * math.cos(rad))
+        y1 = 16 + int(6 * math.sin(rad))
+        x2 = 22 + int(8 * math.cos(rad))
+        y2 = 16 + int(8 * math.sin(rad))
+        p.drawLine(x1, y1, x2, y2)
+    p.end()
+    return QIcon(pm)
+
+
+def _icon_next_barcode(color: str = "#cdd6f4") -> QIcon:
+    """Flecha + líneas verticales: siguiente con barcode."""
+    pm = _pm()
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(_pen(color, 2.5))
+    # Flecha derecha
+    p.drawLine(4, 10, 12, 16)
+    p.drawLine(12, 16, 4, 22)
+    # Barcode simplificado (líneas verticales)
+    p.setPen(_pen(color, 2.0))
+    for x in (18, 21, 23, 26, 28):
+        p.drawLine(x, 9, x, 23)
     p.end()
     return QIcon(pm)
 
 
 def _icon_next_review(color: str = "#cdd6f4") -> QIcon:
-    """Siguiente pendiente: triángulo + signo de exclamación."""
+    """Flecha + signo de exclamación: siguiente pendiente de revisión."""
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.0))
-    # Triángulo
-    p.drawLine(3, 6, 10, 12)
-    p.drawLine(10, 12, 3, 18)
+    p.setPen(_pen(color, 2.5))
+    # Flecha derecha
+    p.drawLine(4, 10, 12, 16)
+    p.drawLine(12, 16, 4, 22)
     # Exclamación
-    pen2 = _pen("#fb8c00", 2.5)
-    p.setPen(pen2)
-    p.drawLine(18, 6, 18, 14)
-    p.drawPoint(18, 18)
+    p.setPen(_pen("#e53935", 3.0))
+    p.drawLine(24, 8, 24, 18)
+    p.drawPoint(24, 23)
     p.end()
     return QIcon(pm)
 
@@ -131,13 +151,11 @@ def _icon_zoom_in(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.0))
-    # Lupa
-    p.drawEllipse(QPoint(10, 10), 7, 7)
-    p.drawLine(15, 15, 21, 21)
-    # +
-    p.drawLine(7, 10, 13, 10)
-    p.drawLine(10, 7, 10, 13)
+    p.setPen(_pen(color, 2.5))
+    p.drawEllipse(QPoint(13, 13), 9, 9)
+    p.drawLine(20, 20, 28, 28)
+    p.drawLine(9, 13, 17, 13)
+    p.drawLine(13, 9, 13, 17)
     p.end()
     return QIcon(pm)
 
@@ -146,11 +164,10 @@ def _icon_zoom_out(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.0))
-    p.drawEllipse(QPoint(10, 10), 7, 7)
-    p.drawLine(15, 15, 21, 21)
-    # -
-    p.drawLine(7, 10, 13, 10)
+    p.setPen(_pen(color, 2.5))
+    p.drawEllipse(QPoint(13, 13), 9, 9)
+    p.drawLine(20, 20, 28, 28)
+    p.drawLine(9, 13, 17, 13)
     p.end()
     return QIcon(pm)
 
@@ -160,15 +177,13 @@ def _icon_zoom_fit(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.0))
-    # Cuadrado central
-    p.drawRect(7, 7, 10, 10)
-    # Esquinas con flechitas
+    p.setPen(_pen(color, 2.5))
+    p.drawRect(9, 9, 14, 14)
     for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
-        cx = 12 + dx * 8
-        cy = 12 + dy * 8
-        tx = 12 + dx * 5
-        ty = 12 + dy * 5
+        cx = 16 + dx * 11
+        cy = 16 + dy * 11
+        tx = 16 + dx * 7
+        ty = 16 + dy * 7
         p.drawLine(cx, cy, tx, ty)
     p.end()
     return QIcon(pm)
@@ -180,7 +195,7 @@ def _icon_zoom_100(color: str = "#cdd6f4") -> QIcon:
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-    font = QFont("Segoe UI", 9)
+    font = QFont("Segoe UI", 12)
     font.setBold(True)
     p.setFont(font)
     p.setPen(QColor(color))
@@ -195,12 +210,10 @@ def _icon_rotate(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.0))
-    # Arco (3/4 de círculo)
-    p.drawArc(4, 4, 16, 16, 30 * 16, 300 * 16)
-    # Flecha en la punta
-    p.drawLine(18, 5, 20, 10)
-    p.drawLine(18, 5, 14, 6)
+    p.setPen(_pen(color, 2.5))
+    p.drawArc(5, 5, 22, 22, 30 * 16, 300 * 16)
+    p.drawLine(24, 7, 27, 13)
+    p.drawLine(24, 7, 19, 8)
     p.end()
     return QIcon(pm)
 
@@ -210,13 +223,11 @@ def _icon_mark(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.0))
-    # Mástil
-    p.drawLine(6, 4, 6, 20)
-    # Bandera triangular
-    p.setPen(_pen("#fb8c00", 2.0))
+    p.setPen(_pen(color, 2.5))
+    p.drawLine(8, 5, 8, 27)
+    p.setPen(_pen("#fb8c00", 2.5))
     p.setBrush(QColor("#fb8c00"))
-    pts = [QPoint(7, 5), QPoint(19, 9), QPoint(7, 13)]
+    pts = [QPoint(9, 6), QPoint(25, 12), QPoint(9, 17)]
     p.drawPolygon(pts)
     p.end()
     return QIcon(pm)
@@ -227,9 +238,9 @@ def _icon_delete_current(color: str = "#e53935") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawLine(6, 6, 18, 18)
-    p.drawLine(18, 6, 6, 18)
+    p.setPen(_pen(color, 3.0))
+    p.drawLine(8, 8, 24, 24)
+    p.drawLine(24, 8, 8, 24)
     p.end()
     return QIcon(pm)
 
@@ -239,12 +250,11 @@ def _icon_delete_from(color: str = "#e53935") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.0))
-    # Tijera: dos arcos + centro
-    p.drawEllipse(QPoint(7, 17), 4, 4)
-    p.drawEllipse(QPoint(17, 17), 4, 4)
-    p.drawLine(9, 14, 17, 4)
-    p.drawLine(15, 14, 7, 4)
+    p.setPen(_pen(color, 2.5))
+    p.drawEllipse(QPoint(9, 23), 5, 5)
+    p.drawEllipse(QPoint(23, 23), 5, 5)
+    p.drawLine(12, 19, 23, 5)
+    p.drawLine(20, 19, 9, 5)
     p.end()
     return QIcon(pm)
 
@@ -253,14 +263,15 @@ def _make_button(
     icon: QIcon,
     tooltip: str,
     *,
-    width: int = 30,
+    width: int = 38,
     obj_name: str = "",
 ) -> QPushButton:
     """Crea un botón con icono pintado para el overlay."""
     btn = QPushButton()
     btn.setIcon(icon)
+    btn.setIconSize(btn.iconSize().expandedTo(QPixmap(_SZ, _SZ).size()))
     btn.setToolTip(tooltip)
-    btn.setFixedSize(width, 26)
+    btn.setFixedSize(width, 36)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     if obj_name:
         btn.setObjectName(obj_name)
@@ -272,7 +283,7 @@ class ViewerOverlay(QWidget):
 
     Signals:
         nav_first, nav_prev, nav_next, nav_last: Navegación básica.
-        nav_next_barcode, nav_next_review: Navegación inteligente.
+        nav_script: Navegación programable por script.
         zoom_in, zoom_out, zoom_fit, zoom_100: Control de zoom.
         rotate_requested: Rotar 90°.
         mark_requested: Marcar/desmarcar página.
@@ -287,6 +298,7 @@ class ViewerOverlay(QWidget):
     nav_last = Signal()
     nav_next_barcode = Signal()
     nav_next_review = Signal()
+    nav_script = Signal()
 
     # Zoom
     zoom_in_requested = Signal()
@@ -318,29 +330,34 @@ class ViewerOverlay(QWidget):
         self._lbl_page_info = QLabel(" 0 / 0 ")
         self._lbl_page_info.setObjectName("pageInfoLabel")
         self._lbl_page_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_page_info.setMinimumWidth(60)
+        self._lbl_page_info.setMinimumWidth(90)
         self._btn_next = _make_button(_icon_next(c), "Siguiente (Right)")
         self._btn_last = _make_button(_icon_last(c), "Última página (End)")
+
+        self._btn_next_bc = _make_button(
+            _icon_next_barcode(c), "Siguiente con barcode",
+        )
+        self._btn_next_review = _make_button(
+            _icon_next_review(c), "Siguiente pendiente revisión",
+        )
 
         layout.addWidget(self._btn_first)
         layout.addWidget(self._btn_prev)
         layout.addWidget(self._lbl_page_info)
         layout.addWidget(self._btn_next)
         layout.addWidget(self._btn_last)
+        layout.addWidget(self._btn_next_bc)
+        layout.addWidget(self._btn_next_review)
 
         # Separador
         layout.addSpacing(6)
         layout.addWidget(self._separator())
 
-        # Navegación inteligente
-        self._btn_next_bc = _make_button(
-            _icon_next_bc(c), "Siguiente con barcode", width=30,
+        # Navegación programable
+        self._btn_nav_script = _make_button(
+            _icon_nav_script(c), "Navegación programable (script)",
         )
-        self._btn_next_review = _make_button(
-            _icon_next_review(c), "Siguiente pendiente revisión", width=30,
-        )
-        layout.addWidget(self._btn_next_bc)
-        layout.addWidget(self._btn_next_review)
+        layout.addWidget(self._btn_nav_script)
 
         layout.addSpacing(6)
         layout.addWidget(self._separator())
@@ -352,7 +369,7 @@ class ViewerOverlay(QWidget):
             _icon_zoom_fit(c), "Ajustar a página (Ctrl+F)",
         )
         self._btn_zoom_100 = _make_button(
-            _icon_zoom_100(c), "Tamaño real", width=34,
+            _icon_zoom_100(c), "Tamaño real", width=42,
         )
 
         layout.addWidget(self._btn_zoom_in)
@@ -387,6 +404,7 @@ class ViewerOverlay(QWidget):
         self._btn_last.clicked.connect(self.nav_last)
         self._btn_next_bc.clicked.connect(self.nav_next_barcode)
         self._btn_next_review.clicked.connect(self.nav_next_review)
+        self._btn_nav_script.clicked.connect(self.nav_script)
         self._btn_zoom_in.clicked.connect(self.zoom_in_requested)
         self._btn_zoom_out.clicked.connect(self.zoom_out_requested)
         self._btn_zoom_fit.clicked.connect(self.zoom_fit_requested)
@@ -406,8 +424,9 @@ class ViewerOverlay(QWidget):
         self._btn_prev.setIcon(_icon_prev(color))
         self._btn_next.setIcon(_icon_next(color))
         self._btn_last.setIcon(_icon_last(color))
-        self._btn_next_bc.setIcon(_icon_next_bc(color))
+        self._btn_next_bc.setIcon(_icon_next_barcode(color))
         self._btn_next_review.setIcon(_icon_next_review(color))
+        self._btn_nav_script.setIcon(_icon_nav_script(color))
         self._btn_zoom_in.setIcon(_icon_zoom_in(color))
         self._btn_zoom_out.setIcon(_icon_zoom_out(color))
         self._btn_zoom_fit.setIcon(_icon_zoom_fit(color))
@@ -418,6 +437,6 @@ class ViewerOverlay(QWidget):
     def _separator(self) -> QWidget:
         """Crea un separador vertical delgado."""
         sep = QWidget()
-        sep.setFixedSize(1, 20)
+        sep.setFixedSize(1, 28)
         sep.setObjectName("overlaySeparator")
         return sep

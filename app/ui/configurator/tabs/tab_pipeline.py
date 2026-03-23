@@ -10,7 +10,7 @@ import uuid
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -26,7 +26,6 @@ from app.models.application import Application
 from app.pipeline.serializer import serialize, deserialize
 from app.pipeline.steps import (
     STEP_TYPE_MAP,
-    AiStep,
     BarcodeStep,
     ImageOpStep,
     OcrStep,
@@ -41,7 +40,6 @@ STEP_TYPE_LABELS = {
     "image_op": "Imagen",
     "barcode": "Barcode",
     "ocr": "OCR",
-    "ai": "IA",
     "script": "Script",
 }
 
@@ -58,10 +56,6 @@ def _step_display_text(step: PipelineStep) -> str:
     elif isinstance(step, OcrStep):
         langs = ", ".join(step.languages)
         detail = f"{step.engine} [{langs}]"
-    elif isinstance(step, AiStep):
-        detail = f"{step.provider}"
-        if step.template_id:
-            detail += f" · plantilla {step.template_id}"
     elif isinstance(step, ScriptStep):
         detail = step.label or step.entry_point or "(sin nombre)"
     else:
@@ -84,7 +78,11 @@ class PipelineTab(QWidget):
         layout = QVBoxLayout(self)
 
         # Barra de acciones
-        actions_layout = QHBoxLayout()
+        actions_bar = QWidget()
+        actions_bar.setObjectName("pipelineToolbar")
+        actions_layout = QHBoxLayout(actions_bar)
+        actions_layout.setContentsMargins(4, 4, 4, 4)
+        actions_layout.setSpacing(6)
 
         self._type_combo = QComboBox()
         for type_key, label in STEP_TYPE_LABELS.items():
@@ -92,8 +90,10 @@ class PipelineTab(QWidget):
         actions_layout.addWidget(self._type_combo)
 
         self._btn_add = QPushButton("Añadir")
+        self._btn_add.setProperty("cssClass", "primary")
         self._btn_edit = QPushButton("Editar")
         self._btn_delete = QPushButton("Eliminar")
+        self._btn_delete.setProperty("cssClass", "danger")
         self._btn_toggle = QPushButton("On/Off")
         self._btn_up = QPushButton("↑")
         self._btn_down = QPushButton("↓")
@@ -104,10 +104,11 @@ class PipelineTab(QWidget):
         ):
             actions_layout.addWidget(btn)
 
-        layout.addLayout(actions_layout)
+        layout.addWidget(actions_bar)
 
         # Lista de pasos
         self._list = QListWidget()
+        self._list.setObjectName("pipelineStepList")
         self._list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
         layout.addWidget(self._list)
 
@@ -134,6 +135,7 @@ class PipelineTab(QWidget):
         self._list.clear()
         for step in self._steps:
             item = QListWidgetItem(_step_display_text(step))
+            item.setSizeHint(QSize(0, 38))
             self._list.addItem(item)
 
     def _selected_index(self) -> int | None:
@@ -216,14 +218,12 @@ class PipelineTab(QWidget):
         from app.ui.configurator.step_dialogs.image_op_dialog import ImageOpDialog
         from app.ui.configurator.step_dialogs.barcode_step_dialog import BarcodeStepDialog
         from app.ui.configurator.step_dialogs.ocr_step_dialog import OcrStepDialog
-        from app.ui.configurator.step_dialogs.ai_step_dialog import AiStepDialog
         from app.ui.configurator.step_dialogs.script_step_dialog import ScriptStepDialog
 
         dialogs = {
             "image_op": ImageOpDialog,
             "barcode": BarcodeStepDialog,
             "ocr": OcrStepDialog,
-            "ai": AiStepDialog,
             "script": ScriptStepDialog,
         }
         dialog_cls = dialogs.get(step.type)

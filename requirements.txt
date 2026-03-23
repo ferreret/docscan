@@ -1,43 +1,38 @@
 # UI
-PySide6>=6.7
+PySide6==6.10.2
 
 # ORM / BD
-SQLAlchemy>=2.0
-alembic
+SQLAlchemy==2.0.48
+alembic==1.18.4
 
 # Barcode
-pyzbar
-zxing-cpp
-opencv-python
+pyzbar==0.1.9
+zxing-cpp==3.0.0
+opencv-python==4.13.0.92
 
 # Imagen
-Pillow
+pillow==12.1.1
 
 # OCR
-rapidocr-onnxruntime
-pytesseract
+rapidocr-onnxruntime==1.2.3
+pytesseract==0.3.13
 
 # IA
-anthropic
-openai
+anthropic==0.84.0
+openai==2.26.0
 
 # PDF
-pymupdf
+PyMuPDF==1.27.1
 
 # HTTP / notificaciones
-httpx
+httpx==0.28.1
 
 # Automatización
-watchdog
-APScheduler
+watchdog==6.0.0
+APScheduler==3.11.2
 
 # Seguridad
-cryptography
+cryptography==46.0.5
 
 # Config
-pydantic-settings
-
-# Dev
-pytest
-pytest-qt
-ruff
+pydantic-settings==2.13.1

@@ -52,7 +52,6 @@ class _PageCtx:
     image: np.ndarray | None = None
     barcodes: list[Any] = field(default_factory=list)
     ocr_text: str = ""
-    ai_fields: dict[str, Any] = field(default_factory=dict)
     flags: _Flags = field(default_factory=_Flags)
     fields: dict[str, Any] = field(default_factory=dict)
 
@@ -62,12 +61,20 @@ class _BatchCtx:
     id: int = 0
     fields: dict[str, Any] = field(default_factory=dict)
     state: str = "created"
+    page_count: int = 0
+    folder_path: str = ""
+    hostname: str = ""
 
 
 @dataclass
 class _AppCtx:
     id: int = 0
     name: str = "test-app"
+    config: dict[str, Any] = field(default_factory=dict)
+    batch_fields_def: list[dict[str, Any]] = field(default_factory=list)
+    transfer_config: dict[str, Any] = field(default_factory=dict)
+    auto_transfer: bool = False
+    output_format: str = "tiff"
 
 
 # ------------------------------------------------------------------ #
@@ -84,7 +91,6 @@ def _make_executor(
     steps: list,
     barcode_service: Any = None,
     ocr_service: Any = None,
-    ai_service: Any = None,
     max_repeats: int = 3,
 ) -> PipelineExecutor:
     image_service = ImagePipelineService()
@@ -101,7 +107,6 @@ def _make_executor(
         script_engine=script_engine,
         barcode_service=barcode_service,
         ocr_service=ocr_service,
-        ai_service=ai_service,
         max_repeats=max_repeats,
     )
 
@@ -784,3 +789,112 @@ def run(app, batch, page, pipeline):
 
         assert page.flags.needs_review is True
         assert "forzado" in page.flags.review_reason
+
+
+# ------------------------------------------------------------------ #
+# 8. Scripts con contextos enriquecidos                                #
+# ------------------------------------------------------------------ #
+
+
+class TestEnrichedContexts:
+    """Scripts que leen campos enriquecidos de AppContext y BatchContext."""
+
+    def test_script_reads_app_config(self) -> None:
+        """Un script puede leer app.config y app.batch_fields_def."""
+        script_src = """
+def run(app, batch, page, pipeline):
+    page.fields['provider'] = app.config.get('provider', 'none')
+    page.fields['auto'] = app.auto_transfer
+    page.fields['format'] = app.output_format
+"""
+        steps = [
+            ScriptStep(id="s1", label="Lee config", entry_point="run", script=script_src),
+        ]
+        executor = _make_executor(steps)
+        page = _PageCtx(page_index=0, image=_white_image())
+        app_ctx = _AppCtx(id=1, name="test")
+        app_ctx.config = {"provider": "anthropic"}
+        app_ctx.auto_transfer = True
+        app_ctx.output_format = "png"
+
+        executor.execute(page, _BatchCtx(), app_ctx)
+
+        assert page.fields["provider"] == "anthropic"
+        assert page.fields["auto"] is True
+        assert page.fields["format"] == "png"
+
+    def test_script_reads_batch_enriched_fields(self) -> None:
+        """Un script puede leer batch.page_count, batch.hostname, batch.folder_path."""
+        script_src = """
+def run(app, batch, page, pipeline):
+    page.fields['count'] = batch.page_count
+    page.fields['host'] = batch.hostname
+    page.fields['state'] = batch.state
+"""
+        steps = [
+            ScriptStep(id="s1", label="Lee batch", entry_point="run", script=script_src),
+        ]
+        executor = _make_executor(steps)
+        page = _PageCtx(page_index=0, image=_white_image())
+        batch_ctx = _BatchCtx(id=1, state="read")
+        batch_ctx.page_count = 10
+        batch_ctx.hostname = "workstation-1"
+
+        executor.execute(page, batch_ctx, _AppCtx())
+
+        assert page.fields["count"] == 10
+        assert page.fields["host"] == "workstation-1"
+        assert page.fields["state"] == "read"
+
+
+# ------------------------------------------------------------------ #
+# 9. ScriptEngine: eventos de ciclo de vida                            #
+# ------------------------------------------------------------------ #
+
+
+class TestEventExecution:
+    """run_event ejecuta eventos con kwargs arbitrarios."""
+
+    def test_event_returns_value(self) -> None:
+        engine = ScriptEngine()
+        engine.compile_script("on_navigate_next", """
+def on_navigate_next(app, batch):
+    return 5
+""")
+        result = engine.run_event(
+            "on_navigate_next", entry_point="on_navigate_next",
+            app=_AppCtx(), batch=_BatchCtx(),
+        )
+        assert result == 5
+
+    def test_event_receives_extra_kwargs(self) -> None:
+        engine = ScriptEngine()
+        engine.compile_script("on_key_event", """
+def on_key_event(app, batch, key):
+    return f"pressed:{key}"
+""")
+        result = engine.run_event(
+            "on_key_event", entry_point="on_key_event",
+            app=_AppCtx(), batch=_BatchCtx(), key="F5",
+        )
+        assert result == "pressed:F5"
+
+    def test_uncompiled_event_returns_none(self) -> None:
+        engine = ScriptEngine()
+        result = engine.run_event(
+            "on_import", entry_point="on_import",
+            app=_AppCtx(), batch=_BatchCtx(),
+        )
+        assert result is None
+
+    def test_event_error_does_not_crash(self) -> None:
+        engine = ScriptEngine()
+        engine.compile_script("on_app_start", """
+def on_app_start(app, batch):
+    raise ValueError("boom")
+""")
+        result = engine.run_event(
+            "on_app_start", entry_point="on_app_start",
+            app=_AppCtx(), batch=_BatchCtx(),
+        )
+        assert result is None  # Error capturado, no crash

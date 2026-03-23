@@ -1,7 +1,7 @@
 """Visor principal de documentos (UI-02, UI-03, UI-04).
 
 QGraphicsView con zoom (rueda), arrastre, overlays semitransparentes
-de barcodes/campos IA, y borde coloreado por estado de página.
+de barcodes y borde coloreado por estado de página.
 """
 
 from __future__ import annotations
@@ -90,7 +90,8 @@ class DocumentViewer(QGraphicsView):
         self.clear_overlays()
 
         pixmap = ndarray_to_qpixmap(image)
-        if self._pixmap_item is None:
+        first_load = self._pixmap_item is None
+        if first_load:
             self._pixmap_item = self._scene.addPixmap(pixmap)
             self._pixmap_item.setTransformationMode(
                 Qt.TransformationMode.SmoothTransformation,
@@ -100,7 +101,14 @@ class DocumentViewer(QGraphicsView):
 
         self._scene.setSceneRect(self._pixmap_item.boundingRect())
         self._set_border_color(state)
-        self.fit_to_page()
+
+        if first_load:
+            # En la primera carga el layout puede no haberse resuelto aún;
+            # diferimos el ajuste al siguiente ciclo del event loop.
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, self.fit_to_page)
+        else:
+            self.fit_to_page()
 
     def set_state(self, state: PageState) -> None:
         """Actualiza solo el color del borde."""
@@ -119,7 +127,6 @@ class DocumentViewer(QGraphicsView):
     def set_overlays(
         self,
         barcodes: list | None = None,
-        ai_fields: dict | None = None,
     ) -> None:
         """Dibuja overlays sobre barcodes con colores distintos por cada uno."""
         self.clear_overlays()

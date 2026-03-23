@@ -349,7 +349,7 @@ class TestPageContext:
         assert page.image is None
         assert page.barcodes == []
         assert page.ocr_text == ""
-        assert page.ai_fields == {}
+        assert page.fields == {}
         assert isinstance(page.flags, PageFlags)
         assert page.fields == {}
 
@@ -371,11 +371,23 @@ class TestBatchContext:
         assert ctx.id == 0
         assert ctx.fields == {}
         assert ctx.state == "created"
+        assert ctx.page_count == 0
+        assert ctx.folder_path == ""
+        assert ctx.hostname == ""
 
     def test_custom(self):
         ctx = BatchContext(id=42, state="read", fields={"ref": "001"})
         assert ctx.id == 42
         assert ctx.state == "read"
+
+    def test_enriched_fields(self):
+        ctx = BatchContext(
+            id=10, state="read", fields={"ref": "X"},
+            page_count=5, folder_path="/tmp/batch", hostname="host1",
+        )
+        assert ctx.page_count == 5
+        assert ctx.folder_path == "/tmp/batch"
+        assert ctx.hostname == "host1"
 
 
 class TestAppContext:
@@ -385,11 +397,28 @@ class TestAppContext:
         assert ctx.name == ""
         assert ctx.description == ""
         assert ctx.config == {}
+        assert ctx.batch_fields_def == []
+        assert ctx.transfer_config == {}
+        assert ctx.auto_transfer is False
+        assert ctx.output_format == "tiff"
 
     def test_custom(self):
         ctx = AppContext(id=7, name="Facturas", description="Procesa facturas")
         assert ctx.id == 7
         assert ctx.name == "Facturas"
+
+    def test_enriched_fields(self):
+        ctx = AppContext(
+            id=1, name="App",
+            batch_fields_def=[{"name": "ref", "type": "text"}],
+            transfer_config={"mode": "folder", "destination": "/tmp"},
+            auto_transfer=True,
+            output_format="png",
+        )
+        assert len(ctx.batch_fields_def) == 1
+        assert ctx.transfer_config["mode"] == "folder"
+        assert ctx.auto_transfer is True
+        assert ctx.output_format == "png"
 
 
 # ==================================================================
@@ -616,7 +645,8 @@ class TestTransferWorker:
         mock_result.success = True
         mock_service.transfer.return_value = mock_result
 
-        config = MagicMock(spec_set=[])
+        config = MagicMock()
+        config.standard_enabled = True
         pages = [{"image_path": "/img/p1.tiff", "page_index": 0}]
         batch_fields = {"ref": "REF-001"}
 
@@ -633,12 +663,11 @@ class TestTransferWorker:
             worker.start()
 
         worker.wait()
-        mock_service.transfer.assert_called_once_with(
-            pages=pages,
-            config=config,
-            batch_fields=batch_fields,
-            batch_id=42,
-        )
+        call_kwargs = mock_service.transfer.call_args
+        assert call_kwargs.kwargs["pages"] == pages
+        assert call_kwargs.kwargs["config"] is config
+        assert call_kwargs.kwargs["batch_fields"] == batch_fields
+        assert call_kwargs.kwargs["batch_id"] == 42
 
 
 # ==================================================================
@@ -653,7 +682,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=True,
             barcodes=[bc],
-            ai_fields_json='{"campo": "valor"}',
+            fields_json='{"campo": "valor"}',
         )
         assert state is PageState.NEEDS_REVIEW
 
@@ -663,19 +692,19 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            ai_fields_json='{"campo": "valor"}',
+            fields_json='{"campo": "valor"}',
         )
         assert state is PageState.SEPARATOR_BARCODE
 
-    def test_ai_fields_priority_over_barcode_no_role(self):
+    def test_has_fields_priority_over_barcode_no_role(self):
         """Campos IA tienen prioridad sobre barcodes sin rol."""
         bc = BarcodeResult(role="")
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            ai_fields_json='{"nombre": "Juan"}',
+            fields_json='{"nombre": "Juan"}',
         )
-        assert state is PageState.AI_FIELDS
+        assert state is PageState.HAS_FIELDS
 
     def test_barcode_no_role(self):
         """Barcode sin rol devuelve BARCODE_NO_ROLE."""
@@ -683,7 +712,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[bc],
-            ai_fields_json="{}",
+            fields_json="{}",
         )
         assert state is PageState.BARCODE_NO_ROLE
 
@@ -692,7 +721,7 @@ class TestDeterminePageState:
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            ai_fields_json="{}",
+            fields_json="{}",
         )
         assert state is PageState.NO_RECOGNITION
 
@@ -706,32 +735,32 @@ class TestDeterminePageState:
         state = determine_page_state(needs_review=False, barcodes=None)
         assert state is PageState.NO_RECOGNITION
 
-    def test_ai_fields_json_null_is_no_recognition(self):
-        """ai_fields_json 'null' se trata como vacío."""
+    def test_fields_json_null_is_no_recognition(self):
+        """fields_json 'null' se trata como vacío."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            ai_fields_json="null",
+            fields_json="null",
         )
         assert state is PageState.NO_RECOGNITION
 
-    def test_ai_fields_json_empty_string(self):
-        """ai_fields_json '' se trata como vacío."""
+    def test_fields_json_empty_string(self):
+        """fields_json '' se trata como vacío."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            ai_fields_json="",
+            fields_json="",
         )
         assert state is PageState.NO_RECOGNITION
 
-    def test_ai_fields_non_empty(self):
-        """JSON no vacío activa el estado AI_FIELDS."""
+    def test_fields_non_empty(self):
+        """JSON no vacío activa el estado HAS_FIELDS."""
         state = determine_page_state(
             needs_review=False,
             barcodes=[],
-            ai_fields_json='{"key": "val"}',
+            fields_json='{"key": "val"}',
         )
-        assert state is PageState.AI_FIELDS
+        assert state is PageState.HAS_FIELDS
 
     def test_multiple_barcodes_one_separator(self):
         """Uno de varios barcodes con rol separator activa SEPARATOR_BARCODE."""
@@ -977,9 +1006,9 @@ class TestDocumentViewer:
         qtbot.addWidget(viewer)
 
         viewer.set_image(color_image, PageState.NO_RECOGNITION)
-        viewer.set_state(PageState.AI_FIELDS)
+        viewer.set_state(PageState.HAS_FIELDS)
         style = viewer.styleSheet()
-        assert "#1e88e5" in style  # azul para AI_FIELDS
+        assert "#1e88e5" in style  # azul para HAS_FIELDS
 
     def test_clear_removes_pixmap(self, qtbot, color_image):
         viewer = DocumentViewer()
@@ -1263,8 +1292,10 @@ class TestMetadataPanel:
     def test_creates_without_error(self, panel):
         assert panel is not None
 
-    def test_three_tabs(self, panel):
-        assert panel._tabs.count() == 3
+    def test_tabs_lote_and_log(self, panel):
+        assert panel._tabs.count() == 2
+        assert panel._tabs.tabText(0) == "Lote"
+        assert panel._tabs.tabText(1) == "Log"
 
     def test_configure_creates_batch_widgets(self, panel, batch_fields_def, index_fields_def):
         panel.configure(batch_fields_def, index_fields_def)
@@ -1272,11 +1303,6 @@ class TestMetadataPanel:
         assert "tipo" in panel._batch_widgets
         assert "activo" in panel._batch_widgets
         assert "cantidad" in panel._batch_widgets
-
-    def test_configure_creates_index_widgets(self, panel, batch_fields_def, index_fields_def):
-        panel.configure(batch_fields_def, index_fields_def)
-        assert "referencia" in panel._index_widgets
-        assert "fecha" in panel._index_widgets
 
     def test_configure_creates_correct_widget_types(self, panel, batch_fields_def, index_fields_def):
         from PySide6.QtWidgets import QLineEdit, QComboBox, QCheckBox, QSpinBox
@@ -1314,21 +1340,13 @@ class TestMetadataPanel:
         values = panel.get_batch_fields()
         assert values["cliente"] == "TestCliente"
 
-    def test_set_index_fields(self, panel, batch_fields_def, index_fields_def):
-        panel.configure(batch_fields_def, index_fields_def)
-        panel.set_index_fields({"referencia": "REF-2024-001"})
+    def test_set_index_fields_stub(self, panel):
+        """set_index_fields es un stub que no hace nada (pestaña desactivada)."""
+        panel.set_index_fields({"referencia": "REF-001"})  # No debe crashear
 
-        from PySide6.QtWidgets import QLineEdit
-
-        assert isinstance(panel._index_widgets["referencia"], QLineEdit)
-        assert panel._index_widgets["referencia"].text() == "REF-2024-001"
-
-    def test_get_index_fields(self, panel, batch_fields_def, index_fields_def):
-        panel.configure(batch_fields_def, index_fields_def)
-        panel.set_index_fields({"referencia": "REF-001"})
-
-        values = panel.get_index_fields()
-        assert values["referencia"] == "REF-001"
+    def test_get_index_fields_returns_empty(self, panel):
+        """get_index_fields retorna dict vacío (pestaña desactivada)."""
+        assert panel.get_index_fields() == {}
 
     def test_set_batch_fields_missing_key_uses_empty(self, panel, batch_fields_def, index_fields_def):
         panel.configure(batch_fields_def, index_fields_def)
@@ -1338,60 +1356,13 @@ class TestMetadataPanel:
 
         assert panel._batch_widgets["cliente"].text() == ""
 
-    def test_set_verification_data_ocr(self, panel):
+    def test_set_verification_data_stub(self, panel):
+        """set_verification_data es un stub que no crashea."""
         panel.set_verification_data(ocr_text="Texto OCR de prueba")
-        assert "Texto OCR de prueba" in panel._ocr_text.toPlainText()
-
-    def test_set_verification_data_ai_fields(self, panel):
-        panel.set_verification_data(ai_fields_json='{"nombre": "Juan", "importe": 100}')
-        text = panel._ai_text.toPlainText()
-        assert "Juan" in text
-        assert "importe" in text
-
-    def test_set_verification_data_ai_fields_invalid_json(self, panel):
-        """JSON inválido en ai_fields_json se muestra tal cual sin excepción."""
-        panel.set_verification_data(ai_fields_json="NO ES JSON")
-        assert "NO ES JSON" in panel._ai_text.toPlainText()
-
-    def test_set_verification_data_errors(self, panel):
-        panel.set_verification_data(errors_json='["Error tipo 1", "Error tipo 2"]')
-        text = panel._errors_text.toPlainText()
-        assert "Error tipo 1" in text
-        assert "Error tipo 2" in text
-
-    def test_set_verification_data_script_errors(self, panel):
-        panel.set_verification_data(
-            errors_json="[]",
-            script_errors_json='["Script error en paso 1"]',
-        )
-        text = panel._errors_text.toPlainText()
-        assert "Script error" in text
-
-    def test_set_verification_data_combines_errors(self, panel):
-        """Los errores de processing y script se combinan en el mismo texto."""
-        panel.set_verification_data(
-            errors_json='["Err A"]',
-            script_errors_json='["Err B"]',
-        )
-        text = panel._errors_text.toPlainText()
-        assert "Err A" in text
-        assert "Err B" in text
-
-    def test_set_verification_data_invalid_errors_json(self, panel):
-        """JSON inválido en errors_json no lanza excepción."""
-        panel.set_verification_data(errors_json="INVALID")  # no debe lanzar
 
     def test_set_default_tab_lote(self, panel):
         panel.set_default_tab("lote")
         assert panel._tabs.currentIndex() == 0
-
-    def test_set_default_tab_indexacion(self, panel):
-        panel.set_default_tab("indexacion")
-        assert panel._tabs.currentIndex() == 1
-
-    def test_set_default_tab_verificacion(self, panel):
-        panel.set_default_tab("verificacion")
-        assert panel._tabs.currentIndex() == 2
 
     def test_set_default_tab_unknown_defaults_to_lote(self, panel):
         panel.set_default_tab("desconocido")
@@ -1406,22 +1377,12 @@ class TestMetadataPanel:
 
         assert panel._batch_widgets["cliente"].text() == ""
 
-    def test_clear_resets_index_fields(self, panel, batch_fields_def, index_fields_def):
+    def test_clear_no_crash(self, panel, batch_fields_def, index_fields_def):
+        """clear() no crashea incluso sin widgets configurados."""
         panel.configure(batch_fields_def, index_fields_def)
-        panel.set_index_fields({"referencia": "REF-001"})
+        panel.set_batch_fields({"cliente": "Test"})
         panel.clear()
-
-        from PySide6.QtWidgets import QLineEdit
-
-        assert panel._index_widgets["referencia"].text() == ""
-
-    def test_clear_resets_verification_texts(self, panel):
-        panel.set_verification_data(ocr_text="texto OCR", ai_fields_json='{"x": 1}')
-        panel.clear()
-
-        assert panel._ocr_text.toPlainText() == ""
-        assert panel._ai_text.toPlainText() == ""
-        assert panel._errors_text.toPlainText() == ""
+        assert panel._batch_widgets["cliente"].text() == ""
 
     def test_batch_field_changed_signal(self, panel, batch_fields_def, index_fields_def, qtbot):
         panel.configure(batch_fields_def, index_fields_def)
@@ -1437,21 +1398,6 @@ class TestMetadataPanel:
 
         assert sig.args[0] == "cliente"
         assert sig.args[1] == "NuevoValor"
-
-    def test_index_field_changed_signal(self, panel, batch_fields_def, index_fields_def, qtbot):
-        panel.configure(batch_fields_def, index_fields_def)
-
-        from PySide6.QtWidgets import QLineEdit
-
-        widget = panel._index_widgets["referencia"]
-        assert isinstance(widget, QLineEdit)
-
-        with qtbot.waitSignal(panel.index_field_changed, timeout=1000) as sig:
-            widget.setText("REF-SEÑAL")
-            widget.editingFinished.emit()
-
-        assert sig.args[0] == "referencia"
-        assert sig.args[1] == "REF-SEÑAL"
 
     def test_configure_clears_previous_widgets(self, panel, batch_fields_def, index_fields_def):
         panel.configure(batch_fields_def, index_fields_def)
@@ -1653,10 +1599,8 @@ class TestWorkbenchWindow:
         workbench._update_lot_counters()  # no debe lanzar
 
     def test_metadata_panel_configured(self, workbench):
-        """Los campos de lote e indexación se configuran desde la app."""
-        # La app tiene batch_fields con "cliente" e index_fields con "referencia"
+        """Los campos de lote se configuran desde la app."""
         assert "cliente" in workbench._metadata_panel._batch_widgets
-        assert "referencia" in workbench._metadata_panel._index_widgets
 
     def test_default_tab_set_from_app(self, workbench):
         """La pestaña por defecto del panel de metadatos se configura desde la app."""
@@ -1698,3 +1642,32 @@ class TestWorkbenchWindow:
         """El radio button de importar está seleccionado por defecto."""
         assert workbench._radio_import.isChecked()
         assert not workbench._radio_scanner.isChecked()
+
+    def test_build_app_context_enriched(self, workbench):
+        """_build_app_context devuelve campos enriquecidos."""
+        ctx = workbench._build_app_context()
+        assert ctx.id == workbench._app_id
+        assert ctx.name == workbench._application.name
+        assert isinstance(ctx.config, dict)
+        assert isinstance(ctx.batch_fields_def, list)
+        assert isinstance(ctx.transfer_config, dict)
+        assert ctx.output_format == (workbench._application.output_format or "tiff")
+
+    def test_build_batch_context_enriched(self, workbench):
+        """_build_batch_context devuelve campos enriquecidos."""
+        ctx = workbench._build_batch_context()
+        assert ctx.id == workbench._batch_id
+        assert isinstance(ctx.fields, dict)
+        assert isinstance(ctx.state, str)
+
+    def test_fire_event_with_extra_kwargs(self, workbench):
+        """_fire_event pasa extra_ctx correctamente."""
+        result = workbench._fire_event("on_key_event", key="A")
+        assert result is None  # No hay script, pero no debe crashear
+
+    def test_source_type_combo_exists(self, workbench):
+        """El combo de source_type (ADF/Flatbed) existe en la toolbar."""
+        assert hasattr(workbench, "_combo_source_type")
+        assert workbench._combo_source_type.count() == 2
+        assert workbench._combo_source_type.itemData(0) == "flatbed"
+        assert workbench._combo_source_type.itemData(1) == "adf"

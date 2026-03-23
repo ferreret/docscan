@@ -45,6 +45,7 @@ class PipelineContext:
         self._results: dict[str, Any] = {}
         self._metadata: dict[str, Any] = {}
         self._current_image: np.ndarray | None = None
+        self._image_replaced: bool = False
         self._aborted: bool = False
         self._abort_reason: str = ""
 
@@ -131,13 +132,28 @@ class PipelineContext:
     # ------------------------------------------------------------------
 
     def replace_image(self, image: np.ndarray) -> None:
-        """Reemplaza la imagen en curso del pipeline."""
+        """Reemplaza la imagen en curso del pipeline.
+
+        Cuando se llama desde un script, marca la imagen como
+        modificada por el usuario (image_replaced=True) para que
+        se persista en disco al finalizar el pipeline.
+        """
+        self._current_image = image
+        self._image_replaced = True
+
+    def set_pipeline_image(self, image: np.ndarray) -> None:
+        """Uso interno del executor: actualiza la imagen sin marcar image_replaced."""
         self._current_image = image
 
     @property
     def current_image(self) -> np.ndarray | None:
         """Imagen actual (None si no se ha reemplazado)."""
         return self._current_image
+
+    @property
+    def image_replaced(self) -> bool:
+        """True si un script llamó a replace_image explícitamente."""
+        return self._image_replaced
 
     # ------------------------------------------------------------------
     # Resultados y metadatos

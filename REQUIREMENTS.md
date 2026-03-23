@@ -248,7 +248,7 @@ Entry points de ciclo de vida de la aplicación. Son distintos de los `ScriptSte
 app      # AppContext: nombre, descripción, config, propiedades custom
 batch    # BatchContext: campos de lote, lista de páginas, estado
 page     # PageContext: índice, imagen_b64, page.barcodes, page.ocr_text,
-         #   page.ai_fields, page.flags (needs_review, review_reason,
+         #   page.fields, page.flags (needs_review, review_reason,
          #   script_errors, processing_errors)
 pages    # list[PageContext]: todas las páginas del lote
 fields   # dict: alias de page.fields (campos de indexación de la página actual)

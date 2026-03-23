@@ -166,11 +166,18 @@ def _compile_lifecycle_events(
         return events
 
     for event_name, event_config in events_data.items():
-        if not isinstance(event_config, dict):
+        # Soportar ambos formatos:
+        #   - str: código fuente directo (formato de tab_events.py)
+        #   - dict: {"script": "...", "entry_point": "..."} (formato extendido)
+        if isinstance(event_config, str):
+            source = event_config
+            entry_point = event_name
+        elif isinstance(event_config, dict):
+            source = event_config.get("script", "")
+            entry_point = event_config.get("entry_point", event_name)
+        else:
             continue
-        source = event_config.get("script", "")
-        entry_point = event_config.get("entry_point", event_name)
-        if not source:
+        if not source or not source.strip():
             continue
         try:
             script_engine.compile_script(event_name, source, label=event_name)
@@ -290,7 +297,6 @@ def _process_files(
         # 5. Actualizar páginas en BD con resultados del pipeline
         for page_db, page_ctx in page_contexts:
             page_db.ocr_text = page_ctx.ocr_text
-            page_db.ai_fields_json = json.dumps(page_ctx.ai_fields)
             page_db.index_fields_json = json.dumps(page_ctx.fields)
             page_db.needs_review = page_ctx.flags.needs_review
             page_db.review_reason = page_ctx.flags.review_reason
@@ -390,9 +396,8 @@ def _transfer_batch(
         pages_data.append({
             "image_path": p.image_path,
             "page_index": p.page_index,
-            "index_fields": json.loads(p.index_fields_json),
+            "fields": json.loads(p.index_fields_json),
             "ocr_text": p.ocr_text,
-            "ai_fields": json.loads(p.ai_fields_json),
         })
 
     batch_fields = batch_svc.get_fields(batch_id)
@@ -505,7 +510,6 @@ def _process_pending_batches(
                     continue
 
                 page_db.ocr_text = page_ctx.ocr_text
-                page_db.ai_fields_json = json.dumps(page_ctx.ai_fields)
                 page_db.index_fields_json = json.dumps(page_ctx.fields)
                 page_db.needs_review = page_ctx.flags.needs_review
                 page_db.review_reason = page_ctx.flags.review_reason

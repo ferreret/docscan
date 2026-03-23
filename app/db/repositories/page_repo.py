@@ -25,6 +25,13 @@ class PageRepository:
         )
         return list(self._session.scalars(stmt))
 
+    def get_by_batch_and_index(self, batch_id: int, page_index: int) -> Page | None:
+        """Obtiene una página por batch_id y page_index."""
+        stmt = select(Page).where(
+            Page.batch_id == batch_id, Page.page_index == page_index,
+        )
+        return self._session.scalars(stmt).first()
+
     def get_needs_review(self, batch_id: int) -> list[Page]:
         stmt = (
             select(Page)

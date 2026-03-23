@@ -1,0 +1,9 @@
+# Dependencias de desarrollo
+-r requirements.txt
+
+# Testing
+pytest==9.0.2
+pytest-qt==4.5.0
+
+# Linting
+ruff==0.15.5

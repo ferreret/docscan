@@ -21,12 +21,12 @@ class ScanWorker(QThread):
     """Hilo de adquisición de imágenes.
 
     Signals:
-        page_acquired: (page_index, image) por cada página.
+        page_acquired: (page_index, image, source_path) por cada página.
         finished_scanning: total de páginas adquiridas.
         error_occurred: mensaje de error.
     """
 
-    page_acquired = Signal(int, object)  # (index, np.ndarray)
+    page_acquired = Signal(int, object, str)  # (index, np.ndarray, source_path)
     finished_scanning = Signal(int)
     error_occurred = Signal(str)
 
@@ -51,45 +51,55 @@ class ScanWorker(QThread):
     def run(self) -> None:
         """Ejecuta la adquisición según el modo configurado."""
         try:
-            images = self._acquire()
-            for i, img in enumerate(images):
+            results = self._acquire()
+            for i, (img, src) in enumerate(results):
                 if self.isInterruptionRequested():
                     log.info("Escaneo interrumpido en página %d", i)
                     break
-                self.page_acquired.emit(i, img)
-            self.finished_scanning.emit(len(images))
+                self.page_acquired.emit(i, img, src)
+            self.finished_scanning.emit(len(results))
         except Exception as e:
             log.error("Error en ScanWorker: %s", e)
             self.error_occurred.emit(str(e))
 
-    def _acquire(self) -> list[np.ndarray]:
-        """Delega la adquisición al servicio correspondiente."""
+    def _acquire(self) -> list[tuple[np.ndarray, str]]:
+        """Delega la adquisición al servicio correspondiente.
+
+        Returns:
+            Lista de tuplas (imagen, ruta_origen). La ruta es vacía
+            para páginas procedentes del escáner.
+        """
         match self._mode:
             case "scanner":
                 if self._scanner is None:
                     raise RuntimeError("No hay escáner configurado")
-                return self._scanner.acquire(self._source, self._scan_config)
+                images = self._scanner.acquire(self._source, self._scan_config)
+                return [(img, "") for img in images]
             case "import_file" | "import_pdf":
                 if self._import_service is None:
                     raise RuntimeError("ImportService no disponible")
-                return self._import_service.import_file(
-                    self._source, dpi=self._dpi,
+                source = str(self._source)
+                images = self._import_service.import_file(
+                    source, dpi=self._dpi,
                 )
+                return [(img, source) for img in images]
             case "import_files":
                 if self._import_service is None:
                     raise RuntimeError("ImportService no disponible")
-                all_images: list[np.ndarray] = []
+                results: list[tuple[np.ndarray, str]] = []
                 for path in self._source:
                     images = self._import_service.import_file(
                         path, dpi=self._dpi,
                     )
-                    all_images.extend(images)
-                return all_images
+                    results.extend((img, str(path)) for img in images)
+                return results
             case "import_folder":
                 if self._import_service is None:
                     raise RuntimeError("ImportService no disponible")
-                return self._import_service.import_folder(
+                images = self._import_service.import_folder(
                     self._source, dpi=self._dpi,
                 )
+                folder = str(self._source)
+                return [(img, folder) for img in images]
             case _:
                 raise ValueError(f"Modo de adquisición desconocido: '{self._mode}'")

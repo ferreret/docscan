@@ -37,7 +37,7 @@ from app.models.application import Application
 log = logging.getLogger(__name__)
 
 # Tipos de campo disponibles
-FIELD_TYPES = ["texto", "lista", "numérico"]
+FIELD_TYPES = ["texto", "fecha", "lista", "numérico"]
 
 # Columnas de la tabla
 _COL_LABEL = 0
@@ -195,6 +195,8 @@ class BatchFieldsTab(QWidget):
             return self._make_list_config(config)
         elif field_type == "numérico":
             return self._make_numeric_config(config)
+        elif field_type == "fecha":
+            return self._make_date_config(config)
         else:
             # Texto: sin configuración adicional
             placeholder = QWidget()
@@ -251,6 +253,26 @@ class BatchFieldsTab(QWidget):
 
         for w in (lbl_min, spin_min, lbl_max, spin_max, lbl_step, spin_step):
             layout.addWidget(w)
+
+        return container
+
+    def _make_date_config(self, config: dict[str, Any]) -> QWidget:
+        """Widget para tipo fecha: selector de formato."""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(2, 0, 2, 0)
+
+        lbl = QLabel("Formato:")
+        layout.addWidget(lbl)
+
+        fmt_combo = QComboBox()
+        fmt_combo.setObjectName("dateFormat")
+        fmt_combo.addItems(["dd/MM/yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy"])
+        saved_fmt = config.get("format", "dd/MM/yyyy")
+        idx = fmt_combo.findText(saved_fmt)
+        if idx >= 0:
+            fmt_combo.setCurrentIndex(idx)
+        layout.addWidget(fmt_combo)
 
         return container
 
@@ -410,6 +432,11 @@ class BatchFieldsTab(QWidget):
                 "max": spin_max.value() if spin_max else 100,
                 "step": spin_step.value() if spin_step else 1,
             }
+
+        # Fecha
+        fmt_combo = widget.findChild(QComboBox, "dateFormat")
+        if fmt_combo:
+            return {"format": fmt_combo.currentText()}
 
         return {}
 
