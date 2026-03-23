@@ -404,6 +404,8 @@ class ImageLib:
             Imagen binaria (1 canal, 0 o 255).
         """
         gray = ImageLib.to_grayscale(image)
+        if gray.dtype == bool:
+            return gray.astype(np.uint8) * 255
         _, bw = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
         return bw
 

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.application import Application
+from app.services.scanner_service import get_available_backends
 
 
 class GeneralTab(QWidget):
@@ -48,7 +49,7 @@ class GeneralTab(QWidget):
         main_form.addRow("", self._active_check)
 
         self._scanner_combo = QComboBox()
-        self._scanner_combo.addItems(["sane", "twain", "wia"])
+        self._scanner_combo.addItems(get_available_backends() or ["sane", "twain", "wia"])
         idx = self._scanner_combo.findText(app.scanner_backend)
         if idx >= 0:
             self._scanner_combo.setCurrentIndex(idx)

@@ -308,7 +308,7 @@ class WorkbenchWindow(QMainWindow):
         self._chk_scanner_config.setToolTip(
             "Mostrar opciones del escáner antes de digitalizar"
         )
-        self._chk_scanner_config.setChecked(False)
+        self._chk_scanner_config.setChecked(True)
         toolbar.addWidget(self._chk_scanner_config)
         toolbar.addSeparator()
 
@@ -924,6 +924,7 @@ class WorkbenchWindow(QMainWindow):
                 except Exception as e:
                     log.error("Error guardando imagen procesada: %s", e)
 
+            page.pipeline_processed = True
             page.ocr_text = page_ctx.ocr_text or ""
             page.index_fields_json = json.dumps(
                 page_ctx.fields, ensure_ascii=False,
@@ -1010,16 +1011,7 @@ class WorkbenchWindow(QMainWindow):
                 db_page = page_repo.get_by_id(page.id)
                 if db_page is None:
                     continue
-                has_barcodes = len(list(db_page.barcodes)) > 0
-                has_results = (
-                    db_page.ocr_text != ""
-                    or db_page.index_fields_json not in ("", "{}")
-                    or db_page.needs_review
-                    or db_page.processing_errors_json not in ("", "[]")
-                    or db_page.script_errors_json not in ("", "[]")
-                    or has_barcodes
-                )
-                if not has_results:
+                if not db_page.pipeline_processed:
                     pending.append((page.page_index, page))
 
         if not pending:

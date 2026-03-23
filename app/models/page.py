@@ -40,6 +40,9 @@ class Page(Base):
     is_blank: Mapped[bool] = mapped_column(Boolean, default=False)
     is_excluded: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Pipeline
+    pipeline_processed: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # Errores de procesado
     processing_errors_json: Mapped[str] = mapped_column(Text, default="[]")
     script_errors_json: Mapped[str] = mapped_column(Text, default="[]")

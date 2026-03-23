@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -75,6 +76,12 @@ class SecretsManager:
     # Internos
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _secure_chmod(path: Path) -> None:
+        """Aplica permisos 0600 en plataformas que lo soportan."""
+        if sys.platform != "win32":
+            path.chmod(0o600)
+
     def _get_fernet(self) -> Fernet:
         """Obtiene o inicializa la instancia Fernet."""
         if self._fernet is not None:
@@ -86,7 +93,7 @@ class SecretsManager:
             key = Fernet.generate_key()
             self._key_file.parent.mkdir(parents=True, exist_ok=True)
             self._key_file.write_bytes(key)
-            self._key_file.chmod(0o600)
+            self._secure_chmod(self._key_file)
             log.info("Clave de cifrado generada en %s", self._key_file)
 
         self._fernet = Fernet(key)
@@ -123,4 +130,4 @@ class SecretsManager:
 
         self._secrets_file.parent.mkdir(parents=True, exist_ok=True)
         self._secrets_file.write_bytes(encrypted)
-        self._secrets_file.chmod(0o600)
+        self._secure_chmod(self._secrets_file)

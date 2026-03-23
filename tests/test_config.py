@@ -71,8 +71,12 @@ class TestSecrets:
     def test_key_file_permissions(self, tmp_secrets, tmp_path):
         tmp_secrets.set("x", "y")
         key_file = tmp_path / ".secrets.key"
-        mode = oct(key_file.stat().st_mode & 0o777)
-        assert mode == "0o600"
+        import sys
+        if sys.platform != "win32":
+            mode = oct(key_file.stat().st_mode & 0o777)
+            assert mode == "0o600"
+        else:
+            assert key_file.exists()
 
     def test_wrong_key_raises(self, tmp_path):
         sm1 = SecretsManager(

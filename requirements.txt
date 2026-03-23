@@ -31,8 +31,14 @@ httpx==0.28.1
 watchdog==6.0.0
 APScheduler==3.11.2
 
+# Escáner
+pytwain==2.6.0; sys_platform == "win32"
+pywin32==310; sys_platform == "win32"
+python-sane==2.9.1; sys_platform == "linux"
+
 # Seguridad
 cryptography==46.0.5
 
 # Config
 pydantic-settings==2.13.1
+platformdirs==4.9.4

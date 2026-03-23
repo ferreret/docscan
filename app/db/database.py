@@ -49,7 +49,7 @@ def create_db_engine(db_path: Path | None = None) -> Engine:
     path.parent.mkdir(parents=True, exist_ok=True)
 
     engine = create_engine(
-        f"sqlite:///{path}",
+        f"sqlite:///{path.as_posix()}",
         echo=settings.database.echo,
     )
     event.listen(engine, "connect", _set_sqlite_pragmas)

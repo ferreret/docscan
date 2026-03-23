@@ -8,6 +8,7 @@ Las variables se cargan en este orden de prioridad (mayor a menor):
 
 from __future__ import annotations
 
+import platform
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -46,7 +47,7 @@ class OcrSettings(BaseModel):
 class ScannerSettings(BaseModel):
     """Configuración de escáner."""
 
-    default_backend: str = "twain"  # "twain" o "wia"
+    default_backend: str = "sane" if platform.system() == "Linux" else "twain"
     default_dpi: int = 300
 
 

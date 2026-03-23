@@ -380,7 +380,16 @@ class TwainScanner(BaseScanner):
     """Escáner via TWAIN (Windows).
 
     Requiere pytwain y TWAIN DSM 64-bit si Python es 64-bit.
+    Guarda las capabilities del driver entre escaneos y las restaura
+    en la siguiente sesión para conservar la configuración del usuario.
     """
+
+    def __init__(self) -> None:
+        self._sm = None
+        self._src = None
+        self._hwnd: int = 0
+        self._current_source: str = ""
+        self._saved_caps: dict[int, tuple] | None = None
 
     @property
     def backend_name(self) -> str:
@@ -401,55 +410,216 @@ class TwainScanner(BaseScanner):
             log.error("Error listando fuentes TWAIN: %s", e)
             return []
 
+    def _close_session(self) -> None:
+        """Cierra source, SourceManager y HWND."""
+        if self._src is not None:
+            try:
+                self._src.close()
+            except Exception:
+                pass
+            self._src = None
+        if self._sm is not None:
+            try:
+                self._sm.close()
+            except Exception:
+                pass
+            self._sm = None
+        if self._hwnd:
+            import ctypes
+            ctypes.windll.user32.DestroyWindow(self._hwnd)
+            self._hwnd = 0
+
+    @staticmethod
+    def _cap_type_map() -> dict[int, int]:
+        """Mapa de capability -> tipo TWAIN (construido una sola vez)."""
+        import twain
+        return {
+            twain.ICAP_XRESOLUTION: twain.TWTY_FIX32,
+            twain.ICAP_YRESOLUTION: twain.TWTY_FIX32,
+            twain.ICAP_PIXELTYPE: twain.TWTY_UINT16,
+            twain.ICAP_BITDEPTH: twain.TWTY_UINT16,
+            twain.ICAP_BRIGHTNESS: twain.TWTY_FIX32,
+            twain.ICAP_CONTRAST: twain.TWTY_FIX32,
+            twain.ICAP_THRESHOLD: twain.TWTY_FIX32,
+            twain.ICAP_UNITS: twain.TWTY_UINT16,
+            twain.CAP_DUPLEXENABLED: twain.TWTY_BOOL,
+            twain.CAP_FEEDERENABLED: twain.TWTY_BOOL,
+            twain.CAP_XFERCOUNT: twain.TWTY_INT16,
+        }
+
+    def _save_driver_caps(self, src) -> None:
+        """Guarda las capabilities actuales del driver tras el escaneo."""
+        saved = {}
+        for cap in self._cap_type_map():
+            try:
+                saved[cap] = src.get_capability_current(cap)
+            except Exception:
+                pass
+        if saved:
+            self._saved_caps = saved
+
+    def _restore_driver_caps(self, src) -> None:
+        """Restaura las capabilities guardadas en el source."""
+        if not self._saved_caps:
+            return
+        cap_types = self._cap_type_map()
+        for cap, val in self._saved_caps.items():
+            try:
+                src.set_capability(cap, cap_types[cap], val)
+            except Exception:
+                pass
+
+    _wnd_proc_ref = None
+    _class_registered = False
+
+    @staticmethod
+    def _create_hwnd() -> int:
+        """Crea una ventana oculta para el message loop de TWAIN."""
+        import ctypes
+        from ctypes import wintypes
+
+        _user32 = ctypes.windll.user32
+        _kernel32 = ctypes.windll.kernel32
+        hinstance = _kernel32.GetModuleHandleW(None)
+
+        if not TwainScanner._class_registered:
+            LRESULT = ctypes.c_longlong
+            _WNDPROC = ctypes.WINFUNCTYPE(
+                LRESULT, wintypes.HWND, wintypes.UINT,
+                wintypes.WPARAM, wintypes.LPARAM,
+            )
+
+            _user32.DefWindowProcW.argtypes = [
+                wintypes.HWND, wintypes.UINT,
+                wintypes.WPARAM, wintypes.LPARAM,
+            ]
+            _user32.DefWindowProcW.restype = LRESULT
+
+            def _wnd_proc(hwnd, msg, wparam, lparam):
+                return _user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+
+            TwainScanner._wnd_proc_ref = _WNDPROC(_wnd_proc)
+
+            class WNDCLASSW(ctypes.Structure):
+                _fields_ = [
+                    ("style", ctypes.c_uint),
+                    ("lpfnWndProc", _WNDPROC),
+                    ("cbClsExtra", ctypes.c_int),
+                    ("cbWndExtra", ctypes.c_int),
+                    ("hInstance", wintypes.HINSTANCE),
+                    ("hIcon", wintypes.HICON),
+                    ("hCursor", wintypes.HANDLE),
+                    ("hbrBackground", wintypes.HBRUSH),
+                    ("lpszMenuName", wintypes.LPCWSTR),
+                    ("lpszClassName", wintypes.LPCWSTR),
+                ]
+
+            wc = WNDCLASSW()
+            wc.lpfnWndProc = TwainScanner._wnd_proc_ref
+            wc.lpszClassName = "DocScanTwainHidden"
+            wc.hInstance = hinstance
+            _user32.RegisterClassW(ctypes.byref(wc))
+            TwainScanner._class_registered = True
+
+        hwnd = _user32.CreateWindowExW(
+            0, "DocScanTwainHidden", "DocScan TWAIN",
+            0, 0, 0, 0, 0, 0, 0, hinstance, 0,
+        )
+        return hwnd
+
     def acquire(
         self, source: str, config: ScanConfig,
     ) -> list[np.ndarray]:
         import twain
+        import cv2
+        import tempfile
+        import os
+        from PIL import Image
 
-        sm = twain.SourceManager(0)
+        images: list[np.ndarray] = []
+
+        # HWND nuevo cada vez para evitar mensajes residuales
+        self._close_session()
+        hwnd = self._create_hwnd()
+        self._hwnd = hwnd
+
+        sm = twain.SourceManager(hwnd)
+        self._sm = sm
         src = sm.open_source(source)
-        try:
-            # Configurar resolución y modo
-            src.set_capability(
-                twain.CAP_XRESOLUTION, twain.TWTY_FIX32, config.resolution,
-            )
-            src.set_capability(
-                twain.CAP_YRESOLUTION, twain.TWTY_FIX32, config.resolution,
-            )
+        self._src = src
 
+        show_ui = bool(config.show_ui)
+
+        if self._saved_caps and show_ui:
+            # Con UI: restaurar la config que el usuario eligió la última vez
+            self._restore_driver_caps(src)
+        else:
+            # Sin UI o primer escaneo: usar config de la app
+            src.set_capability(
+                twain.ICAP_XRESOLUTION, twain.TWTY_FIX32, config.resolution,
+            )
+            src.set_capability(
+                twain.ICAP_YRESOLUTION, twain.TWTY_FIX32, config.resolution,
+            )
             pixel_type_map = {"Lineart": 0, "Gray": 1, "Color": 2}
             pixel_type = pixel_type_map.get(config.mode, 2)
             src.set_capability(
                 twain.ICAP_PIXELTYPE, twain.TWTY_UINT16, pixel_type,
             )
 
-            # show_ui=1 muestra el diálogo nativo del driver TWAIN
-            show_ui = 1 if config.show_ui else 0
-            src.request_acquire(show_ui, show_ui)
-            info = src.get_image_info()
+        # ADF: escanear todas las páginas disponibles (-1 = sin límite)
+        try:
+            src.set_capability(
+                twain.CAP_XFERCOUNT, twain.TWTY_INT16, -1,
+            )
+        except Exception:
+            pass
 
-            # Transferir imagen
-            handle = src.xfer_image_natively()
-            if handle:
-                import ctypes
-                bmp_data = twain.dib_to_bm_file(handle)
-                twain.global_handle_free(handle)
+        caps_saved = False
 
-                from PIL import Image
-                import io
-                pil_img = Image.open(io.BytesIO(bmp_data))
-                image = np.array(pil_img)
-                if len(image.shape) == 3:
-                    import cv2
-                    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-                return [image]
-            return []
+        def _on_image(img_obj, more: int) -> None:
+            """Callback por cada página adquirida."""
+            nonlocal caps_saved
+            # Guardar caps en la primera página (source activo en state 6/7)
+            if not caps_saved:
+                self._save_driver_caps(src)
+                caps_saved = True
+            tmp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    suffix=".bmp", delete=False,
+                ) as f:
+                    tmp_path = f.name
+                img_obj.save(tmp_path)
+                pil_img = Image.open(tmp_path)
+                arr = np.array(pil_img)
+                if arr.dtype == bool:
+                    arr = arr.astype(np.uint8) * 255
+                if arr.ndim == 3:
+                    arr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+                images.append(arr)
+            finally:
+                img_obj.close()
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+
+        try:
+            src.acquire_natively(
+                after=_on_image,
+                show_ui=show_ui,
+                modal=show_ui,
+            )
         finally:
-            src.close()
-            sm.close()
+            self._close_session()
+
+        return images
 
     def close(self) -> None:
-        pass
+        """Cierra la sesión TWAIN y libera recursos."""
+        self._close_session()
 
 
 # ------------------------------------------------------------------
@@ -576,18 +746,22 @@ class WiaScanner(BaseScanner):
 _SYSTEM = platform.system()
 
 
+_cached_backends: list[str] | None = None
+
+
 def get_available_backends() -> list[str]:
     """Devuelve los backends disponibles para la plataforma actual."""
+    global _cached_backends
+    if _cached_backends is not None:
+        return _cached_backends
+    backends: list[str] = []
     if _SYSTEM == "Linux" or _SYSTEM == "Darwin":
-        backends = []
         try:
             import sane
             backends.append("sane")
         except ImportError:
             pass
-        return backends
     elif _SYSTEM == "Windows":
-        backends = []
         try:
             import twain
             backends.append("twain")
@@ -598,8 +772,8 @@ def get_available_backends() -> list[str]:
             backends.append("wia")
         except ImportError:
             pass
-        return backends
-    return []
+    _cached_backends = backends
+    return backends
 
 
 def create_scanner(backend: str | None = None) -> BaseScanner:

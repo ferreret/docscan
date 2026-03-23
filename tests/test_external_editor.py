@@ -113,10 +113,11 @@ class TestEditScript:
             path = cmd[2]  # ["code", "--wait", path]
             from pathlib import Path
             p = Path(path)
-            content = p.read_text()
+            content = p.read_text(encoding="utf-8")
             # Reemplazar todo con código nuevo (sin stubs)
             p.write_text(
-                f"{STUB_DELIMITER}\n# stubs\n{STUB_DELIMITER}\n{modified}"
+                f"{STUB_DELIMITER}\n# stubs\n{STUB_DELIMITER}\n{modified}",
+                encoding="utf-8",
             )
             return MagicMock(returncode=0)
 
