@@ -252,10 +252,24 @@ def main() -> int:
     # ------------------------------------------------------------------
     # Modo UI (launcher o workbench directo)
     # ------------------------------------------------------------------
+
+    # Windows: AppUserModelID propio para que la barra de tareas
+    # muestre el icono de DocScan en vez del de Python
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "tecnomedia.docscan.studio",
+        )
+
     from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QIcon
 
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName(settings.app_name)
+
+    icon_path = Path(__file__).parent / "resources" / "icons" / "docscan.svg"
+    if icon_path.exists():
+        qt_app.setWindowIcon(QIcon(str(icon_path)))
 
     # H1: Liberar engine al salir
     qt_app.aboutToQuit.connect(lambda: engine.dispose())
