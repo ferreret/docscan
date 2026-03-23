@@ -6,6 +6,8 @@ Captura TODAS las excepciones sin crashear la app ni detener el pipeline.
 
 from __future__ import annotations
 
+import concurrent.futures
+import inspect
 import logging
 import re
 import json
@@ -18,9 +20,16 @@ from app.pipeline.context import PipelineAbortError
 
 log = logging.getLogger(__name__)
 
+# Timeout por defecto para ejecución de scripts (segundos)
+DEFAULT_SCRIPT_TIMEOUT = 30
+
 
 class ScriptCompilationError(Exception):
     """Error de sintaxis al compilar un script de usuario."""
+
+
+class ScriptTimeoutError(Exception):
+    """El script excedió el tiempo máximo de ejecución."""
 
 
 class _HasFlags(Protocol):
@@ -40,9 +49,15 @@ class ScriptEngine:
         http_client: Cliente httpx preconfigurado (opcional).
     """
 
-    def __init__(self, http_client: Any = None) -> None:
+    def __init__(
+        self,
+        http_client: Any = None,
+        script_timeout: int = DEFAULT_SCRIPT_TIMEOUT,
+    ) -> None:
         self._compiled_cache: dict[str, CodeType] = {}
         self._http_client = http_client
+        self._script_timeout = script_timeout
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     # ------------------------------------------------------------------
     # Compilación
@@ -88,6 +103,10 @@ class ScriptEngine:
     def clear_cache(self) -> None:
         """Limpia la cache de scripts compilados."""
         self._compiled_cache.clear()
+
+    def shutdown(self) -> None:
+        """Libera el ThreadPoolExecutor."""
+        self._executor.shutdown(wait=False)
 
     # ------------------------------------------------------------------
     # Ejecución de ScriptStep del pipeline
@@ -138,9 +157,15 @@ class ScriptEngine:
                     step.label or step.id,
                 )
                 return None
-            return func(app=app, batch=batch, page=page, pipeline=pipeline)
+            return self._execute_with_timeout(
+                func,
+                kwargs=dict(app=app, batch=batch, page=page, pipeline=pipeline),
+            )
         except PipelineAbortError:
             raise  # Propagar abort al executor
+        except ScriptTimeoutError as e:
+            self._record_error(page, step.id, step.entry_point, e)
+            return None
         except Exception as e:
             self._record_error(page, step.id, step.entry_point, e)
             return None
@@ -184,8 +209,6 @@ class ScriptEngine:
                     script_id,
                 )
                 return None
-            # Solo pasar los argumentos que la función acepta
-            import inspect
             try:
                 sig = inspect.signature(func)
                 if any(
@@ -212,8 +235,36 @@ class ScriptEngine:
     # Internos
     # ------------------------------------------------------------------
 
+    def _execute_with_timeout(
+        self,
+        func: Any,
+        kwargs: dict[str, Any],
+    ) -> Any:
+        """Ejecuta una función con timeout usando ThreadPoolExecutor.
+
+        Args:
+            func: Función a ejecutar.
+            kwargs: Argumentos para la función.
+
+        Returns:
+            El resultado de la función.
+
+        Raises:
+            ScriptTimeoutError: Si excede el timeout.
+            PipelineAbortError: Propagada desde el script.
+        """
+        future = self._executor.submit(func, **kwargs)
+        try:
+            return future.result(timeout=self._script_timeout)
+        except concurrent.futures.TimeoutError:
+            raise ScriptTimeoutError(
+                f"Script excedió el timeout de {self._script_timeout}s"
+            )
+
     def _build_namespace(self, **kwargs: Any) -> dict[str, Any]:
         """Construye el namespace para exec/eval."""
+        from app.services.image_lib import ImageLib
+
         ns: dict[str, Any] = {
             "__builtins__": __builtins__,
             "log": log,
@@ -222,6 +273,7 @@ class ScriptEngine:
             "json": json,
             "datetime": datetime,
             "Path": Path,
+            "ImageLib": ImageLib,
         }
         # Añadir los contextos que se hayan pasado
         for key in ("app", "batch", "page", "pages", "pipeline",

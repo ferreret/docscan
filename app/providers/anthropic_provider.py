@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import time
 from typing import Any
 
 import cv2
@@ -13,6 +14,16 @@ import numpy as np
 from app.providers.base_provider import BaseProvider
 
 log = logging.getLogger(__name__)
+
+# Timeout para llamadas API (segundos)
+_API_TIMEOUT = 60
+# Reintentos para rate-limit
+_RATE_LIMIT_RETRIES = 1
+_RATE_LIMIT_DELAY = 2.0
+
+
+class ProviderError(Exception):
+    """Error irrecuperable del proveedor de IA."""
 
 
 class AnthropicProvider(BaseProvider):
@@ -31,7 +42,10 @@ class AnthropicProvider(BaseProvider):
     def _get_client(self) -> Any:
         if self._client is None:
             import anthropic
-            self._client = anthropic.Anthropic(api_key=self._api_key)
+            self._client = anthropic.Anthropic(
+                api_key=self._api_key,
+                timeout=_API_TIMEOUT,
+            )
         return self._client
 
     def extract_fields(
@@ -69,12 +83,22 @@ class AnthropicProvider(BaseProvider):
             },
         ]
 
-        response = client.messages.create(
-            model=self._model,
-            max_tokens=1024,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_content}],
-        )
+        try:
+            response = _call_with_retry(
+                lambda: client.messages.create(
+                    model=self._model,
+                    max_tokens=1024,
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_content}],
+                )
+            )
+        except Exception as e:
+            log.error("Error API Anthropic (extract_fields): %s", e)
+            return {f["name"]: "" for f in fields}
+
+        if not response.content:
+            log.warning("Respuesta vacía de Anthropic (extract_fields)")
+            return {f["name"]: "" for f in fields}
 
         return _parse_json_response(response.content[0].text, fields)
 
@@ -106,11 +130,21 @@ class AnthropicProvider(BaseProvider):
             },
         ]
 
-        response = client.messages.create(
-            model=self._model,
-            max_tokens=50,
-            messages=[{"role": "user", "content": user_content}],
-        )
+        try:
+            response = _call_with_retry(
+                lambda: client.messages.create(
+                    model=self._model,
+                    max_tokens=50,
+                    messages=[{"role": "user", "content": user_content}],
+                )
+            )
+        except Exception as e:
+            log.error("Error API Anthropic (classify_document): %s", e)
+            return ""
+
+        if not response.content:
+            log.warning("Respuesta vacía de Anthropic (classify_document)")
+            return ""
 
         result = response.content[0].text.strip()
         # Buscar la mejor coincidencia
@@ -136,7 +170,10 @@ class OpenAIProvider(BaseProvider):
     def _get_client(self) -> Any:
         if self._client is None:
             import openai
-            self._client = openai.OpenAI(api_key=self._api_key)
+            self._client = openai.OpenAI(
+                api_key=self._api_key,
+                timeout=_API_TIMEOUT,
+            )
         return self._client
 
     def extract_fields(
@@ -153,38 +190,46 @@ class OpenAIProvider(BaseProvider):
             for f in fields
         )
 
-        response = client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Eres un extractor de datos de documentos. "
-                        "Responde SOLO con un JSON válido."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": [
+        try:
+            response = _call_with_retry(
+                lambda: client.chat.completions.create(
+                    model=self._model,
+                    messages=[
                         {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{b64}",
-                            },
+                            "role": "system",
+                            "content": (
+                                "Eres un extractor de datos de documentos. "
+                                "Responde SOLO con un JSON válido."
+                            ),
                         },
                         {
-                            "type": "text",
-                            "text": f"{prompt}\n\nCampos a extraer:\n{fields_desc}",
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{b64}",
+                                    },
+                                },
+                                {
+                                    "type": "text",
+                                    "text": f"{prompt}\n\nCampos a extraer:\n{fields_desc}",
+                                },
+                            ],
                         },
                     ],
-                },
-            ],
-            max_tokens=1024,
-        )
+                    max_tokens=1024,
+                )
+            )
+        except Exception as e:
+            log.error("Error API OpenAI (extract_fields): %s", e)
+            return {f["name"]: "" for f in fields}
 
-        return _parse_json_response(
-            response.choices[0].message.content, fields,
-        )
+        content = response.choices[0].message.content if response.choices else None
+        if not content:
+            return {f["name"]: "" for f in fields}
+
+        return _parse_json_response(content, fields)
 
     def classify_document(
         self,
@@ -195,32 +240,42 @@ class OpenAIProvider(BaseProvider):
         b64 = _image_to_base64(image)
 
         classes_str = ", ".join(classes)
-        response = client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
+        try:
+            response = _call_with_retry(
+                lambda: client.chat.completions.create(
+                    model=self._model,
+                    messages=[
                         {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{b64}",
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": (
-                                f"Clasifica este documento: {classes_str}. "
-                                f"Responde SOLO con el nombre de la categoría."
-                            ),
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{b64}",
+                                    },
+                                },
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        f"Clasifica este documento: {classes_str}. "
+                                        f"Responde SOLO con el nombre de la categoría."
+                                    ),
+                                },
+                            ],
                         },
                     ],
-                },
-            ],
-            max_tokens=50,
-        )
+                    max_tokens=50,
+                )
+            )
+        except Exception as e:
+            log.error("Error API OpenAI (classify_document): %s", e)
+            return ""
 
-        result = response.choices[0].message.content.strip()
+        content = response.choices[0].message.content if response.choices else None
+        if not content:
+            return ""
+
+        result = content.strip()
         for cls in classes:
             if cls.lower() in result.lower():
                 return cls
@@ -243,6 +298,28 @@ def _image_to_base64(image: Any) -> str:
     if not success:
         raise ValueError("No se pudo codificar la imagen a PNG")
     return base64.b64encode(buffer).decode()
+
+
+def _call_with_retry(fn, retries: int = _RATE_LIMIT_RETRIES):
+    """Ejecuta fn() con retry para rate-limit.
+
+    Reintenta una vez con delay si se detecta rate-limit.
+    Propaga otras excepciones directamente.
+    """
+    for attempt in range(1 + retries):
+        try:
+            return fn()
+        except Exception as e:
+            error_type = type(e).__name__
+            is_rate_limit = "rate" in error_type.lower() or "429" in str(e)
+            if is_rate_limit and attempt < retries:
+                log.warning(
+                    "Rate limit detectado, reintentando en %.1fs...",
+                    _RATE_LIMIT_DELAY,
+                )
+                time.sleep(_RATE_LIMIT_DELAY)
+                continue
+            raise
 
 
 def _parse_json_response(

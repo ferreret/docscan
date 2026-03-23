@@ -17,9 +17,11 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from app.models.batch import Batch, BATCH_STATES
+from app.models.image_config import ImageConfig
 from app.models.page import Page
 from app.db.repositories.batch_repo import BatchRepository
 from app.db.repositories.page_repo import PageRepository
+from app.services.image_lib import ImageLib
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +81,7 @@ class BatchService:
         batch_id: int,
         images: list[np.ndarray],
         output_format: str = "tiff",
+        image_config: ImageConfig | None = None,
     ) -> list[Page]:
         """Añade imágenes como páginas al lote.
 
@@ -88,6 +91,8 @@ class BatchService:
             batch_id: ID del lote.
             images: Lista de imágenes (numpy arrays BGR).
             output_format: Formato de salida ('tiff', 'png', 'jpg').
+            image_config: Configuración avanzada de imagen (tiene
+                prioridad sobre output_format si se proporciona).
 
         Returns:
             Lista de páginas creadas.
@@ -102,7 +107,10 @@ class BatchService:
         existing_count = self._page_repo.count_by_batch(batch_id)
         pages: list[Page] = []
 
-        ext = f".{output_format.lower().strip('.')}"
+        if image_config:
+            ext = f".{image_config.format.lower().strip('.')}"
+        else:
+            ext = f".{output_format.lower().strip('.')}"
         if ext == ".jpeg":
             ext = ".jpg"
 
@@ -111,7 +119,10 @@ class BatchService:
             filename = f"page_{page_index:04d}{ext}"
             filepath = batch_dir / filename
 
-            cv2.imwrite(str(filepath), img)
+            if image_config:
+                self._save_with_config(img, filepath, image_config)
+            else:
+                cv2.imwrite(str(filepath), img)
 
             page = Page(
                 batch_id=batch_id,
@@ -129,6 +140,27 @@ class BatchService:
             len(images), batch_id, batch.page_count,
         )
         return pages
+
+    def _save_with_config(
+        self,
+        image: np.ndarray,
+        filepath: Path,
+        config: ImageConfig,
+    ) -> None:
+        """Guarda imagen aplicando ImageConfig (color, calidad, DPI)."""
+        # Conversión de modo de color
+        if config.color_mode == "grayscale":
+            image = ImageLib.to_grayscale(image)
+        elif config.color_mode == "bw":
+            image = ImageLib.to_bw(image, config.bw_threshold)
+
+        ImageLib.save(
+            image, filepath,
+            quality=config.jpeg_quality,
+            compression=config.tiff_compression,
+            png_level=config.png_compression,
+            dpi=300,
+        )
 
     def get_page_image(self, page: Page) -> np.ndarray | None:
         """Carga la imagen de una página desde disco."""

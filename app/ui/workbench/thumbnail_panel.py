@@ -111,6 +111,17 @@ class ThumbnailPanel(QWidget):
 
         self.setFixedWidth(THUMBNAIL_WIDTH + 30)
 
+    @staticmethod
+    def _make_pixmap(image: np.ndarray) -> QPixmap:
+        """Escala una imagen a miniatura y devuelve QPixmap."""
+        h, w = image.shape[:2]
+        scale = THUMBNAIL_WIDTH / max(w, 1)
+        thumb = cv2.resize(
+            image, (THUMBNAIL_WIDTH, int(h * scale)),
+            interpolation=cv2.INTER_AREA,
+        )
+        return ndarray_to_qpixmap(thumb)
+
     def add_thumbnail(
         self,
         page_index: int,
@@ -118,17 +129,8 @@ class ThumbnailPanel(QWidget):
         state: PageState = PageState.NO_RECOGNITION,
     ) -> None:
         """Añade una miniatura al panel."""
-        # Escalar imagen
-        h, w = image.shape[:2]
-        scale = THUMBNAIL_WIDTH / max(w, 1)
-        thumb = cv2.resize(
-            image, (THUMBNAIL_WIDTH, int(h * scale)),
-            interpolation=cv2.INTER_AREA,
-        )
-        pixmap = ndarray_to_qpixmap(thumb)
-
         item = ThumbnailItem(page_index)
-        item.setPixmap(pixmap)
+        item.setPixmap(self._make_pixmap(image))
         item.set_state(state)
         item.clicked.connect(self._on_item_clicked)
         item.double_clicked.connect(self.page_double_clicked.emit)
@@ -136,6 +138,13 @@ class ThumbnailPanel(QWidget):
         self._thumbnails[page_index] = item
         self._states[page_index] = state
         self._container_layout.addWidget(item)
+
+    def update_thumbnail_image(self, page_index: int, image: np.ndarray) -> None:
+        """Reemplaza la imagen de una miniatura existente."""
+        item = self._thumbnails.get(page_index)
+        if item is None:
+            return
+        item.setPixmap(self._make_pixmap(image))
 
     def update_thumbnail_state(self, page_index: int, state: PageState) -> None:
         """Actualiza el color del borde de una miniatura."""

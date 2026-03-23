@@ -45,6 +45,9 @@ class Application(Base):
     default_tab: Mapped[str] = mapped_column(String(20), default="lote")
     scanner_backend: Mapped[str] = mapped_column(String(10), default="")
 
+    # Configuración de imagen (formato, DPI, compresión)
+    image_config_json: Mapped[str] = mapped_column(Text, default="{}")
+
     # IA / OCR
     ai_config_json: Mapped[str] = mapped_column(Text, default="{}")
 

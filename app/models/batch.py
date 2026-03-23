@@ -35,9 +35,10 @@ class Batch(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     application_id: Mapped[int] = mapped_column(
-        ForeignKey("applications.id", ondelete="CASCADE")
+        ForeignKey("applications.id", ondelete="CASCADE"),
+        index=True,
     )
-    state: Mapped[str] = mapped_column(String(20), default="created")
+    state: Mapped[str] = mapped_column(String(20), default="created", index=True)
     folder_path: Mapped[str] = mapped_column(Text, default="")
     hostname: Mapped[str] = mapped_column(String(100), default="")
     username: Mapped[str] = mapped_column(String(100), default="")

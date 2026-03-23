@@ -307,6 +307,39 @@ QToolBar::separator {
     background-color: #45475a;
 }
 
+/* === Checkboxes === */
+QCheckBox {
+    color: #cdd6f4;
+    spacing: 6px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 2px solid #585b70;
+    background-color: #313244;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #89b4fa;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #89b4fa;
+    border-color: #89b4fa;
+}
+
+QCheckBox::indicator:disabled {
+    border-color: #45475a;
+    background-color: #1e1e2e;
+}
+
+QCheckBox::indicator:checked:disabled {
+    background-color: #585b70;
+    border-color: #585b70;
+}
+
 /* === Radio buttons === */
 QRadioButton {
     color: #cdd6f4;
@@ -324,6 +357,62 @@ QRadioButton::indicator {
 QRadioButton::indicator:checked {
     background-color: #89b4fa;
     border-color: #89b4fa;
+}
+
+/* === Spin box === */
+QSpinBox, QDoubleSpinBox {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    padding: 5px 10px;
+    min-height: 24px;
+}
+
+QSpinBox:hover, QDoubleSpinBox:hover {
+    border-color: #585b70;
+}
+
+QSpinBox:focus, QDoubleSpinBox:focus {
+    border-color: #89b4fa;
+}
+
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 22px;
+    border-left: 1px solid #45475a;
+    border-top-right-radius: 6px;
+    background-color: #45475a;
+}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {
+    background-color: #585b70;
+}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 22px;
+    border-left: 1px solid #45475a;
+    border-bottom-right-radius: 6px;
+    background-color: #45475a;
+}
+
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+    background-color: #585b70;
+}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url(resources/icons/arrow-up-dark.svg);
+    width: 10px;
+    height: 6px;
+}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url(resources/icons/arrow-down-dark.svg);
+    width: 10px;
+    height: 6px;
 }
 
 /* === Combo box === */
@@ -530,6 +619,15 @@ QCalendarWidget QAbstractItemView {
 QFormLayout QLabel {
     color: #a6adc8;
     font-weight: 500;
+}
+
+/* === Hint labels (descriptive text in forms) === */
+QLabel#hint_label {
+    color: #6c7086;
+    font-size: 11px;
+    font-weight: 400;
+    font-style: italic;
+    padding: 2px 0 4px 0;
 }
 
 /* === Alternate row color override === */

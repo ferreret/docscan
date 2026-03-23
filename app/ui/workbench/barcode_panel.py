@@ -170,6 +170,18 @@ class BarcodePanel(QWidget):
             f"Revisión: {stats.get('needs_review', 0)}"
         )
 
+    def selected_row(self) -> int:
+        """Devuelve el índice de la fila seleccionada, o -1."""
+        return self._table.currentRow()
+
+    def selected_value(self) -> str:
+        """Devuelve el valor del barcode seleccionado, o cadena vacía."""
+        row = self._table.currentRow()
+        if row < 0:
+            return ""
+        item = self._table.item(row, 1)
+        return item.text() if item else ""
+
     def clear(self) -> None:
         """Limpia tabla y contadores."""
         self._table.setRowCount(0)
