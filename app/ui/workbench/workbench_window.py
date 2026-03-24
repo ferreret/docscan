@@ -122,11 +122,15 @@ class WorkbenchWindow(QMainWindow):
         self._recognition_worker: RecognitionWorker | None = None
         self._transfer_worker: TransferWorker | None = None
 
+        # Panel de verificación (se configura después de UI)
+        self._verification_panel = None
+
         # Inicializar
         self._load_application()
         self._setup_ui()
         self._connect_signals()
         self._setup_shortcuts()
+        self._setup_verification_panel()
 
         self._restore_source_settings()
 
@@ -468,6 +472,106 @@ class WorkbenchWindow(QMainWindow):
         _s("Ctrl+P", self._on_reprocess_page)
         _s("Ctrl+B", self._on_insert_barcode)
 
+    def _call_verification_hook(self, method: str, *args: Any) -> Any:
+        """Llama a un hook del panel de verificación con aislamiento de errores."""
+        if not self._verification_panel:
+            return None
+        try:
+            return getattr(self._verification_panel, method)(*args)
+        except Exception as e:
+            log.error("Error en verification_panel.%s: %s", method, e)
+            return None
+
+    def _setup_verification_panel(self) -> None:
+        """Carga e instancia el panel de verificación si está definido."""
+        if self._application is None:
+            return
+        try:
+            events = json.loads(self._application.events_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            return
+
+        source = events.get("verification_panel", "").strip()
+        if not source:
+            return
+
+        from app.ui.workbench.verification_panel import (
+            VerificationPanel,
+            WorkbenchAPI,
+        )
+
+        # Compilar el script
+        try:
+            code = compile(source, "<verification_panel>", "exec")
+        except SyntaxError as e:
+            log.error("Error de sintaxis en verification_panel: %s", e)
+            return
+
+        # Ejecutar en namespace aislado con acceso a PySide6
+        import PySide6.QtWidgets as QtWidgets
+        import PySide6.QtCore as QtCore
+        import PySide6.QtGui as QtGui
+
+        namespace: dict[str, Any] = {
+            "__builtins__": __builtins__,
+            "VerificationPanel": VerificationPanel,
+            "WorkbenchAPI": WorkbenchAPI,
+            "QtWidgets": QtWidgets,
+            "QtCore": QtCore,
+            "QtGui": QtGui,
+            "log": logging.getLogger("verification_panel"),
+            "json": json,
+            "re": __import__("re"),
+            "datetime": __import__("datetime"),
+            "Path": __import__("pathlib").Path,
+            "http": __import__("httpx"),
+        }
+
+        try:
+            exec(code, namespace)  # noqa: S102
+        except Exception as e:
+            log.error("Error ejecutando verification_panel: %s", e)
+            return
+
+        # Buscar la subclase de VerificationPanel
+        panel_classes = [
+            obj for obj in namespace.values()
+            if isinstance(obj, type)
+            and issubclass(obj, VerificationPanel)
+            and obj is not VerificationPanel
+        ]
+
+        if not panel_classes:
+            log.warning("verification_panel no define una subclase de VerificationPanel")
+            return
+
+        if len(panel_classes) > 1:
+            log.warning(
+                "verification_panel define %d subclases, usando la última: %s",
+                len(panel_classes), panel_classes[-1].__name__,
+            )
+        panel_class = panel_classes[-1]
+
+        # Construir API y panel
+        api = WorkbenchAPI(
+            session_factory=self._session_factory,
+            get_pages=lambda: self._pages,
+            get_batch_id=lambda: self._batch_id,
+            get_current_index=lambda: self._current_page_index,
+            navigate_fn=self._navigate_to,
+            log_fn=lambda msg: log.info("[Verificación] %s", msg),
+            get_batch_fields_fn=self._metadata_panel.get_batch_fields,
+            set_batch_field_fn=lambda n, v: self._on_batch_field_changed(n, v),
+        )
+
+        try:
+            self._verification_panel = panel_class(api, parent=self)
+            self._metadata_panel.add_verification_tab(self._verification_panel)
+            log.info("Panel de verificación cargado: %s", panel_class.__name__)
+        except Exception as e:
+            log.error("Error instanciando panel de verificación: %s", e)
+            self._verification_panel = None
+
     def _configure_metadata(self) -> None:
         """Configura los campos de lote e indexación según la app."""
         if self._application is None:
@@ -622,6 +726,8 @@ class WorkbenchWindow(QMainWindow):
                 self._batch_id, len(self._pages),
             ), 3000,
         )
+
+        self._call_verification_hook("on_batch_loaded")
 
         # Reanudar pipeline para páginas no procesadas
         self._resume_pending_pipeline()
@@ -931,6 +1037,8 @@ class WorkbenchWindow(QMainWindow):
                     script_errors_json=page.script_errors_json,
                 )
 
+        self._call_verification_hook("on_pipeline_completed", page_index)
+
     def _persist_page_results(self, page_index: int, page_ctx: Any) -> None:
         """Guarda los resultados del pipeline en BD."""
         with self._session_factory() as session:
@@ -1139,6 +1247,8 @@ class WorkbenchWindow(QMainWindow):
         self._thumbnail_panel.set_current(page_index)
         self._update_page_info()
 
+        self._call_verification_hook("on_page_changed", page_index)
+
     def _on_zoom_100(self) -> None:
         self._viewer.zoom_reset()
 
@@ -1252,7 +1362,32 @@ class WorkbenchWindow(QMainWindow):
         if self._transfer_worker and self._transfer_worker.isRunning():
             return
 
-        # 1. Validación (on_transfer_validate)
+        # 1a. Validación del panel de verificación (por página + global)
+        if self._verification_panel:
+            try:
+                for i in range(len(self._pages)):
+                    ok, msg = self._verification_panel.validate_page(i)
+                    if not ok:
+                        self._navigate_to(i)
+                        QMessageBox.warning(
+                            self, self.tr("Validación fallida"), msg,
+                        )
+                        return
+                ok, msg = self._verification_panel.validate()
+                if not ok:
+                    QMessageBox.warning(
+                        self, self.tr("Validación fallida"), msg,
+                    )
+                    return
+            except Exception as e:
+                log.error("Error en verification_panel.validate: %s", e)
+                QMessageBox.critical(
+                    self, self.tr("Error de validación"),
+                    self.tr("Error en el script de validación:\n{0}").format(e),
+                )
+                return
+
+        # 1b. Validación (on_transfer_validate)
         result = self._fire_event("on_transfer_validate")
         if result is False:
             QMessageBox.warning(
@@ -1401,6 +1536,8 @@ class WorkbenchWindow(QMainWindow):
 
         self._create_new_batch()
         self._metadata_panel.set_batch_fields(saved_fields)
+
+        self._call_verification_hook("on_batch_loaded")
 
         # Persistir los campos en el nuevo lote
         if self._batch_id:
@@ -2024,6 +2161,10 @@ class WorkbenchWindow(QMainWindow):
             except Exception:
                 pass
             self._scanner = None
+
+        # Cleanup panel de verificación
+        self._call_verification_hook("cleanup")
+        self._verification_panel = None
 
         # Liberar referencias pesadas para que el GC pueda actuar
         self._pages.clear()
