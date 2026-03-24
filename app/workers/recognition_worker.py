@@ -63,6 +63,7 @@ class PageContext:
     image_replaced: bool = False
     barcodes: list[BarcodeResult] = field(default_factory=list)
     ocr_text: str = ""
+    ocr_regions: list[Any] = field(default_factory=list)
     flags: PageFlags = field(default_factory=PageFlags)
     fields: dict[str, Any] = field(default_factory=dict)
 

@@ -127,18 +127,20 @@ class DocumentViewer(QGraphicsView):
     def set_overlays(
         self,
         barcodes: list | None = None,
+        fields: dict | None = None,
     ) -> None:
-        """Dibuja overlays sobre barcodes con colores distintos por cada uno."""
+        """Dibuja overlays sobre barcodes y fields con coordenadas."""
         self.clear_overlays()
         barcodes = barcodes or []
+        fields = fields or {}
 
         # Escalar grosor de borde y fuente proporcionalmente a la imagen
         scene_rect = self._scene.sceneRect()
         img_diag = max(1, (scene_rect.width() ** 2 + scene_rect.height() ** 2) ** 0.5)
-        # Para una imagen de ~3000px diagonal, pen_width ~6, font ~24
         pen_width = max(4, int(img_diag / 500))
-        margin = pen_width * 2  # Margen extra alrededor del barcode
+        margin = pen_width * 2
 
+        # --- Barcodes ---
         for idx, bc in enumerate(barcodes):
             x = getattr(bc, "pos_x", 0)
             y = getattr(bc, "pos_y", 0)
@@ -147,7 +149,6 @@ class DocumentViewer(QGraphicsView):
             if w <= 0 or h <= 0:
                 continue
 
-            # Color distinto por barcode (cíclico)
             pen_hex, fill_hex = _BARCODE_PALETTE[idx % len(_BARCODE_PALETTE)]
             pen_color = QColor(pen_hex)
             fill_color = QColor(fill_hex)
@@ -156,7 +157,6 @@ class DocumentViewer(QGraphicsView):
             pen = QPen(pen_color, pen_width)
             pen.setStyle(Qt.PenStyle.SolidLine)
 
-            # Rect con margen para que sea más visible
             rx = x - margin
             ry = y - margin
             rw = w + margin * 2
@@ -164,12 +164,53 @@ class DocumentViewer(QGraphicsView):
 
             rect = self._scene.addRect(
                 rx, ry, rw, rh,
-                pen,
-                QBrush(fill_color),
+                pen, QBrush(fill_color),
             )
             self._overlay_items.append(rect)
 
-            # Sin etiqueta de texto — el valor se muestra en el panel de barcodes
+        # --- Fields con coordenadas ---
+        font_size = max(12, int(img_diag / 120))
+        field_idx = 0
+        for name, value in fields.items():
+            if not isinstance(value, dict):
+                continue
+            fx = value.get("x", 0)
+            fy = value.get("y", 0)
+            fw = value.get("w", 0)
+            fh = value.get("h", 0)
+            if fw <= 0 or fh <= 0:
+                continue
+
+            pen_hex, fill_hex = _BARCODE_PALETTE[
+                (field_idx + 3) % len(_BARCODE_PALETTE)
+            ]
+            pen_color = QColor(pen_hex)
+            fill_color = QColor(fill_hex)
+            fill_color.setAlpha(60)
+
+            pen = QPen(pen_color, max(2, pen_width - 1))
+            pen.setStyle(Qt.PenStyle.DashLine)
+
+            rect = self._scene.addRect(
+                fx - margin, fy - margin,
+                fw + margin * 2, fh + margin * 2,
+                pen, QBrush(fill_color),
+            )
+            self._overlay_items.append(rect)
+
+            # Etiqueta con nombre del campo y valor
+            display_val = value.get("value", "")
+            label = f"{name}: {display_val}" if display_val else name
+            text_item = self._scene.addSimpleText(label)
+            font = QFont()
+            font.setPointSize(font_size)
+            font.setBold(True)
+            text_item.setFont(font)
+            text_item.setBrush(QBrush(pen_color))
+            text_item.setPos(fx - margin, fy - margin - font_size - 4)
+            self._overlay_items.append(text_item)
+
+            field_idx += 1
 
     def clear_overlays(self) -> None:
         """Elimina todos los overlays."""

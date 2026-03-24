@@ -46,6 +46,7 @@ from app.services.barcode_service import BarcodeService
 from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
+from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
 from app.models.image_config import ImageConfig, parse_image_config
 from app.services.transfer_service import TransferService, parse_transfer_config
@@ -109,6 +110,7 @@ class WorkbenchWindow(QMainWindow):
         self._script_engine = ScriptEngine()
         self._image_service = ImagePipelineService()
         self._barcode_service = BarcodeService()
+        self._ocr_service = OcrService()
         self._import_service = ImportService()
         self._transfer_service = TransferService()
         self._scanner: Any = None  # Instancia reutilizable de BaseScanner
@@ -172,6 +174,7 @@ class WorkbenchWindow(QMainWindow):
             image_service=self._image_service,
             script_engine=self._script_engine,
             barcode_service=self._barcode_service,
+            ocr_service=self._ocr_service,
         )
 
     def _compile_events(self) -> None:
@@ -914,7 +917,9 @@ class WorkbenchWindow(QMainWindow):
                 self._viewer.set_image(page_ctx.image, state)
             else:
                 self._viewer.set_state(state)
-            self._viewer.set_overlays(barcodes=page_ctx.barcodes)
+            self._viewer.set_overlays(
+                barcodes=page_ctx.barcodes, fields=page_ctx.fields,
+            )
             self._barcode_panel.set_page_barcodes(page_ctx.barcodes)
             self._reload_pages()
             if 0 <= page_index < len(self._pages):
@@ -1113,14 +1118,16 @@ class WorkbenchWindow(QMainWindow):
                 is_excluded=page.is_excluded,
             )
 
-            self._viewer.set_image(image, state)
-            self._viewer.set_overlays(barcodes=barcodes)
-            self._barcode_panel.set_page_barcodes(barcodes)
-
             try:
                 idx_fields = json.loads(page.index_fields_json)
             except (json.JSONDecodeError, TypeError):
                 idx_fields = {}
+
+            self._viewer.set_image(image, state)
+            self._viewer.set_overlays(
+                barcodes=barcodes, fields=idx_fields,
+            )
+            self._barcode_panel.set_page_barcodes(barcodes)
             self._metadata_panel.set_index_fields(idx_fields)
             self._metadata_panel.set_verification_data(
                 ocr_text=page.ocr_text,

@@ -101,10 +101,13 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                 log.error("Error compilando script '%s': %s", step.label, exc)
 
     settings = get_settings()
+    from app.services.ocr_service import OcrService
+
     executor = PipelineExecutor(
         steps=steps,
         image_service=ImagePipelineService(),
         script_engine=script_engine,
+        ocr_service=OcrService(),
         max_repeats=settings.pipeline.max_step_repeats,
     )
     import_service = ImportService()

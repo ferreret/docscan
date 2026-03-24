@@ -16,9 +16,9 @@ log = logging.getLogger(__name__)
 
 # Idiomas soportados: código -> nombre nativo
 SUPPORTED_LANGUAGES: dict[str, str] = {
-    "es": "Español",
-    "en": "English",
-    "ca": "Català",
+    "es": "ES",
+    "en": "EN",
+    "ca": "CAT",
 }
 
 DEFAULT_LANGUAGE = "es"

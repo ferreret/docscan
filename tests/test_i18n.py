@@ -34,11 +34,11 @@ class TestAvailableLanguages:
         assert "en" in result
         assert "ca" in result
 
-    def test_native_names(self):
+    def test_language_labels(self):
         result = available_languages()
-        assert result["es"] == "Español"
-        assert result["en"] == "English"
-        assert result["ca"] == "Català"
+        assert result["es"] == "ES"
+        assert result["en"] == "EN"
+        assert result["ca"] == "CAT"
 
     def test_returns_copy(self):
         """Verificar que devuelve una copia, no la referencia."""
