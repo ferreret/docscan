@@ -195,7 +195,7 @@ class WorkbenchWindow(QMainWindow):
     def _setup_ui(self) -> None:
         """Construye toda la interfaz gráfica."""
         app_name = self._application.name if self._application else "Workbench"
-        self.setWindowTitle(f"DocScan Studio \u2014 {app_name}")
+        self.setWindowTitle(self.tr("DocScan Studio \u2014 {0}").format(app_name))
         self.setMinimumSize(1280, 800)
         self.resize(1440, 900)
         self.setAcceptDrops(True)
@@ -280,23 +280,23 @@ class WorkbenchWindow(QMainWindow):
 
     def _create_toolbar(self) -> None:
         """Crea la barra de herramientas: adquisición y transferencia."""
-        toolbar = QToolBar("Workbench")
+        toolbar = QToolBar(self.tr("Workbench"))
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
         # Origen: Escáner / Importar
-        self._radio_scanner = QRadioButton("Esc\u00e1ner")
-        self._radio_import = QRadioButton("Importar")
+        self._radio_scanner = QRadioButton(self.tr("Esc\u00e1ner"))
+        self._radio_import = QRadioButton(self.tr("Importar"))
         self._radio_import.setChecked(True)
 
         self._combo_source = QComboBox()
         self._combo_source.setMinimumWidth(180)
         self._combo_source.setEditable(False)
-        self._combo_source.setPlaceholderText("Seleccionar origen...")
+        self._combo_source.setPlaceholderText(self.tr("Seleccionar origen..."))
 
         self._combo_source_type = QComboBox()
-        self._combo_source_type.addItem("Flatbed", "flatbed")
-        self._combo_source_type.addItem("ADF", "adf")
+        self._combo_source_type.addItem(self.tr("Flatbed"), "flatbed")
+        self._combo_source_type.addItem(self.tr("ADF"), "adf")
         self._combo_source_type.setFixedWidth(90)
 
         toolbar.addWidget(self._radio_scanner)
@@ -304,29 +304,29 @@ class WorkbenchWindow(QMainWindow):
         toolbar.addWidget(self._combo_source)
         toolbar.addWidget(self._combo_source_type)
 
-        self._chk_scanner_config = QCheckBox("Configurar")
+        self._chk_scanner_config = QCheckBox(self.tr("Configurar"))
         self._chk_scanner_config.setToolTip(
-            "Mostrar opciones del escáner antes de digitalizar"
+            self.tr("Mostrar opciones del esc\u00e1ner antes de digitalizar")
         )
         self._chk_scanner_config.setChecked(True)
         toolbar.addWidget(self._chk_scanner_config)
         toolbar.addSeparator()
 
         # Botón principal de acción
-        self._btn_process = QPushButton("Escanear / Importar")
+        self._btn_process = QPushButton(self.tr("Escanear / Importar"))
         self._btn_process.setProperty("cssClass", "primary")
         toolbar.addWidget(self._btn_process)
 
         toolbar.addSeparator()
 
         # Transferir
-        self._btn_transfer = QPushButton("Transferir")
+        self._btn_transfer = QPushButton(self.tr("Transferir"))
         toolbar.addWidget(self._btn_transfer)
 
         toolbar.addSeparator()
 
         # Cerrar lote (sin transferir)
-        self._btn_close_batch = QPushButton("Cerrar lote")
+        self._btn_close_batch = QPushButton(self.tr("Cerrar lote"))
         toolbar.addWidget(self._btn_close_batch)
 
         # Spacer
@@ -340,7 +340,7 @@ class WorkbenchWindow(QMainWindow):
         from app.ui.theme_manager import ThemeManager
         self._theme_manager = ThemeManager()
         self._btn_theme = QPushButton()
-        self._btn_theme.setToolTip("Cambiar tema claro/oscuro")
+        self._btn_theme.setToolTip(self.tr("Cambiar tema claro/oscuro"))
         self._update_theme_button()
         toolbar.addWidget(self._btn_theme)
 
@@ -349,11 +349,11 @@ class WorkbenchWindow(QMainWindow):
 
         self._btn_font_up = QPushButton()
         self._btn_font_up.setIcon(icon_font_increase(icon_color, 32))
-        self._btn_font_up.setToolTip("Aumentar tamaño de fuente")
+        self._btn_font_up.setToolTip(self.tr("Aumentar tama\u00f1o de fuente"))
         self._btn_font_up.setFixedSize(34, 34)
         self._btn_font_down = QPushButton()
         self._btn_font_down.setIcon(icon_font_decrease(icon_color, 32))
-        self._btn_font_down.setToolTip("Reducir tamaño de fuente")
+        self._btn_font_down.setToolTip(self.tr("Reducir tama\u00f1o de fuente"))
         self._btn_font_down.setFixedSize(34, 34)
         toolbar.addWidget(self._btn_font_up)
         toolbar.addWidget(self._btn_font_down)
@@ -555,7 +555,7 @@ class WorkbenchWindow(QMainWindow):
         self._current_page_index = -1
         self._update_page_info()
         self._status_bar.showMessage(
-            f"Lote {self._batch_id} creado", 3000,
+            self.tr("Lote {0} creado").format(self._batch_id), 3000,
         )
 
     def _load_existing_batch(self, batch_id: int) -> None:
@@ -593,7 +593,9 @@ class WorkbenchWindow(QMainWindow):
         self._update_page_info()
         self._update_lot_counters()
         self._status_bar.showMessage(
-            f"Lote {self._batch_id} cargado ({len(self._pages)} páginas)", 3000,
+            self.tr("Lote {0} cargado ({1} p\u00e1ginas)").format(
+                self._batch_id, len(self._pages),
+            ), 3000,
         )
 
         # Reanudar pipeline para páginas no procesadas
@@ -617,8 +619,8 @@ class WorkbenchWindow(QMainWindow):
         """Inicia el proceso de adquisición + reconocimiento."""
         if self._scan_worker and self._scan_worker.isRunning():
             QMessageBox.information(
-                self, "En proceso",
-                "Ya hay un proceso de adquisición en curso.",
+                self, self.tr("En proceso"),
+                self.tr("Ya hay un proceso de adquisici\u00f3n en curso."),
             )
             return
 
@@ -642,15 +644,15 @@ class WorkbenchWindow(QMainWindow):
         source = self._combo_source.currentText()
         if not source:
             QMessageBox.warning(
-                self, "Sin fuente",
-                "Selecciona un escáner primero.",
+                self, self.tr("Sin fuente"),
+                self.tr("Selecciona un esc\u00e1ner primero."),
             )
             return
 
         try:
             scanner = self._get_scanner()
         except RuntimeError as e:
-            QMessageBox.critical(self, "Error de escáner", str(e))
+            QMessageBox.critical(self, self.tr("Error de esc\u00e1ner"), str(e))
             return
 
         source_type = self._combo_source_type.currentData() or "flatbed"
@@ -711,7 +713,7 @@ class WorkbenchWindow(QMainWindow):
         )
 
         paths, _ = QFileDialog.getOpenFileNames(
-            self, "Importar documentos",
+            self, self.tr("Importar documentos"),
             last_dir,
             "Documentos (*.pdf *.tiff *.tif *.jpg *.jpeg *.png *.bmp);;"
             "Todos (*)",
@@ -782,7 +784,7 @@ class WorkbenchWindow(QMainWindow):
         # Arrancar
         self._recognition_worker.start()
         self._scan_worker.start()
-        self._status_bar.showMessage("Procesando...")
+        self._status_bar.showMessage(self.tr("Procesando..."))
 
     def _on_page_acquired(
         self, page_index: int, image: np.ndarray, source_path: str = "",
@@ -863,7 +865,7 @@ class WorkbenchWindow(QMainWindow):
         """Error durante la adquisición."""
         self._progress_bar.setVisible(False)
         self._btn_process.setEnabled(True)
-        QMessageBox.critical(self, "Error de adquisición", error)
+        QMessageBox.critical(self, self.tr("Error de adquisici\u00f3n"), error)
 
     def _on_page_processed(self, page_index: int, page_ctx: Any) -> None:
         """Una página ha sido procesada por el pipeline."""
@@ -982,7 +984,7 @@ class WorkbenchWindow(QMainWindow):
                 session.commit()
 
         self._fire_event("on_scan_complete")
-        self._status_bar.showMessage("Procesamiento completado", 5000)
+        self._status_bar.showMessage(self.tr("Procesamiento completado"), 5000)
 
         # Auto-transferencia (APP-02)
         if self._application and self._application.auto_transfer:
@@ -1052,7 +1054,7 @@ class WorkbenchWindow(QMainWindow):
 
         self._recognition_worker.signal_no_more_pages()
         self._status_bar.showMessage(
-            f"Procesando {len(pending)} página(s) pendiente(s)...",
+            self.tr("Procesando {0} p\u00e1gina(s) pendiente(s)...").format(len(pending)),
         )
 
     # ==================================================================
@@ -1152,7 +1154,7 @@ class WorkbenchWindow(QMainWindow):
                 if db_page and list(db_page.barcodes):
                     self._navigate_to(i)
                     return
-        self._status_bar.showMessage("No hay más páginas con barcode", 3000)
+        self._status_bar.showMessage(self.tr("No hay m\u00e1s p\u00e1ginas con barcode"), 3000)
 
     def _on_next_review(self) -> None:
         """Navega a la siguiente página pendiente de revisión."""
@@ -1164,7 +1166,7 @@ class WorkbenchWindow(QMainWindow):
                 self._navigate_to(i)
                 return
         self._status_bar.showMessage(
-            "No hay más páginas pendientes de revisión", 3000,
+            self.tr("No hay m\u00e1s p\u00e1ginas pendientes de revisi\u00f3n"), 3000,
         )
 
     def _on_nav_script(self) -> None:
@@ -1197,7 +1199,7 @@ class WorkbenchWindow(QMainWindow):
             self._navigate_to(result)
         else:
             self._status_bar.showMessage(
-                "Script de navegación: sin destino", 2000,
+                self.tr("Script de navegaci\u00f3n: sin destino"), 2000,
             )
 
     def _update_page_info(self) -> None:
@@ -1214,7 +1216,7 @@ class WorkbenchWindow(QMainWindow):
         """Ejecuta el flujo de transferencia."""
         if self._batch_id is None or not self._pages:
             QMessageBox.information(
-                self, "Sin datos", "No hay páginas para transferir.",
+                self, self.tr("Sin datos"), self.tr("No hay p\u00e1ginas para transferir."),
             )
             return
 
@@ -1225,15 +1227,15 @@ class WorkbenchWindow(QMainWindow):
         result = self._fire_event("on_transfer_validate")
         if result is False:
             QMessageBox.warning(
-                self, "Transferencia cancelada",
-                "La validación pre-transferencia ha fallado.",
+                self, self.tr("Transferencia cancelada"),
+                self.tr("La validaci\u00f3n pre-transferencia ha fallado."),
             )
             return
 
         # 2. Confirmación
         reply = QMessageBox.question(
-            self, "Confirmar transferencia",
-            f"¿Transferir lote con {len(self._pages)} página(s)?",
+            self, self.tr("Confirmar transferencia"),
+            self.tr("\u00bfTransferir lote con {0} p\u00e1gina(s)?").format(len(self._pages)),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -1331,9 +1333,10 @@ class WorkbenchWindow(QMainWindow):
                     session.commit()
 
             QMessageBox.information(
-                self, "Transferencia completada",
-                f"Se transfirieron {result.files_transferred} fichero(s)\n"
-                f"Destino: {result.output_path}",
+                self, self.tr("Transferencia completada"),
+                self.tr("Se transfirieron {0} fichero(s)\nDestino: {1}").format(
+                    result.files_transferred, result.output_path,
+                ),
             )
 
             # Cerrar después de transferencia (APP-03)
@@ -1344,14 +1347,16 @@ class WorkbenchWindow(QMainWindow):
         else:
             errors = "\n".join(result.errors[:5])
             QMessageBox.warning(
-                self, "Transferencia con errores",
-                f"Ficheros: {result.files_transferred}\nErrores:\n{errors}",
+                self, self.tr("Transferencia con errores"),
+                self.tr("Ficheros: {0}\nErrores:\n{1}").format(
+                    result.files_transferred, errors,
+                ),
             )
 
     def _on_transfer_error(self, error: str) -> None:
         """Error durante la transferencia."""
         self._btn_transfer.setEnabled(True)
-        QMessageBox.critical(self, "Error de transferencia", error)
+        QMessageBox.critical(self, self.tr("Error de transferencia"), error)
 
     # ==================================================================
     # Cerrar lote sin transferir
@@ -1378,27 +1383,27 @@ class WorkbenchWindow(QMainWindow):
                     batch.fields_json = json.dumps(saved_fields, ensure_ascii=False)
                     session.commit()
 
-        self._status_bar.showMessage("Nuevo lote creado", 3000)
+        self._status_bar.showMessage(self.tr("Nuevo lote creado"), 3000)
 
     def _on_close_batch(self) -> None:
         """Cierra el lote actual y crea uno nuevo."""
         if self._batch_id is None or not self._pages:
             QMessageBox.information(
-                self, "Sin lote", "No hay un lote activo con páginas.",
+                self, self.tr("Sin lote"), self.tr("No hay un lote activo con p\u00e1ginas."),
             )
             return
 
         if self._recognition_worker and self._recognition_worker.isRunning():
             QMessageBox.warning(
-                self, "Procesando",
-                "Espera a que termine el reconocimiento antes de cerrar el lote.",
+                self, self.tr("Procesando"),
+                self.tr("Espera a que termine el reconocimiento antes de cerrar el lote."),
             )
             return
 
         reply = QMessageBox.question(
-            self, "Cerrar lote",
-            f"¿Cerrar el lote {self._batch_id} sin transferir?\n"
-            "Se podrá reabrir desde el gestor de lotes.",
+            self, self.tr("Cerrar lote"),
+            self.tr("\u00bfCerrar el lote {0} sin transferir?\n"
+                     "Se podr\u00e1 reabrir desde el gestor de lotes.").format(self._batch_id),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -1411,7 +1416,7 @@ class WorkbenchWindow(QMainWindow):
             session.commit()
 
         self._status_bar.showMessage(
-            f"Lote {self._batch_id} cerrado", 3000,
+            self.tr("Lote {0} cerrado").format(self._batch_id), 3000,
         )
         self.close()
 
@@ -1440,8 +1445,8 @@ class WorkbenchWindow(QMainWindow):
         )
         self._viewer.set_state(state)
 
-        status = "excluida" if page.is_excluded else "incluida"
-        self._status_bar.showMessage(f"Página {status}", 2000)
+        status = self.tr("excluida") if page.is_excluded else self.tr("incluida")
+        self._status_bar.showMessage(self.tr("P\u00e1gina {0}").format(status), 2000)
 
     def _on_rotate_90(self) -> None:
         """Rota la página actual 90° en sentido horario y ajusta coords de barcodes."""
@@ -1496,8 +1501,8 @@ class WorkbenchWindow(QMainWindow):
             return
 
         reply = QMessageBox.question(
-            self, "Confirmar eliminación",
-            "¿Eliminar la página actual?",
+            self, self.tr("Confirmar eliminaci\u00f3n"),
+            self.tr("\u00bfEliminar la p\u00e1gina actual?"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -1538,8 +1543,8 @@ class WorkbenchWindow(QMainWindow):
 
         count = len(self._pages) - self._current_page_index
         reply = QMessageBox.question(
-            self, "Confirmar eliminación",
-            f"¿Eliminar {count} página(s) desde la actual?",
+            self, self.tr("Confirmar eliminaci\u00f3n"),
+            self.tr("\u00bfEliminar {0} p\u00e1gina(s) desde la actual?").format(count),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -1597,10 +1602,10 @@ class WorkbenchWindow(QMainWindow):
             value = bc_fixed
         else:
             from PySide6.QtWidgets import QInputDialog
-            label = "Introduce el código de barras:"
+            label = self.tr("Introduce el c\u00f3digo de barras:")
             if bc_regex:
-                label += f"\n(Formato: {bc_regex})"
-            value, ok = QInputDialog.getText(self, "Barcode manual", label)
+                label += self.tr("\n(Formato: {0})").format(bc_regex)
+            value, ok = QInputDialog.getText(self, self.tr("Barcode manual"), label)
             if not ok or not value.strip():
                 return
             value = value.strip()
@@ -1610,8 +1615,10 @@ class WorkbenchWindow(QMainWindow):
                 import re
                 if not re.fullmatch(bc_regex, value):
                     QMessageBox.warning(
-                        self, "Formato inválido",
-                        f"El valor '{value}' no cumple el patrón:\n{bc_regex}",
+                        self, self.tr("Formato inv\u00e1lido"),
+                        self.tr("El valor '{0}' no cumple el patr\u00f3n:\n{1}").format(
+                            value, bc_regex,
+                        ),
                     )
                     return
 
@@ -1629,7 +1636,7 @@ class WorkbenchWindow(QMainWindow):
 
         # Refrescar la vista
         self._navigate_to(self._current_page_index)
-        self._status_bar.showMessage(f"Barcode manual añadido: {value}", 3000)
+        self._status_bar.showMessage(self.tr("Barcode manual a\u00f1adido: {0}").format(value), 3000)
 
     def _on_delete_barcode(self) -> None:
         """Elimina el barcode seleccionado de la página actual."""
@@ -1642,15 +1649,15 @@ class WorkbenchWindow(QMainWindow):
         row = self._barcode_panel.selected_row()
         if row < 0:
             self._status_bar.showMessage(
-                "Selecciona un barcode para eliminar", 3000,
+                self.tr("Selecciona un barcode para eliminar"), 3000,
             )
             return
 
         bc_value = self._barcode_panel.selected_value()
 
         reply = QMessageBox.question(
-            self, "Eliminar barcode",
-            f"¿Eliminar el barcode '{bc_value}'?",
+            self, self.tr("Eliminar barcode"),
+            self.tr("\u00bfEliminar el barcode '{0}'?").format(bc_value),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -1668,7 +1675,7 @@ class WorkbenchWindow(QMainWindow):
 
         # Refrescar la vista
         self._navigate_to(self._current_page_index)
-        self._status_bar.showMessage(f"Barcode eliminado: {bc_value}", 3000)
+        self._status_bar.showMessage(self.tr("Barcode eliminado: {0}").format(bc_value), 3000)
 
     # ==================================================================
     # Re-procesamiento (UI-11)
@@ -1697,7 +1704,7 @@ class WorkbenchWindow(QMainWindow):
         )
         self._recognition_worker.all_processed.connect(
             lambda: self._status_bar.showMessage(
-                "Re-procesado completado", 3000,
+                self.tr("Re-procesado completado"), 3000,
             ),
         )
         self._recognition_worker.start()
@@ -1705,7 +1712,7 @@ class WorkbenchWindow(QMainWindow):
             self._current_page_index, image,
         )
         self._recognition_worker.signal_no_more_pages()
-        self._status_bar.showMessage("Re-procesando página...")
+        self._status_bar.showMessage(self.tr("Re-procesando p\u00e1gina..."))
 
     # ==================================================================
     # Builders de contextos (reutilizables)
@@ -1808,7 +1815,7 @@ class WorkbenchWindow(QMainWindow):
 
         self._combo_source.clear()
         if scanner_checked:
-            self._status_bar.showMessage("Buscando escáneres…")
+            self._status_bar.showMessage(self.tr("Buscando esc\u00e1neres\u2026"))
             QApplication.setOverrideCursor(QtCore_Qt.CursorShape.WaitCursor)
             QApplication.processEvents()
             try:
@@ -1817,22 +1824,22 @@ class WorkbenchWindow(QMainWindow):
                 self._combo_source.addItems(sources)
                 if sources:
                     self._status_bar.showMessage(
-                        f"{len(sources)} escáner(es) encontrado(s)", 3000,
+                        self.tr("{0} esc\u00e1ner(es) encontrado(s)").format(len(sources)), 3000,
                     )
                 else:
                     self._status_bar.showMessage(
-                        "No se encontraron escáneres", 5000,
+                        self.tr("No se encontraron esc\u00e1neres"), 5000,
                     )
             except Exception as e:
                 log.warning("No se pudieron listar escáneres: %s", e)
                 self._status_bar.showMessage(
-                    "Error al buscar escáneres", 5000,
+                    self.tr("Error al buscar esc\u00e1neres"), 5000,
                 )
             finally:
                 QApplication.restoreOverrideCursor()
         else:
             self._combo_source.setPlaceholderText(
-                "Usa el botón para seleccionar archivo...",
+                self.tr("Usa el bot\u00f3n para seleccionar archivo..."),
             )
             self._status_bar.clearMessage()
 

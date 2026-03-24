@@ -23,7 +23,7 @@ class OcrStepDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self._step = step
-        self.setWindowTitle("OCR")
+        self.setWindowTitle(self.tr("OCR"))
         self.setMinimumWidth(400)
 
         layout = QFormLayout(self)
@@ -31,13 +31,13 @@ class OcrStepDialog(QDialog):
         self._engine_combo = QComboBox()
         self._engine_combo.addItems(["rapidocr", "easyocr", "tesseract"])
         self._engine_combo.setCurrentText(step.engine)
-        layout.addRow("Motor:", self._engine_combo)
+        layout.addRow(self.tr("Motor:"), self._engine_combo)
 
         self._langs_edit = QLineEdit(", ".join(step.languages))
         self._langs_edit.setPlaceholderText("es, en, fr")
-        layout.addRow("Idiomas:", self._langs_edit)
+        layout.addRow(self.tr("Idiomas:"), self._langs_edit)
 
-        self._full_page = QCheckBox("Página completa")
+        self._full_page = QCheckBox(self.tr("Página completa"))
         self._full_page.setChecked(step.full_page)
         layout.addRow("", self._full_page)
 
@@ -46,8 +46,8 @@ class OcrStepDialog(QDialog):
             self._window_edit.setText(
                 ", ".join(str(v) for v in step.window)
             )
-        self._window_edit.setPlaceholderText("x, y, w, h (vacío = completa)")
-        layout.addRow("Ventana:", self._window_edit)
+        self._window_edit.setPlaceholderText(self.tr("x, y, w, h (vacío = completa)"))
+        layout.addRow(self.tr("Ventana:"), self._window_edit)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok

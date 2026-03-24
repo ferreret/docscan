@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Qt, Signal
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -31,17 +31,36 @@ STATE_COLORS_THEMED: dict[str, tuple[str, str]] = {
     "error_export":    ("#c62828", "#EF9A9A"),
 }
 
-STATE_LABELS: dict[str, str] = {
-    "created": "Creado",
-    "read": "Le\u00eddo",
-    "verified": "Verificado",
-    "ready_to_export": "Listo exportar",
-    "exported": "Exportado",
-    "error_read": "Error lectura",
-    "error_export": "Error export.",
+_STATE_LABELS_SRC: dict[str, str] = {
+    "created": QT_TRANSLATE_NOOP("BatchListWidget", "Creado"),
+    "read": QT_TRANSLATE_NOOP("BatchListWidget", "Leído"),
+    "verified": QT_TRANSLATE_NOOP("BatchListWidget", "Verificado"),
+    "ready_to_export": QT_TRANSLATE_NOOP("BatchListWidget", "Listo exportar"),
+    "exported": QT_TRANSLATE_NOOP("BatchListWidget", "Exportado"),
+    "error_read": QT_TRANSLATE_NOOP("BatchListWidget", "Error lectura"),
+    "error_export": QT_TRANSLATE_NOOP("BatchListWidget", "Error export."),
 }
 
-COLUMNS = ["ID", "Aplicaci\u00f3n", "P\u00e1ginas", "Estaci\u00f3n", "Creado", "Actualizado"]
+_COLUMNS_SRC = [
+    QT_TRANSLATE_NOOP("BatchListWidget", "ID"),
+    QT_TRANSLATE_NOOP("BatchListWidget", "Aplicación"),
+    QT_TRANSLATE_NOOP("BatchListWidget", "Páginas"),
+    QT_TRANSLATE_NOOP("BatchListWidget", "Estación"),
+    QT_TRANSLATE_NOOP("BatchListWidget", "Creado"),
+    QT_TRANSLATE_NOOP("BatchListWidget", "Actualizado"),
+]
+
+
+def STATE_LABELS() -> dict[str, str]:
+    """Devuelve etiquetas de estado traducidas (evaluadas en tiempo de uso)."""
+    _t = lambda s: QCoreApplication.translate("BatchListWidget", s)
+    return {k: _t(v) for k, v in _STATE_LABELS_SRC.items()}
+
+
+def COLUMNS() -> list[str]:
+    """Devuelve cabeceras de columna traducidas (evaluadas en tiempo de uso)."""
+    _t = lambda s: QCoreApplication.translate("BatchListWidget", s)
+    return [_t(s) for s in _COLUMNS_SRC]
 
 
 class BatchListWidget(QTableWidget):
@@ -63,8 +82,9 @@ class BatchListWidget(QTableWidget):
 
     def _setup_table(self) -> None:
         """Configura la tabla."""
-        self.setColumnCount(len(COLUMNS))
-        self.setHorizontalHeaderLabels(COLUMNS)
+        cols = COLUMNS()
+        self.setColumnCount(len(cols))
+        self.setHorizontalHeaderLabels(cols)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)

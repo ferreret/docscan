@@ -62,24 +62,24 @@ class BatchDetailPanel(QTabWidget):
         self._lbl_folder = QLabel("-")
         self._lbl_folder.setWordWrap(True)
 
-        layout.addRow("ID:", self._lbl_id)
-        layout.addRow("Aplicación:", self._lbl_app)
-        layout.addRow("Estado:", self._lbl_state)
-        layout.addRow("Estación:", self._lbl_hostname)
-        layout.addRow("Usuario:", self._lbl_username)
-        layout.addRow("Páginas:", self._lbl_pages)
-        layout.addRow("Creado:", self._lbl_created)
-        layout.addRow("Actualizado:", self._lbl_updated)
-        layout.addRow("Carpeta:", self._lbl_folder)
+        layout.addRow(self.tr("ID:"), self._lbl_id)
+        layout.addRow(self.tr("Aplicación:"), self._lbl_app)
+        layout.addRow(self.tr("Estado:"), self._lbl_state)
+        layout.addRow(self.tr("Estación:"), self._lbl_hostname)
+        layout.addRow(self.tr("Usuario:"), self._lbl_username)
+        layout.addRow(self.tr("Páginas:"), self._lbl_pages)
+        layout.addRow(self.tr("Creado:"), self._lbl_created)
+        layout.addRow(self.tr("Actualizado:"), self._lbl_updated)
+        layout.addRow(self.tr("Carpeta:"), self._lbl_folder)
 
-        self.addTab(widget, "General")
+        self.addTab(widget, self.tr("General"))
 
     def set_general_info(self, info: dict[str, Any]) -> None:
         """Establece la información general del lote."""
         self._lbl_id.setText(str(info.get("id", "-")))
         self._lbl_app.setText(info.get("app_name", "-"))
         state = info.get("state", "")
-        self._lbl_state.setText(STATE_LABELS.get(state, state))
+        self._lbl_state.setText(STATE_LABELS().get(state, state))
         self._lbl_hostname.setText(info.get("hostname", "-"))
         self._lbl_username.setText(info.get("username", "-"))
         self._lbl_pages.setText(str(info.get("page_count", 0)))
@@ -98,22 +98,22 @@ class BatchDetailPanel(QTabWidget):
         layout.setContentsMargins(8, 8, 8, 8)
 
         # Grupo: Páginas
-        pages_group = QGroupBox("Páginas")
+        pages_group = QGroupBox(self.tr("Páginas"))
         pages_layout = QFormLayout(pages_group)
         self._lbl_stat_total = QLabel("0")
         self._lbl_stat_review = QLabel("0")
         self._lbl_stat_excluded = QLabel("0")
         self._lbl_stat_blank = QLabel("0")
         self._lbl_stat_errors = QLabel("0")
-        pages_layout.addRow("Total:", self._lbl_stat_total)
-        pages_layout.addRow("Requieren revisión:", self._lbl_stat_review)
-        pages_layout.addRow("Excluidas:", self._lbl_stat_excluded)
-        pages_layout.addRow("En blanco:", self._lbl_stat_blank)
-        pages_layout.addRow("Con errores:", self._lbl_stat_errors)
+        pages_layout.addRow(self.tr("Total:"), self._lbl_stat_total)
+        pages_layout.addRow(self.tr("Requieren revisión:"), self._lbl_stat_review)
+        pages_layout.addRow(self.tr("Excluidas:"), self._lbl_stat_excluded)
+        pages_layout.addRow(self.tr("En blanco:"), self._lbl_stat_blank)
+        pages_layout.addRow(self.tr("Con errores:"), self._lbl_stat_errors)
         layout.addWidget(pages_group)
 
         # Grupo: Pipeline (stats_json)
-        pipeline_group = QGroupBox("Pipeline")
+        pipeline_group = QGroupBox(self.tr("Pipeline"))
         pipeline_layout = QVBoxLayout(pipeline_group)
         self._txt_pipeline_stats = QTextEdit()
         self._txt_pipeline_stats.setReadOnly(True)
@@ -122,7 +122,7 @@ class BatchDetailPanel(QTabWidget):
         layout.addWidget(pipeline_group)
 
         layout.addStretch()
-        self.addTab(widget, "Estadísticas")
+        self.addTab(widget, self.tr("Estadísticas"))
 
     def set_stats(self, stats: dict[str, Any], pipeline_stats_json: str = "{}") -> None:
         """Establece las estadísticas del lote."""
@@ -141,9 +141,9 @@ class BatchDetailPanel(QTabWidget):
                     lines.append(f"{key}: {val}")
                 self._txt_pipeline_stats.setPlainText("\n".join(lines))
             else:
-                self._txt_pipeline_stats.setPlainText("Sin estadísticas de pipeline")
+                self._txt_pipeline_stats.setPlainText(self.tr("Sin estadísticas de pipeline"))
         except (json.JSONDecodeError, TypeError):
-            self._txt_pipeline_stats.setPlainText("Sin estadísticas de pipeline")
+            self._txt_pipeline_stats.setPlainText(self.tr("Sin estadísticas de pipeline"))
 
     # ------------------------------------------------------------------
     # Páginas
@@ -156,7 +156,10 @@ class BatchDetailPanel(QTabWidget):
         layout.setContentsMargins(4, 4, 4, 4)
 
         self._pages_table = QTableWidget()
-        cols = ["#", "Revisión", "Excluida", "Blanco", "OCR", "Errores"]
+        cols = [
+            self.tr("#"), self.tr("Revisión"), self.tr("Excluida"),
+            self.tr("Blanco"), self.tr("OCR"), self.tr("Errores"),
+        ]
         self._pages_table.setColumnCount(len(cols))
         self._pages_table.setHorizontalHeaderLabels(cols)
         self._pages_table.setSelectionBehavior(
@@ -169,7 +172,7 @@ class BatchDetailPanel(QTabWidget):
         self._pages_table.horizontalHeader().setStretchLastSection(True)
 
         layout.addWidget(self._pages_table)
-        self.addTab(widget, "Páginas")
+        self.addTab(widget, self.tr("Páginas"))
 
     def set_pages(self, pages: list[dict[str, Any]]) -> None:
         """Carga la lista de páginas en la tabla."""
@@ -180,10 +183,10 @@ class BatchDetailPanel(QTabWidget):
 
             items = [
                 str(page.get("page_index", row_idx)),
-                "Sí" if page.get("needs_review") else "",
-                "Sí" if page.get("is_excluded") else "",
-                "Sí" if page.get("is_blank") else "",
-                "Sí" if page.get("ocr_text") else "",
+                self.tr("Sí") if page.get("needs_review") else "",
+                self.tr("Sí") if page.get("is_excluded") else "",
+                self.tr("Sí") if page.get("is_blank") else "",
+                self.tr("Sí") if page.get("ocr_text") else "",
                 str(page.get("error_count", 0)) if page.get("error_count") else "",
             ]
 
@@ -205,7 +208,10 @@ class BatchDetailPanel(QTabWidget):
         layout.setContentsMargins(4, 4, 4, 4)
 
         self._history_table = QTableWidget()
-        cols = ["Fecha", "Operación", "Estado ant.", "Estado nuevo", "Usuario", "Mensaje"]
+        cols = [
+            self.tr("Fecha"), self.tr("Operación"), self.tr("Estado ant."),
+            self.tr("Estado nuevo"), self.tr("Usuario"), self.tr("Mensaje"),
+        ]
         self._history_table.setColumnCount(len(cols))
         self._history_table.setHorizontalHeaderLabels(cols)
         self._history_table.setSelectionBehavior(
@@ -218,7 +224,7 @@ class BatchDetailPanel(QTabWidget):
         self._history_table.horizontalHeader().setStretchLastSection(True)
 
         layout.addWidget(self._history_table)
-        self.addTab(widget, "Historial")
+        self.addTab(widget, self.tr("Historial"))
 
     def set_history(self, entries: list[dict[str, Any]]) -> None:
         """Carga el historial de operaciones."""
@@ -230,8 +236,8 @@ class BatchDetailPanel(QTabWidget):
             items = [
                 self._fmt_dt(entry.get("timestamp")),
                 entry.get("operation", ""),
-                STATE_LABELS.get(entry.get("old_state", ""), entry.get("old_state", "")),
-                STATE_LABELS.get(entry.get("new_state", ""), entry.get("new_state", "")),
+                STATE_LABELS().get(entry.get("old_state", ""), entry.get("old_state", "")),
+                STATE_LABELS().get(entry.get("new_state", ""), entry.get("new_state", "")),
                 entry.get("username", ""),
                 entry.get("message", ""),
             ]

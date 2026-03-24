@@ -274,6 +274,11 @@ def main() -> int:
     # H1: Liberar engine al salir
     qt_app.aboutToQuit.connect(lambda: engine.dispose())
 
+    # Cargar traducciones según preferencia de idioma
+    from app.i18n import get_language_preference, load_language
+
+    load_language(get_language_preference(), qt_app)
+
     # Aplicar tema (restaura preferencias guardadas)
     from app.ui.theme_manager import ThemeManager
 

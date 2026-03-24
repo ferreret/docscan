@@ -67,11 +67,11 @@ class MetadataPanel(QWidget):
         lote_scroll = QScrollArea()
         lote_scroll.setWidgetResizable(True)
         lote_scroll.setWidget(self._tab_lote)
-        self._tabs.addTab(lote_scroll, "Lote")
+        self._tabs.addTab(lote_scroll, self.tr("Lote"))
 
         # Pestaña Log
         self._log_panel = LogPanel()
-        self._tabs.addTab(self._log_panel, "Log")
+        self._tabs.addTab(self._log_panel, self.tr("Log"))
 
         layout.addWidget(self._tabs)
 

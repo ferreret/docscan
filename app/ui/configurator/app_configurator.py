@@ -51,7 +51,7 @@ class AppConfigurator(QDialog):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle(f"Configurar — {self._app.name}")
+        self.setWindowTitle(self.tr("Configurar — {0}").format(self._app.name))
         self.setMinimumSize(800, 600)
         self.resize(950, 700)
 
@@ -67,12 +67,12 @@ class AppConfigurator(QDialog):
         self._tab_events = EventsTab(self._app)
         self._tab_transfer = TransferTab(self._app)
 
-        self._tabs.addTab(self._tab_general, "General")
-        self._tabs.addTab(self._tab_image, "Imagen")
-        self._tabs.addTab(self._tab_batch_fields, "Campos de Lote")
-        self._tabs.addTab(self._tab_pipeline, "Pipeline")
-        self._tabs.addTab(self._tab_events, "Eventos")
-        self._tabs.addTab(self._tab_transfer, "Transferencia")
+        self._tabs.addTab(self._tab_general, self.tr("General"))
+        self._tabs.addTab(self._tab_image, self.tr("Imagen"))
+        self._tabs.addTab(self._tab_batch_fields, self.tr("Campos de Lote"))
+        self._tabs.addTab(self._tab_pipeline, self.tr("Pipeline"))
+        self._tabs.addTab(self._tab_events, self.tr("Eventos"))
+        self._tabs.addTab(self._tab_transfer, self.tr("Transferencia"))
 
         layout.addWidget(self._tabs)
 
@@ -81,8 +81,8 @@ class AppConfigurator(QDialog):
             QDialogButtonBox.StandardButton.Save
             | QDialogButtonBox.StandardButton.Cancel,
         )
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Guardar")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText(self.tr("Guardar"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr("Cancelar"))
         buttons.accepted.connect(self._on_save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -112,6 +112,6 @@ class AppConfigurator(QDialog):
         except Exception as e:
             log.error("Error guardando configuración: %s", e)
             QMessageBox.critical(
-                self, "Error al guardar",
-                f"No se pudo guardar la configuración:\n{e}",
+                self, self.tr("Error al guardar"),
+                self.tr("No se pudo guardar la configuración:\n{0}").format(e),
             )

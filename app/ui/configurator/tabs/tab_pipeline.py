@@ -10,7 +10,7 @@ import uuid
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Qt, QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -35,29 +35,37 @@ from app.pipeline.steps import (
 
 log = logging.getLogger(__name__)
 
-# Iconos por tipo de paso (texto, por ahora sin iconos reales)
-STEP_TYPE_LABELS = {
-    "image_op": "Imagen",
-    "barcode": "Barcode",
-    "ocr": "OCR",
-    "script": "Script",
+# Etiquetas por tipo de paso (marcadas para lupdate, traducidas en uso)
+_STEP_TYPE_LABELS_SRC = {
+    "image_op": QT_TRANSLATE_NOOP("PipelineTab", "Imagen"),
+    "barcode": QT_TRANSLATE_NOOP("PipelineTab", "Barcode"),
+    "ocr": QT_TRANSLATE_NOOP("PipelineTab", "OCR"),
+    "script": QT_TRANSLATE_NOOP("PipelineTab", "Script"),
 }
+
+_tr = lambda s: QCoreApplication.translate("PipelineTab", s)
+
+
+def STEP_TYPE_LABELS() -> dict[str, str]:
+    """Devuelve etiquetas de tipo de paso traducidas."""
+    return {k: _tr(v) for k, v in _STEP_TYPE_LABELS_SRC.items()}
 
 
 def _step_display_text(step: PipelineStep) -> str:
     """Genera el texto de visualización de un paso."""
-    prefix = STEP_TYPE_LABELS.get(step.type, step.type)
+    labels = STEP_TYPE_LABELS()
+    prefix = labels.get(step.type, step.type)
 
     if isinstance(step, ImageOpStep):
-        detail = step.op or "(sin operación)"
+        detail = step.op or _tr("(sin operación)")
     elif isinstance(step, BarcodeStep):
-        symb = ", ".join(step.symbologies[:3]) or "todas"
+        symb = ", ".join(step.symbologies[:3]) or _tr("todas")
         detail = f"{step.engine} · {symb}"
     elif isinstance(step, OcrStep):
         langs = ", ".join(step.languages)
         detail = f"{step.engine} [{langs}]"
     elif isinstance(step, ScriptStep):
-        detail = step.label or step.entry_point or "(sin nombre)"
+        detail = step.label or step.entry_point or _tr("(sin nombre)")
     else:
         detail = step.id
 
@@ -85,16 +93,16 @@ class PipelineTab(QWidget):
         actions_layout.setSpacing(6)
 
         self._type_combo = QComboBox()
-        for type_key, label in STEP_TYPE_LABELS.items():
+        for type_key, label in STEP_TYPE_LABELS().items():
             self._type_combo.addItem(label, type_key)
         actions_layout.addWidget(self._type_combo)
 
-        self._btn_add = QPushButton("Añadir")
+        self._btn_add = QPushButton(self.tr("Añadir"))
         self._btn_add.setProperty("cssClass", "primary")
-        self._btn_edit = QPushButton("Editar")
-        self._btn_delete = QPushButton("Eliminar")
+        self._btn_edit = QPushButton(self.tr("Editar"))
+        self._btn_delete = QPushButton(self.tr("Eliminar"))
         self._btn_delete.setProperty("cssClass", "danger")
-        self._btn_toggle = QPushButton("On/Off")
+        self._btn_toggle = QPushButton(self.tr("On/Off"))
         self._btn_up = QPushButton("↑")
         self._btn_down = QPushButton("↓")
 

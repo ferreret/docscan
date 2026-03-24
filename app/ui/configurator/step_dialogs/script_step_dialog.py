@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
@@ -38,9 +38,10 @@ def process(app, batch, page, pipeline):
     pass
 '''
 
-_HELP_TEXT = (
+_HELP_TEXT = QT_TRANSLATE_NOOP(
+    "ScriptStepDialog",
     "Variables disponibles: app, batch, page, pipeline, "
-    "log, http, re, json, datetime, Path"
+    "log, http, re, json, datetime, Path",
 )
 
 
@@ -69,46 +70,48 @@ class ScriptStepDialog(QDialog):
         super().__init__(parent)
         self._step = step
         self._editor_worker: _EditorWorker | None = None
-        self.setWindowTitle("Paso Script Python")
+        self.setWindowTitle(self.tr("Paso Script Python"))
         self.setMinimumSize(650, 520)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
         # --- Grupo de configuración ---
-        config_group = QGroupBox("Configuración")
+        config_group = QGroupBox(self.tr("Configuración"))
         config_form = QFormLayout(config_group)
         config_form.setSpacing(8)
 
         self._label_edit = QLineEdit(step.label)
-        self._label_edit.setPlaceholderText("Ej: Asignar roles barcode")
-        config_form.addRow("Nombre:", self._label_edit)
+        self._label_edit.setPlaceholderText(self.tr("Ej: Asignar roles barcode"))
+        config_form.addRow(self.tr("Nombre:"), self._label_edit)
 
         entry_row = QHBoxLayout()
         self._entry_edit = QLineEdit(step.entry_point or "process")
         self._entry_edit.setPlaceholderText("process")
         self._entry_edit.setMaximumWidth(250)
         entry_row.addWidget(self._entry_edit)
-        entry_hint = QLabel("Nombre de la función a ejecutar")
+        entry_hint = QLabel(self.tr("Nombre de la función a ejecutar"))
         entry_hint.setProperty("cssClass", "subtitle")
         entry_row.addWidget(entry_hint)
         entry_row.addStretch()
-        config_form.addRow("Función:", entry_row)
+        config_form.addRow(self.tr("Función:"), entry_row)
 
         layout.addWidget(config_group)
 
         # --- Grupo de código ---
-        code_group = QGroupBox("Código Python")
+        code_group = QGroupBox(self.tr("Código Python"))
         code_layout = QVBoxLayout(code_group)
         code_layout.setSpacing(6)
 
         # Barra superior: ayuda + botón VS Code
         code_bar = QHBoxLayout()
-        help_label = QLabel(_HELP_TEXT)
+        help_label = QLabel(
+            QCoreApplication.translate("ScriptStepDialog", _HELP_TEXT)
+        )
         help_label.setProperty("cssClass", "info")
         code_bar.addWidget(help_label, 1)
 
-        self._btn_vscode = QPushButton("Abrir en VS Code")
+        self._btn_vscode = QPushButton(self.tr("Abrir en VS Code"))
         self._btn_vscode.setVisible(detect_editor() is not None)
         self._btn_vscode.clicked.connect(self._open_in_vscode)
         code_bar.addWidget(self._btn_vscode)
@@ -135,8 +138,8 @@ class ScriptStepDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel,
         )
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Aceptar")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self.tr("Aceptar"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr("Cancelar"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -144,7 +147,7 @@ class ScriptStepDialog(QDialog):
     def _open_in_vscode(self) -> None:
         """Lanza VS Code para editar el script en hilo separado."""
         self._btn_vscode.setEnabled(False)
-        self._btn_vscode.setText("Editando en VS Code...")
+        self._btn_vscode.setText(self.tr("Editando en VS Code..."))
         self._editor_worker = _EditorWorker(
             self._code_edit.toPlainText(), "pipeline",
         )
@@ -154,7 +157,7 @@ class ScriptStepDialog(QDialog):
     def _on_editor_done(self, result: str | None) -> None:
         """Actualiza el código al volver de VS Code."""
         self._btn_vscode.setEnabled(True)
-        self._btn_vscode.setText("Abrir en VS Code")
+        self._btn_vscode.setText(self.tr("Abrir en VS Code"))
         if result is not None:
             self._code_edit.setPlainText(result)
 

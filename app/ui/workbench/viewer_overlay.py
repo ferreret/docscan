@@ -325,20 +325,20 @@ class ViewerOverlay(QWidget):
         c = "#cdd6f4"  # Color base (se adapta vía QSS)
 
         # --- Navegación ---
-        self._btn_first = _make_button(_icon_first(c), "Primera página (Home)")
-        self._btn_prev = _make_button(_icon_prev(c), "Anterior (Left)")
+        self._btn_first = _make_button(_icon_first(c), self.tr("Primera p\u00e1gina (Home)"))
+        self._btn_prev = _make_button(_icon_prev(c), self.tr("Anterior (Left)"))
         self._lbl_page_info = QLabel(" 0 / 0 ")
         self._lbl_page_info.setObjectName("pageInfoLabel")
         self._lbl_page_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl_page_info.setMinimumWidth(90)
-        self._btn_next = _make_button(_icon_next(c), "Siguiente (Right)")
-        self._btn_last = _make_button(_icon_last(c), "Última página (End)")
+        self._btn_next = _make_button(_icon_next(c), self.tr("Siguiente (Right)"))
+        self._btn_last = _make_button(_icon_last(c), self.tr("\u00daltima p\u00e1gina (End)"))
 
         self._btn_next_bc = _make_button(
-            _icon_next_barcode(c), "Siguiente con barcode",
+            _icon_next_barcode(c), self.tr("Siguiente con barcode"),
         )
         self._btn_next_review = _make_button(
-            _icon_next_review(c), "Siguiente pendiente revisión",
+            _icon_next_review(c), self.tr("Siguiente pendiente revisi\u00f3n"),
         )
 
         layout.addWidget(self._btn_first)
@@ -355,7 +355,7 @@ class ViewerOverlay(QWidget):
 
         # Navegación programable
         self._btn_nav_script = _make_button(
-            _icon_nav_script(c), "Navegación programable (script)",
+            _icon_nav_script(c), self.tr("Navegaci\u00f3n programable (script)"),
         )
         layout.addWidget(self._btn_nav_script)
 
@@ -363,13 +363,13 @@ class ViewerOverlay(QWidget):
         layout.addWidget(self._separator())
 
         # --- Zoom ---
-        self._btn_zoom_in = _make_button(_icon_zoom_in(c), "Acercar (Ctrl++)")
-        self._btn_zoom_out = _make_button(_icon_zoom_out(c), "Alejar (Ctrl+-)")
+        self._btn_zoom_in = _make_button(_icon_zoom_in(c), self.tr("Acercar (Ctrl++)"))
+        self._btn_zoom_out = _make_button(_icon_zoom_out(c), self.tr("Alejar (Ctrl+-)"))
         self._btn_zoom_fit = _make_button(
-            _icon_zoom_fit(c), "Ajustar a página (Ctrl+F)",
+            _icon_zoom_fit(c), self.tr("Ajustar a p\u00e1gina (Ctrl+F)"),
         )
         self._btn_zoom_100 = _make_button(
-            _icon_zoom_100(c), "Tamaño real", width=42,
+            _icon_zoom_100(c), self.tr("Tama\u00f1o real"), width=42,
         )
 
         layout.addWidget(self._btn_zoom_in)
@@ -381,14 +381,14 @@ class ViewerOverlay(QWidget):
         layout.addWidget(self._separator())
 
         # --- Herramientas ---
-        self._btn_rotate = _make_button(_icon_rotate(c), "Rotar 90°")
-        self._btn_mark = _make_button(_icon_mark(c), "Marcar/desmarcar página")
+        self._btn_rotate = _make_button(_icon_rotate(c), self.tr("Rotar 90\u00b0"))
+        self._btn_mark = _make_button(_icon_mark(c), self.tr("Marcar/desmarcar p\u00e1gina"))
         self._btn_delete_current = _make_button(
-            _icon_delete_current(), "Eliminar página actual",
+            _icon_delete_current(), self.tr("Eliminar p\u00e1gina actual"),
             obj_name="dangerButton",
         )
         self._btn_delete_from = _make_button(
-            _icon_delete_from(), "Borrar desde aquí",
+            _icon_delete_from(), self.tr("Borrar desde aqu\u00ed"),
             obj_name="dangerButton",
         )
 

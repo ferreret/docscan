@@ -86,7 +86,7 @@ class BatchManagerWindow(QMainWindow):
 
     def _setup_ui(self) -> None:
         """Construye la interfaz completa."""
-        self.setWindowTitle("DocScan Studio — Histórico de Lotes")
+        self.setWindowTitle(self.tr("DocScan Studio — Histórico de Lotes"))
         self.setMinimumSize(1000, 600)
 
         # --- Toolbar ---
@@ -120,19 +120,19 @@ class BatchManagerWindow(QMainWindow):
         self._status_bar = QStatusBar()
         self.setStatusBar(self._status_bar)
 
-        self._lbl_count = QLabel("0 lotes")
+        self._lbl_count = QLabel(self.tr("0 lotes"))
         self._status_bar.addPermanentWidget(self._lbl_count)
 
     def _create_toolbar(self) -> None:
         """Barra de herramientas con acciones."""
-        toolbar = QToolBar("Lotes")
+        toolbar = QToolBar(self.tr("Lotes"))
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
-        self._btn_open_batch = QPushButton("Abrir lote")
+        self._btn_open_batch = QPushButton(self.tr("Abrir lote"))
         self._btn_open_batch.setProperty("cssClass", "primary")
-        self._btn_refresh = QPushButton("Actualizar")
-        self._btn_delete = QPushButton("Eliminar")
+        self._btn_refresh = QPushButton(self.tr("Actualizar"))
+        self._btn_delete = QPushButton(self.tr("Eliminar"))
         self._btn_delete.setProperty("cssClass", "danger")
 
         toolbar.addWidget(self._btn_open_batch)
@@ -149,37 +149,37 @@ class BatchManagerWindow(QMainWindow):
         layout.setContentsMargins(4, 4, 4, 4)
 
         # Aplicación
-        layout.addWidget(QLabel("Aplicación:"))
+        layout.addWidget(QLabel(self.tr("Aplicación:")))
         self._combo_app = QComboBox()
-        self._combo_app.addItem("Todas", 0)
+        self._combo_app.addItem(self.tr("Todas"), 0)
         self._combo_app.setMinimumWidth(150)
         layout.addWidget(self._combo_app)
 
         # Estación
-        layout.addWidget(QLabel("Estación:"))
+        layout.addWidget(QLabel(self.tr("Estación:")))
         self._combo_hostname = QComboBox()
-        self._combo_hostname.addItem("Todas", "")
+        self._combo_hostname.addItem(self.tr("Todas"), "")
         self._combo_hostname.setMinimumWidth(120)
         layout.addWidget(self._combo_hostname)
 
         # Fechas
         today = QDate.currentDate()
 
-        layout.addWidget(QLabel("Desde:"))
+        layout.addWidget(QLabel(self.tr("Desde:")))
         self._date_from = QDateEdit()
         self._date_from.setCalendarPopup(True)
         self._date_from.setDate(today.addDays(-30))
         self._date_from.setDisplayFormat("dd/MM/yyyy")
         layout.addWidget(self._date_from)
 
-        layout.addWidget(QLabel("Hasta:"))
+        layout.addWidget(QLabel(self.tr("Hasta:")))
         self._date_to = QDateEdit()
         self._date_to.setCalendarPopup(True)
         self._date_to.setDate(today)
         self._date_to.setDisplayFormat("dd/MM/yyyy")
         layout.addWidget(self._date_to)
 
-        self._btn_filter = QPushButton("Filtrar")
+        self._btn_filter = QPushButton(self.tr("Filtrar"))
         layout.addWidget(self._btn_filter)
 
         layout.addStretch()
@@ -253,7 +253,7 @@ class BatchManagerWindow(QMainWindow):
 
         self._batch_app_map = {b["id"]: b["application_id"] for b in batch_dicts}
         self._batch_list.set_batches(batch_dicts)
-        self._lbl_count.setText(f"{len(batch_dicts)} lote(s)")
+        self._lbl_count.setText(self.tr("{0} lote(s)").format(len(batch_dicts)))
 
         # Re-seleccionar fila si había un lote seleccionado
         if self._selected_batch_id is not None:
@@ -348,7 +348,7 @@ class BatchManagerWindow(QMainWindow):
         """Devuelve el batch_id seleccionado o muestra aviso."""
         batch_id = self._batch_list.get_selected_batch_id()
         if batch_id is None:
-            QMessageBox.information(self, "Sin selección", "Selecciona un lote.")
+            QMessageBox.information(self, self.tr("Sin selección"), self.tr("Selecciona un lote."))
         return batch_id
 
     def _on_open_batch(self) -> None:
@@ -370,9 +370,8 @@ class BatchManagerWindow(QMainWindow):
             return
 
         reply = QMessageBox.question(
-            self, "Confirmar eliminación",
-            f"¿Eliminar el lote {batch_id} y sus imágenes de disco?\n"
-            "Esta acción no se puede deshacer.",
+            self, self.tr("Confirmar eliminación"),
+            self.tr("¿Eliminar el lote {0} y sus imágenes de disco?\nEsta acción no se puede deshacer.").format(batch_id),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -386,7 +385,7 @@ class BatchManagerWindow(QMainWindow):
         self._selected_batch_id = None
         self._detail_panel.clear_all()
         self._refresh_batches()
-        self._status_bar.showMessage(f"Lote {batch_id} eliminado", 5000)
+        self._status_bar.showMessage(self.tr("Lote {0} eliminado").format(batch_id), 5000)
 
     # ==================================================================
     # Cierre

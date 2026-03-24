@@ -49,7 +49,7 @@ class ScannerConfigDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Configuración del escáner")
+        self.setWindowTitle(self.tr("Configuraci\u00f3n del esc\u00e1ner"))
         self.setMinimumWidth(420)
         self.setMinimumHeight(300)
         self._options = options

@@ -36,16 +36,18 @@ class TransferTab(QWidget):
         main_layout = QVBoxLayout(self)
 
         # ── Grupo: Configuración general ──
-        general_group = QGroupBox("Configuración general")
+        general_group = QGroupBox(self.tr("Configuración general"))
         gen_form = QFormLayout(general_group)
         gen_form.setVerticalSpacing(8)
         gen_form.setContentsMargins(12, 12, 12, 12)
 
-        self._enabled_check = QCheckBox("Habilitar transferencia estándar")
+        self._enabled_check = QCheckBox(self.tr("Habilitar transferencia estándar"))
         self._enabled_check.setToolTip(
-            "Si está desmarcado, solo se ejecutará el evento\n"
-            "on_transfer_advanced (si está definido).\n"
-            "Útil cuando la transferencia se gestiona íntegramente por script."
+            self.tr(
+                "Si está desmarcado, solo se ejecutará el evento\n"
+                "on_transfer_advanced (si está definido).\n"
+                "Útil cuando la transferencia se gestiona íntegramente por script."
+            )
         )
         self._enabled_check.setChecked(True)
         self._enabled_check.toggled.connect(self._on_enabled_changed)
@@ -54,12 +56,14 @@ class TransferTab(QWidget):
         self._mode_combo = QComboBox()
         self._mode_combo.addItems(["folder", "pdf", "pdfa", "csv"])
         self._mode_combo.setToolTip(
-            "folder = copia imágenes a carpeta destino\n"
-            "pdf = genera un PDF por lote\n"
-            "pdfa = genera un PDF/A (archivable)\n"
-            "csv = exporta índices a fichero CSV"
+            self.tr(
+                "folder = copia imágenes a carpeta destino\n"
+                "pdf = genera un PDF por lote\n"
+                "pdfa = genera un PDF/A (archivable)\n"
+                "csv = exporta índices a fichero CSV"
+            )
         )
-        gen_form.addRow("Modo:", self._mode_combo)
+        gen_form.addRow(self.tr("Modo:"), self._mode_combo)
 
         dest_row = QWidget()
         dest_layout = QHBoxLayout(dest_row)
@@ -68,43 +72,47 @@ class TransferTab(QWidget):
         self._dest_edit = QLineEdit()
         self._dest_edit.setPlaceholderText("/ruta/destino/transferencia")
         self._dest_edit.setToolTip(
-            "Carpeta donde se depositan los archivos transferidos"
+            self.tr("Carpeta donde se depositan los archivos transferidos")
         )
         dest_layout.addWidget(self._dest_edit)
-        btn_browse = QPushButton("Examinar…")
+        btn_browse = QPushButton(self.tr("Examinar…"))
         btn_browse.setFixedWidth(90)
-        btn_browse.setToolTip("Seleccionar carpeta de destino")
+        btn_browse.setToolTip(self.tr("Seleccionar carpeta de destino"))
         btn_browse.clicked.connect(self._browse_destination)
         dest_layout.addWidget(btn_browse)
-        gen_form.addRow("Destino:", dest_row)
+        gen_form.addRow(self.tr("Destino:"), dest_row)
 
         self._pattern_edit = QLineEdit()
         self._pattern_edit.setPlaceholderText(
             "{batch_id}_{page_index:04d}"
         )
         self._pattern_edit.setToolTip(
-            "Plantilla para nombrar los archivos.\n"
-            "Variables disponibles:\n"
-            "  {batch_id} — ID del lote\n"
-            "  {page_index} — Índice de página (base 0)\n"
-            "  {first_barcode} — Valor del primer barcode detectado\n"
-            "  {nombre_campo} — Campo de lote (espacios → guiones bajos)\n"
-            "  :04d — Rellena con ceros (ej: 0001)\n"
-            "  / — Crea subdirectorios\n\n"
-            "Ejemplo: {fecha_lote}/{first_barcode}_{page_index:04d}"
+            self.tr(
+                "Plantilla para nombrar los archivos.\n"
+                "Variables disponibles:\n"
+                "  {batch_id} — ID del lote\n"
+                "  {page_index} — Índice de página (base 0)\n"
+                "  {first_barcode} — Valor del primer barcode detectado\n"
+                "  {nombre_campo} — Campo de lote (espacios → guiones bajos)\n"
+                "  :04d — Rellena con ceros (ej: 0001)\n"
+                "  / — Crea subdirectorios\n\n"
+                "Ejemplo: {fecha_lote}/{first_barcode}_{page_index:04d}"
+            )
         )
-        gen_form.addRow("Patrón nombre:", self._pattern_edit)
+        gen_form.addRow(self.tr("Patrón nombre:"), self._pattern_edit)
 
-        self._subdirs = QCheckBox("Crear subdirectorios por lote")
+        self._subdirs = QCheckBox(self.tr("Crear subdirectorios por lote"))
         self._subdirs.setToolTip(
-            "Crea una subcarpeta por cada lote (ej: batch_123/)"
+            self.tr("Crea una subcarpeta por cada lote (ej: batch_123/)")
         )
         gen_form.addRow("", self._subdirs)
 
-        self._metadata = QCheckBox("Incluir metadatos JSON")
+        self._metadata = QCheckBox(self.tr("Incluir metadatos JSON"))
         self._metadata.setToolTip(
-            "Genera un fichero .json junto a cada archivo\n"
-            "con barcodes, texto OCR y campos de indexación."
+            self.tr(
+                "Genera un fichero .json junto a cada archivo\n"
+                "con barcodes, texto OCR y campos de indexación."
+            )
         )
         gen_form.addRow("", self._metadata)
 
@@ -112,15 +120,17 @@ class TransferTab(QWidget):
 
         # ── Grupo: Formato de salida (solo modo carpeta) ──
         self._output_group = QGroupBox(
-            "Conversión al transferir (modo carpeta)"
+            self.tr("Conversión al transferir (modo carpeta)")
         )
         out_form = QFormLayout(self._output_group)
         out_form.setVerticalSpacing(8)
         out_form.setContentsMargins(12, 12, 12, 12)
 
         out_hint = QLabel(
-            "Convierte las imágenes al copiarlas a la carpeta destino.\n"
-            "Selecciona (original) para copiar sin modificar."
+            self.tr(
+                "Convierte las imágenes al copiarlas a la carpeta destino.\n"
+                "Selecciona (original) para copiar sin modificar."
+            )
         )
         out_hint.setObjectName("hint_label")
         out_hint.setWordWrap(True)
@@ -129,13 +139,15 @@ class TransferTab(QWidget):
         self._out_format_combo = QComboBox()
         self._out_format_combo.addItems([_SENTINEL_ORIGINAL, "tiff", "png", "jpg"])
         self._out_format_combo.setToolTip(
-            "(original) = se mantiene el formato almacenado\n"
-            "Seleccionar otro formato convierte al transferir"
+            self.tr(
+                "(original) = se mantiene el formato almacenado\n"
+                "Seleccionar otro formato convierte al transferir"
+            )
         )
         self._out_format_combo.currentTextChanged.connect(
             self._on_out_format_changed
         )
-        out_form.addRow("Formato:", self._out_format_combo)
+        out_form.addRow(self.tr("Formato:"), self._out_format_combo)
 
         self._out_dpi_spin = QSpinBox()
         self._out_dpi_spin.setRange(0, 1200)
@@ -143,25 +155,31 @@ class TransferTab(QWidget):
         self._out_dpi_spin.setSpecialValueText(_SENTINEL_ORIGINAL)
         self._out_dpi_spin.setSuffix(" DPI")
         self._out_dpi_spin.setToolTip(
-            "0 = mantener resolución original\n"
-            "Otro valor redimensiona la imagen proporcionalmente"
+            self.tr(
+                "0 = mantener resolución original\n"
+                "Otro valor redimensiona la imagen proporcionalmente"
+            )
         )
-        out_form.addRow("DPI:", self._out_dpi_spin)
+        out_form.addRow(self.tr("DPI:"), self._out_dpi_spin)
 
         self._out_color_combo = QComboBox()
         self._out_color_combo.addItems(
             [_SENTINEL_ORIGINAL, "grayscale", "bw"]
         )
         self._out_color_combo.setToolTip(
-            "(original) = sin conversión de color\n"
-            "grayscale = escala de grises\n"
-            "bw = blanco y negro (binario)"
+            self.tr(
+                "(original) = sin conversión de color\n"
+                "grayscale = escala de grises\n"
+                "bw = blanco y negro (binario)"
+            )
         )
-        out_form.addRow("Color:", self._out_color_combo)
+        out_form.addRow(self.tr("Color:"), self._out_color_combo)
 
         color_hint = QLabel(
-            "Solo reduce: color → gris → B/N. "
-            "No es posible recuperar color a partir de gris o B/N."
+            self.tr(
+                "Solo reduce: color → gris → B/N. "
+                "No es posible recuperar color a partir de gris o B/N."
+            )
         )
         color_hint.setObjectName("hint_label")
         color_hint.setWordWrap(True)
@@ -170,25 +188,25 @@ class TransferTab(QWidget):
         self._out_quality_spin = QSpinBox()
         self._out_quality_spin.setRange(1, 100)
         self._out_quality_spin.setValue(85)
-        self._out_quality_spin.setToolTip("Calidad JPEG de salida (1-100)")
-        self._out_quality_label = QLabel("Calidad JPEG:")
+        self._out_quality_spin.setToolTip(self.tr("Calidad JPEG de salida (1-100)"))
+        self._out_quality_label = QLabel(self.tr("Calidad JPEG:"))
         out_form.addRow(self._out_quality_label, self._out_quality_spin)
 
         self._out_tiff_comp = QComboBox()
         self._out_tiff_comp.addItems(["lzw", "zip", "none", "group4"])
-        self._out_tiff_comp_label = QLabel("Compresión TIFF:")
+        self._out_tiff_comp_label = QLabel(self.tr("Compresión TIFF:"))
         out_form.addRow(self._out_tiff_comp_label, self._out_tiff_comp)
 
         self._out_png_comp = QSpinBox()
         self._out_png_comp.setRange(0, 9)
         self._out_png_comp.setValue(6)
-        self._out_png_comp_label = QLabel("Compresión PNG:")
+        self._out_png_comp_label = QLabel(self.tr("Compresión PNG:"))
         out_form.addRow(self._out_png_comp_label, self._out_png_comp)
 
         main_layout.addWidget(self._output_group)
 
         # ── Grupo: Opciones PDF (solo modos pdf/pdfa) ──
-        self._pdf_group = QGroupBox("Opciones PDF")
+        self._pdf_group = QGroupBox(self.tr("Opciones PDF"))
         pdf_form = QFormLayout(self._pdf_group)
         pdf_form.setVerticalSpacing(8)
         pdf_form.setContentsMargins(12, 12, 12, 12)
@@ -198,41 +216,45 @@ class TransferTab(QWidget):
         self._pdf_dpi.setValue(200)
         self._pdf_dpi.setSuffix(" DPI")
         self._pdf_dpi.setToolTip(
-            "Resolución al generar páginas PDF desde imágenes"
+            self.tr("Resolución al generar páginas PDF desde imágenes")
         )
-        pdf_form.addRow("DPI del PDF:", self._pdf_dpi)
+        pdf_form.addRow(self.tr("DPI del PDF:"), self._pdf_dpi)
 
         self._pdf_jpeg_quality_spin = QSpinBox()
         self._pdf_jpeg_quality_spin.setRange(1, 100)
         self._pdf_jpeg_quality_spin.setValue(85)
         self._pdf_jpeg_quality_spin.setToolTip(
-            "Calidad JPEG al codificar imágenes dentro del PDF (1-100)\n"
-            "Menor = fichero más pequeño, peor calidad"
+            self.tr(
+                "Calidad JPEG al codificar imágenes dentro del PDF (1-100)\n"
+                "Menor = fichero más pequeño, peor calidad"
+            )
         )
-        pdf_form.addRow("Calidad JPEG:", self._pdf_jpeg_quality_spin)
+        pdf_form.addRow(self.tr("Calidad JPEG:"), self._pdf_jpeg_quality_spin)
 
         main_layout.addWidget(self._pdf_group)
 
         # ── Grupo: Opciones CSV (solo modo csv) ──
-        self._csv_group = QGroupBox("Opciones CSV")
+        self._csv_group = QGroupBox(self.tr("Opciones CSV"))
         csv_form = QFormLayout(self._csv_group)
         csv_form.setVerticalSpacing(8)
         csv_form.setContentsMargins(12, 12, 12, 12)
 
         self._csv_sep = QLineEdit(";")
         self._csv_sep.setMaximumWidth(50)
-        self._csv_sep.setToolTip("Carácter delimitador del fichero CSV")
-        csv_form.addRow("Separador:", self._csv_sep)
+        self._csv_sep.setToolTip(self.tr("Carácter delimitador del fichero CSV"))
+        csv_form.addRow(self.tr("Separador:"), self._csv_sep)
 
         self._csv_fields_edit = QLineEdit()
         self._csv_fields_edit.setPlaceholderText(
-            "campo1, campo2 (vacío = auto)"
+            self.tr("campo1, campo2 (vacío = auto)")
         )
         self._csv_fields_edit.setToolTip(
-            "Campos a exportar en el CSV, separados por coma.\n"
-            "Vacío = exporta todos los campos automáticamente."
+            self.tr(
+                "Campos a exportar en el CSV, separados por coma.\n"
+                "Vacío = exporta todos los campos automáticamente."
+            )
         )
-        csv_form.addRow("Campos:", self._csv_fields_edit)
+        csv_form.addRow(self.tr("Campos:"), self._csv_fields_edit)
 
         main_layout.addWidget(self._csv_group)
 
@@ -279,7 +301,7 @@ class TransferTab(QWidget):
         """Abre diálogo para seleccionar carpeta de destino."""
         current = self._dest_edit.text().strip()
         folder = QFileDialog.getExistingDirectory(
-            self, "Seleccionar carpeta de destino", current,
+            self, self.tr("Seleccionar carpeta de destino"), current,
         )
         if folder:
             self._dest_edit.setText(folder)

@@ -82,14 +82,14 @@ class LogPanel(QWidget):
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(4, 2, 4, 2)
 
-        title = QLabel("Log")
+        title = QLabel(self.tr("Log"))
         title.setStyleSheet("font-weight: bold;")
         toolbar.addWidget(title)
 
         toolbar.addStretch()
 
         # Filtro de nivel
-        toolbar.addWidget(QLabel("Nivel:"))
+        toolbar.addWidget(QLabel(self.tr("Nivel:")))
         self._level_combo = QComboBox()
         self._level_combo.addItem("DEBUG", logging.DEBUG)
         self._level_combo.addItem("INFO", logging.INFO)
@@ -101,7 +101,7 @@ class LogPanel(QWidget):
         toolbar.addWidget(self._level_combo)
 
         # Botón limpiar
-        btn_clear = QPushButton("Limpiar")
+        btn_clear = QPushButton(self.tr("Limpiar"))
         btn_clear.setFixedWidth(70)
         btn_clear.clicked.connect(self._on_clear)
         toolbar.addWidget(btn_clear)

@@ -23,7 +23,7 @@ class ImageOpDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self._step = step
-        self.setWindowTitle("Operación de imagen")
+        self.setWindowTitle(self.tr("Operación de imagen"))
         self.setMinimumWidth(400)
 
         layout = QFormLayout(self)
@@ -34,7 +34,7 @@ class ImageOpDialog(QDialog):
             idx = self._op_combo.findText(step.op)
             if idx >= 0:
                 self._op_combo.setCurrentIndex(idx)
-        layout.addRow("Operación:", self._op_combo)
+        layout.addRow(self.tr("Operación:"), self._op_combo)
 
         # Parámetros como JSON simple clave=valor
         self._params_edit = QLineEdit()
@@ -43,15 +43,15 @@ class ImageOpDialog(QDialog):
                 ", ".join(f"{k}={v}" for k, v in step.params.items())
             )
         self._params_edit.setPlaceholderText("threshold=128, scale=0.5")
-        layout.addRow("Parámetros:", self._params_edit)
+        layout.addRow(self.tr("Parámetros:"), self._params_edit)
 
         self._window_edit = QLineEdit()
         if step.window:
             self._window_edit.setText(
                 ", ".join(str(v) for v in step.window)
             )
-        self._window_edit.setPlaceholderText("x, y, w, h (vacío = completa)")
-        layout.addRow("Ventana:", self._window_edit)
+        self._window_edit.setPlaceholderText(self.tr("x, y, w, h (vacío = completa)"))
+        layout.addRow(self.tr("Ventana:"), self._window_edit)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok

@@ -37,14 +37,14 @@ class GeneralTab(QWidget):
         main_form.setContentsMargins(12, 12, 12, 12)
 
         self._name_edit = QLineEdit(app.name)
-        main_form.addRow("Nombre:", self._name_edit)
+        main_form.addRow(self.tr("Nombre:"), self._name_edit)
 
         self._desc_edit = QTextEdit()
         self._desc_edit.setPlainText(app.description)
         self._desc_edit.setMaximumHeight(80)
-        main_form.addRow("Descripción:", self._desc_edit)
+        main_form.addRow(self.tr("Descripción:"), self._desc_edit)
 
-        self._active_check = QCheckBox("Activa")
+        self._active_check = QCheckBox(self.tr("Activa"))
         self._active_check.setChecked(app.active)
         main_form.addRow("", self._active_check)
 
@@ -53,41 +53,45 @@ class GeneralTab(QWidget):
         idx = self._scanner_combo.findText(app.scanner_backend)
         if idx >= 0:
             self._scanner_combo.setCurrentIndex(idx)
-        main_form.addRow("Backend escáner:", self._scanner_combo)
+        main_form.addRow(self.tr("Backend escáner:"), self._scanner_combo)
 
-        self._auto_transfer = QCheckBox("Transferir automáticamente")
+        self._auto_transfer = QCheckBox(self.tr("Transferir automáticamente"))
         self._auto_transfer.setChecked(app.auto_transfer)
         main_form.addRow("", self._auto_transfer)
 
-        self._close_after = QCheckBox("Cerrar tras transferir")
+        self._close_after = QCheckBox(self.tr("Cerrar tras transferir"))
         self._close_after.setChecked(app.close_after_transfer)
         main_form.addRow("", self._close_after)
 
         layout.addLayout(main_form)
 
         # --- Grupo: Barcode manual ---
-        bc_group = QGroupBox("Barcode manual")
+        bc_group = QGroupBox(self.tr("Barcode manual"))
         bc_form = QFormLayout(bc_group)
         bc_form.setVerticalSpacing(10)
         bc_form.setContentsMargins(12, 16, 12, 12)
 
         self._bc_regex_edit = QLineEdit()
         self._bc_regex_edit.setPlaceholderText(
-            r"Ej: ^\d{8}$ (vacío = sin validación)"
+            self.tr(r"Ej: ^\d{8}$ (vacío = sin validación)")
         )
         self._bc_regex_edit.setToolTip(
-            "Expresión regular para validar el código de barras\n"
-            "introducido manualmente. Dejar vacío para no validar."
+            self.tr(
+                "Expresión regular para validar el código de barras\n"
+                "introducido manualmente. Dejar vacío para no validar."
+            )
         )
-        bc_form.addRow("Validación (regex):", self._bc_regex_edit)
+        bc_form.addRow(self.tr("Validación (regex):"), self._bc_regex_edit)
 
         self._bc_fixed_edit = QLineEdit()
-        self._bc_fixed_edit.setPlaceholderText("Vacío = solicitar valor al usuario")
+        self._bc_fixed_edit.setPlaceholderText(self.tr("Vacío = solicitar valor al usuario"))
         self._bc_fixed_edit.setToolTip(
-            "Valor fijo que se inserta al pulsar '+ Barcode manual'.\n"
-            "Si está vacío, se solicita el valor al usuario."
+            self.tr(
+                "Valor fijo que se inserta al pulsar '+ Barcode manual'.\n"
+                "Si está vacío, se solicita el valor al usuario."
+            )
         )
-        bc_form.addRow("Valor fijo:", self._bc_fixed_edit)
+        bc_form.addRow(self.tr("Valor fijo:"), self._bc_fixed_edit)
 
         layout.addWidget(bc_group)
 

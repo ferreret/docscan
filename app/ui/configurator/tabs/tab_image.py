@@ -28,7 +28,7 @@ class ImageTab(QWidget):
         main_layout = QVBoxLayout(self)
 
         # --- Grupo: Formato interno (escáner) ---
-        group = QGroupBox("Formato interno (escáner)")
+        group = QGroupBox(self.tr("Formato interno (escáner)"))
         form = QFormLayout(group)
         form.setVerticalSpacing(8)
         form.setContentsMargins(12, 12, 12, 12)
@@ -36,46 +36,50 @@ class ImageTab(QWidget):
         self._format_combo = QComboBox()
         self._format_combo.addItems(["tiff", "png", "jpg"])
         self._format_combo.setToolTip(
-            "Formato en el que se almacenan las imágenes del escáner"
+            self.tr("Formato en el que se almacenan las imágenes del escáner")
         )
         self._format_combo.currentTextChanged.connect(self._on_format_changed)
-        form.addRow("Formato:", self._format_combo)
+        form.addRow(self.tr("Formato:"), self._format_combo)
 
         self._color_combo = QComboBox()
         self._color_combo.addItems(["color", "grayscale", "bw"])
         self._color_combo.setToolTip(
-            "Conversión de color al almacenar (solo reduce, no añade color).\n"
-            "color = sin conversión (se guarda tal como llega del escáner)\n"
-            "grayscale = convierte a escala de grises\n"
-            "bw = convierte a blanco y negro (umbralización)"
+            self.tr(
+                "Conversión de color al almacenar (solo reduce, no añade color).\n"
+                "color = sin conversión (se guarda tal como llega del escáner)\n"
+                "grayscale = convierte a escala de grises\n"
+                "bw = convierte a blanco y negro (umbralización)"
+            )
         )
         self._color_combo.currentTextChanged.connect(self._on_color_changed)
-        form.addRow("Modo color:", self._color_combo)
+        form.addRow(self.tr("Modo color:"), self._color_combo)
 
         # Compresión TIFF
         self._tiff_comp_combo = QComboBox()
         self._tiff_comp_combo.addItems(["lzw", "zip", "none", "group4"])
         self._tiff_comp_combo.setToolTip(
-            "Tipo de compresión para ficheros TIFF.\n"
-            "group4 solo funciona con imágenes B/N."
+            self.tr(
+                "Tipo de compresión para ficheros TIFF.\n"
+                "group4 solo funciona con imágenes B/N."
+            )
         )
-        self._tiff_comp_label = QLabel("Compresión:")
+        self._tiff_comp_label = QLabel(self.tr("Compresión:"))
         form.addRow(self._tiff_comp_label, self._tiff_comp_combo)
 
         # Calidad JPEG
         self._jpeg_quality_spin = QSpinBox()
         self._jpeg_quality_spin.setRange(1, 100)
         self._jpeg_quality_spin.setValue(85)
-        self._jpeg_quality_spin.setToolTip("Calidad JPEG (1=mínima, 100=máxima)")
-        self._jpeg_quality_label = QLabel("Calidad JPEG:")
+        self._jpeg_quality_spin.setToolTip(self.tr("Calidad JPEG (1=mínima, 100=máxima)"))
+        self._jpeg_quality_label = QLabel(self.tr("Calidad JPEG:"))
         form.addRow(self._jpeg_quality_label, self._jpeg_quality_spin)
 
         # Compresión PNG
         self._png_comp_spin = QSpinBox()
         self._png_comp_spin.setRange(0, 9)
         self._png_comp_spin.setValue(6)
-        self._png_comp_spin.setToolTip("Nivel de compresión PNG (0=sin, 9=máxima)")
-        self._png_comp_label = QLabel("Compresión PNG:")
+        self._png_comp_spin.setToolTip(self.tr("Nivel de compresión PNG (0=sin, 9=máxima)"))
+        self._png_comp_label = QLabel(self.tr("Compresión PNG:"))
         form.addRow(self._png_comp_label, self._png_comp_spin)
 
         # Umbral B/N
@@ -83,17 +87,19 @@ class ImageTab(QWidget):
         self._bw_threshold_spin.setRange(0, 255)
         self._bw_threshold_spin.setValue(128)
         self._bw_threshold_spin.setToolTip(
-            "Umbral para binarización blanco/negro (0-255)"
+            self.tr("Umbral para binarización blanco/negro (0-255)")
         )
-        self._bw_threshold_label = QLabel("Umbral B/N:")
+        self._bw_threshold_label = QLabel(self.tr("Umbral B/N:"))
         form.addRow(self._bw_threshold_label, self._bw_threshold_spin)
 
         main_layout.addWidget(group)
 
         # Nota informativa
         note = QLabel(
-            "Nota: Los archivos importados se almacenan en su formato original.\n"
-            "El modo color solo puede reducir (color→gris→B/N), no añadir color."
+            self.tr(
+                "Nota: Los archivos importados se almacenan en su formato original.\n"
+                "El modo color solo puede reducir (color→gris→B/N), no añadir color."
+            )
         )
         note.setWordWrap(True)
         note.setStyleSheet("color: gray; font-style: italic;")

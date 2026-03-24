@@ -14,7 +14,7 @@ import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -45,7 +45,19 @@ _COL_TYPE = 1
 _COL_CONFIG = 2
 _COL_REQUIRED = 3
 _COL_ACTIONS = 4
-_COLUMN_HEADERS = ["Etiqueta", "Tipo", "Configuración", "Obligatorio", ""]
+_COLUMN_HEADERS_SRC = [
+    QT_TRANSLATE_NOOP("BatchFieldsTab", "Etiqueta"),
+    QT_TRANSLATE_NOOP("BatchFieldsTab", "Tipo"),
+    QT_TRANSLATE_NOOP("BatchFieldsTab", "Configuración"),
+    QT_TRANSLATE_NOOP("BatchFieldsTab", "Obligatorio"),
+    "",
+]
+
+
+def _column_headers() -> list[str]:
+    """Devuelve cabeceras traducidas."""
+    _t = lambda s: QCoreApplication.translate("BatchFieldsTab", s) if s else ""
+    return [_t(s) for s in _COLUMN_HEADERS_SRC]
 
 
 class BatchFieldsTab(QWidget):
@@ -61,15 +73,15 @@ class BatchFieldsTab(QWidget):
 
         # Toolbar
         toolbar = QHBoxLayout()
-        btn_add = QPushButton("+ Añadir campo")
+        btn_add = QPushButton(self.tr("+ Añadir campo"))
         btn_add.clicked.connect(self._add_empty_row)
         toolbar.addWidget(btn_add)
         toolbar.addStretch()
         layout.addLayout(toolbar)
 
         # Tabla
-        self._table = QTableWidget(0, len(_COLUMN_HEADERS))
-        self._table.setHorizontalHeaderLabels(_COLUMN_HEADERS)
+        self._table = QTableWidget(0, len(_COLUMN_HEADERS_SRC))
+        self._table.setHorizontalHeaderLabels(_column_headers())
         self._table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
         )
@@ -127,7 +139,7 @@ class BatchFieldsTab(QWidget):
 
         # Etiqueta
         label_edit = QLineEdit(field.get("label", ""))
-        label_edit.setPlaceholderText("Nombre del campo...")
+        label_edit.setPlaceholderText(self.tr("Nombre del campo..."))
         self._table.setCellWidget(row, _COL_LABEL, self._wrap_centered(label_edit))
 
         # Tipo
@@ -167,17 +179,17 @@ class BatchFieldsTab(QWidget):
 
         btn_up = QPushButton("▲")
         btn_up.setFixedWidth(26)
-        btn_up.setToolTip("Subir")
+        btn_up.setToolTip(self.tr("Subir"))
         btn_up.clicked.connect(lambda _, r=row: self._move_row(r, -1))
 
         btn_down = QPushButton("▼")
         btn_down.setFixedWidth(26)
-        btn_down.setToolTip("Bajar")
+        btn_down.setToolTip(self.tr("Bajar"))
         btn_down.clicked.connect(lambda _, r=row: self._move_row(r, 1))
 
         btn_del = QPushButton("✕")
         btn_del.setFixedWidth(26)
-        btn_del.setToolTip("Eliminar")
+        btn_del.setToolTip(self.tr("Eliminar"))
         btn_del.clicked.connect(lambda _, r=row: self._remove_row(r))
 
         act_layout.addWidget(btn_up)
@@ -202,7 +214,7 @@ class BatchFieldsTab(QWidget):
             placeholder = QWidget()
             lbl_layout = QHBoxLayout(placeholder)
             lbl_layout.setContentsMargins(4, 0, 4, 0)
-            lbl = QLabel("Sin configuración adicional")
+            lbl = QLabel(self.tr("Sin configuración adicional"))
             lbl.setStyleSheet("color: gray; font-style: italic;")
             lbl_layout.addWidget(lbl)
             return placeholder
@@ -213,12 +225,12 @@ class BatchFieldsTab(QWidget):
         layout = QHBoxLayout(container)
         layout.setContentsMargins(2, 0, 2, 0)
 
-        lbl = QLabel("Valores:")
+        lbl = QLabel(self.tr("Valores:"))
         layout.addWidget(lbl)
 
         values_edit = QLineEdit()
         values_edit.setObjectName("listValues")
-        values_edit.setPlaceholderText("valor1, valor2, valor3...")
+        values_edit.setPlaceholderText(self.tr("valor1, valor2, valor3..."))
         values = config.get("values", [])
         if values:
             values_edit.setText(", ".join(values))
@@ -233,19 +245,19 @@ class BatchFieldsTab(QWidget):
         layout.setContentsMargins(2, 0, 2, 0)
         layout.setSpacing(4)
 
-        lbl_min = QLabel("Mín:")
+        lbl_min = QLabel(self.tr("Mín:"))
         spin_min = QSpinBox()
         spin_min.setObjectName("numMin")
         spin_min.setRange(-999999, 999999)
         spin_min.setValue(int(config.get("min", 0)))
 
-        lbl_max = QLabel("Máx:")
+        lbl_max = QLabel(self.tr("Máx:"))
         spin_max = QSpinBox()
         spin_max.setObjectName("numMax")
         spin_max.setRange(-999999, 999999)
         spin_max.setValue(int(config.get("max", 100)))
 
-        lbl_step = QLabel("Paso:")
+        lbl_step = QLabel(self.tr("Paso:"))
         spin_step = QSpinBox()
         spin_step.setObjectName("numStep")
         spin_step.setRange(1, 999999)
@@ -262,7 +274,7 @@ class BatchFieldsTab(QWidget):
         layout = QHBoxLayout(container)
         layout.setContentsMargins(2, 0, 2, 0)
 
-        lbl = QLabel("Formato:")
+        lbl = QLabel(self.tr("Formato:"))
         layout.addWidget(lbl)
 
         fmt_combo = QComboBox()
@@ -353,7 +365,7 @@ class BatchFieldsTab(QWidget):
 
         # Etiqueta
         label_edit = QLineEdit(data.get("label", ""))
-        label_edit.setPlaceholderText("Nombre del campo...")
+        label_edit.setPlaceholderText(self.tr("Nombre del campo..."))
         self._table.setCellWidget(row, _COL_LABEL, self._wrap_centered(label_edit))
 
         # Tipo
@@ -392,17 +404,17 @@ class BatchFieldsTab(QWidget):
 
         btn_up = QPushButton("▲")
         btn_up.setFixedWidth(26)
-        btn_up.setToolTip("Subir")
+        btn_up.setToolTip(self.tr("Subir"))
         btn_up.clicked.connect(lambda _, r=row: self._move_row(r, -1))
 
         btn_down = QPushButton("▼")
         btn_down.setFixedWidth(26)
-        btn_down.setToolTip("Bajar")
+        btn_down.setToolTip(self.tr("Bajar"))
         btn_down.clicked.connect(lambda _, r=row: self._move_row(r, 1))
 
         btn_del = QPushButton("✕")
         btn_del.setFixedWidth(26)
-        btn_del.setToolTip("Eliminar")
+        btn_del.setToolTip(self.tr("Eliminar"))
         btn_del.clicked.connect(lambda _, r=row: self._remove_row(r))
 
         act_layout.addWidget(btn_up)

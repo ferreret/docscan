@@ -11,6 +11,7 @@ from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -52,23 +53,23 @@ class LauncherWindow(QMainWindow):
         self._load_apps()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("DocScan Studio")
+        self.setWindowTitle(self.tr("DocScan Studio"))
         self.setMinimumSize(800, 560)
 
         # --- Toolbar ---
-        toolbar = QToolBar("Principal")
+        toolbar = QToolBar(self.tr("Principal"))
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
-        self._btn_new = QPushButton("Nueva")
+        self._btn_new = QPushButton(self.tr("Nueva"))
         self._btn_new.setProperty("cssClass", "primary")
-        self._btn_open = QPushButton("Abrir")
-        self._btn_configure = QPushButton("Configurar")
-        self._btn_clone = QPushButton("Clonar")
-        self._btn_delete = QPushButton("Eliminar")
+        self._btn_open = QPushButton(self.tr("Abrir"))
+        self._btn_configure = QPushButton(self.tr("Configurar"))
+        self._btn_clone = QPushButton(self.tr("Clonar"))
+        self._btn_delete = QPushButton(self.tr("Eliminar"))
         self._btn_delete.setProperty("cssClass", "danger")
-        self._btn_refresh = QPushButton("Actualizar")
-        self._btn_batch_manager = QPushButton("Gestor de Lotes")
+        self._btn_refresh = QPushButton(self.tr("Actualizar"))
+        self._btn_batch_manager = QPushButton(self.tr("Gestor de Lotes"))
 
         toolbar.addWidget(self._btn_new)
         toolbar.addWidget(self._btn_open)
@@ -93,7 +94,7 @@ class LauncherWindow(QMainWindow):
         )
 
         self._btn_theme = QPushButton()
-        self._btn_theme.setToolTip("Cambiar tema claro/oscuro")
+        self._btn_theme.setToolTip(self.tr("Cambiar tema claro/oscuro"))
         self._update_theme_button()
         toolbar.addWidget(self._btn_theme)
 
@@ -102,14 +103,28 @@ class LauncherWindow(QMainWindow):
 
         self._btn_font_up = QPushButton()
         self._btn_font_up.setIcon(icon_font_increase(icon_color, 32))
-        self._btn_font_up.setToolTip("Aumentar tamaño de fuente")
+        self._btn_font_up.setToolTip(self.tr("Aumentar tamaño de fuente"))
         self._btn_font_up.setFixedSize(34, 34)
         self._btn_font_down = QPushButton()
         self._btn_font_down.setIcon(icon_font_decrease(icon_color, 32))
-        self._btn_font_down.setToolTip("Reducir tamaño de fuente")
+        self._btn_font_down.setToolTip(self.tr("Reducir tamaño de fuente"))
         self._btn_font_down.setFixedSize(34, 34)
         toolbar.addWidget(self._btn_font_up)
         toolbar.addWidget(self._btn_font_down)
+
+        # Selector de idioma
+        from app.i18n import available_languages, get_language_preference
+
+        self._lang_combo = QComboBox()
+        self._lang_combo.setFixedWidth(90)
+        self._lang_combo.blockSignals(True)
+        for code, name in available_languages().items():
+            self._lang_combo.addItem(name, code)
+        idx = self._lang_combo.findData(get_language_preference())
+        if idx >= 0:
+            self._lang_combo.setCurrentIndex(idx)
+        self._lang_combo.blockSignals(False)
+        toolbar.addWidget(self._lang_combo)
 
         # --- Central widget ---
         central = QWidget()
@@ -122,11 +137,11 @@ class LauncherWindow(QMainWindow):
         header_layout = QVBoxLayout()
         header_layout.setSpacing(2)
 
-        title_label = QLabel("DocScan Studio")
+        title_label = QLabel(self.tr("DocScan Studio"))
         title_label.setProperty("cssClass", "title")
         header_layout.addWidget(title_label)
 
-        subtitle_label = QLabel("Selecciona una aplicación para comenzar")
+        subtitle_label = QLabel(self.tr("Selecciona una aplicación para comenzar"))
         subtitle_label.setProperty("cssClass", "subtitle")
         header_layout.addWidget(subtitle_label)
 
@@ -134,7 +149,7 @@ class LauncherWindow(QMainWindow):
 
         # Barra de búsqueda
         self._filter_edit = QLineEdit()
-        self._filter_edit.setPlaceholderText("Buscar aplicaciones...")
+        self._filter_edit.setPlaceholderText(self.tr("Buscar aplicaciones..."))
         self._filter_edit.setClearButtonEnabled(True)
         layout.addWidget(self._filter_edit)
 
@@ -166,6 +181,7 @@ class LauncherWindow(QMainWindow):
         self._btn_theme.clicked.connect(self._on_toggle_theme)
         self._btn_font_up.clicked.connect(self._theme_manager.increase_font)
         self._btn_font_down.clicked.connect(self._theme_manager.decrease_font)
+        self._lang_combo.currentIndexChanged.connect(self._on_language_changed)
         self._filter_edit.textChanged.connect(self._app_list.filter_apps)
         self._app_list.currentItemChanged.connect(self._on_selection_changed)
         self._app_list.itemDoubleClicked.connect(self._on_open_app)
@@ -185,6 +201,22 @@ class LauncherWindow(QMainWindow):
         self._update_font_icons()
         # Forzar repintado de la lista para actualizar colores del delegate
         self._app_list.viewport().update()
+
+    def _on_language_changed(self, _index: int) -> None:
+        """Cambia el idioma de la aplicación."""
+        lang_code = self._lang_combo.currentData()
+        if not lang_code:
+            return
+
+        from app.i18n import load_language, save_language_preference
+
+        save_language_preference(lang_code)
+        load_language(lang_code)
+
+        QMessageBox.information(
+            self, self.tr("Idioma cambiado"),
+            self.tr("El idioma se aplicará completamente al reiniciar la aplicación."),
+        )
 
     def _update_theme_button(self) -> None:
         from app.ui.icon_factory import icon_moon, icon_sun
@@ -216,7 +248,7 @@ class LauncherWindow(QMainWindow):
 
         count = self._app_list.count()
         self._status_bar.showMessage(
-            f"{count} aplicación(es) disponible(s)", 3000,
+            self.tr("{0} aplicación(es) disponible(s)").format(count), 3000,
         )
         self._update_button_state()
 
@@ -242,8 +274,8 @@ class LauncherWindow(QMainWindow):
             repo = ApplicationRepository(session)
             if repo.get_by_name(name):
                 QMessageBox.warning(
-                    self, "Error",
-                    f"Ya existe una aplicación con el nombre '{name}'.",
+                    self, self.tr("Error"),
+                    self.tr("Ya existe una aplicación con el nombre '{0}'.").format(name),
                 )
                 return
             app = Application(name=name, description=description)
@@ -251,7 +283,7 @@ class LauncherWindow(QMainWindow):
             session.commit()
 
         self._load_apps()
-        self._status_bar.showMessage(f"Aplicación '{name}' creada", 3000)
+        self._status_bar.showMessage(self.tr("Aplicación '{0}' creada").format(name), 3000)
 
     def _on_open_app(self) -> None:
         app_id = self._app_list.selected_app_id()
@@ -260,9 +292,9 @@ class LauncherWindow(QMainWindow):
         app_data = self._app_list.selected_app_data()
         if app_data and not app_data.get("active", True):
             QMessageBox.information(
-                self, "Aplicación inactiva",
-                "Esta aplicación está inactiva. Actívala desde "
-                "el configurador antes de abrirla.",
+                self, self.tr("Aplicación inactiva"),
+                self.tr("Esta aplicación está inactiva. Actívala desde "
+                "el configurador antes de abrirla."),
             )
             return
         log.info("Abriendo aplicación %d", app_id)
@@ -319,7 +351,7 @@ class LauncherWindow(QMainWindow):
             session.commit()
 
         self._load_apps()
-        self._status_bar.showMessage(f"Aplicación clonada como '{clone_name}'", 3000)
+        self._status_bar.showMessage(self.tr("Aplicación clonada como '{0}'").format(clone_name), 3000)
 
     def _on_delete_app(self) -> None:
         app_id = self._app_list.selected_app_id()
@@ -328,8 +360,8 @@ class LauncherWindow(QMainWindow):
             return
 
         reply = QMessageBox.question(
-            self, "Confirmar eliminación",
-            f"¿Eliminar la aplicación '{app_name}' y todos sus lotes?",
+            self, self.tr("Confirmar eliminación"),
+            self.tr("¿Eliminar la aplicación '{0}' y todos sus lotes?").format(app_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -343,7 +375,7 @@ class LauncherWindow(QMainWindow):
             session.commit()
 
         self._load_apps()
-        self._status_bar.showMessage(f"Aplicación '{app_name}' eliminada", 3000)
+        self._status_bar.showMessage(self.tr("Aplicación '{0}' eliminada").format(app_name), 3000)
 
     # ------------------------------------------------------------------
     # UI helpers
@@ -356,7 +388,7 @@ class LauncherWindow(QMainWindow):
             desc = app_data.get("description", "")
             desc_text = f" — {desc}" if desc else ""
             created = app_data.get("created_at", "")[:10]
-            status = "Activa" if app_data.get("active", True) else "Inactiva"
+            status = self.tr("Activa") if app_data.get("active", True) else self.tr("Inactiva")
             self._info_label.setText(
                 f"<b>{app_data['name']}</b>{desc_text} · "
                 f"{status} · Creada: {created}"

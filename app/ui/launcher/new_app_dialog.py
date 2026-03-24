@@ -17,19 +17,19 @@ class NewAppDialog(QDialog):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Nueva aplicación")
+        self.setWindowTitle(self.tr("Nueva aplicación"))
         self.setMinimumWidth(400)
 
         layout = QFormLayout(self)
 
         self._name_edit = QLineEdit()
-        self._name_edit.setPlaceholderText("Nombre único de la aplicación")
-        layout.addRow("Nombre:", self._name_edit)
+        self._name_edit.setPlaceholderText(self.tr("Nombre único de la aplicación"))
+        layout.addRow(self.tr("Nombre:"), self._name_edit)
 
         self._desc_edit = QTextEdit()
-        self._desc_edit.setPlaceholderText("Descripción (opcional)")
+        self._desc_edit.setPlaceholderText(self.tr("Descripción (opcional)"))
         self._desc_edit.setMaximumHeight(80)
-        layout.addRow("Descripción:", self._desc_edit)
+        layout.addRow(self.tr("Descripción:"), self._desc_edit)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok

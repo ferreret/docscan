@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtCore import QCoreApplication, QRect, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
     QListWidget,
@@ -182,7 +182,7 @@ class AppCardDelegate(QStyledItemDelegate):
             painter.drawText(
                 badge_rect,
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                "Inactiva",
+                QCoreApplication.translate("AppCardDelegate", "Inactiva"),
             )
 
         painter.restore()

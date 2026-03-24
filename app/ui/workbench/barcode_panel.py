@@ -71,12 +71,12 @@ class BarcodePanel(QWidget):
         layout.setContentsMargins(2, 2, 2, 2)
 
         # Tabla de barcodes
-        group = QGroupBox("Barcodes de la página")
+        group = QGroupBox(self.tr("Barcodes de la p\u00e1gina"))
         group_layout = QVBoxLayout(group)
 
         self._table = QTableWidget(0, 5)
         self._table.setHorizontalHeaderLabels(
-            ["", "Valor", "Simbología", "Motor", "Rol"],
+            ["", self.tr("Valor"), self.tr("Simbolog\u00eda"), self.tr("Motor"), self.tr("Rol")],
         )
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
@@ -98,8 +98,8 @@ class BarcodePanel(QWidget):
 
         # Botones de barcode
         bc_buttons = QHBoxLayout()
-        self._btn_insert_bc = QPushButton("+ Barcode manual")
-        self._btn_delete_bc = QPushButton("\u2212 Barcode")
+        self._btn_insert_bc = QPushButton(self.tr("+ Barcode manual"))
+        self._btn_delete_bc = QPushButton(self.tr("\u2212 Barcode"))
         self._btn_insert_bc.clicked.connect(self.insert_barcode_requested)
         self._btn_delete_bc.clicked.connect(self.delete_barcode_requested)
         bc_buttons.addWidget(self._btn_insert_bc)
@@ -109,13 +109,13 @@ class BarcodePanel(QWidget):
         layout.addWidget(group)
 
         # Contadores del lote
-        counters_group = QGroupBox("Contadores del lote")
+        counters_group = QGroupBox(self.tr("Contadores del lote"))
         counters_layout = QVBoxLayout(counters_group)
 
-        self._lbl_total = QLabel("Total páginas: 0")
-        self._lbl_with_barcode = QLabel("Con barcode: 0")
-        self._lbl_separators = QLabel("Separadores: 0")
-        self._lbl_review = QLabel("Revisión: 0")
+        self._lbl_total = QLabel(self.tr("Total p\u00e1ginas: {0}").format(0))
+        self._lbl_with_barcode = QLabel(self.tr("Con barcode: {0}").format(0))
+        self._lbl_separators = QLabel(self.tr("Separadores: {0}").format(0))
+        self._lbl_review = QLabel(self.tr("Revisi\u00f3n: {0}").format(0))
 
         counters_layout.addWidget(self._lbl_total)
         counters_layout.addWidget(self._lbl_with_barcode)
@@ -158,16 +158,16 @@ class BarcodePanel(QWidget):
     def set_lot_counters(self, stats: dict) -> None:
         """Actualiza los contadores del lote."""
         self._lbl_total.setText(
-            f"Total páginas: {stats.get('total_pages', 0)}"
+            self.tr("Total p\u00e1ginas: {0}").format(stats.get('total_pages', 0))
         )
         self._lbl_with_barcode.setText(
-            f"Con barcode: {stats.get('with_barcode', 0)}"
+            self.tr("Con barcode: {0}").format(stats.get('with_barcode', 0))
         )
         self._lbl_separators.setText(
-            f"Separadores: {stats.get('separators', 0)}"
+            self.tr("Separadores: {0}").format(stats.get('separators', 0))
         )
         self._lbl_review.setText(
-            f"Revisión: {stats.get('needs_review', 0)}"
+            self.tr("Revisi\u00f3n: {0}").format(stats.get('needs_review', 0))
         )
 
     def selected_row(self) -> int:
@@ -185,10 +185,10 @@ class BarcodePanel(QWidget):
     def clear(self) -> None:
         """Limpia tabla y contadores."""
         self._table.setRowCount(0)
-        self._lbl_total.setText("Total páginas: 0")
-        self._lbl_with_barcode.setText("Con barcode: 0")
-        self._lbl_separators.setText("Separadores: 0")
-        self._lbl_review.setText("Revisión: 0")
+        self._lbl_total.setText(self.tr("Total p\u00e1ginas: {0}").format(0))
+        self._lbl_with_barcode.setText(self.tr("Con barcode: {0}").format(0))
+        self._lbl_separators.setText(self.tr("Separadores: {0}").format(0))
+        self._lbl_review.setText(self.tr("Revisi\u00f3n: {0}").format(0))
 
     # ------------------------------------------------------------------
     # Menú contextual
@@ -197,8 +197,8 @@ class BarcodePanel(QWidget):
     def _on_context_menu(self, pos) -> None:
         """Menú contextual: copiar valor / copiar todos."""
         menu = QMenu(self)
-        act_copy = menu.addAction("Copiar valor")
-        act_copy_all = menu.addAction("Copiar todos")
+        act_copy = menu.addAction(self.tr("Copiar valor"))
+        act_copy_all = menu.addAction(self.tr("Copiar todos"))
 
         action = menu.exec(self._table.viewport().mapToGlobal(pos))
         clipboard = QApplication.clipboard()

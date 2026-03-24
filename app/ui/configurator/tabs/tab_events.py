@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, QThread, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
@@ -42,20 +42,27 @@ EVENT_NAMES = [
     "init_global",
 ]
 
-EVENT_DESCRIPTIONS = {
-    "on_app_start": "Al abrir la aplicación",
-    "on_app_end": "Al cerrar la aplicación",
-    "on_import": "Al pulsar Procesar (reemplaza carga estándar si está definido)",
-    "on_scan_complete": "Al terminar carga + todo el pipeline",
-    "on_transfer_validate": "Antes de transferir; retornar False cancela",
-    "on_transfer_advanced": "Transferencia avanzada scripteada",
-    "on_transfer_page": "Post-copia por página",
-    "on_navigate_prev": "Navegación previa programable",
-    "on_navigate_next": "Navegación siguiente programable",
-    "on_navigate_script": "Botón de navegación programable del visor",
-    "on_key_event": "Tecla personalizada",
-    "init_global": "Al iniciar el programa (script global del launcher)",
+_EVENT_DESCRIPTIONS_SRC = {
+    "on_app_start": QT_TRANSLATE_NOOP("EventsTab", "Al abrir la aplicación"),
+    "on_app_end": QT_TRANSLATE_NOOP("EventsTab", "Al cerrar la aplicación"),
+    "on_import": QT_TRANSLATE_NOOP("EventsTab", "Al pulsar Procesar (reemplaza carga estándar si está definido)"),
+    "on_scan_complete": QT_TRANSLATE_NOOP("EventsTab", "Al terminar carga + todo el pipeline"),
+    "on_transfer_validate": QT_TRANSLATE_NOOP("EventsTab", "Antes de transferir; retornar False cancela"),
+    "on_transfer_advanced": QT_TRANSLATE_NOOP("EventsTab", "Transferencia avanzada scripteada"),
+    "on_transfer_page": QT_TRANSLATE_NOOP("EventsTab", "Post-copia por página"),
+    "on_navigate_prev": QT_TRANSLATE_NOOP("EventsTab", "Navegación previa programable"),
+    "on_navigate_next": QT_TRANSLATE_NOOP("EventsTab", "Navegación siguiente programable"),
+    "on_navigate_script": QT_TRANSLATE_NOOP("EventsTab", "Botón de navegación programable del visor"),
+    "on_key_event": QT_TRANSLATE_NOOP("EventsTab", "Tecla personalizada"),
+    "init_global": QT_TRANSLATE_NOOP("EventsTab", "Al iniciar el programa (script global del launcher)"),
 }
+
+_tr_evt = lambda s: QCoreApplication.translate("EventsTab", s)
+
+
+def EVENT_DESCRIPTIONS() -> dict[str, str]:
+    """Devuelve descripciones de eventos traducidas."""
+    return {k: _tr_evt(v) for k, v in _EVENT_DESCRIPTIONS_SRC.items()}
 
 
 class _EditorWorker(QThread):
@@ -89,10 +96,10 @@ class EventsTab(QWidget):
 
         # Selector de evento
         top = QHBoxLayout()
-        top.addWidget(QLabel("Evento:"))
+        top.addWidget(QLabel(self.tr("Evento:")))
         self._event_combo = QComboBox()
         for name in EVENT_NAMES:
-            desc = EVENT_DESCRIPTIONS.get(name, "")
+            desc = EVENT_DESCRIPTIONS().get(name, "")
             self._event_combo.addItem(f"{name} — {desc}", name)
         top.addWidget(self._event_combo, 1)
         layout.addLayout(top)
@@ -100,7 +107,7 @@ class EventsTab(QWidget):
         # Barra con botón VS Code
         code_bar = QHBoxLayout()
         code_bar.addStretch()
-        self._btn_vscode = QPushButton("Abrir en VS Code")
+        self._btn_vscode = QPushButton(self.tr("Abrir en VS Code"))
         self._btn_vscode.setVisible(detect_editor() is not None)
         self._btn_vscode.clicked.connect(self._open_in_vscode)
         code_bar.addWidget(self._btn_vscode)
@@ -157,7 +164,7 @@ class EventsTab(QWidget):
         self._event_combo.blockSignals(True)
         for i in range(self._event_combo.count()):
             name = self._event_combo.itemData(i)
-            desc = EVENT_DESCRIPTIONS.get(name, "")
+            desc = EVENT_DESCRIPTIONS().get(name, "")
             has_code = bool(self._events.get(name, "").strip())
             marker = "[*] " if has_code else ""
             self._event_combo.setItemText(i, f"{marker}{name} — {desc}")
@@ -166,7 +173,7 @@ class EventsTab(QWidget):
     def _open_in_vscode(self) -> None:
         """Lanza VS Code para editar el evento actual."""
         self._btn_vscode.setEnabled(False)
-        self._btn_vscode.setText("Editando en VS Code...")
+        self._btn_vscode.setText(self.tr("Editando en VS Code..."))
         self._editor_worker = _EditorWorker(
             self._code_edit.toPlainText(),
             self._current_event,
@@ -177,7 +184,7 @@ class EventsTab(QWidget):
     def _on_editor_done(self, result: str | None) -> None:
         """Actualiza el código al volver de VS Code."""
         self._btn_vscode.setEnabled(True)
-        self._btn_vscode.setText("Abrir en VS Code")
+        self._btn_vscode.setText(self.tr("Abrir en VS Code"))
         if result is not None:
             self._code_edit.setPlainText(result)
 
