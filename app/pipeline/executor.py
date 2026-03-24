@@ -82,6 +82,8 @@ class PipelineExecutor:
             if not step.enabled or ctx.is_skipped(step.id):
                 continue
 
+            log.debug("Ejecutando paso [%s] %s", step.type, step.id)
+
             try:
                 result = self._execute_step(step, page, batch, app, ctx)
                 ctx.set_step_result(step.id, result)
@@ -181,7 +183,7 @@ class PipelineExecutor:
             return None
 
         image = self._get_image(page, ctx)
-        text = self._ocr_service.recognize(
+        result = self._ocr_service.recognize(
             image=image,
             engine=step.engine,
             languages=step.languages,
@@ -189,8 +191,14 @@ class PipelineExecutor:
             window=step.window,
         )
         if hasattr(page, "ocr_text"):
-            page.ocr_text = text
-        return text
+            page.ocr_text = result.text
+        if hasattr(page, "ocr_regions"):
+            page.ocr_regions = result.regions
+        log.info(
+            "OCR [%s]: %d regiones, %d caracteres",
+            step.engine, len(result.regions), len(result.text),
+        )
+        return result
 
     def _run_script(
         self, step: ScriptStep, page: Any, batch: Any, app: Any,

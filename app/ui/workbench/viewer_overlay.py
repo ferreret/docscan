@@ -335,10 +335,10 @@ class ViewerOverlay(QWidget):
         self._btn_last = _make_button(_icon_last(c), self.tr("\u00daltima p\u00e1gina (End)"))
 
         self._btn_next_bc = _make_button(
-            _icon_next_barcode(c), self.tr("Siguiente con barcode"),
+            _icon_next_barcode(c), self.tr("Siguiente con barcode (Ctrl+Right)"),
         )
         self._btn_next_review = _make_button(
-            _icon_next_review(c), self.tr("Siguiente pendiente revisi\u00f3n"),
+            _icon_next_review(c), self.tr("Siguiente pendiente revisión (Ctrl+Shift+Right)"),
         )
 
         layout.addWidget(self._btn_first)
@@ -355,7 +355,7 @@ class ViewerOverlay(QWidget):
 
         # Navegación programable
         self._btn_nav_script = _make_button(
-            _icon_nav_script(c), self.tr("Navegaci\u00f3n programable (script)"),
+            _icon_nav_script(c), self.tr("Navegación programable (Ctrl+G)"),
         )
         layout.addWidget(self._btn_nav_script)
 
@@ -369,7 +369,7 @@ class ViewerOverlay(QWidget):
             _icon_zoom_fit(c), self.tr("Ajustar a p\u00e1gina (Ctrl+F)"),
         )
         self._btn_zoom_100 = _make_button(
-            _icon_zoom_100(c), self.tr("Tama\u00f1o real"), width=42,
+            _icon_zoom_100(c), self.tr("Tamaño real (Ctrl+0)"), width=42,
         )
 
         layout.addWidget(self._btn_zoom_in)
@@ -381,10 +381,10 @@ class ViewerOverlay(QWidget):
         layout.addWidget(self._separator())
 
         # --- Herramientas ---
-        self._btn_rotate = _make_button(_icon_rotate(c), self.tr("Rotar 90\u00b0"))
-        self._btn_mark = _make_button(_icon_mark(c), self.tr("Marcar/desmarcar p\u00e1gina"))
+        self._btn_rotate = _make_button(_icon_rotate(c), self.tr("Rotar 90° (Ctrl+R)"))
+        self._btn_mark = _make_button(_icon_mark(c), self.tr("Marcar/desmarcar página (Ctrl+M)"))
         self._btn_delete_current = _make_button(
-            _icon_delete_current(), self.tr("Eliminar p\u00e1gina actual"),
+            _icon_delete_current(), self.tr("Eliminar página actual (Delete)"),
             obj_name="dangerButton",
         )
         self._btn_delete_from = _make_button(

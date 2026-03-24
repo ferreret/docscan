@@ -46,6 +46,7 @@ from app.services.barcode_service import BarcodeService
 from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
+from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
 from app.models.image_config import ImageConfig, parse_image_config
 from app.services.transfer_service import TransferService, parse_transfer_config
@@ -109,6 +110,7 @@ class WorkbenchWindow(QMainWindow):
         self._script_engine = ScriptEngine()
         self._image_service = ImagePipelineService()
         self._barcode_service = BarcodeService()
+        self._ocr_service = OcrService()
         self._import_service = ImportService()
         self._transfer_service = TransferService()
         self._scanner: Any = None  # Instancia reutilizable de BaseScanner
@@ -172,6 +174,7 @@ class WorkbenchWindow(QMainWindow):
             image_service=self._image_service,
             script_engine=self._script_engine,
             barcode_service=self._barcode_service,
+            ocr_service=self._ocr_service,
         )
 
     def _compile_events(self) -> None:
@@ -314,6 +317,7 @@ class WorkbenchWindow(QMainWindow):
 
         # Botón principal de acción
         self._btn_process = QPushButton(self.tr("Escanear / Importar"))
+        self._btn_process.setToolTip(self.tr("Escanear o importar documentos (F5)"))
         self._btn_process.setProperty("cssClass", "primary")
         toolbar.addWidget(self._btn_process)
 
@@ -321,12 +325,14 @@ class WorkbenchWindow(QMainWindow):
 
         # Transferir
         self._btn_transfer = QPushButton(self.tr("Transferir"))
+        self._btn_transfer.setToolTip(self.tr("Transferir lote (Ctrl+T)"))
         toolbar.addWidget(self._btn_transfer)
 
         toolbar.addSeparator()
 
         # Cerrar lote (sin transferir)
         self._btn_close_batch = QPushButton(self.tr("Cerrar lote"))
+        self._btn_close_batch.setToolTip(self.tr("Cerrar lote sin transferir (Ctrl+W)"))
         toolbar.addWidget(self._btn_close_batch)
 
         # Spacer
@@ -429,19 +435,38 @@ class WorkbenchWindow(QMainWindow):
         )
 
     def _setup_shortcuts(self) -> None:
-        """Atajos de teclado."""
-        QShortcut(
-            QKeySequence("Ctrl+P"), self,
-        ).activated.connect(self._on_reprocess_page)
-        QShortcut(
-            QKeySequence("Ctrl+F"), self,
-        ).activated.connect(self._viewer.fit_to_page)
-        QShortcut(
-            QKeySequence("Ctrl++"), self,
-        ).activated.connect(self._viewer.zoom_in)
-        QShortcut(
-            QKeySequence("Ctrl+-"), self,
-        ).activated.connect(self._viewer.zoom_out)
+        """Atajos de teclado del workbench."""
+        _s = lambda keys, slot: QShortcut(
+            QKeySequence(keys), self,
+        ).activated.connect(slot)
+
+        # Navegación
+        _s("Left", self._on_prev)
+        _s("Right", self._on_next)
+        _s("Home", self._on_first)
+        _s("End", self._on_last)
+        _s("Ctrl+Right", self._on_next_barcode)
+        _s("Ctrl+Shift+Right", self._on_next_review)
+        _s("Ctrl+G", self._on_nav_script)
+
+        # Zoom
+        _s("Ctrl++", self._viewer.zoom_in)
+        _s("Ctrl+=", self._viewer.zoom_in)
+        _s("Ctrl+-", self._viewer.zoom_out)
+        _s("Ctrl+F", self._viewer.fit_to_page)
+        _s("Ctrl+0", self._on_zoom_100)
+
+        # Adquisición y transferencia
+        _s("F5", self._on_process)
+        _s("Ctrl+T", self._on_transfer)
+        _s("Ctrl+W", self._on_close_batch)
+
+        # Manipulación de página
+        _s("Ctrl+R", self._on_rotate_90)
+        _s("Ctrl+M", self._on_mark_page)
+        _s("Delete", self._on_delete_current_page)
+        _s("Ctrl+P", self._on_reprocess_page)
+        _s("Ctrl+B", self._on_insert_barcode)
 
     def _configure_metadata(self) -> None:
         """Configura los campos de lote e indexación según la app."""
@@ -892,7 +917,9 @@ class WorkbenchWindow(QMainWindow):
                 self._viewer.set_image(page_ctx.image, state)
             else:
                 self._viewer.set_state(state)
-            self._viewer.set_overlays(barcodes=page_ctx.barcodes)
+            self._viewer.set_overlays(
+                barcodes=page_ctx.barcodes, fields=page_ctx.fields,
+            )
             self._barcode_panel.set_page_barcodes(page_ctx.barcodes)
             self._reload_pages()
             if 0 <= page_index < len(self._pages):
@@ -1091,14 +1118,16 @@ class WorkbenchWindow(QMainWindow):
                 is_excluded=page.is_excluded,
             )
 
-            self._viewer.set_image(image, state)
-            self._viewer.set_overlays(barcodes=barcodes)
-            self._barcode_panel.set_page_barcodes(barcodes)
-
             try:
                 idx_fields = json.loads(page.index_fields_json)
             except (json.JSONDecodeError, TypeError):
                 idx_fields = {}
+
+            self._viewer.set_image(image, state)
+            self._viewer.set_overlays(
+                barcodes=barcodes, fields=idx_fields,
+            )
+            self._barcode_panel.set_page_barcodes(barcodes)
             self._metadata_panel.set_index_fields(idx_fields)
             self._metadata_panel.set_verification_data(
                 ocr_text=page.ocr_text,

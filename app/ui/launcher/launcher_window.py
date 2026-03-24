@@ -116,7 +116,7 @@ class LauncherWindow(QMainWindow):
         from app.i18n import available_languages, get_language_preference
 
         self._lang_combo = QComboBox()
-        self._lang_combo.setFixedWidth(90)
+        self._lang_combo.setFixedWidth(60)
         self._lang_combo.blockSignals(True)
         for code, name in available_languages().items():
             self._lang_combo.addItem(name, code)
