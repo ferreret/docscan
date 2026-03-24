@@ -40,6 +40,7 @@ EVENT_NAMES = [
     "on_navigate_script",
     "on_key_event",
     "init_global",
+    "verification_panel",
 ]
 
 _EVENT_DESCRIPTIONS_SRC = {
@@ -55,6 +56,7 @@ _EVENT_DESCRIPTIONS_SRC = {
     "on_navigate_script": QT_TRANSLATE_NOOP("EventsTab", "Botón de navegación programable del visor"),
     "on_key_event": QT_TRANSLATE_NOOP("EventsTab", "Tecla personalizada"),
     "init_global": QT_TRANSLATE_NOOP("EventsTab", "Al iniciar el programa (script global del launcher)"),
+    "verification_panel": QT_TRANSLATE_NOOP("EventsTab", "Panel de verificación (clase VerificationPanel)"),
 }
 
 _tr_evt = lambda s: QCoreApplication.translate("EventsTab", s)

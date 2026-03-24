@@ -220,8 +220,23 @@ class MetadataPanel(QWidget):
         for widget in self._batch_widgets.values():
             self._set_widget_value(widget, "")
 
+    def add_verification_tab(self, widget: QWidget) -> None:
+        """Inserta la pestaña de verificación entre Lote y Log."""
+        self._verification_tab = widget
+        self._tabs.insertTab(1, widget, self.tr("Verificación"))
+
+    def remove_verification_tab(self) -> None:
+        """Elimina la pestaña de verificación si existe."""
+        tab = getattr(self, "_verification_tab", None)
+        if tab is not None:
+            idx = self._tabs.indexOf(tab)
+            if idx >= 0:
+                self._tabs.removeTab(idx)
+            self._verification_tab = None
+
     def cleanup(self) -> None:
-        """Libera recursos (handler de logging)."""
+        """Libera recursos (handler de logging + panel verificación)."""
+        self.remove_verification_tab()
         self._log_panel.cleanup()
 
     # ------------------------------------------------------------------
