@@ -314,6 +314,7 @@ class WorkbenchWindow(QMainWindow):
 
         # Botón principal de acción
         self._btn_process = QPushButton(self.tr("Escanear / Importar"))
+        self._btn_process.setToolTip(self.tr("Escanear o importar documentos (F5)"))
         self._btn_process.setProperty("cssClass", "primary")
         toolbar.addWidget(self._btn_process)
 
@@ -321,12 +322,14 @@ class WorkbenchWindow(QMainWindow):
 
         # Transferir
         self._btn_transfer = QPushButton(self.tr("Transferir"))
+        self._btn_transfer.setToolTip(self.tr("Transferir lote (Ctrl+T)"))
         toolbar.addWidget(self._btn_transfer)
 
         toolbar.addSeparator()
 
         # Cerrar lote (sin transferir)
         self._btn_close_batch = QPushButton(self.tr("Cerrar lote"))
+        self._btn_close_batch.setToolTip(self.tr("Cerrar lote sin transferir (Ctrl+W)"))
         toolbar.addWidget(self._btn_close_batch)
 
         # Spacer
@@ -429,19 +432,38 @@ class WorkbenchWindow(QMainWindow):
         )
 
     def _setup_shortcuts(self) -> None:
-        """Atajos de teclado."""
-        QShortcut(
-            QKeySequence("Ctrl+P"), self,
-        ).activated.connect(self._on_reprocess_page)
-        QShortcut(
-            QKeySequence("Ctrl+F"), self,
-        ).activated.connect(self._viewer.fit_to_page)
-        QShortcut(
-            QKeySequence("Ctrl++"), self,
-        ).activated.connect(self._viewer.zoom_in)
-        QShortcut(
-            QKeySequence("Ctrl+-"), self,
-        ).activated.connect(self._viewer.zoom_out)
+        """Atajos de teclado del workbench."""
+        _s = lambda keys, slot: QShortcut(
+            QKeySequence(keys), self,
+        ).activated.connect(slot)
+
+        # Navegación
+        _s("Left", self._on_prev)
+        _s("Right", self._on_next)
+        _s("Home", self._on_first)
+        _s("End", self._on_last)
+        _s("Ctrl+Right", self._on_next_barcode)
+        _s("Ctrl+Shift+Right", self._on_next_review)
+        _s("Ctrl+G", self._on_nav_script)
+
+        # Zoom
+        _s("Ctrl++", self._viewer.zoom_in)
+        _s("Ctrl+=", self._viewer.zoom_in)
+        _s("Ctrl+-", self._viewer.zoom_out)
+        _s("Ctrl+F", self._viewer.fit_to_page)
+        _s("Ctrl+0", self._on_zoom_100)
+
+        # Adquisición y transferencia
+        _s("F5", self._on_process)
+        _s("Ctrl+T", self._on_transfer)
+        _s("Ctrl+W", self._on_close_batch)
+
+        # Manipulación de página
+        _s("Ctrl+R", self._on_rotate_90)
+        _s("Ctrl+M", self._on_mark_page)
+        _s("Delete", self._on_delete_current_page)
+        _s("Ctrl+P", self._on_reprocess_page)
+        _s("Ctrl+B", self._on_insert_barcode)
 
     def _configure_metadata(self) -> None:
         """Configura los campos de lote e indexación según la app."""
