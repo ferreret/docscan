@@ -294,3 +294,119 @@ class TestFilenamePattern:
         output_dir = Path(result.output_path)
         files = list(output_dir.glob("ACME_0000.*"))
         assert len(files) == 1
+
+
+# ------------------------------------------------------------------
+# Politica de colision
+# ------------------------------------------------------------------
+
+
+class TestCollisionPolicy:
+    def test_suffix_creates_numbered_files(
+        self, service: TransferService, sample_pages: list[dict],
+        tmp_path: Path,
+    ):
+        """Transferir dos veces con suffix crea ficheros con sufijo."""
+        config = TransferConfig(
+            mode="folder",
+            destination=str(tmp_path / "output"),
+            filename_pattern="doc",
+            collision_policy="suffix",
+            create_subdirs=False,
+        )
+        # Primera transferencia
+        r1 = service.transfer(sample_pages[:1], config, batch_id=1)
+        assert r1.success
+        # Segunda transferencia — mismo nombre
+        r2 = service.transfer(sample_pages[:1], config, batch_id=1)
+        assert r2.success
+
+        output_dir = tmp_path / "output"
+        assert (output_dir / "doc.tiff").exists()
+        assert (output_dir / "doc_1.tiff").exists()
+
+    def test_overwrite_replaces_file(
+        self, service: TransferService, sample_pages: list[dict],
+        tmp_path: Path,
+    ):
+        """Transferir con overwrite reemplaza el fichero existente."""
+        config = TransferConfig(
+            mode="folder",
+            destination=str(tmp_path / "output"),
+            filename_pattern="doc",
+            collision_policy="overwrite",
+            create_subdirs=False,
+        )
+        r1 = service.transfer(sample_pages[:1], config, batch_id=1)
+        assert r1.success
+        first_size = (tmp_path / "output" / "doc.tiff").stat().st_size
+
+        # Transferir otra pagina (imagen distinta) con overwrite
+        r2 = service.transfer(sample_pages[1:2], config, batch_id=1)
+        assert r2.success
+
+        output_dir = tmp_path / "output"
+        # Solo debe existir un fichero doc.tiff
+        doc_files = list(output_dir.glob("doc*.tiff"))
+        assert len(doc_files) == 1
+
+    def test_merge_tiff_appends_pages(
+        self, service: TransferService, sample_pages: list[dict],
+        tmp_path: Path,
+    ):
+        """Transferir con merge en TIFF crea multi-pagina."""
+        config = TransferConfig(
+            mode="folder",
+            destination=str(tmp_path / "output"),
+            filename_pattern="doc",
+            collision_policy="merge",
+            create_subdirs=False,
+        )
+        from app.services.image_lib import ImageLib
+
+        r1 = service.transfer(sample_pages[:1], config, batch_id=1)
+        assert r1.success
+        after_first = ImageLib.load(str(tmp_path / "output" / "doc.tiff"))
+        assert len(after_first) == 1
+
+        r2 = service.transfer(sample_pages[1:2], config, batch_id=1)
+        assert r2.success
+        merged = ImageLib.load(str(tmp_path / "output" / "doc.tiff"))
+        assert len(merged) == 2
+
+    def test_merge_fallback_to_suffix_for_jpg(
+        self, service: TransferService, tmp_path: Path,
+    ):
+        """Merge con JPG cae en fallback a sufijo."""
+        # Crear pagina JPG
+        img = np.ones((50, 50, 3), dtype=np.uint8) * 128
+        src = tmp_path / "source" / "page.jpg"
+        src.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(src), img)
+        pages = [{"image_path": str(src), "page_index": 0, "fields": {}}]
+
+        config = TransferConfig(
+            mode="folder",
+            destination=str(tmp_path / "output"),
+            filename_pattern="doc",
+            collision_policy="merge",
+            create_subdirs=False,
+            output_format="jpg",
+        )
+        r1 = service.transfer(pages, config, batch_id=1)
+        assert r1.success
+        r2 = service.transfer(pages, config, batch_id=1)
+        assert r2.success
+
+        output_dir = tmp_path / "output"
+        assert (output_dir / "doc.jpg").exists()
+        assert (output_dir / "doc_1.jpg").exists()
+
+    def test_default_policy_is_suffix(self):
+        config = TransferConfig()
+        assert config.collision_policy == "suffix"
+
+    def test_parse_collision_policy(self):
+        data = json.dumps({"collision_policy": "merge"})
+        config = parse_transfer_config(data)
+        assert config.collision_policy == "merge"

@@ -116,6 +116,27 @@ class TransferTab(QWidget):
         )
         gen_form.addRow("", self._metadata)
 
+        self._collision_combo = QComboBox()
+        self._collision_combo.addItem(
+            self.tr("Sufijo numérico (archivo_1, archivo_2…)"), "suffix",
+        )
+        self._collision_combo.addItem(
+            self.tr("Sobrescribir el existente"), "overwrite",
+        )
+        self._collision_combo.addItem(
+            self.tr("Fusionar (multi-página TIFF/PDF)"), "merge",
+        )
+        self._collision_combo.setToolTip(
+            self.tr(
+                "Qué hacer si el fichero destino ya existe:\n"
+                "• Sufijo: crea archivo_1.tiff, archivo_2.tiff…\n"
+                "• Sobrescribir: reemplaza el fichero existente\n"
+                "• Fusionar: añade como nueva página al TIFF/PDF existente\n"
+                "  (para JPG/PNG usa sufijo como fallback)"
+            )
+        )
+        gen_form.addRow(self.tr("Si ya existe:"), self._collision_combo)
+
         main_layout.addWidget(general_group)
 
         # ── Grupo: Formato de salida (solo modo carpeta) ──
@@ -326,6 +347,11 @@ class TransferTab(QWidget):
         )
         self._metadata.setChecked(config.get("include_metadata", False))
 
+        collision = config.get("collision_policy", "suffix")
+        idx = self._collision_combo.findData(collision)
+        if idx >= 0:
+            self._collision_combo.setCurrentIndex(idx)
+
         # Formato de salida
         out_fmt = config.get("output_format", "")
         if out_fmt:
@@ -376,6 +402,7 @@ class TransferTab(QWidget):
             "csv_separator": self._csv_sep.text(),
             "csv_fields": csv_fields,
             "include_metadata": self._metadata.isChecked(),
+            "collision_policy": self._collision_combo.currentData(),
             "output_format": output_format,
             "output_dpi": self._out_dpi_spin.value(),
             "output_color_mode": output_color_mode,

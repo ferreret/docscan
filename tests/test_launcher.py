@@ -161,10 +161,11 @@ class TestLauncherWindow:
     ):
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
-        # Sin selección, los botones deben estar deshabilitados
-        assert not window._btn_open.isEnabled()
-        assert not window._btn_configure.isEnabled()
-        assert not window._btn_delete.isEnabled()
+        # Sin selección, los botones del sidebar deben estar deshabilitados
+        sb = window._sidebar
+        assert not sb.get_button("open").isEnabled()
+        assert not sb.get_button("configure").isEnabled()
+        assert not sb.get_button("delete").isEnabled()
 
     def test_buttons_enabled_with_selection(
         self, qtbot, session_factory, seed_apps,
@@ -172,9 +173,10 @@ class TestLauncherWindow:
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
         window._app_list.setCurrentRow(0)
-        assert window._btn_open.isEnabled()
-        assert window._btn_configure.isEnabled()
-        assert window._btn_delete.isEnabled()
+        sb = window._sidebar
+        assert sb.get_button("open").isEnabled()
+        assert sb.get_button("configure").isEnabled()
+        assert sb.get_button("delete").isEnabled()
 
     def test_filter_integration(self, qtbot, session_factory, seed_apps):
         window = LauncherWindow(session_factory=session_factory)

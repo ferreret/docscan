@@ -117,6 +117,7 @@ _APP_CONFIG_PROPERTIES = {
             "destination": {"type": "string"},
             "filename_pattern": {"type": "string"},
             "create_subdirs": {"type": "boolean", "default": True},
+            "collision_policy": {"type": "string", "enum": ["suffix", "overwrite", "merge"]},
             "include_metadata": {"type": "boolean", "default": False},
             "output_format": {"type": "string", "enum": ["", "tiff", "png", "jpg", "pdf"]},
             "output_dpi": {"type": "integer"},
@@ -368,6 +369,10 @@ Controls how pages are exported. Two mechanisms: standard transfer (config-based
   - Example: "{{first_barcode}}" → renames files to barcode value
   - Example: "{{batch_id}}/{{page_index:04d}}" → creates subdirectory per batch
 - create_subdirs (bool, default true): Create batch_ID subdirectories
+- collision_policy: "suffix" (default), "overwrite", "merge". What to do when destination file already exists:
+  - "suffix": add numeric suffix (file_1.tiff, file_2.tiff…)
+  - "overwrite": replace existing file
+  - "merge": append as new page to existing multi-page TIFF or PDF. For JPG/PNG falls back to suffix.
 - include_metadata (bool, default false): Write .json metadata files alongside images
 - output_format: "" (keep original), "tiff", "png", "jpg" — format conversion on export
 - output_dpi: 0 (keep original) or target DPI
