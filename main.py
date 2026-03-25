@@ -277,24 +277,50 @@ def main() -> int:
     # H1: Liberar engine al salir
     qt_app.aboutToQuit.connect(lambda: engine.dispose())
 
+    # Splash screen
+    from app.ui.splash_screen import SplashScreen
+
+    splash = SplashScreen()
+    splash.show()
+    qt_app.processEvents()
+
     # Cargar traducciones según preferencia de idioma
+    splash.set_status("Cargando traducciones...")
+    splash.set_progress(20)
+    qt_app.processEvents()
+
     from app.i18n import get_language_preference, load_language
 
     load_language(get_language_preference(), qt_app)
 
     # Aplicar tema (restaura preferencias guardadas)
+    splash.set_status("Aplicando tema...")
+    splash.set_progress(40)
+    qt_app.processEvents()
+
     from app.ui.theme_manager import ThemeManager
 
     theme_mgr = ThemeManager()
     theme_mgr.apply_theme(theme_mgr.current_theme)
 
     # Ejecutar init_global si alguna aplicación lo define
+    splash.set_status("Inicializando scripts globales...")
+    splash.set_progress(60)
+    qt_app.processEvents()
+
     _run_init_global(session_factory)
 
     # Launcher
+    splash.set_status("Cargando aplicaciones...")
+    splash.set_progress(80)
+    qt_app.processEvents()
+
     from app.ui.launcher.launcher_window import LauncherWindow
 
     launcher = LauncherWindow(session_factory=session_factory)
+
+    splash.set_progress(100)
+    qt_app.processEvents()
 
     _workbenches: list = []  # Mantener referencia para evitar GC
 
@@ -387,10 +413,13 @@ def main() -> int:
             app_record = repo.get_by_name(args.app_name)
             if app_record is None:
                 log.error("Aplicación no encontrada: '%s'", args.app_name)
+                splash.finish(launcher)
                 launcher.show()
             else:
+                splash.close()
                 on_app_opened(app_record.id)
     else:
+        splash.finish(launcher)
         launcher.show()
 
     return qt_app.exec()
