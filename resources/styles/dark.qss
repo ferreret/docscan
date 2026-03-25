@@ -724,6 +724,52 @@ QInputDialog QComboBox {
     padding: 5px 10px;
 }
 
+/* ---- Sidebar ---- */
+#sidebar {
+    background-color: #181825;
+    border-right: 1px solid #313244;
+}
+
+#sidebarBtn, #sidebarBtnDanger, #sidebarBtnAiMode {
+    background-color: transparent;
+    color: #bac2de;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+#sidebarBtn:hover, #sidebarBtnAiMode:hover {
+    background-color: #313244;
+    color: #cdd6f4;
+}
+
+#sidebarBtn:disabled {
+    color: #585b70;
+}
+
+#sidebarBtnDanger:hover {
+    background-color: #45202a;
+    color: #f38ba8;
+}
+
+#sidebarBtnAiMode:checked {
+    background-color: #f5c211;
+    color: #1e1e2e;
+}
+
+#sidebarToggle {
+    background-color: transparent;
+    color: #bac2de;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 8px;
+}
+
+#sidebarToggle:hover {
+    background-color: #313244;
+}
+
 /* ---- Asistente IA: Panel de chat ---- */
 #pipelineAssistantPanel {
     background-color: #1e1e2e;

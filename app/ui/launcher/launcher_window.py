@@ -55,64 +55,57 @@ class LauncherWindow(QMainWindow):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle(self.tr("DocScan Studio"))
-        self.setMinimumSize(800, 560)
+        self.setMinimumSize(900, 600)
 
-        # --- Toolbar ---
-        toolbar = QToolBar(self.tr("Principal"))
-        toolbar.setMovable(False)
-        self.addToolBar(toolbar)
+        # --- Layout principal: sidebar + contenido ---
+        central = QWidget()
+        self.setCentralWidget(central)
+        main_hlayout = QHBoxLayout(central)
+        main_hlayout.setContentsMargins(0, 0, 0, 0)
+        main_hlayout.setSpacing(0)
 
-        self._btn_new = QPushButton(self.tr("Nueva"))
-        self._btn_new.setProperty("cssClass", "primary")
-        self._btn_open = QPushButton(self.tr("Abrir"))
-        self._btn_configure = QPushButton(self.tr("Configurar"))
-        self._btn_clone = QPushButton(self.tr("Clonar"))
-        self._btn_export = QPushButton(self.tr("Exportar"))
-        self._btn_import = QPushButton(self.tr("Importar"))
-        self._btn_delete = QPushButton(self.tr("Eliminar"))
-        self._btn_delete.setProperty("cssClass", "danger")
-        self._btn_refresh = QPushButton(self.tr("Actualizar"))
-        self._btn_batch_manager = QPushButton(self.tr("Gestor de Lotes"))
+        # Sidebar izquierdo
+        from app.ui.launcher.sidebar import Sidebar
 
-        toolbar.addWidget(self._btn_new)
-        toolbar.addWidget(self._btn_open)
-        toolbar.addWidget(self._btn_configure)
-        toolbar.addWidget(self._btn_clone)
-        toolbar.addWidget(self._btn_export)
-        toolbar.addWidget(self._btn_import)
-        toolbar.addWidget(self._btn_delete)
-        toolbar.addSeparator()
-        toolbar.addWidget(self._btn_refresh)
-        toolbar.addSeparator()
-        toolbar.addWidget(self._btn_batch_manager)
-        toolbar.addSeparator()
-
-        self._btn_ai_mode = QPushButton(self.tr("AI MODE"))
-        self._btn_ai_mode.setObjectName("aiModeToggle")
-        self._btn_ai_mode.setCheckable(True)
-        self._btn_ai_mode.setToolTip(
-            self.tr("Asistente IA para crear y gestionar aplicaciones")
+        self._sidebar = Sidebar(
+            is_dark=self._theme_manager.is_dark, parent=self,
         )
-        toolbar.addWidget(self._btn_ai_mode)
+        self._sidebar.action_triggered.connect(self._on_sidebar_action)
+        main_hlayout.addWidget(self._sidebar)
 
-        # Spacer para empujar el toggle de tema a la derecha
-        spacer = QWidget()
-        spacer.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,
-        )
-        toolbar.addWidget(spacer)
+        # Contenido derecho con splitter (lista + AI mode)
+        self._splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_hlayout.addWidget(self._splitter, 1)
 
-        from app.ui.icon_factory import (
-            icon_font_decrease,
-            icon_font_increase,
-        )
+        # Panel principal del launcher
+        left_panel = QWidget()
+        layout = QVBoxLayout(left_panel)
+        layout.setContentsMargins(16, 12, 16, 8)
+        layout.setSpacing(10)
+
+        # Header con titulo + controles de aspecto
+        header_row = QHBoxLayout()
+        header_row.setSpacing(8)
+
+        header_left = QVBoxLayout()
+        header_left.setSpacing(2)
+        title_label = QLabel(self.tr("DocScan Studio"))
+        title_label.setProperty("cssClass", "title")
+        header_left.addWidget(title_label)
+        subtitle_label = QLabel(self.tr("Selecciona una aplicación para comenzar"))
+        subtitle_label.setProperty("cssClass", "subtitle")
+        header_left.addWidget(subtitle_label)
+        header_row.addLayout(header_left, 1)
+
+        # Controles de aspecto (tema, fuente, idioma) en el header
+        from app.ui.icon_factory import icon_font_decrease, icon_font_increase
 
         self._btn_theme = QPushButton()
         self._btn_theme.setToolTip(self.tr("Cambiar tema claro/oscuro"))
+        self._btn_theme.setFixedSize(34, 34)
         self._update_theme_button()
-        toolbar.addWidget(self._btn_theme)
+        header_row.addWidget(self._btn_theme)
 
-        icon_size = 20
         icon_color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
 
         self._btn_font_up = QPushButton()
@@ -123,10 +116,9 @@ class LauncherWindow(QMainWindow):
         self._btn_font_down.setIcon(icon_font_decrease(icon_color, 32))
         self._btn_font_down.setToolTip(self.tr("Reducir tamaño de fuente"))
         self._btn_font_down.setFixedSize(34, 34)
-        toolbar.addWidget(self._btn_font_up)
-        toolbar.addWidget(self._btn_font_down)
+        header_row.addWidget(self._btn_font_up)
+        header_row.addWidget(self._btn_font_down)
 
-        # Selector de idioma
         from app.i18n import available_languages, get_language_preference
 
         self._lang_combo = QComboBox()
@@ -138,31 +130,9 @@ class LauncherWindow(QMainWindow):
         if idx >= 0:
             self._lang_combo.setCurrentIndex(idx)
         self._lang_combo.blockSignals(False)
-        toolbar.addWidget(self._lang_combo)
+        header_row.addWidget(self._lang_combo)
 
-        # --- Central widget con splitter ---
-        self._splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.setCentralWidget(self._splitter)
-
-        # Lado izquierdo: contenido actual del launcher
-        left_panel = QWidget()
-        layout = QVBoxLayout(left_panel)
-        layout.setContentsMargins(16, 12, 16, 8)
-        layout.setSpacing(12)
-
-        # Header
-        header_layout = QVBoxLayout()
-        header_layout.setSpacing(2)
-
-        title_label = QLabel(self.tr("DocScan Studio"))
-        title_label.setProperty("cssClass", "title")
-        header_layout.addWidget(title_label)
-
-        subtitle_label = QLabel(self.tr("Selecciona una aplicación para comenzar"))
-        subtitle_label.setProperty("cssClass", "subtitle")
-        header_layout.addWidget(subtitle_label)
-
-        layout.addLayout(header_layout)
+        layout.addLayout(header_row)
 
         # Barra de búsqueda
         self._filter_edit = QLineEdit()
@@ -180,10 +150,9 @@ class LauncherWindow(QMainWindow):
         self._info_label.setWordWrap(True)
         layout.addWidget(self._info_label)
 
-        # Añadir left_panel al splitter
         self._splitter.addWidget(left_panel)
 
-        # Lado derecho: panel AI MODE (oculto por defecto)
+        # Panel AI MODE (oculto por defecto)
         from app.ui.launcher.ai_mode_panel import AiModePanel
 
         self._ai_mode_panel = AiModePanel(self._session_factory)
@@ -191,7 +160,6 @@ class LauncherWindow(QMainWindow):
         self._ai_mode_panel.apps_changed.connect(self._load_apps)
         self._splitter.addWidget(self._ai_mode_panel)
 
-        # Proporciones: 60% launcher, 40% AI MODE
         self._splitter.setStretchFactor(0, 3)
         self._splitter.setStretchFactor(1, 2)
 
@@ -203,16 +171,7 @@ class LauncherWindow(QMainWindow):
         self._update_button_state()
 
     def _connect_signals(self) -> None:
-        self._btn_new.clicked.connect(self._on_new_app)
-        self._btn_open.clicked.connect(self._on_open_app)
-        self._btn_configure.clicked.connect(self._on_configure_app)
-        self._btn_clone.clicked.connect(self._on_clone_app)
-        self._btn_export.clicked.connect(self._on_export_app)
-        self._btn_import.clicked.connect(self._on_import_app)
-        self._btn_delete.clicked.connect(self._on_delete_app)
-        self._btn_refresh.clicked.connect(self._load_apps)
-        self._btn_batch_manager.clicked.connect(self.batch_manager_requested.emit)
-        self._btn_ai_mode.toggled.connect(self._on_toggle_ai_mode)
+        # Sidebar ya conectado via action_triggered en _setup_ui
         self._btn_theme.clicked.connect(self._on_toggle_theme)
         self._btn_font_up.clicked.connect(self._theme_manager.increase_font)
         self._btn_font_down.clicked.connect(self._theme_manager.decrease_font)
@@ -223,11 +182,31 @@ class LauncherWindow(QMainWindow):
         self._theme_manager.theme_changed.connect(self._on_theme_changed)
 
     # ------------------------------------------------------------------
-    # AI MODE
+    # Sidebar dispatch
     # ------------------------------------------------------------------
 
-    def _on_toggle_ai_mode(self, checked: bool) -> None:
+    def _on_sidebar_action(self, action: str) -> None:
+        """Despacha la accion del sidebar al metodo correspondiente."""
+        handlers = {
+            "new": self._on_new_app,
+            "open": self._on_open_app,
+            "configure": self._on_configure_app,
+            "clone": self._on_clone_app,
+            "export": self._on_export_app,
+            "import": self._on_import_app,
+            "delete": self._on_delete_app,
+            "refresh": self._load_apps,
+            "batch_manager": self.batch_manager_requested.emit,
+            "ai_mode": self._on_toggle_ai_mode,
+        }
+        handler = handlers.get(action)
+        if handler:
+            handler()
+
+    def _on_toggle_ai_mode(self) -> None:
         """Muestra u oculta el panel AI MODE."""
+        btn = self._sidebar.get_button("ai_mode")
+        checked = btn.isChecked() if btn else False
         self._ai_mode_panel.setVisible(checked)
 
     # ------------------------------------------------------------------
@@ -242,7 +221,7 @@ class LauncherWindow(QMainWindow):
         """Actualiza el botón de tema cuando cambia."""
         self._update_theme_button()
         self._update_font_icons()
-        # Forzar repintado de la lista para actualizar colores del delegate
+        self._sidebar.update_theme(self._theme_manager.is_dark)
         self._app_list.viewport().update()
 
     def _on_language_changed(self, _index: int) -> None:
@@ -531,8 +510,5 @@ class LauncherWindow(QMainWindow):
 
     def _update_button_state(self) -> None:
         has_selection = self._app_list.selected_app_id() is not None
-        self._btn_open.setEnabled(has_selection)
-        self._btn_configure.setEnabled(has_selection)
-        self._btn_clone.setEnabled(has_selection)
-        self._btn_export.setEnabled(has_selection)
-        self._btn_delete.setEnabled(has_selection)
+        for name in ("open", "configure", "clone", "export", "delete"):
+            self._sidebar.set_button_enabled(name, has_selection)
