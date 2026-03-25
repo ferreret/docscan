@@ -67,6 +67,8 @@ class LauncherWindow(QMainWindow):
         self._btn_open = QPushButton(self.tr("Abrir"))
         self._btn_configure = QPushButton(self.tr("Configurar"))
         self._btn_clone = QPushButton(self.tr("Clonar"))
+        self._btn_export = QPushButton(self.tr("Exportar"))
+        self._btn_import = QPushButton(self.tr("Importar"))
         self._btn_delete = QPushButton(self.tr("Eliminar"))
         self._btn_delete.setProperty("cssClass", "danger")
         self._btn_refresh = QPushButton(self.tr("Actualizar"))
@@ -76,6 +78,8 @@ class LauncherWindow(QMainWindow):
         toolbar.addWidget(self._btn_open)
         toolbar.addWidget(self._btn_configure)
         toolbar.addWidget(self._btn_clone)
+        toolbar.addWidget(self._btn_export)
+        toolbar.addWidget(self._btn_import)
         toolbar.addWidget(self._btn_delete)
         toolbar.addSeparator()
         toolbar.addWidget(self._btn_refresh)
@@ -203,6 +207,8 @@ class LauncherWindow(QMainWindow):
         self._btn_open.clicked.connect(self._on_open_app)
         self._btn_configure.clicked.connect(self._on_configure_app)
         self._btn_clone.clicked.connect(self._on_clone_app)
+        self._btn_export.clicked.connect(self._on_export_app)
+        self._btn_import.clicked.connect(self._on_import_app)
         self._btn_delete.clicked.connect(self._on_delete_app)
         self._btn_refresh.clicked.connect(self._load_apps)
         self._btn_batch_manager.clicked.connect(self.batch_manager_requested.emit)
@@ -390,6 +396,96 @@ class LauncherWindow(QMainWindow):
         self._load_apps()
         self._status_bar.showMessage(self.tr("Aplicación clonada como '{0}'").format(clone_name), 3000)
 
+    def _on_export_app(self) -> None:
+        """Exporta la aplicación seleccionada a un fichero .docscan."""
+        app_id = self._app_list.selected_app_id()
+        if app_id is None:
+            return
+
+        from PySide6.QtWidgets import QFileDialog
+        from app.db.repositories.application_repo import ApplicationRepository
+
+        with self._session_factory() as session:
+            repo = ApplicationRepository(session)
+            app = repo.get_by_id(app_id)
+            if app is None:
+                return
+
+            safe_name = app.name.replace(" ", "_").replace("/", "_")
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                self.tr("Exportar aplicación"),
+                f"{safe_name}.docscan",
+                self.tr("DocScan App (*.docscan)"),
+            )
+            if not path:
+                return
+
+            try:
+                from app.services.app_export_service import export_to_file
+                export_to_file(app, path)
+                self._status_bar.showMessage(
+                    self.tr("Aplicación '{0}' exportada").format(app.name), 3000,
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, self.tr("Error al exportar"), str(e),
+                )
+
+    def _on_import_app(self) -> None:
+        """Importa una aplicación desde un fichero .docscan."""
+        import json
+        from PySide6.QtWidgets import QFileDialog
+        from app.services.app_export_service import (
+            AppImportError,
+            import_application,
+            validate_import_data,
+        )
+
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Importar aplicación"),
+            "",
+            self.tr("DocScan App (*.docscan);;JSON (*.json)"),
+        )
+        if not path:
+            return
+
+        try:
+            from pathlib import Path
+            text = Path(path).read_text(encoding="utf-8")
+            data = json.loads(text)
+        except Exception as e:
+            QMessageBox.critical(
+                self, self.tr("Error al leer fichero"), str(e),
+            )
+            return
+
+        errors = validate_import_data(data)
+        if errors:
+            QMessageBox.warning(
+                self, self.tr("Fichero no válido"),
+                "\n".join(errors),
+            )
+            return
+
+        try:
+            with self._session_factory() as session:
+                app = import_application(data, session)
+                session.commit()
+            self._load_apps()
+            self._status_bar.showMessage(
+                self.tr("Aplicación '{0}' importada").format(app.name), 3000,
+            )
+        except AppImportError as e:
+            QMessageBox.warning(
+                self, self.tr("Error de importación"), str(e),
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self, self.tr("Error al importar"), str(e),
+            )
+
     def _on_delete_app(self) -> None:
         app_id = self._app_list.selected_app_id()
         app_name = self._app_list.selected_app_name()
@@ -438,4 +534,5 @@ class LauncherWindow(QMainWindow):
         self._btn_open.setEnabled(has_selection)
         self._btn_configure.setEnabled(has_selection)
         self._btn_clone.setEnabled(has_selection)
+        self._btn_export.setEnabled(has_selection)
         self._btn_delete.setEnabled(has_selection)
