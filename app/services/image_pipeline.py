@@ -353,6 +353,39 @@ IMAGE_OPS: dict[str, ImageOpFn] = {
 }
 
 
+def detect_blank(
+    image: np.ndarray,
+    content_threshold: float = 1.0,
+    white_tolerance: int = 245,
+) -> bool:
+    """Detecta si una imagen es una pagina en blanco.
+
+    Convierte a escala de grises y calcula el porcentaje de pixeles
+    con contenido (valor < white_tolerance). Si el porcentaje es
+    menor que content_threshold, se considera en blanco.
+
+    Args:
+        image: Imagen BGR o gris.
+        content_threshold: Porcentaje minimo de contenido (0-100).
+            Por debajo de este valor la pagina es "en blanco".
+            Default: 1.0 (menos del 1% de contenido = blanco).
+        white_tolerance: Valor de gris por encima del cual un pixel
+            se considera blanco (0-255). Default: 245.
+
+    Returns:
+        True si la pagina se considera en blanco.
+    """
+    if image is None:
+        return True
+    gray = _to_gray(image)
+    total_pixels = gray.size
+    if total_pixels == 0:
+        return True
+    content_pixels = int(np.count_nonzero(gray < white_tolerance))
+    content_pct = (content_pixels / total_pixels) * 100
+    return content_pct < content_threshold
+
+
 class ImagePipelineService:
     """Servicio para ejecutar operaciones de imagen.
 

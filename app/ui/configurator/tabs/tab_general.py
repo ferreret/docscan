@@ -7,9 +7,11 @@ import json
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QLineEdit,
+    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -95,8 +97,58 @@ class GeneralTab(QWidget):
 
         layout.addWidget(bc_group)
 
-        # Cargar configuración de barcode manual
+        # --- Grupo: Detección de páginas en blanco ---
+        blank_group = QGroupBox(self.tr("Detección de páginas en blanco"))
+        blank_form = QFormLayout(blank_group)
+        blank_form.setVerticalSpacing(10)
+        blank_form.setContentsMargins(12, 16, 12, 12)
+
+        self._blank_enabled = QCheckBox(self.tr("Detectar páginas en blanco"))
+        self._blank_enabled.setToolTip(
+            self.tr(
+                "Analiza cada página tras el pipeline y marca como\n"
+                "en blanco si el contenido está por debajo del umbral."
+            )
+        )
+        self._blank_enabled.toggled.connect(self._on_blank_enabled_changed)
+        blank_form.addRow("", self._blank_enabled)
+
+        self._blank_threshold = QDoubleSpinBox()
+        self._blank_threshold.setRange(0.1, 20.0)
+        self._blank_threshold.setValue(1.0)
+        self._blank_threshold.setSingleStep(0.5)
+        self._blank_threshold.setSuffix(" %")
+        self._blank_threshold.setToolTip(
+            self.tr(
+                "Porcentaje mínimo de contenido para NO considerar\n"
+                "la página como en blanco. Ejemplo: 1.0 = si menos\n"
+                "del 1% de píxeles tienen contenido, es una página\n"
+                "en blanco."
+            )
+        )
+        self._blank_threshold_label = self.tr("Umbral de contenido:")
+        blank_form.addRow(self._blank_threshold_label, self._blank_threshold)
+
+        self._blank_tolerance = QSpinBox()
+        self._blank_tolerance.setRange(200, 255)
+        self._blank_tolerance.setValue(245)
+        self._blank_tolerance.setToolTip(
+            self.tr(
+                "Valor de gris (0-255) por encima del cual un píxel\n"
+                "se considera blanco. 245 = casi blanco puro.\n"
+                "Reducir si los escáneres producen fondos grisáceos."
+            )
+        )
+        self._blank_tolerance_label = self.tr("Tolerancia de blanco:")
+        blank_form.addRow(self._blank_tolerance_label, self._blank_tolerance)
+
+        layout.addWidget(blank_group)
+
+        # Cargar configuraciones desde ai_config_json
         self._load_barcode_config(app)
+        self._load_blank_config(app)
+
+        self._on_blank_enabled_changed(self._blank_enabled.isChecked())
 
         layout.addStretch()
 
@@ -114,6 +166,18 @@ class GeneralTab(QWidget):
         self._bc_regex_edit.setText(config.get("barcode_regex", ""))
         self._bc_fixed_edit.setText(config.get("barcode_fixed_value", ""))
 
+    def _load_blank_config(self, app: Application) -> None:
+        """Carga configuracion de deteccion de blancos desde ai_config_json."""
+        config = self._parse_ai_config(app)
+        self._blank_enabled.setChecked(config.get("blank_detection", False))
+        self._blank_threshold.setValue(config.get("blank_content_threshold", 1.0))
+        self._blank_tolerance.setValue(config.get("blank_white_tolerance", 245))
+
+    def _on_blank_enabled_changed(self, enabled: bool) -> None:
+        """Habilita/deshabilita controles de deteccion de blancos."""
+        self._blank_threshold.setEnabled(enabled)
+        self._blank_tolerance.setEnabled(enabled)
+
     def apply_to(self, app: Application) -> None:
         """Aplica los valores del formulario al objeto Application."""
         app.name = self._name_edit.text().strip()
@@ -126,4 +190,7 @@ class GeneralTab(QWidget):
         config = self._parse_ai_config(app)
         config["barcode_regex"] = self._bc_regex_edit.text().strip()
         config["barcode_fixed_value"] = self._bc_fixed_edit.text().strip()
+        config["blank_detection"] = self._blank_enabled.isChecked()
+        config["blank_content_threshold"] = self._blank_threshold.value()
+        config["blank_white_tolerance"] = self._blank_tolerance.value()
         app.ai_config_json = json.dumps(config, ensure_ascii=False)

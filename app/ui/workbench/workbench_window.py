@@ -1061,6 +1061,25 @@ class WorkbenchWindow(QMainWindow):
                 except Exception as e:
                     log.error("Error guardando imagen procesada: %s", e)
 
+            # Deteccion de paginas en blanco
+            blank_config = self._get_blank_config()
+            if blank_config.get("blank_detection"):
+                from app.services.image_pipeline import detect_blank
+                test_image = page_ctx.image
+                if test_image is None and page.image_path:
+                    from app.services.image_lib import ImageLib
+                    imgs = ImageLib.load(page.image_path)
+                    test_image = imgs[0] if imgs else None
+                if test_image is not None:
+                    is_blank = detect_blank(
+                        test_image,
+                        content_threshold=blank_config.get("blank_content_threshold", 1.0),
+                        white_tolerance=blank_config.get("blank_white_tolerance", 245),
+                    )
+                    page.is_blank = is_blank
+                    if is_blank:
+                        page.is_excluded = True
+
             page.pipeline_processed = True
             page.ocr_text = page_ctx.ocr_text or ""
             page.index_fields_json = json.dumps(
@@ -1095,6 +1114,15 @@ class WorkbenchWindow(QMainWindow):
                 session.add(barcode)
 
             session.commit()
+
+    def _get_blank_config(self) -> dict:
+        """Obtiene la configuracion de deteccion de blancos de la app."""
+        if self._application and self._application.ai_config_json:
+            try:
+                return json.loads(self._application.ai_config_json)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return {}
 
     def _on_page_error(self, page_index: int, error: str) -> None:
         """Error procesando una página."""
