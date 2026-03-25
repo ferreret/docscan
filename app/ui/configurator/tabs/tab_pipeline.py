@@ -78,7 +78,9 @@ class PipelineTab(QWidget):
 
     def __init__(self, app: Application, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._app = app
         self._steps: list[PipelineStep] = []
+        self._test_worker = None
         self._setup_ui()
         self._load_from_app(app)
 
@@ -105,12 +107,16 @@ class PipelineTab(QWidget):
         self._btn_toggle = QPushButton(self.tr("On/Off"))
         self._btn_up = QPushButton("↑")
         self._btn_down = QPushButton("↓")
+        self._btn_test = QPushButton(self.tr("Probar pipeline"))
+        self._btn_test.setProperty("cssClass", "accent")
 
         for btn in (
             self._btn_add, self._btn_edit, self._btn_delete,
             self._btn_toggle, self._btn_up, self._btn_down,
         ):
             actions_layout.addWidget(btn)
+        actions_layout.addStretch()
+        actions_layout.addWidget(self._btn_test)
 
         layout.addWidget(actions_bar)
 
@@ -127,6 +133,7 @@ class PipelineTab(QWidget):
         self._btn_toggle.clicked.connect(self._on_toggle)
         self._btn_up.clicked.connect(self._on_move_up)
         self._btn_down.clicked.connect(self._on_move_down)
+        self._btn_test.clicked.connect(self._on_test_pipeline)
         self._list.itemDoubleClicked.connect(self._on_edit)
 
     def _load_from_app(self, app: Application) -> None:
@@ -250,3 +257,145 @@ class PipelineTab(QWidget):
     def get_steps(self) -> list[PipelineStep]:
         """Devuelve los pasos actuales (para testing)."""
         return list(self._steps)
+
+    # ------------------------------------------------------------------
+    # Probar pipeline
+    # ------------------------------------------------------------------
+
+    def _on_test_pipeline(self) -> None:
+        """Ejecuta el pipeline sobre una imagen de muestra."""
+        if not self._steps:
+            QMessageBox.information(
+                self, self.tr("Pipeline vacio"),
+                self.tr("Añade al menos un paso antes de probar."),
+            )
+            return
+
+        from PySide6.QtWidgets import QFileDialog, QProgressDialog
+
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Seleccionar imagen de prueba"),
+            "",
+            self.tr(
+                "Imagenes (*.tif *.tiff *.png *.jpg *.jpeg *.bmp *.pdf)"
+            ),
+        )
+        if not path:
+            return
+
+        from app.services.image_lib import ImageLib
+
+        try:
+            images = ImageLib.load(path)
+            if not images:
+                QMessageBox.warning(
+                    self, self.tr("Error"),
+                    self.tr("No se pudo cargar la imagen."),
+                )
+                return
+            image = images[0]
+        except Exception as e:
+            QMessageBox.critical(
+                self, self.tr("Error al cargar"),
+                str(e),
+            )
+            return
+
+        # Preparar servicios y executor
+        from app.pipeline.test_executor import InstrumentedPipelineExecutor
+        from app.services.image_pipeline import ImagePipelineService
+        from app.services.script_engine import ScriptEngine
+
+        image_service = ImagePipelineService()
+        script_engine = ScriptEngine()
+
+        # Compilar scripts
+        for step in self._steps:
+            if isinstance(step, ScriptStep):
+                script_engine.compile_step(step)
+
+        # Intentar cargar servicios opcionales
+        barcode_service = None
+        ocr_service = None
+        try:
+            from app.services.barcode_service import BarcodeService
+            barcode_service = BarcodeService()
+        except Exception:
+            log.debug("BarcodeService no disponible para test pipeline")
+        try:
+            from app.services.ocr_service import OcrService
+            ocr_service = OcrService()
+        except Exception:
+            log.debug("OcrService no disponible para test pipeline")
+
+        executor = InstrumentedPipelineExecutor(
+            steps=self._steps,
+            image_service=image_service,
+            script_engine=script_engine,
+            barcode_service=barcode_service,
+            ocr_service=ocr_service,
+        )
+
+        # Contextos dummy
+        from app.workers.recognition_worker import AppContext, BatchContext
+
+        app_ctx = AppContext(
+            name=self._app.name if self._app else "Test",
+            description=self._app.description if self._app else "",
+        )
+        batch_ctx = BatchContext()
+
+        # Progress dialog
+        progress = QProgressDialog(
+            self.tr("Ejecutando pipeline..."), None, 0, 0, self,
+        )
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.show()
+
+        # Worker
+        from pathlib import Path
+        from app.workers.test_pipeline_worker import TestPipelineWorker
+
+        source_name = Path(path).name
+        self._test_worker = TestPipelineWorker(
+            executor=executor,
+            image=image,
+            app_context=app_ctx,
+            batch_context=batch_ctx,
+            parent=self,
+        )
+        self._test_worker.finished.connect(
+            lambda page, snaps: self._on_test_finished(
+                page, snaps, progress, image, source_name,
+            )
+        )
+        self._test_worker.error_occurred.connect(
+            lambda msg: self._on_test_error(msg, progress)
+        )
+        self._test_worker.start()
+
+    def _on_test_finished(
+        self, page: Any, snapshots: list, progress: Any,
+        original_image: Any, source_name: str,
+    ) -> None:
+        """Muestra el dialogo de resultados."""
+        progress.close()
+        from app.ui.configurator.test_pipeline_dialog import (
+            TestPipelineResultDialog,
+        )
+        dialog = TestPipelineResultDialog(
+            snapshots=snapshots,
+            original_image=original_image,
+            source_name=source_name,
+            parent=self,
+        )
+        dialog.exec()
+
+    def _on_test_error(self, error_msg: str, progress: Any) -> None:
+        progress.close()
+        QMessageBox.critical(
+            self, self.tr("Error en pipeline"),
+            error_msg,
+        )

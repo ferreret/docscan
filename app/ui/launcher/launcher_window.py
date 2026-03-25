@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSizePolicy,
+    QSplitter,
     QStatusBar,
     QToolBar,
     QVBoxLayout,
@@ -80,6 +81,15 @@ class LauncherWindow(QMainWindow):
         toolbar.addWidget(self._btn_refresh)
         toolbar.addSeparator()
         toolbar.addWidget(self._btn_batch_manager)
+        toolbar.addSeparator()
+
+        self._btn_ai_mode = QPushButton(self.tr("AI MODE"))
+        self._btn_ai_mode.setObjectName("aiModeToggle")
+        self._btn_ai_mode.setCheckable(True)
+        self._btn_ai_mode.setToolTip(
+            self.tr("Asistente IA para crear y gestionar aplicaciones")
+        )
+        toolbar.addWidget(self._btn_ai_mode)
 
         # Spacer para empujar el toggle de tema a la derecha
         spacer = QWidget()
@@ -126,10 +136,13 @@ class LauncherWindow(QMainWindow):
         self._lang_combo.blockSignals(False)
         toolbar.addWidget(self._lang_combo)
 
-        # --- Central widget ---
-        central = QWidget()
-        self.setCentralWidget(central)
-        layout = QVBoxLayout(central)
+        # --- Central widget con splitter ---
+        self._splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.setCentralWidget(self._splitter)
+
+        # Lado izquierdo: contenido actual del launcher
+        left_panel = QWidget()
+        layout = QVBoxLayout(left_panel)
         layout.setContentsMargins(16, 12, 16, 8)
         layout.setSpacing(12)
 
@@ -163,6 +176,21 @@ class LauncherWindow(QMainWindow):
         self._info_label.setWordWrap(True)
         layout.addWidget(self._info_label)
 
+        # Añadir left_panel al splitter
+        self._splitter.addWidget(left_panel)
+
+        # Lado derecho: panel AI MODE (oculto por defecto)
+        from app.ui.launcher.ai_mode_panel import AiModePanel
+
+        self._ai_mode_panel = AiModePanel(self._session_factory)
+        self._ai_mode_panel.setVisible(False)
+        self._ai_mode_panel.apps_changed.connect(self._load_apps)
+        self._splitter.addWidget(self._ai_mode_panel)
+
+        # Proporciones: 60% launcher, 40% AI MODE
+        self._splitter.setStretchFactor(0, 3)
+        self._splitter.setStretchFactor(1, 2)
+
         # Status bar
         self._status_bar = QStatusBar()
         self.setStatusBar(self._status_bar)
@@ -178,6 +206,7 @@ class LauncherWindow(QMainWindow):
         self._btn_delete.clicked.connect(self._on_delete_app)
         self._btn_refresh.clicked.connect(self._load_apps)
         self._btn_batch_manager.clicked.connect(self.batch_manager_requested.emit)
+        self._btn_ai_mode.toggled.connect(self._on_toggle_ai_mode)
         self._btn_theme.clicked.connect(self._on_toggle_theme)
         self._btn_font_up.clicked.connect(self._theme_manager.increase_font)
         self._btn_font_down.clicked.connect(self._theme_manager.decrease_font)
@@ -186,6 +215,14 @@ class LauncherWindow(QMainWindow):
         self._app_list.currentItemChanged.connect(self._on_selection_changed)
         self._app_list.itemDoubleClicked.connect(self._on_open_app)
         self._theme_manager.theme_changed.connect(self._on_theme_changed)
+
+    # ------------------------------------------------------------------
+    # AI MODE
+    # ------------------------------------------------------------------
+
+    def _on_toggle_ai_mode(self, checked: bool) -> None:
+        """Muestra u oculta el panel AI MODE."""
+        self._ai_mode_panel.setVisible(checked)
 
     # ------------------------------------------------------------------
     # Tema

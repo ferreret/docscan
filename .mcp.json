@@ -1,12 +1,12 @@
 {
   "mcpServers": {
     "filesystem": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-filesystem", "."]
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/media/nicolas/DATA/Tecnomedia/FlexiPy"]
     },
     "sqlite": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-sqlite", "./docscan.db"]
+      "command": "npx",
+      "args": ["-y", "mcp-sqlite", "--db-path", "/home/nicolas/.local/share/docscan/docscan.db"]
     }
   }
 }

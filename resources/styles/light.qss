@@ -723,3 +723,98 @@ QInputDialog QComboBox {
     border-radius: 6px;
     padding: 5px 10px;
 }
+
+/* ---- Asistente IA: Panel de chat ---- */
+#pipelineAssistantPanel {
+    background-color: #eff1f5;
+    border-left: 1px solid #bcc0cc;
+}
+
+#chatBubbleUser {
+    background-color: #dce0e8;
+    border-radius: 8px;
+    margin-left: 40px;
+    margin-right: 4px;
+}
+
+#chatBubbleAssistant {
+    background-color: #e6e9ef;
+    border-radius: 8px;
+    margin-left: 4px;
+    margin-right: 40px;
+}
+
+#chatBubbleError {
+    background-color: #fce4e4;
+    border: 1px solid #d20f39;
+    border-radius: 8px;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+#chatCodePreview {
+    background-color: #ffffff;
+    border: 1px solid #bcc0cc;
+    border-radius: 6px;
+}
+
+#assistantInput {
+    background-color: #ffffff;
+    color: #4c4f69;
+    border: 1px solid #bcc0cc;
+    border-radius: 6px;
+    padding: 4px;
+}
+
+#aiModeToggle {
+    background-color: #bcc0cc;
+    color: #4c4f69;
+    border: 1px solid #9ca0b0;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-weight: bold;
+}
+
+#aiModeToggle:checked {
+    background-color: #df8e1d;
+    color: white;
+}
+
+#aiModePanel {
+    background-color: #eff1f5;
+    border-left: 1px solid #bcc0cc;
+}
+
+#aiModeTitle {
+    color: #df8e1d;
+    font-size: 14px;
+    padding: 4px;
+}
+
+#appChangePreview {
+    background-color: #e6e9ef;
+    border: 1px solid #9ca0b0;
+    border-radius: 6px;
+    padding: 4px;
+}
+
+/* ---- Asistente IA: Diff widget ---- */
+#pipelineDiffWidget {
+    background-color: #e6e9ef;
+    border: 1px solid #bcc0cc;
+    border-radius: 6px;
+}
+
+#diffAcceptBtn {
+    background-color: #40a02b;
+    color: white;
+    border-radius: 6px;
+    padding: 4px 16px;
+}
+
+#diffRejectBtn {
+    background-color: #d20f39;
+    color: white;
+    border-radius: 6px;
+    padding: 4px 16px;
+}
