@@ -29,6 +29,12 @@
 
 ---
 
+<p align="center">
+  <img src="docs/screenshots/launcher_dark.png" alt="DocScan Studio Launcher" width="800">
+</p>
+
+---
+
 ## 🎯 ¿Qué es DocScan Studio?
 
 DocScan Studio es una aplicación de escritorio **multi-aplicación** para la captura por lotes, procesamiento e indexación de documentos. Cada "aplicación" es un perfil de procesamiento completamente independiente con su propio pipeline, scripts, campos y configuración de transferencia.
@@ -482,6 +488,12 @@ El **AI Mode** es un asistente conversacional integrado que permite crear y conf
 | **Automatización** | APScheduler | 3.11.2 |
 
 </details>
+
+<p align="center">
+  <img src="docs/screenshots/workbench_full.png" alt="DocScan Studio Workbench" width="800">
+  <br>
+  <em>Workbench: visor de documentos, miniaturas, barcodes detectados y campos de lote</em>
+</p>
 
 ---
 

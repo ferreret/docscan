@@ -2,7 +2,7 @@
 
 AI Mode es un asistente conversacional integrado en el Launcher para crear y configurar aplicaciones mediante lenguaje natural.
 
-<!-- TODO: [SCREENSHOT: Panel AI Mode] -->
+![AI Mode creando una aplicación](../assets/screenshots/ai_mode.png)
 
 ## Configurar API key
 
@@ -37,4 +37,3 @@ AI Mode es un asistente conversacional integrado en el Launcher para crear y con
 
 Cada aplicación tiene un **Pipeline Assistant** en el configurador con contexto específico del pipeline configurado.
 
-<!-- TODO: [SCREENSHOT: Pipeline Assistant] -->

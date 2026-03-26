@@ -2,7 +2,7 @@
 
 El Launcher es la ventana principal de DocScan Studio. Desde aquí se gestionan todas las **aplicaciones** (perfiles de procesamiento).
 
-<!-- TODO: [SCREENSHOT: Launcher con sidebar y lista de apps] -->
+![Launcher de DocScan Studio](../assets/screenshots/launcher_dark.png)
 
 ## Sidebar
 
@@ -29,7 +29,7 @@ La sidebar izquierda proporciona acceso rápido a todas las acciones. Se puede e
 3. La aplicación aparece en la lista
 4. Seleccionarla y hacer clic en **Configurar** para personalizar el pipeline
 
-<!-- TODO: [SCREENSHOT: Diálogo de nueva aplicación] -->
+![Diálogo de nueva aplicación](../assets/screenshots/new_app_dialog.png)
 
 ## Exportar / Importar
 

@@ -2,7 +2,7 @@
 
 El Gestor de Lotes permite consultar el histórico completo de lotes procesados.
 
-<!-- TODO: [SCREENSHOT: Gestor de lotes] -->
+![Gestor de Lotes](../assets/screenshots/batch_manager.png)
 
 ## Filtros
 

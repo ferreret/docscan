@@ -62,5 +62,3 @@ Al ejecutar por primera vez:
 !!! tip "Siguiente paso"
     Continúa con la [guía del Launcher](launcher.md) para crear tu primera aplicación.
 
-<!-- TODO: [SCREENSHOT: Splash screen] -->
-<!-- TODO: [SCREENSHOT: Launcher vacío] -->

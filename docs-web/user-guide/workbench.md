@@ -2,7 +2,7 @@
 
 El Workbench es la ventana de explotación donde se realiza la captura y procesamiento diario.
 
-<!-- TODO: [SCREENSHOT: Workbench completo] -->
+![Workbench de DocScan Studio](../assets/screenshots/workbench_full.png)
 
 ## Áreas de la interfaz
 

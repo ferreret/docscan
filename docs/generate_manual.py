@@ -26,6 +26,7 @@ except ImportError as exc:
     sys.exit(f"Dependencia faltante: {exc}\nInstala con: pip install python-docx pillow")
 
 OUTPUT = Path(__file__).parent / "manual_docscan_studio.docx"
+SCREENSHOTS = Path(__file__).parent / "screenshots"
 
 # Colores corporativos
 _BLUE_DARK = RGBColor(0x1F, 0x39, 0x7D)
@@ -79,12 +80,20 @@ def _placeholder(label: str, w: int = 800, h: int = 350) -> io.BytesIO:
     return buf
 
 
-def _figure(doc: Document, label: str, caption: str, w_cm: float = 14) -> None:
-    """Añade imagen placeholder con pie de figura."""
+def _figure(
+    doc: Document, label: str, caption: str,
+    w_cm: float = 14, screenshot: str | None = None,
+) -> None:
+    """Añade imagen real (si existe) o placeholder con pie de figura."""
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.add_run().add_picture(_placeholder(label), width=Cm(w_cm))
-    doc.add_paragraph(caption, style="Caption")
+    img_path = SCREENSHOTS / screenshot if screenshot else None
+    if img_path and img_path.exists():
+        p.add_run().add_picture(str(img_path), width=Cm(w_cm))
+    else:
+        p.add_run().add_picture(_placeholder(label), width=Cm(w_cm))
+    if caption:
+        doc.add_paragraph(caption, style="Caption")
 
 
 def _table(
@@ -298,6 +307,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Flujo de trabajo — desde escaneo hasta transferencia]",
         "Figura 1. Flujo de trabajo completo de DocScan Studio.",
+        screenshot="workbench_full.png",
     )
 
     # ════════════════════════════════════════════════════════════════
@@ -355,8 +365,9 @@ def build() -> None:
 
     _figure(
         doc,
-        "[SCREENSHOT: Launcher con la sidebar colapsada y lista de aplicaciones]",
-        "Figura 4. Launcher de DocScan Studio con sidebar colapsada.",
+        "[SCREENSHOT: Launcher con la sidebar y lista de aplicaciones]",
+        "Figura 4. Launcher de DocScan Studio.",
+        screenshot="launcher_dark.png",
     )
 
     doc.add_paragraph("3.1 Sidebar", style="Heading 2")
@@ -383,7 +394,8 @@ def build() -> None:
     _figure(
         doc,
         "[SCREENSHOT: Sidebar expandida mostrando todos los botones con texto]",
-        "Figura 5. Sidebar expandida con todas las acciones visibles.",
+        "Figura 5. Sidebar con todas las acciones visibles.",
+        screenshot="launcher_dark.png",
     )
 
     doc.add_paragraph("3.2 Crear una nueva aplicación", style="Heading 2")
@@ -397,6 +409,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Diálogo de nueva aplicación con nombre y descripción]",
         "Figura 6. Diálogo para crear una nueva aplicación.",
+        screenshot="new_app_dialog.png",
     )
 
     doc.add_paragraph("3.3 Exportar e importar aplicaciones", style="Heading 2")
@@ -432,7 +445,8 @@ def build() -> None:
     _figure(
         doc,
         "[SCREENSHOT: Configurador con las 6 pestañas visibles]",
-        "Figura 8. Configurador de aplicación — vista general.",
+        "Figura 8. Configurador de aplicación — pestaña Pipeline.",
+        screenshot="configurator_pipeline.png",
     )
 
     # 4.1 General
@@ -469,6 +483,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Pestaña Imagen con selector de formato y compresión]",
         "Figura 10. Pestaña Imagen del configurador.",
+        screenshot="configurator_image.png",
     )
 
     # 4.3 Campos de lote
@@ -511,6 +526,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Pestaña Pipeline con varios pasos configurados y botones de acción]",
         "Figura 12. Editor de pipeline con pasos de ejemplo.",
+        screenshot="configurator_pipeline.png",
     )
 
     doc.add_paragraph("4.4.1 Operaciones de imagen disponibles", style="Heading 3")
@@ -763,6 +779,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Workbench completo con todas las áreas señaladas]",
         "Figura 19. Workbench de DocScan Studio — vista completa.",
+        screenshot="workbench_full.png",
     )
 
     doc.add_paragraph("7.1 Barra de herramientas", style="Heading 2")
@@ -863,6 +880,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Gestor de lotes con filtros y lista de lotes]",
         "Figura 26. Gestor de Lotes con filtros aplicados.",
+        screenshot="batch_manager.png",
     )
 
     doc.add_paragraph("8.1 Estados del lote", style="Heading 2")
@@ -930,6 +948,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Panel AI Mode con una conversación de ejemplo]",
         "Figura 27. AI Mode — asistente conversacional.",
+        screenshot="ai_mode.png",
     )
 
     doc.add_paragraph("10.1 Configurar API key", style="Heading 2")

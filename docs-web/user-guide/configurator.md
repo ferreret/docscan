@@ -2,7 +2,7 @@
 
 El configurador permite ajustar cada aspecto de una aplicación a través de **6 pestañas**.
 
-<!-- TODO: [SCREENSHOT: Configurador con pestañas visibles] -->
+![Configurador — Pestaña Pipeline](../assets/screenshots/configurator_pipeline.png)
 
 ## Pestaña General
 
@@ -21,7 +21,7 @@ Configuración básica de la aplicación.
 
 Define el formato de captura: formato de fichero, modo de color y compresión.
 
-<!-- TODO: [SCREENSHOT: Pestaña Imagen] -->
+![Pestaña Imagen del configurador](../assets/screenshots/configurator_image.png)
 
 ## Pestaña Campos de lote
 

@@ -84,4 +84,4 @@ def mi_script(app, batch, page, pipeline):
 
 El botón **Probar pipeline** permite ejecutar todos los pasos sobre una imagen de muestra y ver el resultado paso a paso.
 
-<!-- TODO: [SCREENSHOT: Diálogo de test de pipeline] -->
+![Editor de pipeline con 4 pasos](../assets/screenshots/configurator_pipeline.png)
