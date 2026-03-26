@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QSplashScreen, QProgressBar, QVBoxLayout, QWidget
 
 _SPLASH_W = 480
 _SPLASH_H = 320
-_VERSION = "3.0"
+from app._version import __version__ as _VERSION
 
 
 class SplashScreen(QSplashScreen):

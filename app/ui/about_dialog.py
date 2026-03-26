@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-_VERSION = "0.1 RC"
+from app._version import __version__ as _VERSION
 _APP_NAME = "DocScan Studio"
 _COPYRIGHT = "© 2026 Tecnomedia"
 _DESCRIPTION = (

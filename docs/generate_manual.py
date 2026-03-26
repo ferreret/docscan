@@ -34,7 +34,10 @@ _BLUE_MID = RGBColor(0x2E, 0x74, 0xB5)
 _BLUE_LIGHT = RGBColor(0x44, 0x72, 0xC4)
 _GRAY = RGBColor(0x59, 0x59, 0x59)
 
-_VERSION = "0.1 RC"
+try:
+    from app._version import __version__ as _VERSION
+except ImportError:
+    _VERSION = "0.1.0"
 _DATE = "Marzo 2026"
 
 # ── Helpers ─────────────────────────────────────────────────────────
