@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 env:
-  PYTHON_VERSION: '3.14'
+  PYTHON_VERSION: '3.13'
 
 jobs:
   # ==================================================================
@@ -36,7 +36,7 @@ jobs:
             libzbar0 \
             tesseract-ocr \
             tesseract-ocr-spa \
-            libgl1-mesa-glx \
+            libgl1 \
             libegl1 \
             libxcb-xinerama0 \
             libxcb-cursor0 \
