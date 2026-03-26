@@ -334,11 +334,7 @@ def build() -> None:
         "Ejecutar: python3.14 main.py",
     ])
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Terminal con el proceso de instalación completado]",
-        "Figura 2. Instalación completada en terminal.",
-    )
+    # Figura 2 eliminada — instalación por terminal no necesita captura
 
     doc.add_paragraph("2.3 Primer arranque", style="Heading 2")
     doc.add_paragraph(
@@ -347,11 +343,7 @@ def build() -> None:
         "y el Launcher aparece vacío, listo para crear la primera aplicación."
     )
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Splash screen de DocScan Studio]",
-        "Figura 3. Pantalla de splash durante el arranque.",
-    )
+    # Figura 3 eliminada — splash demasiado rápido
 
     # ════════════════════════════════════════════════════════════════
     # CAPÍTULO 3 — LAUNCHER
@@ -426,11 +418,7 @@ def build() -> None:
         "de idioma requiere reiniciar la aplicación."
     )
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Launcher en tema oscuro]",
-        "Figura 7. Launcher con tema oscuro activado.",
-    )
+    # Figura 7 eliminada — ya se muestra en figuras 4 y 5
 
     # ════════════════════════════════════════════════════════════════
     # CAPÍTULO 4 — CONFIGURADOR
@@ -470,6 +458,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Pestaña General del configurador con todas las opciones]",
         "Figura 9. Pestaña General del configurador.",
+        screenshot="configurator_general.png",
     )
 
     # 4.2 Imagen
@@ -505,6 +494,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Pestaña Campos con varios campos definidos de distintos tipos]",
         "Figura 11. Pestaña Campos de lote con campos de ejemplo.",
+        screenshot="configurator_fields.png",
     )
 
     # 4.4 Pipeline
@@ -566,6 +556,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Diálogo de configuración de paso Barcode]",
         "Figura 13. Configuración de paso Barcode.",
+        screenshot="dialog_barcode.png", w_cm=10,
     )
 
     doc.add_paragraph("4.4.3 Diálogo de paso OCR", style="Heading 3")
@@ -573,6 +564,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Diálogo de configuración de paso OCR]",
         "Figura 14. Configuración de paso OCR.",
+        screenshot="dialog_ocr.png", w_cm=9,
     )
 
     doc.add_paragraph("4.4.4 Diálogo de paso Script", style="Heading 3")
@@ -585,6 +577,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Diálogo de paso Script con código de ejemplo]",
         "Figura 15. Editor de paso Script con plantilla.",
+        screenshot="dialog_script.png", w_cm=12,
     )
 
     doc.add_paragraph("4.4.5 Probar pipeline", style="Heading 3")
@@ -594,11 +587,7 @@ def build() -> None:
         "después de cada transformación."
     )
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Diálogo de resultados del test de pipeline]",
-        "Figura 16. Resultados del test de pipeline paso a paso.",
-    )
+    # Figura 16 eliminada — funcionalidad menor
 
     # 4.5 Eventos
     doc.add_paragraph("4.5 Pestaña Eventos", style="Heading 2")
@@ -626,6 +615,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Pestaña Eventos con código de on_scan_complete]",
         "Figura 17. Editor de eventos con código de ejemplo.",
+        screenshot="configurator_events.png",
     )
 
     # 4.6 Transferencia
@@ -648,6 +638,7 @@ def build() -> None:
         doc,
         "[SCREENSHOT: Pestaña Transferencia con todas las opciones configuradas]",
         "Figura 18. Pestaña Transferencia del configurador.",
+        screenshot="configurator_transfer.png",
     )
 
     # ════════════════════════════════════════════════════════════════
@@ -788,11 +779,7 @@ def build() -> None:
         "cierre de lote y opciones de tema. Incluye la casilla de configuración de escáner."
     )
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Barra de herramientas del Workbench con tooltips visibles]",
-        "Figura 20. Barra de herramientas del Workbench.",
-    )
+    # Figuras 20-24 cubiertas por la vista completa del Workbench (Figura 19)
 
     doc.add_paragraph("7.2 Panel de miniaturas", style="Heading 2")
     doc.add_paragraph(
@@ -801,22 +788,10 @@ def build() -> None:
         "(naranja), excluida (gris), con error (rojo)."
     )
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Panel de miniaturas con páginas en distintos estados de color]",
-        "Figura 21. Panel de miniaturas con estados visuales.",
-    )
-
     doc.add_paragraph("7.3 Visor de documentos", style="Heading 2")
     doc.add_paragraph(
         "El visor central muestra la imagen de la página seleccionada con soporte "
         "para zoom, pan, rotación y overlays de barcodes y regiones OCR."
-    )
-
-    _figure(
-        doc,
-        "[SCREENSHOT: Visor con overlays de barcodes y regiones OCR marcadas]",
-        "Figura 22. Visor con overlays de barcodes y OCR.",
     )
 
     doc.add_paragraph("7.4 Panel de barcodes", style="Heading 2")
@@ -826,23 +801,11 @@ def build() -> None:
         "corresponden con los overlays del visor."
     )
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Panel de barcodes con varios códigos detectados]",
-        "Figura 23. Panel de barcodes con códigos detectados.",
-    )
-
     doc.add_paragraph("7.5 Panel de metadatos", style="Heading 2")
     doc.add_paragraph(
         "El panel inferior derecho tiene pestañas para los campos del lote, "
         "el panel de verificación personalizado (si está configurado) y el log "
         "en tiempo real del procesamiento."
-    )
-
-    _figure(
-        doc,
-        "[SCREENSHOT: Panel de metadatos con campos de lote rellenados]",
-        "Figura 24. Panel de metadatos con campos de lote.",
     )
 
     doc.add_paragraph("7.6 Escaneo", style="Heading 2")
@@ -852,11 +815,7 @@ def build() -> None:
         "diálogo de configuración SANE/TWAIN antes de escanear."
     )
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Diálogo de configuración del escáner SANE]",
-        "Figura 25. Configuración del escáner.",
-    )
+    # Figura 25 eliminada — requiere escáner conectado
 
     doc.add_paragraph("7.7 Importación de ficheros", style="Heading 2")
     doc.add_paragraph(
@@ -974,11 +933,7 @@ def build() -> None:
         "del pipeline configurado y puede sugerir mejoras o ayudar a depurar problemas."
     )
 
-    _figure(
-        doc,
-        "[SCREENSHOT: Pipeline Assistant en el configurador]",
-        "Figura 28. Pipeline Assistant integrado en el configurador.",
-    )
+    # Figura 28 eliminada — similar al AI Mode
 
     # ════════════════════════════════════════════════════════════════
     # CAPÍTULO 11 — ATAJOS DE TECLADO
