@@ -1,0 +1,51 @@
+# AppImageBuilder recipe para DocScan Studio
+#
+# Requisitos:
+#   - appimage-builder instalado: pip install appimage-builder
+#   - PyInstaller output en dist/docscan/
+#
+# Uso:
+#   cd build/appimage
+#   appimage-builder --recipe AppImageBuilder.yml
+#
+# Genera: DocScan_Studio-x.y.z-x86_64.AppImage
+
+version: 1
+
+script:
+  # Copiar output de PyInstaller al AppDir
+  - mkdir -p AppDir/usr/bin
+  - mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+  - mkdir -p AppDir/usr/share/applications
+  - cp -r ../../dist/docscan/* AppDir/usr/bin/
+  - cp ../../resources/icons/docscan.svg AppDir/usr/share/icons/hicolor/256x256/apps/docscan.svg
+  - cp docscan.desktop AppDir/usr/share/applications/docscan.desktop
+  - cp docscan.desktop AppDir/docscan.desktop
+  - cp ../../resources/icons/docscan.svg AppDir/docscan.svg
+
+AppDir:
+  path: ./AppDir
+
+  app_info:
+    id: com.tecnomedia.docscan
+    name: DocScan Studio
+    icon: docscan
+    version: latest
+    exec: usr/bin/docscan
+    exec_args: $@
+
+  runtime:
+    env:
+      # Asegurar que Qt encuentra los plugins
+      QT_PLUGIN_PATH: '${APPDIR}/usr/bin/PySide6/Qt/plugins'
+
+  # No necesitamos apt ya que PyInstaller incluye todo
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: deb http://archive.ubuntu.com/ubuntu/ jammy main
+    include: []
+
+AppImage:
+  arch: x86_64
+  update-information: guess

@@ -319,6 +319,12 @@ def main() -> int:
 
     launcher = LauncherWindow(session_factory=session_factory)
 
+    # Auto-check de actualizaciones (en segundo plano, no bloquea)
+    from app.workers.update_worker import UpdateCheckWorker
+
+    _update_checker = UpdateCheckWorker(parent=launcher)
+    _update_checker.update_available.connect(launcher.show_update_banner)
+
     splash.set_progress(100)
     qt_app.processEvents()
 
@@ -421,6 +427,9 @@ def main() -> int:
     else:
         splash.finish(launcher)
         launcher.show()
+
+    # Lanzar comprobación de actualizaciones tras mostrar la UI
+    _update_checker.start()
 
     return qt_app.exec()
 
