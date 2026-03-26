@@ -9,9 +9,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -25,6 +26,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from app.services.update_service import ReleaseInfo
 
 from app.ui.launcher.app_list_widget import AppListWidget
 from app.ui.theme_manager import ThemeManager
@@ -133,6 +136,39 @@ class LauncherWindow(QMainWindow):
         header_row.addWidget(self._lang_combo)
 
         layout.addLayout(header_row)
+
+        # Banner de actualización (oculto por defecto)
+        self._update_banner = QFrame()
+        self._update_banner.setObjectName("updateBanner")
+        self._update_banner.setVisible(False)
+        banner_layout = QHBoxLayout(self._update_banner)
+        banner_layout.setContentsMargins(12, 8, 12, 8)
+        banner_layout.setSpacing(8)
+
+        self._banner_label = QLabel()
+        self._banner_label.setWordWrap(True)
+        banner_layout.addWidget(self._banner_label, 1)
+
+        self._btn_banner_details = QPushButton(self.tr("Ver novedades"))
+        self._btn_banner_details.setProperty("cssClass", "banner-btn")
+        self._btn_banner_details.clicked.connect(self._on_update_details)
+        banner_layout.addWidget(self._btn_banner_details)
+
+        self._btn_banner_update = QPushButton(self.tr("Actualizar"))
+        self._btn_banner_update.setProperty("cssClass", "banner-btn-primary")
+        self._btn_banner_update.clicked.connect(self._on_update_now)
+        banner_layout.addWidget(self._btn_banner_update)
+
+        self._btn_banner_dismiss = QPushButton(self.tr("Ignorar"))
+        self._btn_banner_dismiss.setProperty("cssClass", "banner-btn")
+        self._btn_banner_dismiss.clicked.connect(
+            lambda: self._update_banner.setVisible(False)
+        )
+        banner_layout.addWidget(self._btn_banner_dismiss)
+
+        layout.addWidget(self._update_banner)
+
+        self._pending_release: ReleaseInfo | None = None
 
         # Barra de búsqueda
         self._filter_edit = QLineEdit()
@@ -519,3 +555,36 @@ class LauncherWindow(QMainWindow):
         has_selection = self._app_list.selected_app_id() is not None
         for name in ("open", "configure", "clone", "export", "delete"):
             self._sidebar.set_button_enabled(name, has_selection)
+
+    # ------------------------------------------------------------------
+    # Banner de actualización
+    # ------------------------------------------------------------------
+
+    @Slot(object)
+    def show_update_banner(self, release: ReleaseInfo) -> None:
+        """Muestra el banner de actualización con la info de la release."""
+        self._pending_release = release
+        self._banner_label.setText(
+            self.tr("Versión <b>{0}</b> disponible").format(release.version)
+        )
+        self._update_banner.setVisible(True)
+        log.info("Actualización disponible: v%s", release.version)
+
+    def _on_update_details(self) -> None:
+        """Abre el diálogo de actualización mostrando las notas."""
+        if self._pending_release is None:
+            return
+        from app.ui.update_dialog import UpdateDialog
+
+        dialog = UpdateDialog(self._pending_release, parent=self)
+        dialog.exec()
+
+    def _on_update_now(self) -> None:
+        """Abre el diálogo de actualización e inicia la descarga."""
+        if self._pending_release is None:
+            return
+        from app.ui.update_dialog import UpdateDialog
+
+        dialog = UpdateDialog(self._pending_release, parent=self)
+        dialog._on_download()  # Iniciar descarga automáticamente
+        dialog.exec()

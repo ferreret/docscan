@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=DocScan Studio
+GenericName=Document Scanner
+Comment=Batch document capture, processing and indexing with AI support
+Exec=docscan
+Icon=docscan
+Terminal=false
+Categories=Office;Scanning;Graphics;
+Keywords=scanner;document;barcode;ocr;pdf;
+MimeType=image/png;image/jpeg;image/tiff;application/pdf;
+StartupNotify=true

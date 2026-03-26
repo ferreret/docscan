@@ -864,3 +864,45 @@ QInputDialog QComboBox {
     border-radius: 6px;
     padding: 4px 16px;
 }
+
+/* === Banner de actualización === */
+#updateBanner {
+    background-color: #1e3a5f;
+    border: 1px solid #3b82f6;
+    border-radius: 8px;
+    margin: 4px 0;
+}
+
+#updateBanner QLabel {
+    background-color: transparent;
+    color: #93c5fd;
+    font-size: 12px;
+}
+
+#updateBanner QPushButton[cssClass="banner-btn"] {
+    background-color: transparent;
+    color: #93c5fd;
+    border: 1px solid #3b82f6;
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+#updateBanner QPushButton[cssClass="banner-btn"]:hover {
+    background-color: #2563eb;
+    color: white;
+}
+
+#updateBanner QPushButton[cssClass="banner-btn-primary"] {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+#updateBanner QPushButton[cssClass="banner-btn-primary"]:hover {
+    background-color: #3b82f6;
+}

@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+import logging
+
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
+
+log = logging.getLogger(__name__)
 
 from app._version import __version__ as _VERSION
 _APP_NAME = "DocScan Studio"
@@ -34,7 +39,7 @@ class AboutDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Acerca de {0}").format(_APP_NAME))
-        self.setFixedSize(480, 380)
+        self.setFixedSize(480, 420)
         self.setWindowFlags(
             self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint
         )
@@ -112,15 +117,71 @@ class AboutDialog(QDialog):
 
         layout.addStretch()
 
-        # Copyright + botón cerrar
+        # Copyright + botones
         footer = QHBoxLayout()
         copyright_label = QLabel(_COPYRIGHT)
         copyright_label.setStyleSheet("color: #888; font-size: 10pt;")
         footer.addWidget(copyright_label)
         footer.addStretch()
 
+        self._btn_check_update = QPushButton(self.tr("Buscar actualizaciones"))
+        self._btn_check_update.clicked.connect(self._on_check_update)
+        footer.addWidget(self._btn_check_update)
+
         btn_close = QPushButton(self.tr("Cerrar"))
         btn_close.setFixedWidth(90)
         btn_close.clicked.connect(self.accept)
         footer.addWidget(btn_close)
         layout.addLayout(footer)
+
+        # Estado de comprobación
+        self._update_status = QLabel("")
+        self._update_status.setStyleSheet("color: #888; font-size: 9pt;")
+        self._update_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._update_status)
+
+    # ------------------------------------------------------------------
+    # Buscar actualizaciones
+    # ------------------------------------------------------------------
+
+    @Slot()
+    def _on_check_update(self) -> None:
+        """Lanza la comprobación de actualizaciones."""
+        from app.workers.update_worker import UpdateCheckWorker
+
+        self._btn_check_update.setEnabled(False)
+        self._update_status.setText(self.tr("Comprobando..."))
+
+        self._check_worker = UpdateCheckWorker(parent=self)
+        self._check_worker.update_available.connect(self._on_update_found)
+        self._check_worker.no_update.connect(self._on_no_update)
+        self._check_worker.check_error.connect(self._on_check_error)
+        self._check_worker.start()
+
+    @Slot(object)
+    def _on_update_found(self, release) -> None:
+        """Se encontró una actualización."""
+        self._btn_check_update.setEnabled(True)
+        self._update_status.setText("")
+
+        from app.ui.update_dialog import UpdateDialog
+
+        self.accept()  # Cerrar el about
+        dialog = UpdateDialog(release, parent=self.parent())
+        dialog.exec()
+
+    @Slot()
+    def _on_no_update(self) -> None:
+        """Estamos en la última versión."""
+        self._btn_check_update.setEnabled(True)
+        self._update_status.setText(
+            self.tr("Ya tienes la última versión ({0}).").format(_VERSION)
+        )
+        self._update_status.setStyleSheet("color: green; font-size: 9pt;")
+
+    @Slot(str)
+    def _on_check_error(self, error: str) -> None:
+        """Error al comprobar."""
+        self._btn_check_update.setEnabled(True)
+        self._update_status.setText(self.tr("Error: {0}").format(error))
+        self._update_status.setStyleSheet("color: red; font-size: 9pt;")

@@ -1,0 +1,170 @@
+# CI/CD — Build & Release DocScan Studio
+#
+# Trigger: push de tag v* (ej: v0.1.0, v1.0.0-rc1)
+# Jobs:
+#   1. build-linux: PyInstaller + AppImage en Ubuntu
+#   2. build-windows: PyInstaller + Inno Setup en Windows
+#   3. release: Crear GitHub Release con artefactos + SHA256SUMS.txt
+
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.14'
+
+jobs:
+  # ==================================================================
+  # Linux: PyInstaller → AppImage
+  # ==================================================================
+  build-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libsane-dev \
+            libzbar0 \
+            tesseract-ocr \
+            tesseract-ocr-spa \
+            libgl1-mesa-glx \
+            libegl1 \
+            libxcb-xinerama0 \
+            libxcb-cursor0 \
+            fuse \
+            libfuse2
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller build/docscan-linux.spec
+
+      - name: Build AppImage
+        run: |
+          pip install appimage-builder
+          cd build/appimage
+          appimage-builder --recipe AppImageBuilder.yml --skip-tests
+          mv *.AppImage ../../
+
+      - name: Rename AppImage with version
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          mv *.AppImage docscan-${VERSION}-x86_64.AppImage
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: docscan-*.AppImage
+
+  # ==================================================================
+  # Windows: PyInstaller → Inno Setup
+  # ==================================================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller build/docscan-windows.spec
+
+      - name: Update Inno Setup version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $content = Get-Content build/inno/docscan.iss -Raw
+          $content = $content -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$version`""
+          $content | Set-Content build/inno/docscan.iss
+
+      - name: Build Inno Setup installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
+        with:
+          path: build/inno/docscan.iss
+
+      - name: Rename installer with version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $src = Get-ChildItem Output/*.exe | Select-Object -First 1
+          $dest = "Output/docscan-${version}-setup.exe"
+          Move-Item $src.FullName $dest
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: Output/docscan-*-setup.exe
+
+  # ==================================================================
+  # Release: Crear GitHub Release con todos los artefactos
+  # ==================================================================
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect release files
+        run: |
+          mkdir -p release
+          cp artifacts/linux-appimage/*.AppImage release/
+          cp artifacts/windows-installer/*.exe release/
+
+      - name: Generate SHA256SUMS.txt
+        run: |
+          cd release
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          # Extraer la sección del CHANGELOG para esta versión
+          awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "Release ${GITHUB_REF_NAME}" > release_notes.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: DocScan Studio ${{ github.ref_name }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') }}
+          files: release/*
