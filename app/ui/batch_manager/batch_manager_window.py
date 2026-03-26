@@ -131,9 +131,12 @@ class BatchManagerWindow(QMainWindow):
 
         self._btn_open_batch = QPushButton(self.tr("Abrir lote"))
         self._btn_open_batch.setProperty("cssClass", "primary")
+        self._btn_open_batch.setToolTip(self.tr("Abrir el lote seleccionado en el workbench para editar"))
         self._btn_refresh = QPushButton(self.tr("Actualizar"))
+        self._btn_refresh.setToolTip(self.tr("Actualizar la lista de lotes"))
         self._btn_delete = QPushButton(self.tr("Eliminar"))
         self._btn_delete.setProperty("cssClass", "danger")
+        self._btn_delete.setToolTip(self.tr("Eliminar el lote seleccionado y sus archivos del disco"))
 
         toolbar.addWidget(self._btn_open_batch)
         toolbar.addSeparator()
@@ -153,6 +156,7 @@ class BatchManagerWindow(QMainWindow):
         self._combo_app = QComboBox()
         self._combo_app.addItem(self.tr("Todas"), 0)
         self._combo_app.setMinimumWidth(150)
+        self._combo_app.setToolTip(self.tr("Filtrar lotes por aplicación"))
         layout.addWidget(self._combo_app)
 
         # Estación
@@ -160,6 +164,7 @@ class BatchManagerWindow(QMainWindow):
         self._combo_hostname = QComboBox()
         self._combo_hostname.addItem(self.tr("Todas"), "")
         self._combo_hostname.setMinimumWidth(120)
+        self._combo_hostname.setToolTip(self.tr("Filtrar lotes por estación/ordenador"))
         layout.addWidget(self._combo_hostname)
 
         # Fechas
@@ -170,6 +175,7 @@ class BatchManagerWindow(QMainWindow):
         self._date_from.setCalendarPopup(True)
         self._date_from.setDate(today.addDays(-30))
         self._date_from.setDisplayFormat("dd/MM/yyyy")
+        self._date_from.setToolTip(self.tr("Fecha de inicio del período de búsqueda"))
         layout.addWidget(self._date_from)
 
         layout.addWidget(QLabel(self.tr("Hasta:")))
@@ -177,9 +183,11 @@ class BatchManagerWindow(QMainWindow):
         self._date_to.setCalendarPopup(True)
         self._date_to.setDate(today)
         self._date_to.setDisplayFormat("dd/MM/yyyy")
+        self._date_to.setToolTip(self.tr("Fecha de fin del período de búsqueda"))
         layout.addWidget(self._date_to)
 
         self._btn_filter = QPushButton(self.tr("Filtrar"))
+        self._btn_filter.setToolTip(self.tr("Aplicar los filtros de fecha, aplicación y estación"))
         layout.addWidget(self._btn_filter)
 
         layout.addStretch()

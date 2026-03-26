@@ -95,20 +95,28 @@ class PipelineTab(QWidget):
         actions_layout.setSpacing(6)
 
         self._type_combo = QComboBox()
+        self._type_combo.setToolTip(self.tr("Tipo de paso a añadir al pipeline"))
         for type_key, label in STEP_TYPE_LABELS().items():
             self._type_combo.addItem(label, type_key)
         actions_layout.addWidget(self._type_combo)
 
         self._btn_add = QPushButton(self.tr("Añadir"))
         self._btn_add.setProperty("cssClass", "primary")
+        self._btn_add.setToolTip(self.tr("Añadir un nuevo paso del tipo seleccionado"))
         self._btn_edit = QPushButton(self.tr("Editar"))
+        self._btn_edit.setToolTip(self.tr("Editar la configuración del paso seleccionado"))
         self._btn_delete = QPushButton(self.tr("Eliminar"))
         self._btn_delete.setProperty("cssClass", "danger")
+        self._btn_delete.setToolTip(self.tr("Eliminar el paso seleccionado del pipeline"))
         self._btn_toggle = QPushButton(self.tr("On/Off"))
+        self._btn_toggle.setToolTip(self.tr("Activar o desactivar el paso seleccionado"))
         self._btn_up = QPushButton("↑")
+        self._btn_up.setToolTip(self.tr("Mover el paso hacia arriba en el orden de ejecución"))
         self._btn_down = QPushButton("↓")
+        self._btn_down.setToolTip(self.tr("Mover el paso hacia abajo en el orden de ejecución"))
         self._btn_test = QPushButton(self.tr("Probar pipeline"))
         self._btn_test.setProperty("cssClass", "accent")
+        self._btn_test.setToolTip(self.tr("Ejecutar el pipeline sobre una imagen de muestra para verificar el resultado"))
 
         for btn in (
             self._btn_add, self._btn_edit, self._btn_delete,
@@ -124,6 +132,7 @@ class PipelineTab(QWidget):
         self._list = QListWidget()
         self._list.setObjectName("pipelineStepList")
         self._list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self._list.setToolTip(self.tr("Lista de pasos del pipeline. Doble clic para editar, arrastrar para reordenar"))
         layout.addWidget(self._list)
 
         # Conexiones

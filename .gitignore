@@ -1,4 +1,37 @@
+# Virtual environment
 .venv/
+
+# Database
 docscan.db
+
+# Python bytecode
 __pycache__/
 *.pyc
+
+# Secrets & credentials
+secrets.enc
+.secrets.key
+*.key
+*.pem
+.env
+.env.local
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build / dist
+dist/
+build/
+site/
+*.egg-info/
+
+# Batch data (user-generated)
+/batch_*/

@@ -198,6 +198,7 @@ class LauncherWindow(QMainWindow):
             "refresh": self._load_apps,
             "batch_manager": self.batch_manager_requested.emit,
             "ai_mode": self._on_toggle_ai_mode,
+            "about": self._on_about,
         }
         handler = handlers.get(action)
         if handler:
@@ -208,6 +209,12 @@ class LauncherWindow(QMainWindow):
         btn = self._sidebar.get_button("ai_mode")
         checked = btn.isChecked() if btn else False
         self._ai_mode_panel.setVisible(checked)
+
+    def _on_about(self) -> None:
+        """Muestra el diálogo Acerca de."""
+        from app.ui.about_dialog import AboutDialog
+        dialog = AboutDialog(self)
+        dialog.exec()
 
     # ------------------------------------------------------------------
     # Tema

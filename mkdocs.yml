@@ -1,0 +1,77 @@
+docs_dir: docs-web
+site_name: DocScan Studio
+site_description: Plataforma de captura, procesamiento e indexación de documentos con IA generativa
+site_url: https://ferreret.github.io/docscan/
+repo_url: https://github.com/ferreret/docscan
+repo_name: ferreret/docscan
+
+theme:
+  name: material
+  language: es
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Cambiar a tema oscuro
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Cambiar a tema claro
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+  logo: assets/docscan.svg
+  favicon: assets/docscan.svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ferreret/docscan
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Inicio: index.md
+  - Guía de usuario:
+    - Inicio rápido: user-guide/getting-started.md
+    - Launcher: user-guide/launcher.md
+    - Configurador: user-guide/configurator.md
+    - Pipeline: user-guide/pipeline.md
+    - Scripting: user-guide/scripting.md
+    - Workbench: user-guide/workbench.md
+    - Gestión de lotes: user-guide/batch-manager.md
+    - Transferencia: user-guide/transfer.md
+    - AI Mode: user-guide/ai-mode.md
+  - Referencia:
+    - Atajos de teclado: reference/shortcuts.md
+    - Patrones de nombre: reference/naming-patterns.md
+    - API de scripting: reference/scripting-api.md
+    - Glosario: reference/glossary.md

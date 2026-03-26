@@ -74,6 +74,7 @@ class BatchFieldsTab(QWidget):
         # Toolbar
         toolbar = QHBoxLayout()
         btn_add = QPushButton(self.tr("+ Añadir campo"))
+        btn_add.setToolTip(self.tr("Añadir un nuevo campo de lote a la aplicación"))
         btn_add.clicked.connect(self._add_empty_row)
         toolbar.addWidget(btn_add)
         toolbar.addStretch()
@@ -140,11 +141,13 @@ class BatchFieldsTab(QWidget):
         # Etiqueta
         label_edit = QLineEdit(field.get("label", ""))
         label_edit.setPlaceholderText(self.tr("Nombre del campo..."))
+        label_edit.setToolTip(self.tr("Nombre del campo que aparecerá como etiqueta en el workbench"))
         self._table.setCellWidget(row, _COL_LABEL, self._wrap_centered(label_edit))
 
         # Tipo
         type_combo = QComboBox()
         type_combo.setMinimumWidth(100)
+        type_combo.setToolTip(self.tr("Tipo de dato: texto, fecha, lista desplegable o numérico"))
         type_combo.addItems(FIELD_TYPES)
         field_type = field.get("type", "texto")
         idx = type_combo.findText(field_type)
@@ -167,6 +170,7 @@ class BatchFieldsTab(QWidget):
         req_layout.setContentsMargins(0, 0, 0, 0)
         req_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         required_check = QCheckBox()
+        required_check.setToolTip(self.tr("Marcar si este campo es obligatorio antes de transferir"))
         required_check.setChecked(field.get("required", False))
         req_layout.addWidget(required_check)
         self._table.setCellWidget(row, _COL_REQUIRED, required_container)

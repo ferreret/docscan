@@ -40,6 +40,7 @@ class BarcodeStepDialog(QDialog):
         self._engine_combo = QComboBox()
         self._engine_combo.addItems(["motor1", "motor2"])
         self._engine_combo.setCurrentText(step.engine)
+        self._engine_combo.setToolTip(self.tr("motor1 = pyzbar (rápido), motor2 = zxing-cpp (más simbologías)"))
         layout.addRow(self.tr("Motor:"), self._engine_combo)
 
         self._symb_edit = QLineEdit(", ".join(step.symbologies))
@@ -50,9 +51,11 @@ class BarcodeStepDialog(QDialog):
 
         self._regex_edit = QLineEdit(step.regex)
         self._regex_edit.setPlaceholderText(self.tr("Filtro regex (vacío = sin filtro)"))
+        self._regex_edit.setToolTip(self.tr("Expresión regular para filtrar barcodes por valor. Solo se aceptan los que coincidan"))
         layout.addRow(self.tr("Regex:"), self._regex_edit)
 
         self._regex_symb = QCheckBox(self.tr("Incluir simbología en regex"))
+        self._regex_symb.setToolTip(self.tr("Si está activo, el texto a validar incluye el tipo de simbología como prefijo"))
         self._regex_symb.setChecked(step.regex_include_symbology)
         layout.addRow("", self._regex_symb)
 
@@ -64,6 +67,7 @@ class BarcodeStepDialog(QDialog):
         self._quality.setRange(0.0, 1.0)
         self._quality.setSingleStep(0.1)
         self._quality.setValue(step.quality_threshold)
+        self._quality.setToolTip(self.tr("Confianza mínima para aceptar un barcode (0.0 = todos, 1.0 = solo perfectos)"))
         layout.addRow(self.tr("Umbral calidad:"), self._quality)
 
         self._window_edit = QLineEdit()

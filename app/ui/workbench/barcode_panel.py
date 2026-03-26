@@ -99,7 +99,9 @@ class BarcodePanel(QWidget):
         # Botones de barcode
         bc_buttons = QHBoxLayout()
         self._btn_insert_bc = QPushButton(self.tr("+ Barcode manual"))
+        self._btn_insert_bc.setToolTip(self.tr("Añadir un código de barras manualmente a esta página"))
         self._btn_delete_bc = QPushButton(self.tr("\u2212 Barcode"))
+        self._btn_delete_bc.setToolTip(self.tr("Eliminar el código de barras seleccionado"))
         self._btn_insert_bc.clicked.connect(self.insert_barcode_requested)
         self._btn_delete_bc.clicked.connect(self.delete_barcode_requested)
         bc_buttons.addWidget(self._btn_insert_bc)

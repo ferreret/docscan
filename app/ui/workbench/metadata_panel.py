@@ -153,6 +153,7 @@ class MetadataPanel(QWidget):
     ) -> QWidget:
         """Crea el widget adecuado según el tipo de campo."""
         fdef = fdef or {}
+        name = fdef.get("name", "")
         match ftype:
             case "Fecha":
                 w = QDateEdit()
@@ -160,21 +161,28 @@ class MetadataPanel(QWidget):
                 w.setDate(QDate.currentDate())
                 w.setDisplayFormat(fdef.get("date_format", "dd/MM/yyyy"))
                 w.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                w.setToolTip(self.tr("Seleccionar fecha para «{0}»").format(name))
                 return w
             case "Número":
                 w = QSpinBox()
                 w.setMinimum(int(fdef.get("min", 0)))
                 w.setMaximum(int(fdef.get("max", 999999)))
                 w.setSingleStep(int(fdef.get("step", 1)))
+                w.setToolTip(self.tr("Valor numérico entre {0} y {1}").format(w.minimum(), w.maximum()))
                 return w
             case "Booleano":
-                return QCheckBox()
+                w = QCheckBox()
+                w.setToolTip(self.tr("Activar/desactivar «{0}»").format(name))
+                return w
             case "Lista":
                 combo = QComboBox()
                 combo.addItems(choices)
+                combo.setToolTip(self.tr("Seleccionar una opción para «{0}»").format(name))
                 return combo
             case _:  # Texto
-                return QLineEdit()
+                w = QLineEdit()
+                w.setToolTip(self.tr("Introducir valor para «{0}»").format(name))
+                return w
 
     # ------------------------------------------------------------------
     # Establecer/obtener valores

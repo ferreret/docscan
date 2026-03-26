@@ -270,6 +270,30 @@ def _icon_ai(color: str, size: int = _ICON_SIZE) -> QIcon:
     return QIcon(pm)
 
 
+def _icon_info(color: str, size: int = _ICON_SIZE) -> QIcon:
+    """Icono (i) información (Acerca de)."""
+    pm = _pm(size)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor(color), max(1.5, size / 14))
+    p.setPen(pen)
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    c = size // 2
+    r = int(size * 0.38)
+    p.drawEllipse(QPoint(c, c), r, r)
+    # Punto de la i
+    dot_r = max(1, int(size * 0.05))
+    p.setBrush(QColor(color))
+    p.drawEllipse(QPoint(c, int(c - r * 0.45)), dot_r, dot_r)
+    # Barra de la i
+    pen2 = QPen(QColor(color), max(2, size / 10))
+    pen2.setCapStyle(Qt.PenCapStyle.RoundCap)
+    p.setPen(pen2)
+    p.drawLine(c, int(c - r * 0.15), c, int(c + r * 0.55))
+    p.end()
+    return QIcon(pm)
+
+
 def _icon_hamburger(color: str, size: int = _ICON_SIZE) -> QIcon:
     """Icono hamburguesa (toggle sidebar)."""
     pm = _pm(size)
@@ -401,6 +425,12 @@ class Sidebar(QWidget):
 
         layout.addStretch()
 
+        # Botón "Acerca de" al final
+        btn_about = _SidebarButton(_icon_info(color), "Acerca de", self)
+        btn_about.clicked.connect(lambda _: self.action_triggered.emit("about"))
+        self._buttons["about"] = btn_about
+        layout.addWidget(btn_about)
+
         # Marcar delete como danger
         if "delete" in self._buttons:
             self._buttons["delete"].setObjectName("sidebarBtnDanger")
@@ -461,6 +491,7 @@ class Sidebar(QWidget):
             "refresh": _icon_refresh,
             "batch_manager": _icon_grid,
             "ai_mode": _icon_ai,
+            "about": _icon_info,
         }
         for name, icon_fn in icon_map.items():
             btn = self._buttons.get(name)

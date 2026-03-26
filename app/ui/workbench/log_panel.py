@@ -96,12 +96,14 @@ class LogPanel(QWidget):
         self._level_combo.addItem("WARNING", logging.WARNING)
         self._level_combo.addItem("ERROR", logging.ERROR)
         self._level_combo.setCurrentIndex(1)  # INFO por defecto
+        self._level_combo.setToolTip(self.tr("Mostrar mensajes de este nivel y superiores"))
         self._min_level = logging.INFO
         self._level_combo.currentIndexChanged.connect(self._on_level_changed)
         toolbar.addWidget(self._level_combo)
 
         # Botón limpiar
         btn_clear = QPushButton(self.tr("Limpiar"))
+        btn_clear.setToolTip(self.tr("Limpiar el contenido del registro"))
         btn_clear.setFixedWidth(70)
         btn_clear.clicked.connect(self._on_clear)
         toolbar.addWidget(btn_clear)

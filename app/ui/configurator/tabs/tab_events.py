@@ -100,6 +100,7 @@ class EventsTab(QWidget):
         top = QHBoxLayout()
         top.addWidget(QLabel(self.tr("Evento:")))
         self._event_combo = QComboBox()
+        self._event_combo.setToolTip(self.tr("Seleccionar el evento del ciclo de vida a editar"))
         for name in EVENT_NAMES:
             desc = EVENT_DESCRIPTIONS().get(name, "")
             self._event_combo.addItem(f"{name} — {desc}", name)
@@ -110,6 +111,7 @@ class EventsTab(QWidget):
         code_bar = QHBoxLayout()
         code_bar.addStretch()
         self._btn_vscode = QPushButton(self.tr("Abrir en VS Code"))
+        self._btn_vscode.setToolTip(self.tr("Editar el código en VS Code con autocompletado y sintaxis"))
         self._btn_vscode.setVisible(detect_editor() is not None)
         self._btn_vscode.clicked.connect(self._open_in_vscode)
         code_bar.addWidget(self._btn_vscode)
@@ -117,6 +119,7 @@ class EventsTab(QWidget):
 
         # Editor de código
         self._code_edit = QPlainTextEdit()
+        self._code_edit.setToolTip(self.tr("Código Python para este evento. Variables: app, batch, page, log, http"))
         font = QFont("Monospace", 10)
         font.setStyleHint(QFont.StyleHint.Monospace)
         self._code_edit.setFont(font)

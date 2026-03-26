@@ -29,6 +29,7 @@ class ImageOpDialog(QDialog):
         layout = QFormLayout(self)
 
         self._op_combo = QComboBox()
+        self._op_combo.setToolTip(self.tr("Operación de procesamiento de imagen a aplicar"))
         self._op_combo.addItems(sorted(IMAGE_OPS.keys()))
         if step.op:
             idx = self._op_combo.findText(step.op)
@@ -38,6 +39,7 @@ class ImageOpDialog(QDialog):
 
         # Parámetros como JSON simple clave=valor
         self._params_edit = QLineEdit()
+        self._params_edit.setToolTip(self.tr("Parámetros de la operación en formato clave=valor, separados por coma"))
         if step.params:
             self._params_edit.setText(
                 ", ".join(f"{k}={v}" for k, v in step.params.items())

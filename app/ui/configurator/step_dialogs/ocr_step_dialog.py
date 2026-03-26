@@ -31,13 +31,16 @@ class OcrStepDialog(QDialog):
         self._engine_combo = QComboBox()
         self._engine_combo.addItems(["rapidocr", "easyocr", "tesseract"])
         self._engine_combo.setCurrentText(step.engine)
+        self._engine_combo.setToolTip(self.tr("rapidocr = rápido y offline, easyocr = alta precisión (PyTorch), tesseract = ligero"))
         layout.addRow(self.tr("Motor:"), self._engine_combo)
 
         self._langs_edit = QLineEdit(", ".join(step.languages))
         self._langs_edit.setPlaceholderText("es, en, fr")
+        self._langs_edit.setToolTip(self.tr("Códigos de idioma separados por coma para el reconocimiento de texto"))
         layout.addRow(self.tr("Idiomas:"), self._langs_edit)
 
         self._full_page = QCheckBox(self.tr("Página completa"))
+        self._full_page.setToolTip(self.tr("Procesar toda la página. Si está desactivado, usar la ventana de coordenadas"))
         self._full_page.setChecked(step.full_page)
         layout.addRow("", self._full_page)
 
