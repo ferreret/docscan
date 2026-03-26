@@ -6,6 +6,28 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [0.1.0] — 2026-03-26
+
+### 🚀 Distribución e instaladores
+- **UI de actualización**: diálogo de descarga con barra de progreso, notas de release y verificación SHA-256
+- **Banner de actualización**: notificación no invasiva en el Launcher con botones "Ver novedades", "Actualizar" e "Ignorar"
+- **Botón "Buscar actualizaciones"** en el diálogo Acerca de
+- **Auto-check al inicio**: comprobación de nuevas versiones en segundo plano tras arrancar
+- **PyInstaller specs**: configuración de empaquetado para Linux y Windows
+- **AppImage**: recipe AppImageBuilder + fichero .desktop para distribución Linux
+- **Inno Setup**: script de instalador Windows con español/inglés/catalán y modo silencioso
+- **CI/CD**: GitHub Actions workflow para build automático y release al crear tags `v*`
+- **Informe de licenciamiento**: análisis de licencias, modelos de negocio, plataformas de venta y protección de código
+
+### 🏗️ Infraestructura
+- Rama `production` para releases estables
+- Versión centralizada en `app/_version.py`
+- Auto-update service con GitHub Releases API + SHA-256
+- Estilos QSS para banner de actualización (tema claro y oscuro)
+- 21 tests nuevos para UI de actualización (849 total)
+
+---
+
 ## [0.1 RC] — 2026-03-26
 
 ### 📖 Documentación
