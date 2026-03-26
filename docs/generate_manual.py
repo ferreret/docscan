@@ -256,9 +256,6 @@ def build() -> None:
     fc2.set(qn("w:fldCharType"), "end")
     r._r.extend([fc1, it, fc2])
 
-    doc.add_paragraph(
-        "(Pulsar Ctrl+A → F9 en Word para actualizar la tabla de contenidos)",
-    ).italic = True
 
     # ════════════════════════════════════════════════════════════════
     # CAPÍTULO 1 — INTRODUCCIÓN
