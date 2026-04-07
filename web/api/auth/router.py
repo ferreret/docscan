@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 from web.api.auth.dependencies import CurrentUser
@@ -73,11 +74,10 @@ def register(data: RegisterRequest, db: SessionDep):
     )
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: SessionDep):
-    """Autentica usuario y devuelve JWT."""
+def _authenticate(email: str, password: str, db: SessionDep) -> TokenResponse:
+    """Lógica compartida de autenticación."""
     user = db.execute(
-        select(User).where(User.email == data.email)
+        select(User).where(User.email == email)
     ).scalar_one_or_none()
 
     if not user or not user.active:
@@ -86,7 +86,7 @@ def login(data: LoginRequest, db: SessionDep):
             detail="Credenciales incorrectas",
         )
 
-    if not verify_password(data.password, user.hashed_password):
+    if not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales incorrectas",
@@ -100,6 +100,18 @@ def login(data: LoginRequest, db: SessionDep):
         }
     )
     return TokenResponse(access_token=token)
+
+
+@router.post("/login", response_model=TokenResponse)
+def login(data: LoginRequest, db: SessionDep):
+    """Autentica usuario con JSON y devuelve JWT."""
+    return _authenticate(data.email, data.password, db)
+
+
+@router.post("/token", response_model=TokenResponse, include_in_schema=False)
+def login_form(form: OAuth2PasswordRequestForm = Depends(), db: SessionDep = None):
+    """Endpoint OAuth2 form-data para Swagger Authorize."""
+    return _authenticate(form.username, form.password, db)
 
 
 @router.get("/me", response_model=UserResponse)
