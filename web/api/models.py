@@ -13,6 +13,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
+# Roles de usuario
+ROLE_SUPERADMIN = "superadmin"
+ROLE_COMPANY_ADMIN = "company_admin"
+ROLE_OPERATOR = "operator"
+
+VALID_ROLES = (ROLE_SUPERADMIN, ROLE_COMPANY_ADMIN, ROLE_OPERATOR)
+
 
 class Tenant(Base):
     """Empresa/organización (tenant) en multi-tenancy."""

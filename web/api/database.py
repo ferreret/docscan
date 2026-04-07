@@ -60,6 +60,15 @@ def get_session_factory():
     return _SessionFactory
 
 
+def reset_engine() -> None:
+    """Dispone el engine y limpia los singletons."""
+    global _engine, _SessionFactory
+    if _engine is not None:
+        _engine.dispose()
+        _engine = None
+    _SessionFactory = None
+
+
 def get_db() -> Generator[Session, None, None]:
     """Dependency de FastAPI: proporciona una sesión por request."""
     factory = get_session_factory()

@@ -22,6 +22,7 @@ from app.models.template import Template  # noqa: F401
 from app.models.operation_history import OperationHistory  # noqa: F401
 from web.api.models import Tenant, User  # noqa: F401
 
+import web.api.database as _db_module
 from web.api.database import get_db
 from web.api.main import create_app
 
@@ -29,9 +30,6 @@ from web.api.main import create_app
 @pytest.fixture
 def _test_engine():
     """Engine SQLite en memoria compartible entre hilos."""
-    # Forzar importación de modelos web antes de create_all
-    from web.api.models import Tenant, User  # noqa: F811
-
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -45,7 +43,12 @@ def _test_engine():
         cursor.close()
 
     Base.metadata.create_all(engine)
+
+    # Inyectar engine de test en el singleton para que el lifespan lo use
+    _db_module._engine = engine
     yield engine
+    _db_module._engine = None
+    _db_module._SessionFactory = None
     engine.dispose()
 
 

@@ -12,14 +12,6 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-class TokenPayload(BaseModel):
-    """Payload decodificado del JWT."""
-
-    sub: str
-    tenant_id: int
-    role: str
-
-
 class LoginRequest(BaseModel):
     """Datos de inicio de sesión."""
 

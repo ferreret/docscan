@@ -10,7 +10,7 @@ from sqlalchemy import select
 from web.api.auth.dependencies import CurrentUser
 from web.api.auth.security import create_access_token, hash_password, verify_password
 from web.api.database import SessionDep
-from web.api.models import Tenant, User
+from web.api.models import ROLE_COMPANY_ADMIN, Tenant, User
 from web.api.schemas.auth import (
     LoginRequest,
     RegisterRequest,
@@ -21,10 +21,14 @@ from web.api.schemas.auth import (
 router = APIRouter()
 
 
+def _slugify(name: str) -> str:
+    """Convierte un nombre a slug URL-safe."""
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
 @router.post("/register", response_model=UserResponse, status_code=201)
 def register(data: RegisterRequest, db: SessionDep):
     """Registra un nuevo tenant con su usuario administrador."""
-    # Verificar email único
     existing = db.execute(
         select(User).where(User.email == data.email)
     ).scalar_one_or_none()
@@ -34,8 +38,7 @@ def register(data: RegisterRequest, db: SessionDep):
             detail="El email ya está registrado",
         )
 
-    # Crear tenant
-    slug = re.sub(r"[^a-z0-9]+", "-", data.tenant_name.lower()).strip("-")
+    slug = _slugify(data.tenant_name)
     existing_tenant = db.execute(
         select(Tenant).where(Tenant.slug == slug)
     ).scalar_one_or_none()
@@ -47,15 +50,14 @@ def register(data: RegisterRequest, db: SessionDep):
 
     tenant = Tenant(name=data.tenant_name, slug=slug)
     db.add(tenant)
-    db.flush()  # Para obtener tenant.id
+    db.flush()
 
-    # Crear usuario admin
     user = User(
         tenant_id=tenant.id,
         email=data.email,
         hashed_password=hash_password(data.password),
         display_name=data.display_name,
-        role="company_admin",
+        role=ROLE_COMPANY_ADMIN,
     )
     db.add(user)
     db.commit()
@@ -78,16 +80,16 @@ def login(data: LoginRequest, db: SessionDep):
         select(User).where(User.email == data.email)
     ).scalar_one_or_none()
 
-    if not user or not verify_password(data.password, user.hashed_password):
+    if not user or not user.active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales incorrectas",
         )
 
-    if not user.active:
+    if not verify_password(data.password, user.hashed_password):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuario desactivado",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales incorrectas",
         )
 
     token = create_access_token(

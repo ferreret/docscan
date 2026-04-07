@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from web.api.config import get_web_settings
-from web.api.database import get_engine
+from web.api.database import get_engine, reset_engine
 
 # Importar modelos para que SQLAlchemy registre las relaciones
 from app.models.application import Application  # noqa: F401
@@ -34,23 +34,14 @@ async def lifespan(app: FastAPI):
         settings.debug,
     )
 
-    # Verificar conexión a BD (solo si no estamos en tests)
-    try:
-        engine = get_engine()
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        log.info("Conexión a base de datos OK")
-    except Exception as e:
-        log.warning("No se pudo conectar a la BD: %s", e)
+    engine = get_engine()
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    log.info("Conexión a base de datos OK")
 
     yield
 
-    # Cleanup
-    try:
-        engine = get_engine()
-        engine.dispose()
-    except Exception:
-        pass
+    reset_engine()
     log.info("DocScan Web API detenida")
 
 
