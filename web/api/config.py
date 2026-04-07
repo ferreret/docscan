@@ -12,29 +12,29 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class DatabaseWebSettings(BaseModel):
-    """Conexión a PostgreSQL."""
+    """Conexión a PostgreSQL. Configurar via DOCSCAN_WEB_DATABASE__URL."""
 
-    url: str = "postgresql+psycopg://docscan:docscan@localhost:5432/docscan"
+    url: str = "postgresql+psycopg://user:pass@localhost:5432/docscan"
     echo: bool = False
     pool_size: int = 5
     max_overflow: int = 10
 
 
 class JWTSettings(BaseModel):
-    """Configuración JWT."""
+    """Configuración JWT. Configurar via DOCSCAN_WEB_JWT__SECRET_KEY."""
 
-    secret_key: str = "CHANGE-ME-in-production-use-openssl-rand-hex-32"
+    secret_key: str = ""  # Obligatorio: generar con `openssl rand -hex 32`
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
 
 class MinIOSettings(BaseModel):
-    """Conexión a MinIO / S3."""
+    """Conexión a MinIO / S3. Configurar via DOCSCAN_WEB_MINIO__*."""
 
     endpoint: str = "localhost:9000"
-    access_key: str = "docscan"
-    secret_key: str = "docscan123"
+    access_key: str = ""
+    secret_key: str = ""
     bucket: str = "docscan"
     use_ssl: bool = False
 
