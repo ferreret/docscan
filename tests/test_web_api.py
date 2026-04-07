@@ -265,3 +265,122 @@ class TestTenantId:
         db_session.commit()
         db_session.refresh(batch)
         assert batch.tenant_id is None
+
+
+# ------------------------------------------------------------------
+# CRUD de aplicaciones
+# ------------------------------------------------------------------
+
+
+def _auth_header(client) -> dict:
+    """Registra usuario y devuelve headers con JWT."""
+    client.post("/api/auth/register", json={
+        "email": "dev@acme.com",
+        "password": "pass",
+        "display_name": "Dev",
+        "tenant_name": "ACME",
+    })
+    resp = client.post("/api/auth/login", json={
+        "email": "dev@acme.com",
+        "password": "pass",
+    })
+    token = resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+class TestApplicationsCRUD:
+    def test_lista_vacia(self, client):
+        h = _auth_header(client)
+        resp = client.get("/api/applications", headers=h)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_crear_aplicacion(self, client):
+        h = _auth_header(client)
+        resp = client.post("/api/applications", headers=h, json={
+            "name": "Facturas",
+            "description": "Proceso de facturas",
+            "output_format": "pdf",
+        })
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["name"] == "Facturas"
+        assert data["output_format"] == "pdf"
+        assert data["tenant_id"] is not None
+        assert data["pipeline_json"] == "[]"
+
+    def test_listar_tras_crear(self, client):
+        h = _auth_header(client)
+        client.post("/api/applications", headers=h, json={"name": "App1"})
+        client.post("/api/applications", headers=h, json={"name": "App2"})
+        resp = client.get("/api/applications", headers=h)
+        assert len(resp.json()) == 2
+
+    def test_obtener_por_id(self, client):
+        h = _auth_header(client)
+        created = client.post("/api/applications", headers=h, json={
+            "name": "MiApp",
+        }).json()
+        resp = client.get(f"/api/applications/{created['id']}", headers=h)
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "MiApp"
+
+    def test_actualizar(self, client):
+        h = _auth_header(client)
+        created = client.post("/api/applications", headers=h, json={
+            "name": "Original",
+        }).json()
+        resp = client.patch(
+            f"/api/applications/{created['id']}",
+            headers=h,
+            json={"name": "Renombrada", "description": "Nueva desc"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Renombrada"
+        assert resp.json()["description"] == "Nueva desc"
+
+    def test_eliminar(self, client):
+        h = _auth_header(client)
+        created = client.post("/api/applications", headers=h, json={
+            "name": "Borrame",
+        }).json()
+        resp = client.delete(f"/api/applications/{created['id']}", headers=h)
+        assert resp.status_code == 204
+        resp = client.get(f"/api/applications/{created['id']}", headers=h)
+        assert resp.status_code == 404
+
+    def test_nombre_duplicado(self, client):
+        h = _auth_header(client)
+        client.post("/api/applications", headers=h, json={"name": "Unica"})
+        resp = client.post("/api/applications", headers=h, json={"name": "Unica"})
+        assert resp.status_code == 409
+
+    def test_no_ve_apps_otro_tenant(self, client):
+        h1 = _auth_header(client)
+        created = client.post("/api/applications", headers=h1, json={
+            "name": "SecretApp",
+        }).json()
+
+        # Registrar segundo tenant
+        client.post("/api/auth/register", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+            "display_name": "Otro",
+            "tenant_name": "OtraCorp",
+        })
+        resp2 = client.post("/api/auth/login", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+        })
+        h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
+
+        # Tenant 2 no ve las apps de tenant 1
+        resp = client.get("/api/applications", headers=h2)
+        assert resp.json() == []
+
+        resp = client.get(f"/api/applications/{created['id']}", headers=h2)
+        assert resp.status_code == 404
+
+    def test_sin_autenticacion(self, client):
+        resp = client.get("/api/applications")
+        assert resp.status_code == 401
