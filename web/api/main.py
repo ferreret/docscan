@@ -1,0 +1,85 @@
+"""FastAPI app factory para DocScan Studio Web."""
+
+from __future__ import annotations
+
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+
+from web.api.config import get_web_settings
+from web.api.database import get_engine
+
+# Importar modelos para que SQLAlchemy registre las relaciones
+from app.models.application import Application  # noqa: F401
+from app.models.batch import Batch  # noqa: F401
+from app.models.page import Page  # noqa: F401
+from app.models.barcode import Barcode  # noqa: F401
+from app.models.template import Template  # noqa: F401
+from app.models.operation_history import OperationHistory  # noqa: F401
+from web.api.models import Tenant, User  # noqa: F401
+
+log = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle: inicialización y limpieza."""
+    settings = get_web_settings()
+    log.info(
+        "DocScan Web API arrancando (mode=%s, debug=%s)",
+        settings.deploy_mode,
+        settings.debug,
+    )
+
+    # Verificar conexión a BD (solo si no estamos en tests)
+    try:
+        engine = get_engine()
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        log.info("Conexión a base de datos OK")
+    except Exception as e:
+        log.warning("No se pudo conectar a la BD: %s", e)
+
+    yield
+
+    # Cleanup
+    try:
+        engine = get_engine()
+        engine.dispose()
+    except Exception:
+        pass
+    log.info("DocScan Web API detenida")
+
+
+def create_app() -> FastAPI:
+    """Crea y configura la aplicación FastAPI."""
+    settings = get_web_settings()
+
+    app = FastAPI(
+        title="DocScan Studio API",
+        description="API REST para DocScan Studio Web",
+        version="0.1.0",
+        debug=settings.debug,
+        lifespan=lifespan,
+    )
+
+    # CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Routers
+    from web.api.routers.health import router as health_router
+    from web.api.auth.router import router as auth_router
+
+    app.include_router(health_router)
+    app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+
+    return app
