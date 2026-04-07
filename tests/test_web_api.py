@@ -188,25 +188,9 @@ class TestLogin:
 
 
 class TestProfile:
-    def _get_token(self, client) -> str:
-        client.post("/api/auth/register", json={
-            "email": "admin@corp.com",
-            "password": "secret",
-            "display_name": "Admin Corp",
-            "tenant_name": "MyCorp",
-        })
-        resp = client.post("/api/auth/login", json={
-            "email": "admin@corp.com",
-            "password": "secret",
-        })
-        return resp.json()["access_token"]
-
     def test_me_autenticado(self, client):
-        token = self._get_token(client)
-        resp = client.get(
-            "/api/auth/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        h = _auth_header(client, "admin@corp.com", "secret", "Admin Corp", "MyCorp")
+        resp = client.get("/api/auth/me", headers=h)
         assert resp.status_code == 200
         data = resp.json()
         assert data["email"] == "admin@corp.com"
@@ -272,17 +256,23 @@ class TestTenantId:
 # ------------------------------------------------------------------
 
 
-def _auth_header(client) -> dict:
+def _auth_header(
+    client,
+    email: str = "dev@acme.com",
+    password: str = "pass",
+    display_name: str = "Dev",
+    tenant_name: str = "ACME",
+) -> dict:
     """Registra usuario y devuelve headers con JWT."""
     client.post("/api/auth/register", json={
-        "email": "dev@acme.com",
-        "password": "pass",
-        "display_name": "Dev",
-        "tenant_name": "ACME",
+        "email": email,
+        "password": password,
+        "display_name": display_name,
+        "tenant_name": tenant_name,
     })
     resp = client.post("/api/auth/login", json={
-        "email": "dev@acme.com",
-        "password": "pass",
+        "email": email,
+        "password": password,
     })
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}

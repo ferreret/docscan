@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.models.application import Application
 from web.api.auth.dependencies import CurrentUser
@@ -19,7 +20,7 @@ router = APIRouter()
 
 
 def _get_app_or_404(
-    app_id: int, tenant_id: int, db: SessionDep,
+    app_id: int, tenant_id: int, db: Session,
 ) -> Application:
     """Obtiene una aplicación del tenant actual o lanza 404."""
     app = db.execute(
@@ -65,8 +66,8 @@ def create_application(
         )
 
     app = Application(
-        tenant_id=user.tenant_id,
         **data.model_dump(),
+        tenant_id=user.tenant_id,
     )
     db.add(app)
     db.commit()
@@ -87,7 +88,7 @@ def update_application(
     """Actualiza una aplicación existente."""
     app = _get_app_or_404(app_id, user.tenant_id, db)
 
-    if data.name and data.name != app.name:
+    if data.name is not None and data.name != app.name:
         conflict = db.execute(
             select(Application).where(
                 Application.name == data.name,

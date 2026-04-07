@@ -7,6 +7,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from web.api.auth.dependencies import CurrentUser
 from web.api.auth.security import create_access_token, hash_password, verify_password
@@ -74,7 +75,7 @@ def register(data: RegisterRequest, db: SessionDep):
     )
 
 
-def _authenticate(email: str, password: str, db: SessionDep) -> TokenResponse:
+def _authenticate(email: str, password: str, db: Session) -> TokenResponse:
     """Lógica compartida de autenticación."""
     user = db.execute(
         select(User).where(User.email == email)
@@ -109,7 +110,7 @@ def login(data: LoginRequest, db: SessionDep):
 
 
 @router.post("/token", response_model=TokenResponse, include_in_schema=False)
-def login_form(form: OAuth2PasswordRequestForm = Depends(), db: SessionDep = None):
+def login_form(db: SessionDep, form: OAuth2PasswordRequestForm = Depends()):
     """Endpoint OAuth2 form-data para Swagger Authorize."""
     return _authenticate(form.username, form.password, db)
 

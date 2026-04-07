@@ -7,10 +7,10 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class ApplicationCreate(BaseModel):
-    """Datos para crear una aplicación."""
+class _ApplicationBase(BaseModel):
+    """Campos compartidos entre Create/Update/Response."""
 
-    name: str
+    name: str = ""
     description: str = ""
     active: bool = True
     pipeline_json: str = "[]"
@@ -26,6 +26,12 @@ class ApplicationCreate(BaseModel):
     scanner_backend: str = ""
     image_config_json: str = "{}"
     ai_config_json: str = "{}"
+
+
+class ApplicationCreate(_ApplicationBase):
+    """Datos para crear una aplicación."""
+
+    name: str  # Requerido en creación (sin default)
 
 
 class ApplicationUpdate(BaseModel):
@@ -49,27 +55,11 @@ class ApplicationUpdate(BaseModel):
     ai_config_json: str | None = None
 
 
-class ApplicationResponse(BaseModel):
+class ApplicationResponse(_ApplicationBase):
     """Respuesta con datos de una aplicación."""
 
     id: int
     tenant_id: int | None
-    name: str
-    description: str
-    active: bool
-    pipeline_json: str
-    events_json: str
-    transfer_json: str
-    batch_fields_json: str
-    index_fields_json: str
-    auto_transfer: bool
-    close_after_transfer: bool
-    background_color: str
-    output_format: str
-    default_tab: str
-    scanner_backend: str
-    image_config_json: str
-    ai_config_json: str
     created_at: datetime
     updated_at: datetime
 
