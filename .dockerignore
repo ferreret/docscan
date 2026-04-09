@@ -1,0 +1,49 @@
+# Entornos virtuales y cachés
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Git y metadata
+.git/
+.gitignore
+.gitattributes
+
+# Claude Code (no se necesita en el contenedor)
+.claude/
+.mcp.json
+
+# Documentación y tests (no se ejecutan en el contenedor de API)
+docs/
+tests/
+*.md
+CHANGELOG.md
+LICENSE
+
+# Desktop-only (no aplica al contenedor web)
+resources/
+installers/
+build/
+dist/
+*.spec
+
+# Secretos locales — nunca entran en el build context
+.env
+.env.*
+!.env.example
+secrets.enc
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker metadata (meta)
+Dockerfile.*
+docker-compose*.yml
+.dockerignore

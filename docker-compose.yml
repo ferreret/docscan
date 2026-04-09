@@ -1,0 +1,108 @@
+# Stack completo de desarrollo de DocScan Studio Web.
+#
+# Servicios:
+#   db      — PostgreSQL 16 con volumen persistente
+#   minio   — S3-compatible, pensado para reemplazar el storage filesystem
+#   redis   — cola para ARQ (futuros background tasks más grandes)
+#   api     — la API REST FastAPI construida desde Dockerfile.web
+#
+# Uso:
+#   cp web/.env.example .env    # rellenar variables
+#   docker compose up --build
+#
+# Las migraciones Alembic se aplican automáticamente al arrancar `api`
+# (ver docker-entrypoint.sh).
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: docscan-web-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-docscan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docscan}
+      POSTGRES_DB: ${POSTGRES_DB:-docscan}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docscan}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: docscan-web-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-docscan}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-docscan123}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"  # API S3
+      - "9001:9001"  # Consola web
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: docscan-web-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: docscan-web-api
+    restart: unless-stopped
+    environment:
+      # Base de datos — apunta al servicio `db` de la red interna
+      DOCSCAN_WEB_DATABASE__URL: postgresql+psycopg://${POSTGRES_USER:-docscan}:${POSTGRES_PASSWORD:-docscan}@db:5432/${POSTGRES_DB:-docscan}
+
+      # JWT — OBLIGATORIO. Generar con: openssl rand -hex 32
+      DOCSCAN_WEB_JWT__SECRET_KEY: ${DOCSCAN_WEB_JWT__SECRET_KEY:?JWT secret required — define DOCSCAN_WEB_JWT__SECRET_KEY en .env}
+
+      # MinIO (listo para cuando migremos storage → MinIO)
+      DOCSCAN_WEB_MINIO__ENDPOINT: minio:9000
+      DOCSCAN_WEB_MINIO__ACCESS_KEY: ${MINIO_ROOT_USER:-docscan}
+      DOCSCAN_WEB_MINIO__SECRET_KEY: ${MINIO_ROOT_PASSWORD:-docscan123}
+
+      # Redis (listo para ARQ)
+      DOCSCAN_WEB_REDIS__URL: redis://redis:6379/0
+
+      # Storage filesystem dentro del volumen dedicado
+      DOCSCAN_WEB_STORAGE__BASE_PATH: /data/storage
+
+      # General
+      DOCSCAN_WEB_DEPLOY_MODE: ${DOCSCAN_WEB_DEPLOY_MODE:-onpremise}
+      DOCSCAN_WEB_DEBUG: ${DOCSCAN_WEB_DEBUG:-false}
+    volumes:
+      - api_storage:/data/storage
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  minio_data:
+  api_storage:

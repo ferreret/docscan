@@ -4,14 +4,15 @@
 # API
 fastapi==0.115.13
 uvicorn[standard]==0.34.2
+python-multipart==0.0.24
 
 # Auth
 python-jose[cryptography]==3.4.0
 bcrypt==4.3.0
-pydantic[email]==2.11.7
+pydantic[email]==2.12.5
 
 # Base de datos PostgreSQL
-psycopg[binary]==3.2.9
+psycopg[binary]==3.3.3
 
 # Dependencias compartidas con desktop (ya en requirements.txt):
 # SQLAlchemy, pydantic-settings, httpx, anthropic, openai, etc.
