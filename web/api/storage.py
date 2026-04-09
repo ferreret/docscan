@@ -74,9 +74,7 @@ class FilesystemStorage:
 
     def delete(self, relative_path: str) -> None:
         """Borra un fichero. Si no existe no hace nada."""
-        path = self._base / relative_path
-        if path.is_file():
-            path.unlink()
+        (self._base / relative_path).unlink(missing_ok=True)
 
 
 _storage: FilesystemStorage | None = None

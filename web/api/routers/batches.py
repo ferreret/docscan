@@ -10,6 +10,7 @@ from app.models.application import Application
 from app.models.batch import Batch
 from web.api.auth.dependencies import CurrentUser
 from web.api.database import SessionDep
+from web.api.routers._helpers import get_batch_for_tenant
 from web.api.schemas.batch import (
     BatchCreate,
     BatchListItem,
@@ -18,22 +19,6 @@ from web.api.schemas.batch import (
 )
 
 router = APIRouter()
-
-
-def _get_batch_or_404(batch_id: int, tenant_id: int, db: Session) -> Batch:
-    """Obtiene un lote del tenant actual o lanza 404."""
-    batch = db.execute(
-        select(Batch).where(
-            Batch.id == batch_id,
-            Batch.tenant_id == tenant_id,
-        )
-    ).scalar_one_or_none()
-    if not batch:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lote no encontrado",
-        )
-    return batch
 
 
 def _assert_application_in_tenant(
@@ -91,7 +76,7 @@ def create_batch(data: BatchCreate, user: CurrentUser, db: SessionDep):
 @router.get("/{batch_id}", response_model=BatchResponse)
 def get_batch(batch_id: int, user: CurrentUser, db: SessionDep):
     """Obtiene un lote por ID."""
-    return _get_batch_or_404(batch_id, user.tenant_id, db)
+    return get_batch_for_tenant(batch_id, user.tenant_id, db)
 
 
 @router.patch("/{batch_id}", response_model=BatchResponse)
@@ -99,7 +84,7 @@ def update_batch(
     batch_id: int, data: BatchUpdate, user: CurrentUser, db: SessionDep,
 ):
     """Actualiza un lote existente (estado, contadores, metadatos)."""
-    batch = _get_batch_or_404(batch_id, user.tenant_id, db)
+    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
 
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(batch, key, value)
@@ -112,6 +97,6 @@ def update_batch(
 @router.delete("/{batch_id}", status_code=204)
 def delete_batch(batch_id: int, user: CurrentUser, db: SessionDep):
     """Elimina un lote y todas sus páginas asociadas."""
-    batch = _get_batch_or_404(batch_id, user.tenant_id, db)
+    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
     db.delete(batch)
     db.commit()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 
 import pymupdf
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
@@ -15,6 +16,7 @@ from app.models.page import Page
 from web.api.auth.dependencies import CurrentUser
 from web.api.config import get_web_settings
 from web.api.database import SessionDep
+from web.api.routers._helpers import get_batch_for_tenant
 from web.api.schemas.page import (
     PageListItem,
     PageResponse,
@@ -26,33 +28,16 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Extensiones soportadas (minúsculas, sin punto)
 _SINGLE_IMAGE_EXTS = frozenset({"jpg", "jpeg", "png", "bmp", "tif", "tiff"})
 _PDF_EXTS = frozenset({"pdf"})
 _ALL_EXTS = _SINGLE_IMAGE_EXTS | _PDF_EXTS
-
-
-def _get_batch_or_404(batch_id: int, tenant_id: int, db: Session) -> Batch:
-    """Obtiene un lote del tenant o lanza 404."""
-    batch = db.execute(
-        select(Batch).where(
-            Batch.id == batch_id,
-            Batch.tenant_id == tenant_id,
-        )
-    ).scalar_one_or_none()
-    if not batch:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lote no encontrado",
-        )
-    return batch
 
 
 def _get_page_in_batch_or_404(
     batch_id: int, page_id: int, tenant_id: int, db: Session,
 ) -> Page:
     """Obtiene una página dentro de un lote del tenant, o lanza 404."""
-    _get_batch_or_404(batch_id, tenant_id, db)
+    get_batch_for_tenant(batch_id, tenant_id, db)
     page = db.execute(
         select(Page).where(
             Page.id == page_id,
@@ -83,15 +68,13 @@ def _extract_extension(filename: str | None) -> str:
     return ext
 
 
-def _split_pdf_to_png_bytes(content: bytes, dpi: int) -> list[bytes]:
-    """Convierte cada página de un PDF en bytes PNG."""
+def _iter_pdf_pages_as_png(content: bytes, dpi: int) -> Iterator[bytes]:
+    """Itera cada página de un PDF como bytes PNG (streaming)."""
     doc = pymupdf.open(stream=content, filetype="pdf")
     try:
-        pages: list[bytes] = []
         for page in doc:
             pix = page.get_pixmap(dpi=dpi)
-            pages.append(pix.tobytes("png"))
-        return pages
+            yield pix.tobytes("png")
     finally:
         doc.close()
 
@@ -121,11 +104,28 @@ async def upload_pages(
     Las imágenes individuales crean una página cada una. Los PDFs se separan
     en tantas páginas como tenga el documento (a DPI configurable).
     """
-    batch = _get_batch_or_404(batch_id, user.tenant_id, db)
+    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
     settings = get_web_settings()
 
     next_idx = _next_page_index(batch_id, db)
     created: list[Page] = []
+
+    def _persist_page(payload: bytes, payload_ext: str) -> None:
+        nonlocal next_idx
+        relative = storage.save(
+            tenant_id=user.tenant_id,
+            batch_id=batch_id,
+            content=payload,
+            extension=payload_ext,
+        )
+        page = Page(
+            batch_id=batch_id,
+            page_index=next_idx,
+            image_path=relative,
+        )
+        db.add(page)
+        created.append(page)
+        next_idx += 1
 
     for upload in files:
         ext = _extract_extension(upload.filename)
@@ -136,37 +136,20 @@ async def upload_pages(
                 detail=f"Fichero vacío: '{upload.filename}'",
             )
 
-        # Generar una lista de (bytes, ext) — una entrada por página lógica
         if ext in _PDF_EXTS:
             try:
-                page_contents = _split_pdf_to_png_bytes(
+                for png_bytes in _iter_pdf_pages_as_png(
                     content, settings.storage.pdf_dpi,
-                )
+                ):
+                    _persist_page(png_bytes, "png")
             except Exception as e:
                 log.warning("Error procesando PDF '%s': %s", upload.filename, e)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"PDF no válido: {upload.filename}",
                 ) from e
-            entries = [(b, "png") for b in page_contents]
         else:
-            entries = [(content, ext)]
-
-        for payload, payload_ext in entries:
-            relative = storage.save(
-                tenant_id=user.tenant_id,
-                batch_id=batch_id,
-                content=payload,
-                extension=payload_ext,
-            )
-            page = Page(
-                batch_id=batch_id,
-                page_index=next_idx,
-                image_path=relative,
-            )
-            db.add(page)
-            created.append(page)
-            next_idx += 1
+            _persist_page(content, ext)
 
     batch.page_count = next_idx
     db.commit()
@@ -185,7 +168,7 @@ async def upload_pages(
 )
 def list_pages(batch_id: int, user: CurrentUser, db: SessionDep):
     """Lista las páginas de un lote (ordenadas por page_index)."""
-    _get_batch_or_404(batch_id, user.tenant_id, db)
+    get_batch_for_tenant(batch_id, user.tenant_id, db)
     pages = db.execute(
         select(Page)
         .where(Page.batch_id == batch_id)
@@ -239,7 +222,6 @@ def delete_page(
     image_path = page.image_path
 
     db.delete(page)
-    # Actualizar page_count del lote
     batch = db.get(Batch, batch_id)
     if batch is not None:
         batch.page_count = max(0, batch.page_count - 1)
