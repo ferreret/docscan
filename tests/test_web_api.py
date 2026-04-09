@@ -374,3 +374,181 @@ class TestApplicationsCRUD:
     def test_sin_autenticacion(self, client):
         resp = client.get("/api/applications")
         assert resp.status_code == 401
+
+
+# ------------------------------------------------------------------
+# CRUD de lotes
+# ------------------------------------------------------------------
+
+
+def _create_app_and_get_id(client, headers, name: str = "AppTest") -> int:
+    """Crea una aplicación y devuelve su ID."""
+    resp = client.post("/api/applications", headers=headers, json={"name": name})
+    return resp.json()["id"]
+
+
+class TestBatchesCRUD:
+    def test_lista_vacia(self, client):
+        h = _auth_header(client)
+        resp = client.get("/api/batches", headers=h)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_crear_lote(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        resp = client.post("/api/batches", headers=h, json={
+            "application_id": app_id,
+            "folder_path": "/tmp/batch1",
+        })
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["application_id"] == app_id
+        assert data["state"] == "created"
+        assert data["folder_path"] == "/tmp/batch1"
+        assert data["tenant_id"] is not None
+        assert data["page_count"] == 0
+
+    def test_crear_lote_aplicacion_inexistente(self, client):
+        h = _auth_header(client)
+        resp = client.post("/api/batches", headers=h, json={
+            "application_id": 9999,
+        })
+        assert resp.status_code == 404
+
+    def test_listar_tras_crear(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        client.post("/api/batches", headers=h, json={"application_id": app_id})
+        client.post("/api/batches", headers=h, json={"application_id": app_id})
+        resp = client.get("/api/batches", headers=h)
+        assert len(resp.json()) == 2
+
+    def test_filtrar_por_aplicacion(self, client):
+        h = _auth_header(client)
+        app1 = _create_app_and_get_id(client, h, "A1")
+        app2 = _create_app_and_get_id(client, h, "A2")
+        client.post("/api/batches", headers=h, json={"application_id": app1})
+        client.post("/api/batches", headers=h, json={"application_id": app1})
+        client.post("/api/batches", headers=h, json={"application_id": app2})
+        resp = client.get(f"/api/batches?application_id={app1}", headers=h)
+        assert len(resp.json()) == 2
+        resp = client.get(f"/api/batches?application_id={app2}", headers=h)
+        assert len(resp.json()) == 1
+
+    def test_filtrar_por_estado(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        created = client.post(
+            "/api/batches", headers=h, json={"application_id": app_id},
+        ).json()
+        client.patch(
+            f"/api/batches/{created['id']}",
+            headers=h,
+            json={"state": "exported"},
+        )
+        client.post("/api/batches", headers=h, json={"application_id": app_id})
+        resp = client.get("/api/batches?state=exported", headers=h)
+        assert len(resp.json()) == 1
+        resp = client.get("/api/batches?state=created", headers=h)
+        assert len(resp.json()) == 1
+
+    def test_obtener_por_id(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        created = client.post(
+            "/api/batches", headers=h, json={"application_id": app_id},
+        ).json()
+        resp = client.get(f"/api/batches/{created['id']}", headers=h)
+        assert resp.status_code == 200
+        assert resp.json()["id"] == created["id"]
+
+    def test_actualizar_estado(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        created = client.post(
+            "/api/batches", headers=h, json={"application_id": app_id},
+        ).json()
+        resp = client.patch(
+            f"/api/batches/{created['id']}",
+            headers=h,
+            json={"state": "verified", "page_count": 10},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["state"] == "verified"
+        assert resp.json()["page_count"] == 10
+
+    def test_actualizar_estado_invalido(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        created = client.post(
+            "/api/batches", headers=h, json={"application_id": app_id},
+        ).json()
+        resp = client.patch(
+            f"/api/batches/{created['id']}",
+            headers=h,
+            json={"state": "inexistente"},
+        )
+        assert resp.status_code == 422
+
+    def test_eliminar(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        created = client.post(
+            "/api/batches", headers=h, json={"application_id": app_id},
+        ).json()
+        resp = client.delete(f"/api/batches/{created['id']}", headers=h)
+        assert resp.status_code == 204
+        resp = client.get(f"/api/batches/{created['id']}", headers=h)
+        assert resp.status_code == 404
+
+    def test_no_ve_lotes_otro_tenant(self, client):
+        h1 = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h1)
+        created = client.post(
+            "/api/batches", headers=h1, json={"application_id": app_id},
+        ).json()
+
+        # Segundo tenant
+        client.post("/api/auth/register", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+            "display_name": "Otro",
+            "tenant_name": "OtraCorp",
+        })
+        resp2 = client.post("/api/auth/login", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+        })
+        h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
+
+        resp = client.get("/api/batches", headers=h2)
+        assert resp.json() == []
+
+        resp = client.get(f"/api/batches/{created['id']}", headers=h2)
+        assert resp.status_code == 404
+
+    def test_no_crea_lote_en_app_de_otro_tenant(self, client):
+        h1 = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h1)
+
+        client.post("/api/auth/register", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+            "display_name": "Otro",
+            "tenant_name": "OtraCorp",
+        })
+        resp2 = client.post("/api/auth/login", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+        })
+        h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
+
+        resp = client.post("/api/batches", headers=h2, json={
+            "application_id": app_id,
+        })
+        assert resp.status_code == 404
+
+    def test_sin_autenticacion(self, client):
+        resp = client.get("/api/batches")
+        assert resp.status_code == 401
