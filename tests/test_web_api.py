@@ -25,6 +25,7 @@ from web.api.models import Tenant, User  # noqa: F401
 import web.api.database as _db_module
 from web.api.database import get_db
 from web.api.main import create_app
+from web.api.storage import FilesystemStorage, get_storage
 
 
 @pytest.fixture
@@ -64,8 +65,8 @@ def db_session(_test_engine):
 
 
 @pytest.fixture
-def client(_test_engine):
-    """TestClient con dependencia de BD sobreescrita."""
+def client(_test_engine, tmp_path):
+    """TestClient con dependencias de BD y storage sobreescritas."""
     factory = sessionmaker(bind=_test_engine)
     app = create_app()
 
@@ -73,7 +74,13 @@ def client(_test_engine):
         with factory() as session:
             yield session
 
+    storage = FilesystemStorage(tmp_path / "storage")
+
+    def _override_get_storage():
+        return storage
+
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_storage] = _override_get_storage
     with TestClient(app) as c:
         yield c
 
@@ -551,4 +558,238 @@ class TestBatchesCRUD:
 
     def test_sin_autenticacion(self, client):
         resp = client.get("/api/batches")
+        assert resp.status_code == 401
+
+
+# ------------------------------------------------------------------
+# Upload de páginas
+# ------------------------------------------------------------------
+
+
+def _make_png_bytes(width: int = 4, height: int = 4) -> bytes:
+    """Genera bytes de una imagen PNG pequeña."""
+    import io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (width, height), color=(200, 100, 50)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _make_pdf_bytes(num_pages: int = 2) -> bytes:
+    """Genera bytes de un PDF con N páginas vacías."""
+    import pymupdf
+    doc = pymupdf.open()
+    for _ in range(num_pages):
+        doc.new_page(width=200, height=200)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def _create_batch(client, headers) -> int:
+    """Crea una aplicación y un lote vacío. Devuelve batch_id."""
+    app_id = _create_app_and_get_id(client, headers)
+    resp = client.post("/api/batches", headers=headers, json={
+        "application_id": app_id,
+    })
+    return resp.json()["id"]
+
+
+class TestPagesUpload:
+    def test_subir_imagen(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        files = [("files", ("doc.png", _make_png_bytes(), "image/png"))]
+        resp = client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert len(data["created"]) == 1
+        assert data["batch_page_count"] == 1
+        assert data["created"][0]["page_index"] == 0
+        assert data["created"][0]["batch_id"] == batch_id
+
+    def test_subir_varias_imagenes(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        files = [
+            ("files", ("a.png", _make_png_bytes(), "image/png")),
+            ("files", ("b.png", _make_png_bytes(), "image/png")),
+            ("files", ("c.png", _make_png_bytes(), "image/png")),
+        ]
+        resp = client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert len(data["created"]) == 3
+        assert data["batch_page_count"] == 3
+        indices = [p["page_index"] for p in data["created"]]
+        assert indices == [0, 1, 2]
+
+    def test_subir_pdf_multipagina(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        files = [("files", ("doc.pdf", _make_pdf_bytes(num_pages=3), "application/pdf"))]
+        resp = client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert len(data["created"]) == 3
+        assert data["batch_page_count"] == 3
+
+    def test_subir_formato_no_soportado(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        files = [("files", ("doc.exe", b"binario", "application/octet-stream"))]
+        resp = client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
+        assert resp.status_code == 400
+
+    def test_subir_pdf_corrupto(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        files = [("files", ("bad.pdf", b"not a real pdf", "application/pdf"))]
+        resp = client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
+        assert resp.status_code == 400
+
+    def test_subir_fichero_vacio(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        files = [("files", ("empty.png", b"", "image/png"))]
+        resp = client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
+        assert resp.status_code == 400
+
+    def test_subida_incremental_pagina_index(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        client.post(
+            f"/api/batches/{batch_id}/pages", headers=h,
+            files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/pages", headers=h,
+            files=[("files", ("b.png", _make_png_bytes(), "image/png"))],
+        )
+        data = resp.json()
+        assert data["created"][0]["page_index"] == 1
+        assert data["batch_page_count"] == 2
+
+    def test_subir_a_lote_inexistente(self, client):
+        h = _auth_header(client)
+        files = [("files", ("x.png", _make_png_bytes(), "image/png"))]
+        resp = client.post("/api/batches/9999/pages", headers=h, files=files)
+        assert resp.status_code == 404
+
+    def test_subir_a_lote_de_otro_tenant(self, client):
+        h1 = _auth_header(client)
+        batch_id = _create_batch(client, h1)
+
+        client.post("/api/auth/register", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+            "display_name": "Otro",
+            "tenant_name": "OtraCorp",
+        })
+        resp2 = client.post("/api/auth/login", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+        })
+        h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
+
+        files = [("files", ("x.png", _make_png_bytes(), "image/png"))]
+        resp = client.post(f"/api/batches/{batch_id}/pages", headers=h2, files=files)
+        assert resp.status_code == 404
+
+
+class TestPagesRead:
+    def test_listar_paginas(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        files = [
+            ("files", ("a.png", _make_png_bytes(), "image/png")),
+            ("files", ("b.png", _make_png_bytes(), "image/png")),
+        ]
+        client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
+        resp = client.get(f"/api/batches/{batch_id}/pages", headers=h)
+        assert resp.status_code == 200
+        items = resp.json()
+        assert len(items) == 2
+        assert [p["page_index"] for p in items] == [0, 1]
+
+    def test_obtener_metadatos_pagina(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        resp = client.post(
+            f"/api/batches/{batch_id}/pages", headers=h,
+            files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
+        )
+        page_id = resp.json()["created"][0]["id"]
+        resp = client.get(
+            f"/api/batches/{batch_id}/pages/{page_id}", headers=h,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["id"] == page_id
+        assert resp.json()["image_path"] != ""
+
+    def test_descargar_imagen(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        png = _make_png_bytes()
+        resp = client.post(
+            f"/api/batches/{batch_id}/pages", headers=h,
+            files=[("files", ("a.png", png, "image/png"))],
+        )
+        page_id = resp.json()["created"][0]["id"]
+        resp = client.get(
+            f"/api/batches/{batch_id}/pages/{page_id}/image", headers=h,
+        )
+        assert resp.status_code == 200
+        # PNG magic bytes
+        assert resp.content[:8] == b"\x89PNG\r\n\x1a\n"
+        assert resp.content == png
+
+    def test_eliminar_pagina(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        resp = client.post(
+            f"/api/batches/{batch_id}/pages", headers=h,
+            files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
+        )
+        page_id = resp.json()["created"][0]["id"]
+        resp = client.delete(
+            f"/api/batches/{batch_id}/pages/{page_id}", headers=h,
+        )
+        assert resp.status_code == 204
+
+        # Lote actualiza page_count
+        batch = client.get(f"/api/batches/{batch_id}", headers=h).json()
+        assert batch["page_count"] == 0
+
+        # Ya no se puede obtener la página
+        resp = client.get(
+            f"/api/batches/{batch_id}/pages/{page_id}", headers=h,
+        )
+        assert resp.status_code == 404
+
+    def test_listar_lote_otro_tenant(self, client):
+        h1 = _auth_header(client)
+        batch_id = _create_batch(client, h1)
+        client.post(
+            f"/api/batches/{batch_id}/pages", headers=h1,
+            files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
+        )
+
+        client.post("/api/auth/register", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+            "display_name": "Otro",
+            "tenant_name": "OtraCorp",
+        })
+        resp2 = client.post("/api/auth/login", json={
+            "email": "otro@otro.com",
+            "password": "pass",
+        })
+        h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
+
+        resp = client.get(f"/api/batches/{batch_id}/pages", headers=h2)
+        assert resp.status_code == 404
+
+    def test_sin_autenticacion(self, client):
+        resp = client.get("/api/batches/1/pages")
         assert resp.status_code == 401

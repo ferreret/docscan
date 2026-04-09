@@ -71,10 +71,12 @@ def create_app() -> FastAPI:
     from web.api.auth.router import router as auth_router
     from web.api.routers.applications import router as apps_router
     from web.api.routers.batches import router as batches_router
+    from web.api.routers.pages import router as pages_router
 
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(apps_router, prefix="/api/applications", tags=["applications"])
     app.include_router(batches_router, prefix="/api/batches", tags=["batches"])
+    app.include_router(pages_router, prefix="/api", tags=["pages"])
 
     return app

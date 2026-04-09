@@ -45,6 +45,13 @@ class RedisSettings(BaseModel):
     url: str = "redis://localhost:6379/0"
 
 
+class StorageSettings(BaseModel):
+    """Almacenamiento de ficheros de páginas. Configurar via DOCSCAN_WEB_STORAGE__*."""
+
+    base_path: str = "/tmp/docscan-storage"
+    pdf_dpi: int = 200
+
+
 class WebSettings(BaseSettings):
     """Configuración global de la API web."""
 
@@ -67,6 +74,7 @@ class WebSettings(BaseSettings):
     jwt: JWTSettings = JWTSettings()
     minio: MinIOSettings = MinIOSettings()
     redis: RedisSettings = RedisSettings()
+    storage: StorageSettings = StorageSettings()
 
 
 @lru_cache
