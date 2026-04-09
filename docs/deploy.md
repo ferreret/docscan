@@ -16,15 +16,23 @@ máquina de desarrollo con Docker.
 # 1. Crear el .env en la raíz del proyecto a partir del template
 cp web/.env.example .env
 
-# 2. Generar una JWT secret real y escribirla en .env
-sed -i "s/replace-me-with-openssl-rand-hex-32/$(openssl rand -hex 32)/" .env
+# 2. Editar .env y REEMPLAZAR todos los placeholders CHANGE_ME_*
+#    por valores reales. Mínimo:
+#      - POSTGRES_PASSWORD     → cualquier cadena fuerte
+#      - MINIO_ROOT_PASSWORD   → mínimo 8 caracteres
+#      - DOCSCAN_WEB_MINIO__SECRET_KEY → idem (debe coincidir con MINIO_ROOT_PASSWORD)
+#      - DOCSCAN_WEB_JWT__SECRET_KEY   → openssl rand -hex 32
+#
+#    Ejemplo de generación automática de la JWT secret:
+#    sed -i "s/CHANGE_ME_generate_with_openssl_rand_hex_32/$(openssl rand -hex 32)/" .env
 
-# 3. Ajustar DOCSCAN_WEB_DATABASE__URL para apuntar al servicio interno
-#    (edita .env y comenta la línea localhost, descomenta la de db)
-
-# 4. Arrancar todo
+# 3. Arrancar todo
 docker compose up --build
 ```
+
+Si alguna variable obligatoria falta, `docker compose` **se niega a
+arrancar** con un mensaje claro: no hay valores por defecto predecibles
+en el stack.
 
 En el primer arranque se construye la imagen de la API (~3-5 minutos), se
 crean los volúmenes persistentes y se aplican las migraciones Alembic
@@ -33,13 +41,13 @@ lista.
 
 ## Servicios expuestos
 
-| Servicio | URL | Credenciales por defecto |
+| Servicio | URL | Credenciales |
 |---|---|---|
 | API (Swagger) | http://localhost:8001/docs | n/a |
 | API (health) | http://localhost:8001/health | n/a |
-| MinIO consola | http://localhost:9001 | `docscan` / `docscan123` |
-| MinIO S3 API | http://localhost:9000 | `docscan` / `docscan123` |
-| PostgreSQL | `localhost:5432` | `docscan` / `docscan` |
+| MinIO consola | http://localhost:9001 | Las del `.env` (`MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD`) |
+| MinIO S3 API | http://localhost:9000 | idem |
+| PostgreSQL | `localhost:5432` | Las del `.env` (`POSTGRES_USER` / `POSTGRES_PASSWORD`) |
 | Redis | `localhost:6379` | (sin auth) |
 
 ## Verificación con curl
@@ -50,15 +58,18 @@ API=http://localhost:8001
 # Health check
 curl -s $API/health
 
-# Registrar usuario + crear tenant
+# Registrar usuario + crear tenant (sustituye EMAIL y PASSWORD)
+EMAIL="admin@example.com"
+PASSWORD="<define-una-password-fuerte>"
+
 curl -s -X POST $API/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@test.com","password":"admin123","display_name":"Admin","tenant_name":"TestCorp"}'
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"display_name\":\"Admin\",\"tenant_name\":\"TestCorp\"}"
 
 # Login y capturar token
 TOKEN=$(curl -s -X POST $API/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@test.com","password":"admin123"}' | jq -r .access_token)
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | jq -r .access_token)
 
 # Listar aplicaciones (vacío)
 curl -s $API/api/applications -H "Authorization: Bearer $TOKEN"

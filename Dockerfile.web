@@ -50,11 +50,11 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 COPY docker-bootstrap-db.py /app/docker-bootstrap-db.py
 
 # Usuario no-root para ejecución. El directorio /data/storage se crea aquí
-# para que el mount point del volumen herede los permisos del usuario docscan.
-RUN useradd --create-home --uid 1000 docscan && \
+# para que el mount point del volumen herede los permisos del usuario no-root.
+RUN useradd --create-home --uid 1000 --user-group docscan && \
     mkdir -p /data/storage && \
-    chown -R docscan:docscan /app /data
-USER docscan
+    chown -R 1000:1000 /app /data
+USER 1000:1000
 
 EXPOSE 8001
 
