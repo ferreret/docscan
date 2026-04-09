@@ -65,7 +65,13 @@ def db_session(_test_engine):
 
 
 @pytest.fixture
-def client(_test_engine, tmp_path):
+def storage_dir(tmp_path):
+    """Directorio base para el storage del test."""
+    return tmp_path / "storage"
+
+
+@pytest.fixture
+def client(_test_engine, storage_dir):
     """TestClient con dependencias de BD y storage sobreescritas."""
     factory = sessionmaker(bind=_test_engine)
     app = create_app()
@@ -74,7 +80,7 @@ def client(_test_engine, tmp_path):
         with factory() as session:
             yield session
 
-    storage = FilesystemStorage(tmp_path / "storage")
+    storage = FilesystemStorage(storage_dir)
 
     def _override_get_storage():
         return storage
@@ -793,3 +799,55 @@ class TestPagesRead:
     def test_sin_autenticacion(self, client):
         resp = client.get("/api/batches/1/pages")
         assert resp.status_code == 401
+
+
+class TestPagesStorageCleanup:
+    """Al borrar batch/aplicación, los ficheros en disco se eliminan."""
+
+    def _count_files(self, directory) -> int:
+        if not directory.exists():
+            return 0
+        return sum(1 for p in directory.rglob("*") if p.is_file())
+
+    def test_delete_batch_limpia_ficheros(self, client, storage_dir):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        client.post(
+            f"/api/batches/{batch_id}/pages", headers=h,
+            files=[
+                ("files", ("a.png", _make_png_bytes(), "image/png")),
+                ("files", ("b.png", _make_png_bytes(), "image/png")),
+            ],
+        )
+        assert self._count_files(storage_dir) == 2
+
+        resp = client.delete(f"/api/batches/{batch_id}", headers=h)
+        assert resp.status_code == 204
+        assert self._count_files(storage_dir) == 0
+
+    def test_delete_application_limpia_ficheros(self, client, storage_dir):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        batch1 = client.post(
+            "/api/batches", headers=h, json={"application_id": app_id},
+        ).json()["id"]
+        batch2 = client.post(
+            "/api/batches", headers=h, json={"application_id": app_id},
+        ).json()["id"]
+        client.post(
+            f"/api/batches/{batch1}/pages", headers=h,
+            files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
+        )
+        client.post(
+            f"/api/batches/{batch2}/pages", headers=h,
+            files=[
+                ("files", ("b.png", _make_png_bytes(), "image/png")),
+                ("files", ("c.pdf", _make_pdf_bytes(num_pages=2), "application/pdf")),
+            ],
+        )
+        # 1 + 1 + 2 = 4 ficheros
+        assert self._count_files(storage_dir) == 4
+
+        resp = client.delete(f"/api/applications/{app_id}", headers=h)
+        assert resp.status_code == 204
+        assert self._count_files(storage_dir) == 0

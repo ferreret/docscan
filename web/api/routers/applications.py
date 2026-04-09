@@ -15,6 +15,7 @@ from web.api.schemas.application import (
     ApplicationResponse,
     ApplicationUpdate,
 )
+from web.api.storage import StorageDep
 
 router = APIRouter()
 
@@ -111,8 +112,21 @@ def update_application(
 
 
 @router.delete("/{app_id}", status_code=204)
-def delete_application(app_id: int, user: CurrentUser, db: SessionDep):
-    """Elimina una aplicación y todos sus lotes asociados."""
+def delete_application(
+    app_id: int,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+):
+    """Elimina una aplicación, sus lotes, páginas y ficheros en storage."""
     app = _get_app_or_404(app_id, user.tenant_id, db)
+    image_paths = [
+        page.image_path
+        for batch in app.batches
+        for page in batch.pages
+        if page.image_path
+    ]
     db.delete(app)
     db.commit()
+    for path in image_paths:
+        storage.delete(path)

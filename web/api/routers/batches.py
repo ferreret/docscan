@@ -17,6 +17,7 @@ from web.api.schemas.batch import (
     BatchResponse,
     BatchUpdate,
 )
+from web.api.storage import StorageDep
 
 router = APIRouter()
 
@@ -95,8 +96,16 @@ def update_batch(
 
 
 @router.delete("/{batch_id}", status_code=204)
-def delete_batch(batch_id: int, user: CurrentUser, db: SessionDep):
-    """Elimina un lote y todas sus páginas asociadas."""
+def delete_batch(
+    batch_id: int,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+):
+    """Elimina un lote, sus páginas y los ficheros asociados en storage."""
     batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+    image_paths = [p.image_path for p in batch.pages if p.image_path]
     db.delete(batch)
     db.commit()
+    for path in image_paths:
+        storage.delete(path)
