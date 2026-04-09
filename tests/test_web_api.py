@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.database import Base
@@ -110,12 +110,15 @@ class TestHealth:
 
 class TestRegister:
     def test_registro_exitoso(self, client):
-        resp = client.post("/api/auth/register", json={
-            "email": "admin@acme.com",
-            "password": "secreto123",
-            "display_name": "Admin ACME",
-            "tenant_name": "ACME Corp",
-        })
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                "email": "admin@acme.com",
+                "password": "secreto123",
+                "display_name": "Admin ACME",
+                "tenant_name": "ACME Corp",
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["email"] == "admin@acme.com"
@@ -131,10 +134,13 @@ class TestRegister:
             "tenant_name": "ACME",
         }
         client.post("/api/auth/register", json=payload)
-        resp = client.post("/api/auth/register", json={
-            **payload,
-            "tenant_name": "Otro",
-        })
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                **payload,
+                "tenant_name": "Otro",
+            },
+        )
         assert resp.status_code == 409
 
     def test_registro_tenant_duplicado(self, client):
@@ -145,12 +151,15 @@ class TestRegister:
             "tenant_name": "ACME",
         }
         client.post("/api/auth/register", json=payload)
-        resp = client.post("/api/auth/register", json={
-            "email": "otro@otro.com",
-            "password": "secreto123",
-            "display_name": "Otro",
-            "tenant_name": "ACME",
-        })
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                "email": "otro@otro.com",
+                "password": "secreto123",
+                "display_name": "Otro",
+                "tenant_name": "ACME",
+            },
+        )
         assert resp.status_code == 409
 
 
@@ -161,19 +170,25 @@ class TestRegister:
 
 class TestLogin:
     def _register(self, client):
-        client.post("/api/auth/register", json={
-            "email": "user@test.com",
-            "password": "pass123",
-            "display_name": "Test User",
-            "tenant_name": "TestCo",
-        })
+        client.post(
+            "/api/auth/register",
+            json={
+                "email": "user@test.com",
+                "password": "pass123",
+                "display_name": "Test User",
+                "tenant_name": "TestCo",
+            },
+        )
 
     def test_login_exitoso(self, client):
         self._register(client)
-        resp = client.post("/api/auth/login", json={
-            "email": "user@test.com",
-            "password": "pass123",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "email": "user@test.com",
+                "password": "pass123",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "access_token" in data
@@ -181,17 +196,23 @@ class TestLogin:
 
     def test_login_password_incorrecta(self, client):
         self._register(client)
-        resp = client.post("/api/auth/login", json={
-            "email": "user@test.com",
-            "password": "wrongpass",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "email": "user@test.com",
+                "password": "wrongpass",
+            },
+        )
         assert resp.status_code == 401
 
     def test_login_email_no_existe(self, client):
-        resp = client.post("/api/auth/login", json={
-            "email": "noexiste@test.com",
-            "password": "pass123",
-        })
+        resp = client.post(
+            "/api/auth/login",
+            json={
+                "email": "noexiste@test.com",
+                "password": "pass123",
+            },
+        )
         assert resp.status_code == 401
 
 
@@ -230,7 +251,7 @@ class TestProfile:
 class TestTenantId:
     def test_application_acepta_tenant_id_null(self, db_session):
         """El desktop crea aplicaciones sin tenant_id (None)."""
-        from app.models.application import Application
+
         app = Application(name="TestApp", tenant_id=None)
         db_session.add(app)
         db_session.commit()
@@ -240,7 +261,7 @@ class TestTenantId:
 
     def test_application_acepta_tenant_id(self, db_session):
         """La web crea aplicaciones con tenant_id."""
-        from app.models.application import Application
+
         tenant = Tenant(name="TestTenant", slug="test-tenant")
         db_session.add(tenant)
         db_session.flush()
@@ -252,8 +273,7 @@ class TestTenantId:
 
     def test_batch_acepta_tenant_id_null(self, db_session):
         """El desktop crea lotes sin tenant_id."""
-        from app.models.application import Application
-        from app.models.batch import Batch
+
         app = Application(name="App1")
         db_session.add(app)
         db_session.flush()
@@ -277,16 +297,22 @@ def _auth_header(
     tenant_name: str = "ACME",
 ) -> dict:
     """Registra usuario y devuelve headers con JWT."""
-    client.post("/api/auth/register", json={
-        "email": email,
-        "password": password,
-        "display_name": display_name,
-        "tenant_name": tenant_name,
-    })
-    resp = client.post("/api/auth/login", json={
-        "email": email,
-        "password": password,
-    })
+    client.post(
+        "/api/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "display_name": display_name,
+            "tenant_name": tenant_name,
+        },
+    )
+    resp = client.post(
+        "/api/auth/login",
+        json={
+            "email": email,
+            "password": password,
+        },
+    )
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
@@ -300,11 +326,15 @@ class TestApplicationsCRUD:
 
     def test_crear_aplicacion(self, client):
         h = _auth_header(client)
-        resp = client.post("/api/applications", headers=h, json={
-            "name": "Facturas",
-            "description": "Proceso de facturas",
-            "output_format": "pdf",
-        })
+        resp = client.post(
+            "/api/applications",
+            headers=h,
+            json={
+                "name": "Facturas",
+                "description": "Proceso de facturas",
+                "output_format": "pdf",
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["name"] == "Facturas"
@@ -321,18 +351,26 @@ class TestApplicationsCRUD:
 
     def test_obtener_por_id(self, client):
         h = _auth_header(client)
-        created = client.post("/api/applications", headers=h, json={
-            "name": "MiApp",
-        }).json()
+        created = client.post(
+            "/api/applications",
+            headers=h,
+            json={
+                "name": "MiApp",
+            },
+        ).json()
         resp = client.get(f"/api/applications/{created['id']}", headers=h)
         assert resp.status_code == 200
         assert resp.json()["name"] == "MiApp"
 
     def test_actualizar(self, client):
         h = _auth_header(client)
-        created = client.post("/api/applications", headers=h, json={
-            "name": "Original",
-        }).json()
+        created = client.post(
+            "/api/applications",
+            headers=h,
+            json={
+                "name": "Original",
+            },
+        ).json()
         resp = client.patch(
             f"/api/applications/{created['id']}",
             headers=h,
@@ -344,9 +382,13 @@ class TestApplicationsCRUD:
 
     def test_eliminar(self, client):
         h = _auth_header(client)
-        created = client.post("/api/applications", headers=h, json={
-            "name": "Borrame",
-        }).json()
+        created = client.post(
+            "/api/applications",
+            headers=h,
+            json={
+                "name": "Borrame",
+            },
+        ).json()
         resp = client.delete(f"/api/applications/{created['id']}", headers=h)
         assert resp.status_code == 204
         resp = client.get(f"/api/applications/{created['id']}", headers=h)
@@ -360,21 +402,31 @@ class TestApplicationsCRUD:
 
     def test_no_ve_apps_otro_tenant(self, client):
         h1 = _auth_header(client)
-        created = client.post("/api/applications", headers=h1, json={
-            "name": "SecretApp",
-        }).json()
+        created = client.post(
+            "/api/applications",
+            headers=h1,
+            json={
+                "name": "SecretApp",
+            },
+        ).json()
 
         # Registrar segundo tenant
-        client.post("/api/auth/register", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-            "display_name": "Otro",
-            "tenant_name": "OtraCorp",
-        })
-        resp2 = client.post("/api/auth/login", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-        })
+        client.post(
+            "/api/auth/register",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+                "display_name": "Otro",
+                "tenant_name": "OtraCorp",
+            },
+        )
+        resp2 = client.post(
+            "/api/auth/login",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+            },
+        )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
 
         # Tenant 2 no ve las apps de tenant 1
@@ -410,10 +462,14 @@ class TestBatchesCRUD:
     def test_crear_lote(self, client):
         h = _auth_header(client)
         app_id = _create_app_and_get_id(client, h)
-        resp = client.post("/api/batches", headers=h, json={
-            "application_id": app_id,
-            "folder_path": "/tmp/batch1",
-        })
+        resp = client.post(
+            "/api/batches",
+            headers=h,
+            json={
+                "application_id": app_id,
+                "folder_path": "/tmp/batch1",
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["application_id"] == app_id
@@ -424,9 +480,13 @@ class TestBatchesCRUD:
 
     def test_crear_lote_aplicacion_inexistente(self, client):
         h = _auth_header(client)
-        resp = client.post("/api/batches", headers=h, json={
-            "application_id": 9999,
-        })
+        resp = client.post(
+            "/api/batches",
+            headers=h,
+            json={
+                "application_id": 9999,
+            },
+        )
         assert resp.status_code == 404
 
     def test_listar_tras_crear(self, client):
@@ -453,7 +513,9 @@ class TestBatchesCRUD:
         h = _auth_header(client)
         app_id = _create_app_and_get_id(client, h)
         created = client.post(
-            "/api/batches", headers=h, json={"application_id": app_id},
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
         ).json()
         client.patch(
             f"/api/batches/{created['id']}",
@@ -470,7 +532,9 @@ class TestBatchesCRUD:
         h = _auth_header(client)
         app_id = _create_app_and_get_id(client, h)
         created = client.post(
-            "/api/batches", headers=h, json={"application_id": app_id},
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
         ).json()
         resp = client.get(f"/api/batches/{created['id']}", headers=h)
         assert resp.status_code == 200
@@ -480,7 +544,9 @@ class TestBatchesCRUD:
         h = _auth_header(client)
         app_id = _create_app_and_get_id(client, h)
         created = client.post(
-            "/api/batches", headers=h, json={"application_id": app_id},
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
         ).json()
         resp = client.patch(
             f"/api/batches/{created['id']}",
@@ -495,7 +561,9 @@ class TestBatchesCRUD:
         h = _auth_header(client)
         app_id = _create_app_and_get_id(client, h)
         created = client.post(
-            "/api/batches", headers=h, json={"application_id": app_id},
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
         ).json()
         resp = client.patch(
             f"/api/batches/{created['id']}",
@@ -508,7 +576,9 @@ class TestBatchesCRUD:
         h = _auth_header(client)
         app_id = _create_app_and_get_id(client, h)
         created = client.post(
-            "/api/batches", headers=h, json={"application_id": app_id},
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
         ).json()
         resp = client.delete(f"/api/batches/{created['id']}", headers=h)
         assert resp.status_code == 204
@@ -519,20 +589,28 @@ class TestBatchesCRUD:
         h1 = _auth_header(client)
         app_id = _create_app_and_get_id(client, h1)
         created = client.post(
-            "/api/batches", headers=h1, json={"application_id": app_id},
+            "/api/batches",
+            headers=h1,
+            json={"application_id": app_id},
         ).json()
 
         # Segundo tenant
-        client.post("/api/auth/register", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-            "display_name": "Otro",
-            "tenant_name": "OtraCorp",
-        })
-        resp2 = client.post("/api/auth/login", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-        })
+        client.post(
+            "/api/auth/register",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+                "display_name": "Otro",
+                "tenant_name": "OtraCorp",
+            },
+        )
+        resp2 = client.post(
+            "/api/auth/login",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+            },
+        )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
 
         resp = client.get("/api/batches", headers=h2)
@@ -545,21 +623,31 @@ class TestBatchesCRUD:
         h1 = _auth_header(client)
         app_id = _create_app_and_get_id(client, h1)
 
-        client.post("/api/auth/register", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-            "display_name": "Otro",
-            "tenant_name": "OtraCorp",
-        })
-        resp2 = client.post("/api/auth/login", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-        })
+        client.post(
+            "/api/auth/register",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+                "display_name": "Otro",
+                "tenant_name": "OtraCorp",
+            },
+        )
+        resp2 = client.post(
+            "/api/auth/login",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+            },
+        )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
 
-        resp = client.post("/api/batches", headers=h2, json={
-            "application_id": app_id,
-        })
+        resp = client.post(
+            "/api/batches",
+            headers=h2,
+            json={
+                "application_id": app_id,
+            },
+        )
         assert resp.status_code == 404
 
     def test_sin_autenticacion(self, client):
@@ -576,6 +664,7 @@ def _make_png_bytes(width: int = 4, height: int = 4) -> bytes:
     """Genera bytes de una imagen PNG pequeña."""
     import io
     from PIL import Image
+
     buf = io.BytesIO()
     Image.new("RGB", (width, height), color=(200, 100, 50)).save(buf, format="PNG")
     return buf.getvalue()
@@ -584,6 +673,7 @@ def _make_png_bytes(width: int = 4, height: int = 4) -> bytes:
 def _make_pdf_bytes(num_pages: int = 2) -> bytes:
     """Genera bytes de un PDF con N páginas vacías."""
     import pymupdf
+
     doc = pymupdf.open()
     for _ in range(num_pages):
         doc.new_page(width=200, height=200)
@@ -595,9 +685,13 @@ def _make_pdf_bytes(num_pages: int = 2) -> bytes:
 def _create_batch(client, headers) -> int:
     """Crea una aplicación y un lote vacío. Devuelve batch_id."""
     app_id = _create_app_and_get_id(client, headers)
-    resp = client.post("/api/batches", headers=headers, json={
-        "application_id": app_id,
-    })
+    resp = client.post(
+        "/api/batches",
+        headers=headers,
+        json={
+            "application_id": app_id,
+        },
+    )
     return resp.json()["id"]
 
 
@@ -633,7 +727,9 @@ class TestPagesUpload:
     def test_subir_pdf_multipagina(self, client):
         h = _auth_header(client)
         batch_id = _create_batch(client, h)
-        files = [("files", ("doc.pdf", _make_pdf_bytes(num_pages=3), "application/pdf"))]
+        files = [
+            ("files", ("doc.pdf", _make_pdf_bytes(num_pages=3), "application/pdf"))
+        ]
         resp = client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
         assert resp.status_code == 201
         data = resp.json()
@@ -665,11 +761,13 @@ class TestPagesUpload:
         h = _auth_header(client)
         batch_id = _create_batch(client, h)
         client.post(
-            f"/api/batches/{batch_id}/pages", headers=h,
+            f"/api/batches/{batch_id}/pages",
+            headers=h,
             files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
         )
         resp = client.post(
-            f"/api/batches/{batch_id}/pages", headers=h,
+            f"/api/batches/{batch_id}/pages",
+            headers=h,
             files=[("files", ("b.png", _make_png_bytes(), "image/png"))],
         )
         data = resp.json()
@@ -686,16 +784,22 @@ class TestPagesUpload:
         h1 = _auth_header(client)
         batch_id = _create_batch(client, h1)
 
-        client.post("/api/auth/register", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-            "display_name": "Otro",
-            "tenant_name": "OtraCorp",
-        })
-        resp2 = client.post("/api/auth/login", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-        })
+        client.post(
+            "/api/auth/register",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+                "display_name": "Otro",
+                "tenant_name": "OtraCorp",
+            },
+        )
+        resp2 = client.post(
+            "/api/auth/login",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+            },
+        )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
 
         files = [("files", ("x.png", _make_png_bytes(), "image/png"))]
@@ -722,12 +826,14 @@ class TestPagesRead:
         h = _auth_header(client)
         batch_id = _create_batch(client, h)
         resp = client.post(
-            f"/api/batches/{batch_id}/pages", headers=h,
+            f"/api/batches/{batch_id}/pages",
+            headers=h,
             files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
         )
         page_id = resp.json()["created"][0]["id"]
         resp = client.get(
-            f"/api/batches/{batch_id}/pages/{page_id}", headers=h,
+            f"/api/batches/{batch_id}/pages/{page_id}",
+            headers=h,
         )
         assert resp.status_code == 200
         assert resp.json()["id"] == page_id
@@ -738,12 +844,14 @@ class TestPagesRead:
         batch_id = _create_batch(client, h)
         png = _make_png_bytes()
         resp = client.post(
-            f"/api/batches/{batch_id}/pages", headers=h,
+            f"/api/batches/{batch_id}/pages",
+            headers=h,
             files=[("files", ("a.png", png, "image/png"))],
         )
         page_id = resp.json()["created"][0]["id"]
         resp = client.get(
-            f"/api/batches/{batch_id}/pages/{page_id}/image", headers=h,
+            f"/api/batches/{batch_id}/pages/{page_id}/image",
+            headers=h,
         )
         assert resp.status_code == 200
         # PNG magic bytes
@@ -754,12 +862,14 @@ class TestPagesRead:
         h = _auth_header(client)
         batch_id = _create_batch(client, h)
         resp = client.post(
-            f"/api/batches/{batch_id}/pages", headers=h,
+            f"/api/batches/{batch_id}/pages",
+            headers=h,
             files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
         )
         page_id = resp.json()["created"][0]["id"]
         resp = client.delete(
-            f"/api/batches/{batch_id}/pages/{page_id}", headers=h,
+            f"/api/batches/{batch_id}/pages/{page_id}",
+            headers=h,
         )
         assert resp.status_code == 204
 
@@ -769,7 +879,8 @@ class TestPagesRead:
 
         # Ya no se puede obtener la página
         resp = client.get(
-            f"/api/batches/{batch_id}/pages/{page_id}", headers=h,
+            f"/api/batches/{batch_id}/pages/{page_id}",
+            headers=h,
         )
         assert resp.status_code == 404
 
@@ -777,20 +888,27 @@ class TestPagesRead:
         h1 = _auth_header(client)
         batch_id = _create_batch(client, h1)
         client.post(
-            f"/api/batches/{batch_id}/pages", headers=h1,
+            f"/api/batches/{batch_id}/pages",
+            headers=h1,
             files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
         )
 
-        client.post("/api/auth/register", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-            "display_name": "Otro",
-            "tenant_name": "OtraCorp",
-        })
-        resp2 = client.post("/api/auth/login", json={
-            "email": "otro@otro.com",
-            "password": "pass",
-        })
+        client.post(
+            "/api/auth/register",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+                "display_name": "Otro",
+                "tenant_name": "OtraCorp",
+            },
+        )
+        resp2 = client.post(
+            "/api/auth/login",
+            json={
+                "email": "otro@otro.com",
+                "password": "pass",
+            },
+        )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
 
         resp = client.get(f"/api/batches/{batch_id}/pages", headers=h2)
@@ -813,7 +931,8 @@ class TestPagesStorageCleanup:
         h = _auth_header(client)
         batch_id = _create_batch(client, h)
         client.post(
-            f"/api/batches/{batch_id}/pages", headers=h,
+            f"/api/batches/{batch_id}/pages",
+            headers=h,
             files=[
                 ("files", ("a.png", _make_png_bytes(), "image/png")),
                 ("files", ("b.png", _make_png_bytes(), "image/png")),
@@ -829,17 +948,23 @@ class TestPagesStorageCleanup:
         h = _auth_header(client)
         app_id = _create_app_and_get_id(client, h)
         batch1 = client.post(
-            "/api/batches", headers=h, json={"application_id": app_id},
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
         ).json()["id"]
         batch2 = client.post(
-            "/api/batches", headers=h, json={"application_id": app_id},
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
         ).json()["id"]
         client.post(
-            f"/api/batches/{batch1}/pages", headers=h,
+            f"/api/batches/{batch1}/pages",
+            headers=h,
             files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
         )
         client.post(
-            f"/api/batches/{batch2}/pages", headers=h,
+            f"/api/batches/{batch2}/pages",
+            headers=h,
             files=[
                 ("files", ("b.png", _make_png_bytes(), "image/png")),
                 ("files", ("c.pdf", _make_pdf_bytes(num_pages=2), "application/pdf")),
@@ -851,3 +976,170 @@ class TestPagesStorageCleanup:
         resp = client.delete(f"/api/applications/{app_id}", headers=h)
         assert resp.status_code == 204
         assert self._count_files(storage_dir) == 0
+
+
+# ------------------------------------------------------------------
+# Pipeline execution (background task)
+# ------------------------------------------------------------------
+
+
+def _create_app_with_pipeline(client, headers, pipeline_json: str) -> int:
+    """Crea una aplicación con un pipeline JSON específico."""
+    resp = client.post(
+        "/api/applications",
+        headers=headers,
+        json={
+            "name": f"PipelineApp-{pipeline_json[:10]}",
+            "pipeline_json": pipeline_json,
+        },
+    )
+    return resp.json()["id"]
+
+
+def _create_batch_with_page(client, headers, app_id: int) -> tuple[int, int]:
+    """Crea un lote en `app_id` y le sube una página PNG. Devuelve (batch_id, page_id)."""
+    batch_id = client.post(
+        "/api/batches",
+        headers=headers,
+        json={"application_id": app_id},
+    ).json()["id"]
+    upload = client.post(
+        f"/api/batches/{batch_id}/pages",
+        headers=headers,
+        files=[("files", ("p.png", _make_png_bytes(width=20, height=20), "image/png"))],
+    ).json()
+    return batch_id, upload["created"][0]["id"]
+
+
+# Pipeline JSON con un script que escribe en page.fields y page.ocr_text
+_SCRIPT_PIPELINE = """[
+  {
+    "id": "s1",
+    "type": "script",
+    "enabled": true,
+    "label": "test",
+    "entry_point": "main",
+    "script": "def main(app, batch, page, pipeline):\\n    page.fields['marca'] = 'web'\\n    page.ocr_text = 'fake ocr'\\n"
+  }
+]"""
+
+# Pipeline JSON con un script que marca needs_review
+_REVIEW_PIPELINE = """[
+  {
+    "id": "rev",
+    "type": "script",
+    "enabled": true,
+    "label": "review",
+    "entry_point": "main",
+    "script": "def main(app, batch, page, pipeline):\\n    page.flags.needs_review = True\\n    page.flags.review_reason = 'forced'\\n"
+  }
+]"""
+
+
+class TestPipelineRun:
+    def test_run_pipeline_vacio_marca_lote_como_read(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, h, "[]")
+        batch_id, _ = _create_batch_with_page(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/run", headers=h)
+        assert resp.status_code == 202
+
+        # El BackgroundTask de FastAPI ya corrió bajo TestClient
+        batch = client.get(f"/api/batches/{batch_id}", headers=h).json()
+        assert batch["state"] == "read"
+        assert batch["page_count"] == 1
+
+    def test_run_pipeline_script_persiste_resultados(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, h, _SCRIPT_PIPELINE)
+        batch_id, page_id = _create_batch_with_page(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/run", headers=h)
+        assert resp.status_code == 202
+
+        batch = client.get(f"/api/batches/{batch_id}", headers=h).json()
+        assert batch["state"] == "read"
+
+        page = client.get(
+            f"/api/batches/{batch_id}/pages/{page_id}",
+            headers=h,
+        ).json()
+        assert page["pipeline_processed"] is True
+        assert page["ocr_text"] == "fake ocr"
+        assert "marca" in page["index_fields_json"]
+        assert "web" in page["index_fields_json"]
+
+    def test_run_pipeline_script_marca_revision(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, h, _REVIEW_PIPELINE)
+        batch_id, page_id = _create_batch_with_page(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/run", headers=h)
+        assert resp.status_code == 202
+
+        page = client.get(
+            f"/api/batches/{batch_id}/pages/{page_id}",
+            headers=h,
+        ).json()
+        assert page["needs_review"] is True
+        assert page["review_reason"] == "forced"
+
+    def test_run_lote_vacio_rechazado(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, h, "[]")
+        batch_id = client.post(
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
+        ).json()["id"]
+        resp = client.post(f"/api/batches/{batch_id}/run", headers=h)
+        assert resp.status_code == 409
+
+    def test_run_lote_inexistente(self, client):
+        h = _auth_header(client)
+        resp = client.post("/api/batches/9999/run", headers=h)
+        assert resp.status_code == 404
+
+    def test_run_lote_otro_tenant(self, client):
+        h1 = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, h1, "[]")
+        batch_id, _ = _create_batch_with_page(client, h1, app_id)
+
+        client.post(
+            "/api/auth/register",
+            json={
+                "email": "intruso@x.com",
+                "password": "p",
+                "display_name": "I",
+                "tenant_name": "OtraCorpRun",
+            },
+        )
+        token = client.post(
+            "/api/auth/login",
+            json={
+                "email": "intruso@x.com",
+                "password": "p",
+            },
+        ).json()["access_token"]
+        h2 = {"Authorization": f"Bearer {token}"}
+
+        resp = client.post(f"/api/batches/{batch_id}/run", headers=h2)
+        assert resp.status_code == 404
+
+    def test_run_pipeline_invalido_marca_error(self, client):
+        h = _auth_header(client)
+        # Pipeline JSON sintácticamente válido pero con tipo desconocido
+        bad_pipeline = '[{"id":"x","type":"unknown_type","enabled":true}]'
+        app_id = _create_app_with_pipeline(client, h, bad_pipeline)
+        batch_id, _ = _create_batch_with_page(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/run", headers=h)
+        assert resp.status_code == 202
+
+        batch = client.get(f"/api/batches/{batch_id}", headers=h).json()
+        assert batch["state"] == "error_read"
+
+    def test_run_sin_autenticacion(self, client):
+        resp = client.post("/api/batches/1/run")
+        assert resp.status_code == 401

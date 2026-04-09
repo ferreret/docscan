@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,12 +18,15 @@ from web.api.schemas.batch import (
     BatchUpdate,
 )
 from web.api.storage import StorageDep
+from web.api.tasks.pipeline_runner import run_pipeline_for_batch
 
 router = APIRouter()
 
 
 def _assert_application_in_tenant(
-    application_id: int, tenant_id: int, db: Session,
+    application_id: int,
+    tenant_id: int,
+    db: Session,
 ) -> None:
     """Verifica que la aplicación pertenece al tenant, si no 404."""
     app = db.execute(
@@ -82,7 +85,10 @@ def get_batch(batch_id: int, user: CurrentUser, db: SessionDep):
 
 @router.patch("/{batch_id}", response_model=BatchResponse)
 def update_batch(
-    batch_id: int, data: BatchUpdate, user: CurrentUser, db: SessionDep,
+    batch_id: int,
+    data: BatchUpdate,
+    user: CurrentUser,
+    db: SessionDep,
 ):
     """Actualiza un lote existente (estado, contadores, metadatos)."""
     batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
@@ -109,3 +115,33 @@ def delete_batch(
     db.commit()
     for path in image_paths:
         storage.delete(path)
+
+
+@router.post("/{batch_id}/run", response_model=BatchResponse, status_code=202)
+def run_batch_pipeline(
+    batch_id: int,
+    background_tasks: BackgroundTasks,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+):
+    """Dispara la ejecución del pipeline sobre todas las páginas del lote.
+
+    Rechaza si el lote no tiene páginas. Delega la ejecución real a un
+    BackgroundTask de FastAPI; el lote queda en su estado actual hasta que
+    el background task lo actualiza a ``read`` o ``error_read``.
+    """
+    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+
+    if batch.page_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El lote no tiene páginas para procesar",
+        )
+
+    background_tasks.add_task(
+        run_pipeline_for_batch,
+        batch_id=batch.id,
+        storage=storage,
+    )
+    return batch
