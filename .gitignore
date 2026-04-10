@@ -27,6 +27,9 @@ secrets.enc
 .DS_Store
 Thumbs.db
 
+# Node.js
+node_modules/
+
 # Build / dist
 dist/
 build/*
