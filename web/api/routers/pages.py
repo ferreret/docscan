@@ -7,7 +7,7 @@ from collections.abc import Iterator
 
 import pymupdf
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -31,10 +31,21 @@ router = APIRouter()
 _SINGLE_IMAGE_EXTS = frozenset({"jpg", "jpeg", "png", "bmp", "tif", "tiff"})
 _PDF_EXTS = frozenset({"pdf"})
 _ALL_EXTS = _SINGLE_IMAGE_EXTS | _PDF_EXTS
+_MEDIA_TYPES: dict[str, str] = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "bmp": "image/bmp",
+    "tif": "image/tiff",
+    "tiff": "image/tiff",
+}
 
 
 def _get_page_in_batch_or_404(
-    batch_id: int, page_id: int, tenant_id: int, db: Session,
+    batch_id: int,
+    page_id: int,
+    tenant_id: int,
+    db: Session,
 ) -> Page:
     """Obtiene una página dentro de un lote del tenant, o lanza 404."""
     get_batch_for_tenant(batch_id, tenant_id, db)
@@ -139,7 +150,8 @@ async def upload_pages(
         if ext in _PDF_EXTS:
             try:
                 for png_bytes in _iter_pdf_pages_as_png(
-                    content, settings.storage.pdf_dpi,
+                    content,
+                    settings.storage.pdf_dpi,
                 ):
                     _persist_page(png_bytes, "png")
             except Exception as e:
@@ -169,11 +181,13 @@ async def upload_pages(
 def list_pages(batch_id: int, user: CurrentUser, db: SessionDep):
     """Lista las páginas de un lote (ordenadas por page_index)."""
     get_batch_for_tenant(batch_id, user.tenant_id, db)
-    pages = db.execute(
-        select(Page)
-        .where(Page.batch_id == batch_id)
-        .order_by(Page.page_index)
-    ).scalars().all()
+    pages = (
+        db.execute(
+            select(Page).where(Page.batch_id == batch_id).order_by(Page.page_index)
+        )
+        .scalars()
+        .all()
+    )
     return pages
 
 
@@ -182,7 +196,10 @@ def list_pages(batch_id: int, user: CurrentUser, db: SessionDep):
     response_model=PageResponse,
 )
 def get_page(
-    batch_id: int, page_id: int, user: CurrentUser, db: SessionDep,
+    batch_id: int,
+    page_id: int,
+    user: CurrentUser,
+    db: SessionDep,
 ):
     """Obtiene los metadatos de una página."""
     return _get_page_in_batch_or_404(batch_id, page_id, user.tenant_id, db)
@@ -198,12 +215,23 @@ def get_page_image(
 ):
     """Devuelve el fichero binario de la imagen de una página."""
     page = _get_page_in_batch_or_404(batch_id, page_id, user.tenant_id, db)
-    if not page.image_path or not storage.exists(page.image_path):
+    if not page.image_path:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Imagen no encontrada en storage",
         )
-    return FileResponse(storage.absolute_path(page.image_path))
+    try:
+        content = storage.read(page.image_path)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Imagen no encontrada en storage",
+        )
+    ext = page.image_path.rsplit(".", 1)[-1].lower()
+    return Response(
+        content=content,
+        media_type=_MEDIA_TYPES.get(ext, "application/octet-stream"),
+    )
 
 
 @router.delete(

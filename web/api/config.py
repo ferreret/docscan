@@ -46,8 +46,13 @@ class RedisSettings(BaseModel):
 
 
 class StorageSettings(BaseModel):
-    """Almacenamiento de ficheros de páginas. Configurar via DOCSCAN_WEB_STORAGE__*."""
+    """Almacenamiento de ficheros de páginas. Configurar via DOCSCAN_WEB_STORAGE__*.
 
+    ``backend``: ``"filesystem"`` (por defecto, disco local) o ``"minio"``
+    (S3-compatible, requiere configurar MinIOSettings).
+    """
+
+    backend: str = "filesystem"  # Literal: "filesystem" | "minio"
     base_path: str = "/tmp/docscan-storage"
     pdf_dpi: int = 200
 

@@ -1143,3 +1143,148 @@ class TestPipelineRun:
     def test_run_sin_autenticacion(self, client):
         resp = client.post("/api/batches/1/run")
         assert resp.status_code == 401
+
+
+# ------------------------------------------------------------------
+# Storage backends — unit tests
+# ------------------------------------------------------------------
+
+
+class TestFilesystemStorageUnit:
+    """Tests unitarios del backend filesystem."""
+
+    def test_save_read_roundtrip(self, tmp_path):
+        storage = FilesystemStorage(tmp_path / "fs")
+        key = storage.save(1, 10, b"hola mundo", "txt")
+        assert key.startswith("1/10/")
+        assert key.endswith(".txt")
+        assert storage.read(key) == b"hola mundo"
+
+    def test_exists_and_delete(self, tmp_path):
+        storage = FilesystemStorage(tmp_path / "fs")
+        key = storage.save(1, 10, b"data", "bin")
+        assert storage.exists(key)
+        storage.delete(key)
+        assert not storage.exists(key)
+
+    def test_delete_inexistente_no_falla(self, tmp_path):
+        storage = FilesystemStorage(tmp_path / "fs")
+        storage.delete("1/10/nope.bin")  # no debe lanzar
+
+    def test_absolute_path(self, tmp_path):
+        storage = FilesystemStorage(tmp_path / "fs")
+        key = storage.save(2, 20, b"x", "png")
+        assert storage.absolute_path(key).is_file()
+
+
+class TestMinIOStorageUnit:
+    """Tests unitarios de MinIOStorage con mocks (no requiere servidor MinIO)."""
+
+    def _make_storage(self):
+        """Crea un MinIOStorage con el cliente mockeado."""
+        from unittest.mock import MagicMock, patch
+        from web.api.storage import MinIOStorage
+
+        with patch("minio.Minio") as MockMinio:
+            mock_client = MagicMock()
+            MockMinio.return_value = mock_client
+            mock_client.bucket_exists.return_value = True
+
+            storage = MinIOStorage(
+                endpoint="localhost:9000",
+                access_key="test",
+                secret_key="test",
+                bucket="test-bucket",
+            )
+        return storage, mock_client
+
+    def test_save_calls_put_object(self):
+        storage, mock_client = self._make_storage()
+        key = storage.save(1, 10, b"hello", "png")
+
+        assert key.startswith("1/10/")
+        assert key.endswith(".png")
+        mock_client.put_object.assert_called_once()
+        call_kwargs = mock_client.put_object.call_args
+        assert call_kwargs.kwargs["bucket_name"] == "test-bucket"
+        assert call_kwargs.kwargs["object_name"] == key
+        assert call_kwargs.kwargs["length"] == 5
+
+    def test_read_calls_get_object(self):
+        from unittest.mock import MagicMock
+
+        storage, mock_client = self._make_storage()
+        mock_response = MagicMock()
+        mock_response.read.return_value = b"image-data"
+        mock_client.get_object.return_value = mock_response
+
+        result = storage.read("1/10/abc.png")
+
+        assert result == b"image-data"
+        mock_client.get_object.assert_called_once_with(
+            bucket_name="test-bucket",
+            object_name="1/10/abc.png",
+        )
+        mock_response.close.assert_called_once()
+        mock_response.release_conn.assert_called_once()
+
+    def test_exists_true(self):
+        from unittest.mock import MagicMock
+
+        storage, mock_client = self._make_storage()
+        mock_client.stat_object.return_value = MagicMock()
+        assert storage.exists("1/10/abc.png") is True
+
+    def test_exists_false(self):
+        from minio.error import S3Error
+
+        storage, mock_client = self._make_storage()
+        mock_client.stat_object.side_effect = S3Error(
+            "NoSuchKey",
+            "Not found",
+            "resource",
+            "req",
+            "host",
+            "rid",
+        )
+        assert storage.exists("1/10/nope.png") is False
+
+    def test_delete_calls_remove_object(self):
+        storage, mock_client = self._make_storage()
+        storage.delete("1/10/abc.png")
+        mock_client.remove_object.assert_called_once_with(
+            "test-bucket",
+            "1/10/abc.png",
+        )
+
+    def test_delete_inexistente_no_falla(self):
+        from minio.error import S3Error
+
+        storage, mock_client = self._make_storage()
+        mock_client.remove_object.side_effect = S3Error(
+            "NoSuchKey",
+            "Not found",
+            "resource",
+            "req",
+            "host",
+            "rid",
+        )
+        storage.delete("1/10/nope.png")  # no debe lanzar
+
+    def test_creates_bucket_if_missing(self):
+        from unittest.mock import MagicMock, patch
+
+        with patch("minio.Minio") as MockMinio:
+            mock_client = MagicMock()
+            MockMinio.return_value = mock_client
+            mock_client.bucket_exists.return_value = False
+
+            from web.api.storage import MinIOStorage
+
+            MinIOStorage(
+                endpoint="localhost:9000",
+                access_key="test",
+                secret_key="test",
+                bucket="new-bucket",
+            )
+            mock_client.make_bucket.assert_called_once_with("new-bucket")

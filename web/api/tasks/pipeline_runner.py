@@ -17,6 +17,7 @@ import logging
 from typing import Any
 
 import cv2
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -36,14 +37,14 @@ from app.services.image_pipeline import ImagePipelineService
 from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
 from web.api.database import get_session_factory
-from web.api.storage import FilesystemStorage
+from web.api.storage import BaseStorage
 
 log = logging.getLogger(__name__)
 
 
 def run_pipeline_for_batch(
     batch_id: int,
-    storage: FilesystemStorage,
+    storage: BaseStorage,
 ) -> None:
     """Ejecuta el pipeline de la aplicación sobre todas las páginas del lote.
 
@@ -54,7 +55,7 @@ def run_pipeline_for_batch(
 
     Args:
         batch_id: ID del lote a procesar.
-        storage: Instancia de FilesystemStorage para cargar las imágenes.
+        storage: Instancia de BaseStorage para cargar las imágenes.
     """
     factory = get_session_factory()
     with factory() as session:
@@ -167,7 +168,7 @@ def _process_page(
     executor: PipelineExecutor,
     app_ctx: AppContext,
     batch_ctx: BatchContext,
-    storage: FilesystemStorage,
+    storage: BaseStorage,
     session: Session,
 ) -> None:
     """Carga la imagen, ejecuta el pipeline y persiste los resultados."""
@@ -179,14 +180,15 @@ def _process_page(
     _persist_page_results(page, page_ctx, session)
 
 
-def _load_image(page: Page, storage: FilesystemStorage) -> Any:
+def _load_image(page: Page, storage: BaseStorage) -> Any:
     """Carga la imagen del page como ndarray BGR (formato esperado por el pipeline)."""
     if not page.image_path:
         raise FileNotFoundError(f"Page {page.id} no tiene image_path")
-    abs_path = storage.absolute_path(page.image_path)
-    image = cv2.imread(str(abs_path), cv2.IMREAD_UNCHANGED)
+    raw = storage.read(page.image_path)
+    arr = np.frombuffer(raw, dtype=np.uint8)
+    image = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
     if image is None:
-        raise FileNotFoundError(f"No se pudo leer imagen: {abs_path}")
+        raise FileNotFoundError(f"No se pudo decodificar imagen: {page.image_path}")
     return image
 
 

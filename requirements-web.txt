@@ -14,5 +14,8 @@ pydantic[email]==2.12.5
 # Base de datos PostgreSQL
 psycopg[binary]==3.3.3
 
+# Storage S3-compatible (MinIO)
+minio==7.2.15
+
 # Dependencias compartidas con desktop (ya en requirements.txt):
 # SQLAlchemy, pydantic-settings, httpx, anthropic, openai, etc.

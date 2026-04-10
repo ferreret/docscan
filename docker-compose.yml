@@ -80,7 +80,8 @@ services:
       # JWT — OBLIGATORIO. Generar con: openssl rand -hex 32
       DOCSCAN_WEB_JWT__SECRET_KEY: ${DOCSCAN_WEB_JWT__SECRET_KEY:?define DOCSCAN_WEB_JWT__SECRET_KEY en .env — generar con openssl rand -hex 32}
 
-      # MinIO (listo para cuando migremos storage → MinIO)
+      # Storage — MinIO como backend por defecto en Docker
+      DOCSCAN_WEB_STORAGE__BACKEND: minio
       DOCSCAN_WEB_MINIO__ENDPOINT: minio:9000
       DOCSCAN_WEB_MINIO__ACCESS_KEY: ${MINIO_ROOT_USER}
       DOCSCAN_WEB_MINIO__SECRET_KEY: ${MINIO_ROOT_PASSWORD}
@@ -88,14 +89,9 @@ services:
       # Redis (listo para ARQ)
       DOCSCAN_WEB_REDIS__URL: redis://redis:6379/0
 
-      # Storage filesystem dentro del volumen dedicado
-      DOCSCAN_WEB_STORAGE__BASE_PATH: /data/storage
-
       # General
       DOCSCAN_WEB_DEPLOY_MODE: ${DOCSCAN_WEB_DEPLOY_MODE:-onpremise}
       DOCSCAN_WEB_DEBUG: ${DOCSCAN_WEB_DEBUG:-false}
-    volumes:
-      - api_storage:/data/storage
     ports:
       - "8001:8001"
     depends_on:
@@ -109,4 +105,3 @@ services:
 volumes:
   db_data:
   minio_data:
-  api_storage:
