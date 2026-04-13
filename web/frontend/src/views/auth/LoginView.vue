@@ -20,49 +20,61 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+  <div class="min-h-screen flex items-center justify-center bg-base px-4">
     <div class="w-full max-w-sm">
-      <h1 class="text-2xl font-bold text-gray-900 text-center mb-8">DocScan Studio</h1>
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary-soft border border-primary/30 mb-3">
+          <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h1 class="text-xl font-bold text-text">DocScan Studio</h1>
+        <p class="text-xs text-subtext mt-1">Captura y gestión documental</p>
+      </div>
 
-      <form @submit.prevent="onSubmit" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-        <h2 class="text-lg font-semibold text-gray-900">Iniciar sesión</h2>
+      <form
+        @submit.prevent="onSubmit"
+        class="bg-white rounded-lg shadow-sm border border-surface-0 p-6 space-y-4"
+      >
+        <h2 class="text-base font-semibold text-text">Iniciar sesión</h2>
 
-        <div v-if="auth.error" class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+        <div v-if="auth.error" class="text-xs text-danger bg-danger-soft border border-danger/30 rounded-md px-3 py-2">
           {{ auth.error }}
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label class="block text-xs font-medium text-subtext mb-1">Email</label>
           <input
             v-model="email"
             type="email"
             required
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             placeholder="usuario@empresa.com"
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+          <label class="block text-xs font-medium text-subtext mb-1">Contraseña</label>
           <input
             v-model="password"
             type="password"
             required
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
         <button
           type="submit"
           :disabled="auth.loading"
-          class="w-full bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          class="w-full bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover disabled:opacity-50 transition-colors"
         >
           {{ auth.loading ? 'Entrando...' : 'Entrar' }}
         </button>
 
-        <p class="text-sm text-center text-gray-500">
+        <p class="text-xs text-center text-subtext">
           ¿Sin cuenta?
-          <router-link to="/register" class="text-blue-600 hover:text-blue-700 font-medium">Registrarse</router-link>
+          <router-link to="/register" class="text-primary hover:text-primary-hover font-medium">Registrarse</router-link>
         </p>
       </form>
     </div>

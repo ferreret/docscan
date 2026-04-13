@@ -1,1 +1,53 @@
 @import "tailwindcss";
+
+@theme {
+  --color-base: #eff1f5;
+  --color-mantle: #e6e9ef;
+  --color-crust: #dce0e8;
+  --color-surface-0: #ccd0da;
+  --color-surface-1: #bcc0cc;
+  --color-surface-2: #acb0be;
+  --color-overlay-0: #9ca0b0;
+  --color-overlay-1: #8c8fa1;
+  --color-subtext: #6c6f85;
+  --color-text: #4c4f69;
+
+  --color-primary: #1e66f5;
+  --color-primary-hover: #4080f7;
+  --color-primary-soft: #e8ecf5;
+
+  --color-danger: #d20f39;
+  --color-danger-soft: #fce4e4;
+  --color-success: #40a02b;
+  --color-success-soft: #e2f1db;
+  --color-warning: #df8e1d;
+  --color-warning-soft: #faeccd;
+
+  --font-sans: "Segoe UI", "Inter", "Ubuntu", system-ui, sans-serif;
+
+  --radius-card: 0.5rem;
+}
+
+html,
+body {
+  background-color: var(--color-base);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+
+/* Scrollbar estilo desktop */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--color-base);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-surface-1);
+  border-radius: 5px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-2);
+}

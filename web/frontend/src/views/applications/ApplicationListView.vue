@@ -32,59 +32,64 @@ async function onDelete(id: number) {
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Aplicaciones</h1>
+      <div>
+        <h1 class="text-2xl font-bold text-text">Aplicaciones</h1>
+        <p class="text-xs text-subtext mt-1">Perfiles de captura y procesamiento</p>
+      </div>
       <button
         @click="showCreate = true"
-        class="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+        class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
       >
-        Nueva aplicación
+        + Nueva aplicación
       </button>
     </div>
 
     <!-- Modal crear -->
-    <div v-if="showCreate" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <form @submit.prevent="onCreate" class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
-        <h2 class="text-lg font-semibold text-gray-900">Nueva aplicación</h2>
-        <div v-if="createError" class="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{{ createError }}</div>
+    <div v-if="showCreate" class="fixed inset-0 bg-text/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+      <form @submit.prevent="onCreate" class="bg-white rounded-lg shadow-xl border border-surface-0 p-6 w-full max-w-md space-y-4">
+        <h2 class="text-base font-semibold text-text">Nueva aplicación</h2>
+        <div v-if="createError" class="text-xs text-danger bg-danger-soft border border-danger/30 rounded-md px-3 py-2">{{ createError }}</div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-          <input v-model="newName" required class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <label class="block text-xs font-medium text-subtext mb-1">Nombre</label>
+          <input v-model="newName" required class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-          <textarea v-model="newDescription" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          <label class="block text-xs font-medium text-subtext mb-1">Descripción</label>
+          <textarea v-model="newDescription" rows="2" class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"></textarea>
         </div>
-        <div class="flex justify-end gap-3">
-          <button type="button" @click="showCreate = false" class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
-          <button type="submit" class="bg-blue-600 text-white px-4 py-2 text-sm font-medium rounded-lg hover:bg-blue-700">Crear</button>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" @click="showCreate = false" class="px-4 py-2 text-[13px] font-medium text-text bg-crust hover:bg-surface-0 border border-surface-1 rounded-md transition-colors">Cancelar</button>
+          <button type="submit" class="bg-primary text-white px-4 py-2 text-[13px] font-semibold rounded-md hover:bg-primary-hover transition-colors">Crear</button>
         </div>
       </form>
     </div>
 
     <!-- Lista -->
-    <div v-if="store.loading" class="text-sm text-gray-500">Cargando...</div>
-    <div v-else-if="store.items.length === 0" class="text-center py-12">
-      <p class="text-gray-500">No hay aplicaciones todavía.</p>
-      <button @click="showCreate = true" class="mt-4 text-blue-600 hover:text-blue-700 text-sm font-medium">Crear la primera</button>
+    <div v-if="store.loading" class="text-sm text-subtext">Cargando...</div>
+    <div v-else-if="store.items.length === 0" class="bg-white rounded-lg border border-surface-0 py-16 text-center">
+      <p class="text-sm text-subtext">No hay aplicaciones todavía.</p>
+      <button @click="showCreate = true" class="mt-3 text-primary hover:text-primary-hover text-[13px] font-medium">Crear la primera</button>
     </div>
-    <div v-else class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+    <div v-else class="bg-white rounded-lg border border-surface-0 overflow-hidden">
       <div
         v-for="app in store.items"
         :key="app.id"
-        class="flex items-center justify-between px-6 py-4"
+        class="flex items-center justify-between px-5 py-4 border-b border-surface-0 last:border-b-0 hover:bg-mantle transition-colors"
       >
         <router-link :to="`/applications/${app.id}`" class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-900">{{ app.name }}</p>
-          <p class="text-xs text-gray-500 truncate">{{ app.description || 'Sin descripción' }}</p>
+          <p class="text-[13px] font-medium text-text">{{ app.name }}</p>
+          <p class="text-xs text-subtext truncate mt-0.5">{{ app.description || 'Sin descripción' }}</p>
         </router-link>
         <div class="flex items-center gap-3 ml-4">
           <span
-            class="text-xs px-2 py-1 rounded-full"
-            :class="app.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+            class="text-[11px] px-2 py-0.5 rounded-full font-medium border"
+            :class="app.active
+              ? 'bg-success-soft text-success border-success/30'
+              : 'bg-crust text-subtext border-surface-0'"
           >
             {{ app.active ? 'Activa' : 'Inactiva' }}
           </span>
-          <button @click="onDelete(app.id)" class="text-gray-400 hover:text-red-600" title="Eliminar">
+          <button @click="onDelete(app.id)" class="text-overlay-0 hover:text-danger p-1 rounded transition-colors" title="Eliminar">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
