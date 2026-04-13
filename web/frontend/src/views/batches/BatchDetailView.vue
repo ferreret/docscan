@@ -14,6 +14,7 @@ const uploading = ref(false)
 const running = ref(false)
 const error = ref<string | null>(null)
 const selectedPage = ref<number | null>(null)
+const progress = ref<{ processed: number; total: number } | null>(null)
 
 onMounted(async () => {
   await store.fetchOne(batchId.value)
@@ -39,16 +40,51 @@ async function onUpload(event: Event) {
 async function onRunPipeline() {
   running.value = true
   error.value = null
-  try {
-    await store.runPipeline(batchId.value)
-    setTimeout(async () => {
+  progress.value = null
+
+  const token = localStorage.getItem('access_token') ?? ''
+  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  const ws = new WebSocket(
+    `${proto}://${window.location.host}/ws/batches/${batchId.value}?token=${encodeURIComponent(token)}`,
+  )
+
+  ws.onmessage = async (msg) => {
+    const event = JSON.parse(msg.data)
+    if (event.type === 'pipeline_started') {
+      progress.value = { processed: 0, total: event.total_pages }
+    } else if (event.type === 'page_processed') {
+      progress.value = { processed: event.processed, total: event.total }
+    } else if (event.type === 'pipeline_completed') {
       await store.fetchOne(batchId.value)
       await store.fetchPages(batchId.value)
       running.value = false
-    }, 3000)
+      progress.value = null
+      ws.close()
+    } else if (event.type === 'pipeline_error') {
+      error.value = `Error en pipeline: ${event.error}`
+      running.value = false
+      progress.value = null
+      ws.close()
+    }
+  }
+
+  ws.onerror = () => {
+    error.value = 'Error de conexión con el servidor'
+    running.value = false
+    progress.value = null
+  }
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      ws.onopen = () => resolve()
+      ws.addEventListener('error', () => reject(new Error('ws connect failed')), { once: true })
+    })
+    await store.runPipeline(batchId.value)
   } catch (e) {
     error.value = e instanceof ApiError ? e.detail : 'Error al ejecutar pipeline'
     running.value = false
+    progress.value = null
+    ws.close()
   }
 }
 
@@ -91,9 +127,11 @@ function selectPage(pageId: number) {
         <button
           @click="onRunPipeline"
           :disabled="running || store.current.page_count === 0"
-          class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+          class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm min-w-[170px]"
         >
-          {{ running ? 'Procesando…' : '▶ Ejecutar pipeline' }}
+          <span v-if="progress">Procesando {{ progress.processed }}/{{ progress.total }}…</span>
+          <span v-else-if="running">Iniciando…</span>
+          <span v-else>▶ Ejecutar pipeline</span>
         </button>
         <button @click="onDelete" class="text-danger border border-danger/40 bg-white rounded-md px-4 py-2 text-[13px] font-medium hover:bg-danger hover:text-white transition-colors">
           Eliminar

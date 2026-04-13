@@ -4,6 +4,7 @@
 # API
 fastapi==0.115.13
 uvicorn[standard]==0.34.2
+websockets==16.0
 python-multipart==0.0.24
 
 # Auth

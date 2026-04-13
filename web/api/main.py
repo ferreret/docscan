@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -11,6 +12,7 @@ from sqlalchemy import text
 
 from web.api.config import get_web_settings
 from web.api.database import get_engine, reset_engine
+from web.api.events import get_event_bus
 
 # Importar modelos para que SQLAlchemy registre las relaciones
 from app.models.application import Application  # noqa: F401
@@ -38,6 +40,8 @@ async def lifespan(app: FastAPI):
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
     log.info("Conexión a base de datos OK")
+
+    get_event_bus().attach_loop(asyncio.get_running_loop())
 
     yield
 
@@ -72,11 +76,13 @@ def create_app() -> FastAPI:
     from web.api.routers.applications import router as apps_router
     from web.api.routers.batches import router as batches_router
     from web.api.routers.pages import router as pages_router
+    from web.api.routers.ws import router as ws_router
 
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
     app.include_router(apps_router, prefix="/api/applications", tags=["applications"])
     app.include_router(batches_router, prefix="/api/batches", tags=["batches"])
     app.include_router(pages_router, prefix="/api", tags=["pages"])
+    app.include_router(ws_router, tags=["websocket"])
 
     return app

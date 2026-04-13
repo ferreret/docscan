@@ -37,6 +37,7 @@ from app.services.image_pipeline import ImagePipelineService
 from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
 from web.api.database import get_session_factory
+from web.api.events import PipelineEvent, PipelineEventBus, get_event_bus
 from web.api.storage import BaseStorage
 
 log = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ log = logging.getLogger(__name__)
 def run_pipeline_for_batch(
     batch_id: int,
     storage: BaseStorage,
+    event_bus: PipelineEventBus | None = None,
 ) -> None:
     """Ejecuta el pipeline de la aplicación sobre todas las páginas del lote.
 
@@ -56,12 +58,22 @@ def run_pipeline_for_batch(
     Args:
         batch_id: ID del lote a procesar.
         storage: Instancia de BaseStorage para cargar las imágenes.
+        event_bus: Bus opcional para publicar eventos de progreso. Si es
+            ``None`` se usa el singleton por defecto.
     """
+    bus = event_bus if event_bus is not None else get_event_bus()
+
+    def emit(event_type: str, **payload: Any) -> None:
+        bus.publish_from_thread(
+            PipelineEvent(batch_id=batch_id, type=event_type, payload=payload)
+        )
+
     factory = get_session_factory()
     with factory() as session:
         batch = session.get(Batch, batch_id)
         if batch is None:
             log.warning("Batch %d no encontrado para ejecución de pipeline", batch_id)
+            emit("pipeline_error", error="batch_not_found")
             return
 
         application = session.get(Application, batch.application_id)
@@ -69,6 +81,7 @@ def run_pipeline_for_batch(
             log.error("Aplicación %d no encontrada", batch.application_id)
             batch.state = "error_read"
             session.commit()
+            emit("pipeline_error", error="application_not_found")
             return
 
         try:
@@ -77,6 +90,7 @@ def run_pipeline_for_batch(
             log.exception("Error preparando executor: %s", e)
             batch.state = "error_read"
             session.commit()
+            emit("pipeline_error", error=str(e))
             return
 
         app_ctx = _build_app_context(application)
@@ -90,23 +104,49 @@ def run_pipeline_for_batch(
             .all()
         )
 
+        total = len(pages)
+        emit("pipeline_started", total_pages=total)
+
         any_error = False
-        for page in pages:
+        for idx, page in enumerate(pages, start=1):
             try:
                 _process_page(page, executor, app_ctx, batch_ctx, storage, session)
+                emit(
+                    "page_processed",
+                    page_id=page.id,
+                    page_index=page.page_index,
+                    processed=idx,
+                    total=total,
+                    ok=True,
+                )
             except Exception as e:
                 log.exception("Error procesando página %d: %s", page.id, e)
                 any_error = True
                 _record_processing_error(page, str(e))
+                emit(
+                    "page_processed",
+                    page_id=page.id,
+                    page_index=page.page_index,
+                    processed=idx,
+                    total=total,
+                    ok=False,
+                    error=str(e),
+                )
 
         batch.state = "error_read" if any_error else "read"
-        batch.page_count = len(pages)
+        batch.page_count = total
         session.commit()
         log.info(
             "Pipeline completado para batch %d: %d páginas, estado=%s",
             batch_id,
-            len(pages),
+            total,
             batch.state,
+        )
+        emit(
+            "pipeline_completed",
+            total_pages=total,
+            state=batch.state,
+            any_error=any_error,
         )
 
 

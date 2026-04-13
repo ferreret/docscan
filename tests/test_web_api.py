@@ -1288,3 +1288,69 @@ class TestMinIOStorageUnit:
                 bucket="new-bucket",
             )
             mock_client.make_bucket.assert_called_once_with("new-bucket")
+
+
+# ------------------------------------------------------------------
+# WebSocket de eventos del pipeline
+# ------------------------------------------------------------------
+
+
+class TestPipelineWebSocket:
+    def test_recibe_eventos_started_processed_completed(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h = _auth_header(client)
+        token = h["Authorization"].split()[1]
+        app_id = _create_app_with_pipeline(client, h, _SCRIPT_PIPELINE)
+        batch_id, _ = _create_batch_with_page(client, h, app_id)
+
+        with client.websocket_connect(
+            f"/ws/batches/{batch_id}?token={token}"
+        ) as ws:
+            client.post(f"/api/batches/{batch_id}/run", headers=h)
+            received = []
+            for _ in range(3):
+                received.append(ws.receive_json())
+
+        types = [e["type"] for e in received]
+        assert types == ["pipeline_started", "page_processed", "pipeline_completed"]
+        assert received[0]["total_pages"] == 1
+        assert received[1]["ok"] is True
+        assert received[2]["state"] == "read"
+
+    def test_token_invalido_cierra(self, client):
+        from starlette.websockets import WebSocketDisconnect
+
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect(
+                "/ws/batches/1?token=invalido"
+            ) as ws:
+                ws.receive_text()
+
+    def test_otro_tenant_cierra(self, client):
+        from starlette.websockets import WebSocketDisconnect
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h_owner = _auth_header(client, "owner@a.com", "p", "Owner", "OrgA")
+        h_other = _auth_header(client, "other@b.com", "p", "Other", "OrgB")
+        token_other = h_other["Authorization"].split()[1]
+
+        app_id = _create_app_with_pipeline(client, h_owner, "[]")
+        batch_id, _ = _create_batch_with_page(client, h_owner, app_id)
+
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect(
+                f"/ws/batches/{batch_id}?token={token_other}"
+            ) as ws:
+                ws.receive_text()
+
+    def test_event_bus_descarta_si_loop_no_attached(self):
+        from web.api.events import PipelineEvent, PipelineEventBus
+
+        bus = PipelineEventBus()
+        # No attach_loop. Publicar no debe lanzar.
+        bus.publish_from_thread(
+            PipelineEvent(batch_id=1, type="pipeline_started", payload={})
+        )
