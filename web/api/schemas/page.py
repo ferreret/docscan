@@ -7,6 +7,24 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class BarcodeResponse(BaseModel):
+    """Barcode detectado en una página."""
+
+    id: int
+    value: str
+    symbology: str
+    engine: str
+    step_id: str
+    quality: float
+    pos_x: int
+    pos_y: int
+    pos_w: int
+    pos_h: int
+    role: str
+
+    model_config = {"from_attributes": True}
+
+
 class PageResponse(BaseModel):
     """Respuesta con datos completos de una página."""
 
@@ -23,6 +41,7 @@ class PageResponse(BaseModel):
     pipeline_processed: bool
     processing_errors_json: str
     script_errors_json: str
+    barcodes: list[BarcodeResponse] = []
     created_at: datetime
     updated_at: datetime
 

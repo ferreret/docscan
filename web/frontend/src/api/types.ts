@@ -117,6 +117,20 @@ export interface PageListItem {
   created_at: string
 }
 
+export interface BarcodeResponse {
+  id: number
+  value: string
+  symbology: string
+  engine: string
+  step_id: string
+  quality: number
+  pos_x: number
+  pos_y: number
+  pos_w: number
+  pos_h: number
+  role: string
+}
+
 export interface PageResponse extends PageListItem {
   image_path: string
   ocr_text: string
@@ -125,6 +139,7 @@ export interface PageResponse extends PageListItem {
   is_excluded: boolean
   processing_errors_json: string
   script_errors_json: string
+  barcodes: BarcodeResponse[]
   updated_at: string
 }
 
