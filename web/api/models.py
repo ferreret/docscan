@@ -33,9 +33,7 @@ class Tenant(Base):
     plan: Mapped[str] = mapped_column(String(50), default="free")
     settings_json: Mapped[str] = mapped_column(Text, default="{}")
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
@@ -63,9 +61,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), default="operator")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
@@ -75,3 +71,28 @@ class User(Base):
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}', role='{self.role}')>"
+
+
+class Invitation(Base):
+    """Invitación para que un usuario externo se una a un tenant.
+
+    Se crea por un company_admin con email + rol, genera un token
+    aleatorio que el admin comparte fuera de banda (email manual,
+    chat, etc). Al aceptar, se crea un User en el tenant y la
+    invitación queda marcada como consumida.
+    """
+
+    __tablename__ = "invitations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    role: Mapped[str] = mapped_column(String(50), default="operator")
+    token: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<Invitation(id={self.id}, email='{self.email}', tenant_id={self.tenant_id})>"

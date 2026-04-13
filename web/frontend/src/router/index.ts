@@ -16,6 +16,13 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
+      path: '/accept-invitation/:token',
+      name: 'accept-invitation',
+      component: () => import('@/views/auth/AcceptInvitationView.vue'),
+      meta: { guest: true },
+      props: true,
+    },
+    {
       path: '/',
       component: () => import('@/layouts/AppLayout.vue'),
       meta: { auth: true },
@@ -46,6 +53,11 @@ const router = createRouter({
           name: 'batch-detail',
           component: () => import('@/views/batches/BatchDetailView.vue'),
           props: true,
+        },
+        {
+          path: 'team',
+          name: 'team',
+          component: () => import('@/views/team/TeamView.vue'),
         },
       ],
     },

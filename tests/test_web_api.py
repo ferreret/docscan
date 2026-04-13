@@ -1305,9 +1305,7 @@ class TestPipelineWebSocket:
         app_id = _create_app_with_pipeline(client, h, _SCRIPT_PIPELINE)
         batch_id, _ = _create_batch_with_page(client, h, app_id)
 
-        with client.websocket_connect(
-            f"/ws/batches/{batch_id}?token={token}"
-        ) as ws:
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
             client.post(f"/api/batches/{batch_id}/run", headers=h)
             received = []
             for _ in range(3):
@@ -1323,9 +1321,7 @@ class TestPipelineWebSocket:
         from starlette.websockets import WebSocketDisconnect
 
         with pytest.raises(WebSocketDisconnect):
-            with client.websocket_connect(
-                "/ws/batches/1?token=invalido"
-            ) as ws:
+            with client.websocket_connect("/ws/batches/1?token=invalido") as ws:
                 ws.receive_text()
 
     def test_otro_tenant_cierra(self, client):
@@ -1379,9 +1375,7 @@ class TestBatchExport:
         resp = client.get(f"/api/batches/{batch_id}/export", headers=h)
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/zip"
-        assert (
-            f'filename="batch_{batch_id}.zip"' in resp.headers["content-disposition"]
-        )
+        assert f'filename="batch_{batch_id}.zip"' in resp.headers["content-disposition"]
 
         zf = self._open_zip(resp.content)
         names = zf.namelist()
@@ -1424,3 +1418,239 @@ class TestBatchExport:
         manifest = json.loads(zf.read("manifest.json"))
         assert manifest["page_count"] == 0
         assert manifest["pages"] == []
+
+
+# ------------------------------------------------------------------
+# Gestión de equipo: usuarios e invitaciones
+# ------------------------------------------------------------------
+
+
+class TestTeamUsers:
+    def test_admin_lista_usuarios_del_tenant(self, client):
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        _auth_header(client, "other@b.com", "p", "Other", "OrgB")
+
+        resp = client.get("/api/users", headers=h)
+        assert resp.status_code == 200
+        emails = [u["email"] for u in resp.json()]
+        assert emails == ["admin@a.com"]
+
+    def test_operador_sin_permiso_403(self, client):
+        h_admin = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        # Crear operador via invitación
+        inv = client.post(
+            "/api/invitations",
+            headers=h_admin,
+            json={"email": "op@a.com", "role": "operator"},
+        ).json()
+        client.post(
+            "/api/invitations/accept",
+            json={"token": inv["token"], "password": "op_secret", "display_name": "Op"},
+        )
+        tok = client.post(
+            "/api/auth/login",
+            json={"email": "op@a.com", "password": "op_secret"},
+        ).json()["access_token"]
+        h_op = {"Authorization": f"Bearer {tok}"}
+
+        assert client.get("/api/users", headers=h_op).status_code == 403
+
+    def test_admin_cambia_rol_y_desactiva(self, client):
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        inv = client.post(
+            "/api/invitations",
+            headers=h,
+            json={"email": "new@a.com", "role": "operator"},
+        ).json()
+        u = client.post(
+            "/api/invitations/accept",
+            json={
+                "token": inv["token"],
+                "password": "pass12345",
+                "display_name": "New",
+            },
+        ).json()
+
+        resp = client.patch(
+            f"/api/users/{u['id']}",
+            headers=h,
+            json={"role": "company_admin", "active": False},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "company_admin"
+        assert resp.json()["active"] is False
+
+    def test_admin_no_puede_desactivarse_a_si_mismo(self, client):
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        me = client.get("/api/auth/me", headers=h).json()
+        resp = client.patch(
+            f"/api/users/{me['id']}",
+            headers=h,
+            json={"active": False},
+        )
+        assert resp.status_code == 409
+
+    def test_admin_cambia_rol_a_invalido_422(self, client):
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        me = client.get("/api/auth/me", headers=h).json()
+        resp = client.patch(
+            f"/api/users/{me['id']}",
+            headers=h,
+            json={"role": "superadmin"},
+        )
+        assert resp.status_code == 422
+
+    def test_usuario_de_otro_tenant_404(self, client):
+        h_a = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h_b = _auth_header(client, "admin@b.com", "p", "Admin", "OrgB")
+        me_b = client.get("/api/auth/me", headers=h_b).json()
+
+        resp = client.patch(
+            f"/api/users/{me_b['id']}",
+            headers=h_a,
+            json={"active": False},
+        )
+        assert resp.status_code == 404
+
+
+class TestInvitations:
+    def test_admin_crea_invitacion(self, client):
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        resp = client.post(
+            "/api/invitations",
+            headers=h,
+            json={"email": "invitado@a.com", "role": "operator"},
+        )
+        assert resp.status_code == 201
+        inv = resp.json()
+        assert inv["email"] == "invitado@a.com"
+        assert inv["role"] == "operator"
+        assert inv["accepted_at"] is None
+        assert len(inv["token"]) > 40
+
+    def test_operador_no_puede_crear_invitacion(self, client):
+        h_admin = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        inv = client.post(
+            "/api/invitations",
+            headers=h_admin,
+            json={"email": "op@a.com", "role": "operator"},
+        ).json()
+        client.post(
+            "/api/invitations/accept",
+            json={"token": inv["token"], "password": "op_secret", "display_name": "Op"},
+        )
+        tok = client.post(
+            "/api/auth/login",
+            json={"email": "op@a.com", "password": "op_secret"},
+        ).json()["access_token"]
+        h_op = {"Authorization": f"Bearer {tok}"}
+
+        assert (
+            client.post(
+                "/api/invitations",
+                headers=h_op,
+                json={"email": "x@a.com", "role": "operator"},
+            ).status_code
+            == 403
+        )
+
+    def test_invitacion_email_ya_registrado_409(self, client):
+        _auth_header(client, "existe@other.com", "p", "Existe", "OtherOrg")
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        resp = client.post(
+            "/api/invitations",
+            headers=h,
+            json={"email": "existe@other.com", "role": "operator"},
+        )
+        assert resp.status_code == 409
+
+    def test_aceptar_invitacion_crea_usuario(self, client):
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        inv = client.post(
+            "/api/invitations",
+            headers=h,
+            json={"email": "nuevo@a.com", "role": "operator"},
+        ).json()
+
+        resp = client.post(
+            "/api/invitations/accept",
+            json={
+                "token": inv["token"],
+                "password": "pass12345",
+                "display_name": "Nuevo",
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["email"] == "nuevo@a.com"
+
+        # login posterior
+        tok = client.post(
+            "/api/auth/login",
+            json={"email": "nuevo@a.com", "password": "pass12345"},
+        )
+        assert tok.status_code == 200
+
+    def test_aceptar_token_invalido_404(self, client):
+        resp = client.post(
+            "/api/invitations/accept",
+            json={"token": "xxxxx", "password": "pass12345", "display_name": "X"},
+        )
+        assert resp.status_code == 404
+
+    def test_aceptar_invitacion_dos_veces_409(self, client):
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        inv = client.post(
+            "/api/invitations",
+            headers=h,
+            json={"email": "once@a.com", "role": "operator"},
+        ).json()
+        client.post(
+            "/api/invitations/accept",
+            json={"token": inv["token"], "password": "pass12345", "display_name": "A"},
+        )
+        resp = client.post(
+            "/api/invitations/accept",
+            json={"token": inv["token"], "password": "pass12345", "display_name": "B"},
+        )
+        assert resp.status_code == 409
+
+    def test_revocar_invitacion_otro_tenant_404(self, client):
+        h_a = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h_b = _auth_header(client, "admin@b.com", "p", "Admin", "OrgB")
+        inv = client.post(
+            "/api/invitations",
+            headers=h_a,
+            json={"email": "x@a.com", "role": "operator"},
+        ).json()
+
+        resp = client.delete(f"/api/invitations/{inv['id']}", headers=h_b)
+        assert resp.status_code == 404
+
+    def test_invitacion_expirada_410(self, client):
+        """Forzamos expires_at en el pasado editando la BD directamente."""
+        from datetime import datetime, timedelta
+        from sqlalchemy.orm import sessionmaker
+
+        from web.api.models import Invitation
+
+        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        inv = client.post(
+            "/api/invitations",
+            headers=h,
+            json={"email": "caduca@a.com", "role": "operator"},
+        ).json()
+
+        # Manipular expires_at via session directa (reutilizamos la misma BD)
+        import web.api.database as _db_module
+
+        factory = sessionmaker(bind=_db_module._engine)
+        with factory() as s:
+            row = s.get(Invitation, inv["id"])
+            row.expires_at = datetime.utcnow() - timedelta(days=1)
+            s.commit()
+
+        resp = client.post(
+            "/api/invitations/accept",
+            json={"token": inv["token"], "password": "pass12345", "display_name": "C"},
+        )
+        assert resp.status_code == 410

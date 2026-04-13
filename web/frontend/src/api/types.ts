@@ -147,3 +147,24 @@ export interface PageUploadResponse {
   created: PageResponse[]
   batch_page_count: number
 }
+
+// --- Team ---
+
+export interface TeamUser {
+  id: number
+  email: string
+  display_name: string
+  role: string
+  active: boolean
+  created_at: string
+}
+
+export interface Invitation {
+  id: number
+  email: string
+  role: string
+  token: string
+  expires_at: string
+  accepted_at: string | null
+  created_at: string
+}
