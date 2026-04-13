@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -145,3 +146,100 @@ def run_batch_pipeline(
         storage=storage,
     )
     return batch
+
+
+def _safe_filename(name: str, fallback: str) -> str:
+    """Sanitiza un nombre de fichero para incluirlo en el ZIP."""
+    import re
+
+    cleaned = re.sub(r"[^A-Za-z0-9._-]", "_", name).strip("._-")
+    return cleaned or fallback
+
+
+@router.get("/{batch_id}/export")
+def export_batch(
+    batch_id: int,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+):
+    """Descarga el lote como ZIP con páginas + manifest.json."""
+    import io
+    import json
+    import zipfile
+    from pathlib import PurePosixPath
+
+    from fastapi.responses import StreamingResponse
+
+    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+
+    pages = sorted(batch.pages, key=lambda p: p.page_index)
+
+    buffer = io.BytesIO()
+    used_names: set[str] = set()
+    page_entries: list[dict] = []
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for page in pages:
+            ext = PurePosixPath(page.image_path).suffix or ".bin"
+            base = f"page_{page.page_index + 1:04d}"
+            filename = f"{base}{ext}"
+            n = 1
+            while filename in used_names:
+                n += 1
+                filename = f"{base}_{n}{ext}"
+            used_names.add(filename)
+
+            try:
+                content = storage.read(page.image_path)
+            except FileNotFoundError:
+                continue
+            zf.writestr(f"pages/{filename}", content)
+
+            try:
+                fields = (
+                    json.loads(page.index_fields_json) if page.index_fields_json else {}
+                )
+            except json.JSONDecodeError:
+                fields = {}
+            page_entries.append(
+                {
+                    "id": page.id,
+                    "page_index": page.page_index,
+                    "filename": f"pages/{filename}",
+                    "ocr_text": page.ocr_text or "",
+                    "fields": fields,
+                    "needs_review": page.needs_review,
+                    "review_reason": page.review_reason or "",
+                    "is_blank": page.is_blank,
+                    "pipeline_processed": page.pipeline_processed,
+                    "barcodes": [
+                        {
+                            "value": b.value,
+                            "symbology": b.symbology,
+                            "role": b.role,
+                            "pos": [b.pos_x, b.pos_y, b.pos_w, b.pos_h],
+                        }
+                        for b in page.barcodes
+                    ],
+                }
+            )
+
+        manifest = {
+            "batch_id": batch.id,
+            "application_id": batch.application_id,
+            "state": batch.state,
+            "created_at": batch.created_at.isoformat() if batch.created_at else None,
+            "updated_at": batch.updated_at.isoformat() if batch.updated_at else None,
+            "page_count": len(page_entries),
+            "pages": page_entries,
+        }
+        zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+
+    buffer.seek(0)
+    fname = _safe_filename(f"batch_{batch.id}", f"batch_{batch.id}") + ".zip"
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )

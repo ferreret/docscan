@@ -1354,3 +1354,73 @@ class TestPipelineWebSocket:
         bus.publish_from_thread(
             PipelineEvent(batch_id=1, type="pipeline_started", payload={})
         )
+
+
+# ------------------------------------------------------------------
+# Export ZIP de lotes
+# ------------------------------------------------------------------
+
+
+class TestBatchExport:
+    def _open_zip(self, content: bytes):
+        import io
+        import zipfile
+
+        return zipfile.ZipFile(io.BytesIO(content))
+
+    def test_export_zip_contiene_paginas_y_manifest(self, client):
+        import json
+
+        h = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, h, _SCRIPT_PIPELINE)
+        batch_id, _ = _create_batch_with_page(client, h, app_id)
+        client.post(f"/api/batches/{batch_id}/run", headers=h)
+
+        resp = client.get(f"/api/batches/{batch_id}/export", headers=h)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/zip"
+        assert (
+            f'filename="batch_{batch_id}.zip"' in resp.headers["content-disposition"]
+        )
+
+        zf = self._open_zip(resp.content)
+        names = zf.namelist()
+        assert "manifest.json" in names
+        assert any(n.startswith("pages/page_0001") for n in names)
+
+        manifest = json.loads(zf.read("manifest.json"))
+        assert manifest["batch_id"] == batch_id
+        assert manifest["page_count"] == 1
+        page = manifest["pages"][0]
+        assert page["filename"].startswith("pages/")
+        assert page["fields"] == {"marca": "web"}
+        assert page["ocr_text"] == "fake ocr"
+
+    def test_export_lote_otro_tenant_404(self, client):
+        h_owner = _auth_header(client, "owner@a.com", "p", "Owner", "OrgA")
+        h_other = _auth_header(client, "other@b.com", "p", "Other", "OrgB")
+        app_id = _create_app_with_pipeline(client, h_owner, "[]")
+        batch_id, _ = _create_batch_with_page(client, h_owner, app_id)
+
+        resp = client.get(f"/api/batches/{batch_id}/export", headers=h_other)
+        assert resp.status_code == 404
+
+    def test_export_lote_vacio_devuelve_zip_solo_manifest(self, client):
+        import json
+
+        h = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, h, "[]")
+        batch_id = client.post(
+            "/api/batches",
+            headers=h,
+            json={"application_id": app_id},
+        ).json()["id"]
+
+        resp = client.get(f"/api/batches/{batch_id}/export", headers=h)
+        assert resp.status_code == 200
+
+        zf = self._open_zip(resp.content)
+        assert zf.namelist() == ["manifest.json"]
+        manifest = json.loads(zf.read("manifest.json"))
+        assert manifest["page_count"] == 0
+        assert manifest["pages"] == []

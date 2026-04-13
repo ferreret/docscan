@@ -107,6 +107,36 @@ async function onDelete() {
   router.push('/batches')
 }
 
+const downloading = ref(false)
+
+async function onDownload() {
+  downloading.value = true
+  error.value = null
+  try {
+    const token = localStorage.getItem('access_token') ?? ''
+    const res = await fetch(`/api/batches/${batchId.value}/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      error.value = `Error ${res.status} al descargar`
+      return
+    }
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `batch_${batchId.value}.zip`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch {
+    error.value = 'Error de conexión al descargar'
+  } finally {
+    downloading.value = false
+  }
+}
+
 function openViewer(pageId: number) {
   selectedPage.value = pageId
 }
@@ -172,6 +202,13 @@ const fieldsParsed = computed(() => {
           <span v-if="progress">Procesando {{ progress.processed }}/{{ progress.total }}…</span>
           <span v-else-if="running">Iniciando…</span>
           <span v-else>▶ Ejecutar pipeline</span>
+        </button>
+        <button
+          @click="onDownload"
+          :disabled="downloading || store.current.page_count === 0"
+          class="bg-white border border-surface-1 text-text rounded-md px-4 py-2 text-[13px] font-medium hover:bg-crust disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {{ downloading ? 'Descargando…' : '↓ Descargar ZIP' }}
         </button>
         <button @click="onDelete" class="text-danger border border-danger/40 bg-white rounded-md px-4 py-2 text-[13px] font-medium hover:bg-danger hover:text-white transition-colors">
           Eliminar
