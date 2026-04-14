@@ -5,6 +5,9 @@ import { useBatchesStore } from '@/stores/batches'
 import { ApiError } from '@/api/client'
 import AuthImage from '@/components/AuthImage.vue'
 import DocumentViewer from '@/components/DocumentViewer.vue'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 const route = useRoute()
 const router = useRouter()
@@ -61,17 +64,25 @@ async function onRunPipeline() {
     } else if (event.type === 'page_processed') {
       progress.value = { processed: event.processed, total: event.total }
     } else if (event.type === 'pipeline_completed') {
-      await store.fetchOne(batchId.value)
-      await store.fetchPages(batchId.value)
-      if (selectedPage.value) await store.fetchPage(batchId.value, selectedPage.value)
+      await Promise.all([
+        store.fetchOne(batchId.value),
+        store.fetchPages(batchId.value),
+        selectedPage.value ? store.fetchPage(batchId.value, selectedPage.value) : null,
+      ])
       running.value = false
       progress.value = null
       ws.close()
+      if (event.any_error) {
+        toast.error('Pipeline completado con errores — revisa las páginas marcadas')
+      } else {
+        toast.success('Pipeline completado correctamente')
+      }
     } else if (event.type === 'pipeline_error') {
       error.value = `Error en pipeline: ${event.error}`
       running.value = false
       progress.value = null
       ws.close()
+      toast.error(`Error en pipeline: ${event.error}`)
     }
   }
 
