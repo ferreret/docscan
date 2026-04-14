@@ -10,8 +10,8 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 
 from web.api.auth.dependencies import CurrentUser, require_role
 from web.api.auth.security import hash_password
@@ -21,6 +21,11 @@ from web.api.models import (
     ROLE_OPERATOR,
     Invitation,
     User,
+)
+from web.api.schemas.pagination import (
+    PageParams,
+    PaginatedResponse,
+    pagination_params,
 )
 from web.api.schemas.team import (
     AcceptInvitationRequest,
@@ -45,22 +50,23 @@ def _now() -> datetime:
 # ---------------------------------------------------------------------
 
 
-@router.get("/users", response_model=list[UserListItem])
+@router.get("/users", response_model=PaginatedResponse[UserListItem])
 def list_users(
     user: CurrentUser,
     db: SessionDep,
+    page: PageParams = Depends(pagination_params),
     _admin=require_role(ROLE_COMPANY_ADMIN),
 ):
-    rows = (
-        db.execute(
-            select(User)
-            .where(User.tenant_id == user.tenant_id)
-            .order_by(User.created_at)
-        )
+    base = select(User).where(User.tenant_id == user.tenant_id)
+    total = db.execute(select(func.count()).select_from(base.subquery())).scalar_one()
+    items = (
+        db.execute(base.order_by(User.created_at).limit(page.limit).offset(page.offset))
         .scalars()
         .all()
     )
-    return rows
+    return PaginatedResponse[UserListItem](
+        items=items, total=total, limit=page.limit, offset=page.offset
+    )
 
 
 def _get_tenant_user_or_404(user_id: int, tenant_id: int, db) -> User:
@@ -128,25 +134,30 @@ def delete_user(
 # ---------------------------------------------------------------------
 
 
-@router.get("/invitations", response_model=list[InvitationResponse])
+@router.get("/invitations", response_model=PaginatedResponse[InvitationResponse])
 def list_invitations(
     user: CurrentUser,
     db: SessionDep,
+    page: PageParams = Depends(pagination_params),
     _admin=require_role(ROLE_COMPANY_ADMIN),
 ):
-    rows = (
+    base = select(Invitation).where(
+        Invitation.tenant_id == user.tenant_id,
+        Invitation.accepted_at.is_(None),
+    )
+    total = db.execute(select(func.count()).select_from(base.subquery())).scalar_one()
+    items = (
         db.execute(
-            select(Invitation)
-            .where(
-                Invitation.tenant_id == user.tenant_id,
-                Invitation.accepted_at.is_(None),
-            )
-            .order_by(Invitation.created_at.desc())
+            base.order_by(Invitation.created_at.desc())
+            .limit(page.limit)
+            .offset(page.offset)
         )
         .scalars()
         .all()
     )
-    return rows
+    return PaginatedResponse[InvitationResponse](
+        items=items, total=total, limit=page.limit, offset=page.offset
+    )
 
 
 @router.post(

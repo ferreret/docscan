@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.application import Application
@@ -15,13 +15,20 @@ from web.api.schemas.application import (
     ApplicationResponse,
     ApplicationUpdate,
 )
+from web.api.schemas.pagination import (
+    PageParams,
+    PaginatedResponse,
+    pagination_params,
+)
 from web.api.storage import StorageDep
 
 router = APIRouter()
 
 
 def _get_app_or_404(
-    app_id: int, tenant_id: int, db: Session,
+    app_id: int,
+    tenant_id: int,
+    db: Session,
 ) -> Application:
     """Obtiene una aplicación del tenant actual o lanza 404."""
     app = db.execute(
@@ -38,20 +45,32 @@ def _get_app_or_404(
     return app
 
 
-@router.get("", response_model=list[ApplicationListItem])
-def list_applications(user: CurrentUser, db: SessionDep):
-    """Lista las aplicaciones del tenant del usuario."""
-    apps = db.execute(
-        select(Application)
-        .where(Application.tenant_id == user.tenant_id)
-        .order_by(Application.name)
-    ).scalars().all()
-    return apps
+@router.get("", response_model=PaginatedResponse[ApplicationListItem])
+def list_applications(
+    user: CurrentUser,
+    db: SessionDep,
+    page: PageParams = Depends(pagination_params),
+):
+    """Lista las aplicaciones del tenant del usuario (paginado)."""
+    base = select(Application).where(Application.tenant_id == user.tenant_id)
+    total = db.execute(select(func.count()).select_from(base.subquery())).scalar_one()
+    items = (
+        db.execute(
+            base.order_by(Application.name).limit(page.limit).offset(page.offset)
+        )
+        .scalars()
+        .all()
+    )
+    return PaginatedResponse[ApplicationListItem](
+        items=items, total=total, limit=page.limit, offset=page.offset
+    )
 
 
 @router.post("", response_model=ApplicationResponse, status_code=201)
 def create_application(
-    data: ApplicationCreate, user: CurrentUser, db: SessionDep,
+    data: ApplicationCreate,
+    user: CurrentUser,
+    db: SessionDep,
 ):
     """Crea una nueva aplicación en el tenant del usuario."""
     existing = db.execute(
@@ -84,7 +103,10 @@ def get_application(app_id: int, user: CurrentUser, db: SessionDep):
 
 @router.patch("/{app_id}", response_model=ApplicationResponse)
 def update_application(
-    app_id: int, data: ApplicationUpdate, user: CurrentUser, db: SessionDep,
+    app_id: int,
+    data: ApplicationUpdate,
+    user: CurrentUser,
+    db: SessionDep,
 ):
     """Actualiza una aplicación existente."""
     app = _get_app_or_404(app_id, user.tenant_id, db)

@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { api, ApiError } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
-import type { TeamUser, Invitation } from '@/api/types'
+import type { TeamUser, Invitation, Paginated } from '@/api/types'
 
 const auth = useAuthStore()
 
@@ -27,11 +27,11 @@ async function loadAll() {
   error.value = null
   try {
     const [u, i] = await Promise.all([
-      api.get<TeamUser[]>('/users'),
-      api.get<Invitation[]>('/invitations'),
+      api.get<Paginated<TeamUser>>('/users'),
+      api.get<Paginated<Invitation>>('/invitations'),
     ])
-    users.value = u
-    invitations.value = i
+    users.value = u.items
+    invitations.value = i.items
   } catch (e) {
     error.value = e instanceof ApiError ? e.detail : 'Error cargando equipo'
   } finally {

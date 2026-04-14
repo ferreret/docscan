@@ -8,10 +8,12 @@ import type {
   PageListItem,
   PageResponse,
   PageUploadResponse,
+  Paginated,
 } from '@/api/types'
 
 export const useBatchesStore = defineStore('batches', () => {
   const items = ref<BatchListItem[]>([])
+  const total = ref(0)
   const current = ref<BatchResponse | null>(null)
   const pages = ref<PageListItem[]>([])
   const currentPage = ref<PageResponse | null>(null)
@@ -21,7 +23,9 @@ export const useBatchesStore = defineStore('batches', () => {
     loading.value = true
     try {
       const query = applicationId ? `?application_id=${applicationId}` : ''
-      items.value = await api.get<BatchListItem[]>(`/batches${query}`)
+      const res = await api.get<Paginated<BatchListItem>>(`/batches${query}`)
+      items.value = res.items
+      total.value = res.total
     } finally {
       loading.value = false
     }
@@ -81,7 +85,7 @@ export const useBatchesStore = defineStore('batches', () => {
   }
 
   return {
-    items, current, pages, currentPage, loading,
+    items, total, current, pages, currentPage, loading,
     fetchAll, fetchOne, create, remove, runPipeline,
     fetchPages, fetchPage, uploadFiles, deletePage, pageImageUrl,
   }

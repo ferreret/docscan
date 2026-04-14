@@ -1,5 +1,13 @@
 // Tipos TypeScript que reflejan los schemas de la API REST.
 
+export interface Paginated<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
+
+
 export interface TokenResponse {
   access_token: string
   token_type: string

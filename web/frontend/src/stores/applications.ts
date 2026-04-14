@@ -6,17 +6,21 @@ import type {
   ApplicationResponse,
   ApplicationCreate,
   ApplicationUpdate,
+  Paginated,
 } from '@/api/types'
 
 export const useApplicationsStore = defineStore('applications', () => {
   const items = ref<ApplicationListItem[]>([])
+  const total = ref(0)
   const current = ref<ApplicationResponse | null>(null)
   const loading = ref(false)
 
   async function fetchAll() {
     loading.value = true
     try {
-      items.value = await api.get<ApplicationListItem[]>('/applications')
+      const res = await api.get<Paginated<ApplicationListItem>>('/applications')
+      items.value = res.items
+      total.value = res.total
     } finally {
       loading.value = false
     }
@@ -50,5 +54,5 @@ export const useApplicationsStore = defineStore('applications', () => {
     await fetchAll()
   }
 
-  return { items, current, loading, fetchAll, fetchOne, create, update, remove }
+  return { items, total, current, loading, fetchAll, fetchOne, create, update, remove }
 })

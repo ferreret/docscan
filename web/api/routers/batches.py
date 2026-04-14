@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.application import Application
@@ -17,6 +17,11 @@ from web.api.schemas.batch import (
     BatchListItem,
     BatchResponse,
     BatchUpdate,
+)
+from web.api.schemas.pagination import (
+    PageParams,
+    PaginatedResponse,
+    pagination_params,
 )
 from web.api.storage import StorageDep
 from web.api.tasks.pipeline_runner import run_pipeline_for_batch
@@ -43,21 +48,32 @@ def _assert_application_in_tenant(
         )
 
 
-@router.get("", response_model=list[BatchListItem])
+@router.get("", response_model=PaginatedResponse[BatchListItem])
 def list_batches(
     user: CurrentUser,
     db: SessionDep,
     application_id: int | None = Query(None),
     state: str | None = Query(None),
+    page: PageParams = Depends(pagination_params),
 ):
-    """Lista los lotes del tenant, filtrando opcionalmente por aplicación y estado."""
-    stmt = select(Batch).where(Batch.tenant_id == user.tenant_id)
+    """Lista los lotes del tenant (paginado), filtrando por aplicación y estado."""
+    base = select(Batch).where(Batch.tenant_id == user.tenant_id)
     if application_id is not None:
-        stmt = stmt.where(Batch.application_id == application_id)
+        base = base.where(Batch.application_id == application_id)
     if state is not None:
-        stmt = stmt.where(Batch.state == state)
-    stmt = stmt.order_by(Batch.created_at.desc())
-    return db.execute(stmt).scalars().all()
+        base = base.where(Batch.state == state)
+
+    total = db.execute(select(func.count()).select_from(base.subquery())).scalar_one()
+    items = (
+        db.execute(
+            base.order_by(Batch.created_at.desc()).limit(page.limit).offset(page.offset)
+        )
+        .scalars()
+        .all()
+    )
+    return PaginatedResponse[BatchListItem](
+        items=items, total=total, limit=page.limit, offset=page.offset
+    )
 
 
 @router.post("", response_model=BatchResponse, status_code=201)

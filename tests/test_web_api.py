@@ -322,7 +322,9 @@ class TestApplicationsCRUD:
         h = _auth_header(client)
         resp = client.get("/api/applications", headers=h)
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["items"] == []
+        assert data["total"] == 0
 
     def test_crear_aplicacion(self, client):
         h = _auth_header(client)
@@ -347,7 +349,9 @@ class TestApplicationsCRUD:
         client.post("/api/applications", headers=h, json={"name": "App1"})
         client.post("/api/applications", headers=h, json={"name": "App2"})
         resp = client.get("/api/applications", headers=h)
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert data["total"] == 2
+        assert len(data["items"]) == 2
 
     def test_obtener_por_id(self, client):
         h = _auth_header(client)
@@ -431,7 +435,7 @@ class TestApplicationsCRUD:
 
         # Tenant 2 no ve las apps de tenant 1
         resp = client.get("/api/applications", headers=h2)
-        assert resp.json() == []
+        assert resp.json()["items"] == []
 
         resp = client.get(f"/api/applications/{created['id']}", headers=h2)
         assert resp.status_code == 404
@@ -457,7 +461,9 @@ class TestBatchesCRUD:
         h = _auth_header(client)
         resp = client.get("/api/batches", headers=h)
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["items"] == []
+        assert data["total"] == 0
 
     def test_crear_lote(self, client):
         h = _auth_header(client)
@@ -495,7 +501,7 @@ class TestBatchesCRUD:
         client.post("/api/batches", headers=h, json={"application_id": app_id})
         client.post("/api/batches", headers=h, json={"application_id": app_id})
         resp = client.get("/api/batches", headers=h)
-        assert len(resp.json()) == 2
+        assert resp.json()["total"] == 2
 
     def test_filtrar_por_aplicacion(self, client):
         h = _auth_header(client)
@@ -505,9 +511,9 @@ class TestBatchesCRUD:
         client.post("/api/batches", headers=h, json={"application_id": app1})
         client.post("/api/batches", headers=h, json={"application_id": app2})
         resp = client.get(f"/api/batches?application_id={app1}", headers=h)
-        assert len(resp.json()) == 2
+        assert resp.json()["total"] == 2
         resp = client.get(f"/api/batches?application_id={app2}", headers=h)
-        assert len(resp.json()) == 1
+        assert resp.json()["total"] == 1
 
     def test_filtrar_por_estado(self, client):
         h = _auth_header(client)
@@ -524,9 +530,9 @@ class TestBatchesCRUD:
         )
         client.post("/api/batches", headers=h, json={"application_id": app_id})
         resp = client.get("/api/batches?state=exported", headers=h)
-        assert len(resp.json()) == 1
+        assert resp.json()["total"] == 1
         resp = client.get("/api/batches?state=created", headers=h)
-        assert len(resp.json()) == 1
+        assert resp.json()["total"] == 1
 
     def test_obtener_por_id(self, client):
         h = _auth_header(client)
@@ -614,7 +620,7 @@ class TestBatchesCRUD:
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
 
         resp = client.get("/api/batches", headers=h2)
-        assert resp.json() == []
+        assert resp.json()["items"] == []
 
         resp = client.get(f"/api/batches/{created['id']}", headers=h2)
         assert resp.status_code == 404
@@ -1432,7 +1438,7 @@ class TestTeamUsers:
 
         resp = client.get("/api/users", headers=h)
         assert resp.status_code == 200
-        emails = [u["email"] for u in resp.json()]
+        emails = [u["email"] for u in resp.json()["items"]]
         assert emails == ["admin@a.com"]
 
     def test_operador_sin_permiso_403(self, client):
@@ -1654,3 +1660,58 @@ class TestInvitations:
             json={"token": inv["token"], "password": "pass12345", "display_name": "C"},
         )
         assert resp.status_code == 410
+
+
+# ------------------------------------------------------------------
+# Paginación
+# ------------------------------------------------------------------
+
+
+class TestPagination:
+    def test_batches_limit_y_offset(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+        for _ in range(7):
+            client.post("/api/batches", headers=h, json={"application_id": app_id})
+
+        resp = client.get("/api/batches?limit=3&offset=0", headers=h)
+        data = resp.json()
+        assert data["total"] == 7
+        assert data["limit"] == 3
+        assert data["offset"] == 0
+        assert len(data["items"]) == 3
+
+        resp = client.get("/api/batches?limit=3&offset=3", headers=h)
+        assert len(resp.json()["items"]) == 3
+
+        resp = client.get("/api/batches?limit=3&offset=6", headers=h)
+        assert len(resp.json()["items"]) == 1
+
+    def test_limit_fuera_de_rango_422(self, client):
+        h = _auth_header(client)
+        assert client.get("/api/batches?limit=0", headers=h).status_code == 422
+        assert client.get("/api/batches?limit=201", headers=h).status_code == 422
+        assert client.get("/api/batches?offset=-1", headers=h).status_code == 422
+
+    def test_applications_paginado(self, client):
+        h = _auth_header(client)
+        for i in range(4):
+            client.post("/api/applications", headers=h, json={"name": f"App{i}"})
+
+        resp = client.get("/api/applications?limit=2", headers=h)
+        data = resp.json()
+        assert data["total"] == 4
+        assert len(data["items"]) == 2
+
+    def test_total_respeta_filtros(self, client):
+        """total debe reflejar el conjunto filtrado, no el global."""
+        h = _auth_header(client)
+        app1 = _create_app_and_get_id(client, h, "A1")
+        app2 = _create_app_and_get_id(client, h, "A2")
+        for _ in range(3):
+            client.post("/api/batches", headers=h, json={"application_id": app1})
+        for _ in range(2):
+            client.post("/api/batches", headers=h, json={"application_id": app2})
+
+        resp = client.get(f"/api/batches?application_id={app1}&limit=10", headers=h)
+        assert resp.json()["total"] == 3
