@@ -143,6 +143,18 @@ class TestRegister:
         )
         assert resp.status_code == 409
 
+    def test_registro_password_corta_422(self, client):
+        resp = client.post(
+            "/api/auth/register",
+            json={
+                "email": "admin@acme.com",
+                "password": "1234567",
+                "display_name": "Admin",
+                "tenant_name": "ACME",
+            },
+        )
+        assert resp.status_code == 422
+
     def test_registro_tenant_duplicado(self, client):
         payload = {
             "email": "admin@acme.com",
@@ -174,7 +186,7 @@ class TestLogin:
             "/api/auth/register",
             json={
                 "email": "user@test.com",
-                "password": "pass123",
+                "password": "password123",
                 "display_name": "Test User",
                 "tenant_name": "TestCo",
             },
@@ -186,7 +198,7 @@ class TestLogin:
             "/api/auth/login",
             json={
                 "email": "user@test.com",
-                "password": "pass123",
+                "password": "password123",
             },
         )
         assert resp.status_code == 200
@@ -210,7 +222,7 @@ class TestLogin:
             "/api/auth/login",
             json={
                 "email": "noexiste@test.com",
-                "password": "pass123",
+                "password": "password123",
             },
         )
         assert resp.status_code == 401
@@ -223,7 +235,7 @@ class TestLogin:
 
 class TestProfile:
     def test_me_autenticado(self, client):
-        h = _auth_header(client, "admin@corp.com", "secret", "Admin Corp", "MyCorp")
+        h = _auth_header(client, "admin@corp.com", "secret123", "Admin Corp", "MyCorp")
         resp = client.get("/api/auth/me", headers=h)
         assert resp.status_code == 200
         data = resp.json()
@@ -292,7 +304,7 @@ class TestTenantId:
 def _auth_header(
     client,
     email: str = "dev@acme.com",
-    password: str = "pass",
+    password: str = "password123",
     display_name: str = "Dev",
     tenant_name: str = "ACME",
 ) -> dict:
@@ -419,7 +431,7 @@ class TestApplicationsCRUD:
             "/api/auth/register",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Otro",
                 "tenant_name": "OtraCorp",
             },
@@ -428,7 +440,7 @@ class TestApplicationsCRUD:
             "/api/auth/login",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
@@ -605,7 +617,7 @@ class TestBatchesCRUD:
             "/api/auth/register",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Otro",
                 "tenant_name": "OtraCorp",
             },
@@ -614,7 +626,7 @@ class TestBatchesCRUD:
             "/api/auth/login",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
@@ -633,7 +645,7 @@ class TestBatchesCRUD:
             "/api/auth/register",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Otro",
                 "tenant_name": "OtraCorp",
             },
@@ -642,7 +654,7 @@ class TestBatchesCRUD:
             "/api/auth/login",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
@@ -794,7 +806,7 @@ class TestPagesUpload:
             "/api/auth/register",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Otro",
                 "tenant_name": "OtraCorp",
             },
@@ -803,7 +815,7 @@ class TestPagesUpload:
             "/api/auth/login",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
@@ -903,7 +915,7 @@ class TestPagesRead:
             "/api/auth/register",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Otro",
                 "tenant_name": "OtraCorp",
             },
@@ -912,7 +924,7 @@ class TestPagesRead:
             "/api/auth/login",
             json={
                 "email": "otro@otro.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         h2 = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
@@ -1116,7 +1128,7 @@ class TestPipelineRun:
             "/api/auth/register",
             json={
                 "email": "intruso@x.com",
-                "password": "p",
+                "password": "password123",
                 "display_name": "I",
                 "tenant_name": "OtraCorpRun",
             },
@@ -1125,7 +1137,7 @@ class TestPipelineRun:
             "/api/auth/login",
             json={
                 "email": "intruso@x.com",
-                "password": "p",
+                "password": "password123",
             },
         ).json()["access_token"]
         h2 = {"Authorization": f"Bearer {token}"}
@@ -1335,8 +1347,8 @@ class TestPipelineWebSocket:
         from web.api.events import reset_event_bus
 
         reset_event_bus()
-        h_owner = _auth_header(client, "owner@a.com", "p", "Owner", "OrgA")
-        h_other = _auth_header(client, "other@b.com", "p", "Other", "OrgB")
+        h_owner = _auth_header(client, "owner@a.com", "password123", "Owner", "OrgA")
+        h_other = _auth_header(client, "other@b.com", "password123", "Other", "OrgB")
         token_other = h_other["Authorization"].split()[1]
 
         app_id = _create_app_with_pipeline(client, h_owner, "[]")
@@ -1397,8 +1409,8 @@ class TestBatchExport:
         assert page["ocr_text"] == "fake ocr"
 
     def test_export_lote_otro_tenant_404(self, client):
-        h_owner = _auth_header(client, "owner@a.com", "p", "Owner", "OrgA")
-        h_other = _auth_header(client, "other@b.com", "p", "Other", "OrgB")
+        h_owner = _auth_header(client, "owner@a.com", "password123", "Owner", "OrgA")
+        h_other = _auth_header(client, "other@b.com", "password123", "Other", "OrgB")
         app_id = _create_app_with_pipeline(client, h_owner, "[]")
         batch_id, _ = _create_batch_with_page(client, h_owner, app_id)
 
@@ -1433,8 +1445,8 @@ class TestBatchExport:
 
 class TestTeamUsers:
     def test_admin_lista_usuarios_del_tenant(self, client):
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
-        _auth_header(client, "other@b.com", "p", "Other", "OrgB")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
+        _auth_header(client, "other@b.com", "password123", "Other", "OrgB")
 
         resp = client.get("/api/users", headers=h)
         assert resp.status_code == 200
@@ -1442,7 +1454,7 @@ class TestTeamUsers:
         assert emails == ["admin@a.com"]
 
     def test_operador_sin_permiso_403(self, client):
-        h_admin = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h_admin = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         # Crear operador via invitación
         inv = client.post(
             "/api/invitations",
@@ -1462,7 +1474,7 @@ class TestTeamUsers:
         assert client.get("/api/users", headers=h_op).status_code == 403
 
     def test_admin_cambia_rol_y_desactiva(self, client):
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         inv = client.post(
             "/api/invitations",
             headers=h,
@@ -1487,7 +1499,7 @@ class TestTeamUsers:
         assert resp.json()["active"] is False
 
     def test_admin_no_puede_desactivarse_a_si_mismo(self, client):
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         me = client.get("/api/auth/me", headers=h).json()
         resp = client.patch(
             f"/api/users/{me['id']}",
@@ -1497,7 +1509,7 @@ class TestTeamUsers:
         assert resp.status_code == 409
 
     def test_admin_cambia_rol_a_invalido_422(self, client):
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         me = client.get("/api/auth/me", headers=h).json()
         resp = client.patch(
             f"/api/users/{me['id']}",
@@ -1507,8 +1519,8 @@ class TestTeamUsers:
         assert resp.status_code == 422
 
     def test_usuario_de_otro_tenant_404(self, client):
-        h_a = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
-        h_b = _auth_header(client, "admin@b.com", "p", "Admin", "OrgB")
+        h_a = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
+        h_b = _auth_header(client, "admin@b.com", "password123", "Admin", "OrgB")
         me_b = client.get("/api/auth/me", headers=h_b).json()
 
         resp = client.patch(
@@ -1521,7 +1533,7 @@ class TestTeamUsers:
 
 class TestInvitations:
     def test_admin_crea_invitacion(self, client):
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         resp = client.post(
             "/api/invitations",
             headers=h,
@@ -1535,7 +1547,7 @@ class TestInvitations:
         assert len(inv["token"]) > 40
 
     def test_operador_no_puede_crear_invitacion(self, client):
-        h_admin = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h_admin = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         inv = client.post(
             "/api/invitations",
             headers=h_admin,
@@ -1561,8 +1573,8 @@ class TestInvitations:
         )
 
     def test_invitacion_email_ya_registrado_409(self, client):
-        _auth_header(client, "existe@other.com", "p", "Existe", "OtherOrg")
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        _auth_header(client, "existe@other.com", "password123", "Existe", "OtherOrg")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         resp = client.post(
             "/api/invitations",
             headers=h,
@@ -1571,7 +1583,7 @@ class TestInvitations:
         assert resp.status_code == 409
 
     def test_aceptar_invitacion_crea_usuario(self, client):
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         inv = client.post(
             "/api/invitations",
             headers=h,
@@ -1604,7 +1616,7 @@ class TestInvitations:
         assert resp.status_code == 404
 
     def test_aceptar_invitacion_dos_veces_409(self, client):
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         inv = client.post(
             "/api/invitations",
             headers=h,
@@ -1621,8 +1633,8 @@ class TestInvitations:
         assert resp.status_code == 409
 
     def test_revocar_invitacion_otro_tenant_404(self, client):
-        h_a = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
-        h_b = _auth_header(client, "admin@b.com", "p", "Admin", "OrgB")
+        h_a = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
+        h_b = _auth_header(client, "admin@b.com", "password123", "Admin", "OrgB")
         inv = client.post(
             "/api/invitations",
             headers=h_a,
@@ -1639,7 +1651,7 @@ class TestInvitations:
 
         from web.api.models import Invitation
 
-        h = _auth_header(client, "admin@a.com", "p", "Admin", "OrgA")
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
         inv = client.post(
             "/api/invitations",
             headers=h,

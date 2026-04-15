@@ -92,6 +92,7 @@ services:
       # General
       DOCSCAN_WEB_DEPLOY_MODE: ${DOCSCAN_WEB_DEPLOY_MODE:-onpremise}
       DOCSCAN_WEB_DEBUG: ${DOCSCAN_WEB_DEBUG:-false}
+      DOCSCAN_WEB_CORS_ORIGINS: '["http://localhost:5173","http://localhost:5180"]'
     ports:
       - "8001:8001"
     depends_on:

@@ -18,6 +18,22 @@ function getToken(): string | null {
   return localStorage.getItem('access_token')
 }
 
+type PydanticError = { loc?: (string | number)[]; msg?: string }
+
+function formatDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((e: PydanticError) => {
+        const field = e.loc?.filter((p) => p !== 'body').join('.') || ''
+        const msg = e.msg || 'error de validación'
+        return field ? `${field}: ${msg}` : msg
+      })
+      .join(' · ')
+  }
+  return 'Error desconocido'
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -41,7 +57,7 @@ async function request<T>(
     headers,
   })
 
-  if (res.status === 401) {
+  if (res.status === 401 && token) {
     localStorage.removeItem('access_token')
     window.location.href = '/login'
     throw new ApiError(401, 'No autenticado')
@@ -54,7 +70,7 @@ async function request<T>(
   const body = await res.json()
 
   if (!res.ok) {
-    throw new ApiError(res.status, body.detail || 'Error desconocido')
+    throw new ApiError(res.status, formatDetail(body.detail))
   }
 
   return body as T
