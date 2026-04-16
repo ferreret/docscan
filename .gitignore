@@ -41,3 +41,5 @@ site/
 
 # Batch data (user-generated)
 /batch_*/
+
+.superpowers/
