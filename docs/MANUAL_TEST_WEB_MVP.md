@@ -225,3 +225,66 @@ exhaustiva — lo importante es capturar todo lo que te haga dudar.
 - **UX**: no es un bug, es una fricción o mejora de experiencia.
 
 Al terminar, pásame la bitácora y priorizamos.
+
+---
+
+## 9. Editor de pipeline v1 (añadido 2026-04-17)
+
+Escenarios de regresión para la página `/applications/:id/pipeline`. Todos
+validados end-to-end con Playwright el 2026-04-17 sobre Postgres local.
+
+### 9.1 Navegación
+- [ ] En el detalle de una aplicación aparece el botón **"Editar pipeline"**
+  antes de **"+ Nuevo lote"**.
+- [ ] Al pulsarlo, navega a `/applications/:id/pipeline`.
+- [ ] El encabezado muestra `← <nombre de la app>` (no "Aplicación").
+
+### 9.2 Empty state
+- [ ] Pipeline vacío: mensaje *"Todavía no hay ningún step en el pipeline"*
+  + contador `0 steps`.
+- [ ] El botón `+ Añadir step` abre un dropdown con **Barcode (v1)** activo
+  y `image_op`, `ocr`, `script` bajo "Próximamente" (no clicables).
+
+### 9.3 Añadir, editar, borrar
+- [ ] `+ Añadir step → Barcode`: se abre el drawer con "Añadir step barcode"
+  y formulario con defaults (motor1, sin simbologías, sin regex, ambas
+  orientaciones).
+- [ ] Rellenar campos (motor, simbología, regex, umbral) y **Guardar step**:
+  el drawer cierra, la fila aparece con summary `motor · región · simbologías`,
+  contador sube a `1 step`.
+- [ ] Añadir un segundo step (motor2): contador `2 steps`.
+- [ ] Editar un step existente (botón ✎): drawer abre con "Editar step
+  barcode" y los valores actuales. Guardar persiste.
+- [ ] Borrar un step (botón 🗑): confirm `¿Eliminar este step "barcode"?` →
+  desaparece de la lista.
+
+### 9.4 Validación regex
+- [ ] Escribir `[` en el campo regex: mensaje inline *"Regex inválida:
+  Invalid regular expression …"* + botón **Guardar step** deshabilitado.
+- [ ] Al borrar el carácter, el botón se re-habilita.
+
+### 9.5 Dirty guard
+- [ ] Tener cambios sin guardar y pulsar **Cancelar** o el backdrop: confirm
+  *"¿Descartar cambios?"*.
+
+### 9.6 Persistencia
+- [ ] Tras guardar un pipeline, recargar la página (F5) → los steps se
+  mantienen.
+- [ ] Verificar vía API: `GET /api/applications/:id/pipeline` devuelve los
+  mismos steps con los campos normalizados.
+
+### 9.7 Aislamiento multi-tenant
+- [ ] Desde un usuario de otro tenant, `GET /api/applications/:id/pipeline`
+  de una app ajena devuelve **404 "Aplicación no encontrada"**.
+- [ ] Lo mismo con `PUT`.
+
+### 9.8 Drag-to-reorder
+- [ ] Con ≥2 steps, arrastrar el handle `⋮⋮` para reordenar: el orden
+  persiste (toast "Pipeline actualizado" + GET refleja nuevo orden).
+
+### 9.9 Tipos no editables en v1
+- [ ] Si existiera un step de tipo `image_op`/`ocr`/`script` (creado desde
+  el desktop), al editarlo el drawer muestra un aviso *"Este tipo de step
+  se edita desde el configurador de escritorio"* y el botón Guardar no
+  aparece.
+
