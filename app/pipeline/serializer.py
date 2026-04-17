@@ -53,9 +53,7 @@ def deserialize(json_str: str) -> list[PipelineStep]:
         raise PipelineSerializationError(f"JSON inválido: {e}") from e
 
     if not isinstance(raw, list):
-        raise PipelineSerializationError(
-            "El pipeline debe ser una lista de pasos"
-        )
+        raise PipelineSerializationError("El pipeline debe ser una lista de pasos")
 
     steps: list[PipelineStep] = []
     for i, data in enumerate(raw):
@@ -93,9 +91,7 @@ def _dict_to_step(data: dict[str, Any], index: int) -> PipelineStep | None:
     """
     step_type = data.get("type")
     if not step_type:
-        raise PipelineSerializationError(
-            f"Paso {index}: falta el campo 'type'"
-        )
+        raise PipelineSerializationError(f"Paso {index}: falta el campo 'type'")
 
     # Tolerancia: tipos eliminados se saltan (compatibilidad con pipelines antiguos)
     if step_type in REMOVED_STEP_TYPES:
@@ -117,11 +113,12 @@ def _dict_to_step(data: dict[str, Any], index: int) -> PipelineStep | None:
     _coerce_tuples(filtered, cls)
 
     try:
-        return cls(**filtered)
+        step = cls(**filtered)
     except TypeError as e:
-        raise PipelineSerializationError(
-            f"Paso {index} ('{step_type}'): {e}"
-        ) from e
+        raise PipelineSerializationError(f"Paso {index} ('{step_type}'): {e}") from e
+
+    _validate_literals(step, cls, index)
+    return step
 
 
 def _coerce_tuples(data: dict[str, Any], cls: type) -> None:
@@ -134,3 +131,56 @@ def _coerce_tuples(data: dict[str, Any], cls: type) -> None:
         value = data.get(field_name)
         if isinstance(value, list):
             data[field_name] = tuple(value)
+
+
+def _validate_literals(step: PipelineStep, cls: type, index: int) -> None:
+    """Valida que los campos Literal del dataclass tengan valores permitidos.
+
+    Los dataclasses de Python no validan tipos en runtime; esta función
+    recorre las anotaciones buscando ``Literal[...]`` y comprueba que el
+    valor del campo esté en el conjunto permitido. Lanza
+    ``PipelineSerializationError`` si algún valor no es válido.
+
+    Args:
+        step: Instancia del paso ya construida.
+        cls: Clase del dataclass (para leer anotaciones).
+        index: Posición en el pipeline (para mensajes de error).
+    """
+    import typing
+
+    hints = typing.get_type_hints(cls)
+    for field_name, hint in hints.items():
+        # Desenvuelve Optional / Union para encontrar el Literal interior
+        allowed = _literal_values(hint)
+        if allowed is None:
+            continue
+        value = getattr(step, field_name, None)
+        if value not in allowed:
+            raise PipelineSerializationError(
+                f"Paso {index} ('{step.type}'): campo '{field_name}' inválido "
+                f"'{value}'; valores permitidos: {list(allowed)}"
+            )
+
+
+def _literal_values(hint: Any) -> set | None:
+    """Extrae los valores permitidos de una anotación Literal (o Union con Literal).
+
+    Devuelve un conjunto con los literales si los hay, o None si la
+    anotación no contiene ningún Literal.
+    """
+    import typing
+
+    origin = typing.get_origin(hint)
+    if origin is typing.Literal:
+        return set(typing.get_args(hint))
+
+    # Maneja Union/Optional: recoge literales de todos los args
+    if origin is typing.Union:
+        values: set = set()
+        for arg in typing.get_args(hint):
+            inner = _literal_values(arg)
+            if inner is not None:
+                values |= inner
+        return values if values else None
+
+    return None

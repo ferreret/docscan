@@ -75,3 +75,40 @@ def get_pipeline(app_id: int, user: CurrentUser, db: SessionDep):
         )
         steps = []
     return {"steps": steps}
+
+
+@router.put("/{app_id}/pipeline", response_model=PipelineResponse)
+def update_pipeline(
+    app_id: int,
+    data: PipelineUpdate,
+    user: CurrentUser,
+    db: SessionDep,
+):
+    """Reemplaza el pipeline entero de la aplicación.
+
+    Valida con ``deserialize()`` para garantizar que el pipeline
+    guardado es ejecutable por el runner. Si falla, responde 422.
+    """
+    app = _get_app_or_404(app_id, user.tenant_id, db)
+
+    # Construir JSON del cliente y validar vía deserialize
+    import json
+
+    raw_steps = [step.model_dump() for step in data.steps]
+    candidate_json = json.dumps(raw_steps, ensure_ascii=False)
+
+    try:
+        steps = deserialize(candidate_json)
+    except PipelineSerializationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Pipeline inválido: {e}",
+        )
+
+    # Re-serializar con la versión canónica (tuplas→listas, etc.)
+    app.pipeline_json = serialize(steps)
+    db.commit()
+
+    from dataclasses import asdict
+
+    return {"steps": [asdict(s) for s in steps]}
