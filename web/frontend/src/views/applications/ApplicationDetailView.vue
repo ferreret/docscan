@@ -41,6 +41,12 @@ async function onCreateBatch() {
       </div>
       <div class="flex gap-2">
         <button
+          @click="router.push(`/applications/${appId}/pipeline`)"
+          class="bg-white text-primary border border-primary/40 rounded-md px-4 py-2 text-[13px] font-medium hover:bg-primary hover:text-white transition-colors"
+        >
+          Editar pipeline
+        </button>
+        <button
           @click="onCreateBatch"
           class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
         >
