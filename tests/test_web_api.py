@@ -1727,3 +1727,70 @@ class TestPagination:
 
         resp = client.get(f"/api/batches?application_id={app1}&limit=10", headers=h)
         assert resp.json()["total"] == 3
+
+
+# ===================================================================
+# Editor de pipeline
+# ===================================================================
+
+
+def _barcode_step_payload(step_id: str = "bc-1") -> dict:
+    """Payload mínimo de un BarcodeStep válido para usar en requests."""
+    return {
+        "id": step_id,
+        "type": "barcode",
+        "enabled": True,
+        "engine": "motor1",
+        "symbologies": [],
+        "regex": "",
+        "regex_include_symbology": False,
+        "orientations": ["horizontal", "vertical"],
+        "quality_threshold": 0.0,
+        "window": None,
+    }
+
+
+class TestPipelineEditorGet:
+    def test_get_pipeline_app_nueva_devuelve_lista_vacia(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+
+        resp = client.get(f"/api/applications/{app_id}/pipeline", headers=h)
+
+        assert resp.status_code == 200
+        assert resp.json() == {"steps": []}
+
+    def test_get_pipeline_con_steps_preexistentes(self, client):
+        h = _auth_header(client)
+        import json
+
+        pipeline = json.dumps([_barcode_step_payload()])
+        app_id = _create_app_with_pipeline(client, h, pipeline)
+
+        resp = client.get(f"/api/applications/{app_id}/pipeline", headers=h)
+
+        assert resp.status_code == 200
+        steps = resp.json()["steps"]
+        assert len(steps) == 1
+        assert steps[0]["type"] == "barcode"
+        assert steps[0]["id"] == "bc-1"
+
+    def test_get_pipeline_otro_tenant_404(self, client):
+        h_a = _auth_header(client, email="a@a.com", tenant_name="A")
+        app_id = _create_app_and_get_id(client, h_a)
+        h_b = _auth_header(client, email="b@b.com", tenant_name="B")
+
+        resp = client.get(f"/api/applications/{app_id}/pipeline", headers=h_b)
+
+        assert resp.status_code == 404
+
+    def test_get_pipeline_app_inexistente_404(self, client):
+        h = _auth_header(client)
+
+        resp = client.get("/api/applications/99999/pipeline", headers=h)
+
+        assert resp.status_code == 404
+
+    def test_get_pipeline_sin_auth_401(self, client):
+        resp = client.get("/api/applications/1/pipeline")
+        assert resp.status_code == 401
