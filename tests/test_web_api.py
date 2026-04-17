@@ -1794,3 +1794,114 @@ class TestPipelineEditorGet:
     def test_get_pipeline_sin_auth_401(self, client):
         resp = client.get("/api/applications/1/pipeline")
         assert resp.status_code == 401
+
+
+class TestPipelineEditorPut:
+    def test_put_pipeline_barcode_ok_round_trip(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+
+        body = {"steps": [_barcode_step_payload()]}
+        resp = client.put(f"/api/applications/{app_id}/pipeline", headers=h, json=body)
+
+        assert resp.status_code == 200
+        assert len(resp.json()["steps"]) == 1
+        assert resp.json()["steps"][0]["engine"] == "motor1"
+
+        # GET devuelve lo mismo
+        resp2 = client.get(f"/api/applications/{app_id}/pipeline", headers=h)
+        assert resp2.json()["steps"][0]["id"] == "bc-1"
+
+    def test_put_pipeline_reemplaza_completo(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+
+        # Primer PUT con 2 steps
+        body1 = {
+            "steps": [
+                _barcode_step_payload("bc-a"),
+                _barcode_step_payload("bc-b"),
+            ]
+        }
+        client.put(f"/api/applications/{app_id}/pipeline", headers=h, json=body1)
+
+        # Segundo PUT con solo 1 step distinto
+        body2 = {"steps": [_barcode_step_payload("bc-c")]}
+        resp = client.put(f"/api/applications/{app_id}/pipeline", headers=h, json=body2)
+
+        assert resp.status_code == 200
+        steps = resp.json()["steps"]
+        assert len(steps) == 1
+        assert steps[0]["id"] == "bc-c"
+
+    def test_put_pipeline_tipo_desconocido_422(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+
+        body = {
+            "steps": [
+                {"id": "x", "type": "xxxx_unknown", "enabled": True},
+            ]
+        }
+        resp = client.put(f"/api/applications/{app_id}/pipeline", headers=h, json=body)
+
+        # Pydantic lo rechaza por Literal mismatch antes de llegar al deserialize
+        assert resp.status_code == 422
+
+    def test_put_pipeline_campo_invalido_en_step_422(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+
+        # Barcode con "engine" inválido (no es "motor1" ni "motor2")
+        body = {
+            "steps": [
+                {
+                    "id": "bc-1",
+                    "type": "barcode",
+                    "enabled": True,
+                    "engine": "motor_fantasma",
+                }
+            ]
+        }
+        resp = client.put(f"/api/applications/{app_id}/pipeline", headers=h, json=body)
+
+        assert resp.status_code == 422
+        assert "Pipeline inválido" in resp.json()["detail"]
+
+    def test_put_pipeline_otro_tenant_404(self, client):
+        h_a = _auth_header(client, email="a@a.com", tenant_name="A")
+        app_id = _create_app_and_get_id(client, h_a)
+        h_b = _auth_header(client, email="b@b.com", tenant_name="B")
+
+        body = {"steps": [_barcode_step_payload()]}
+        resp = client.put(
+            f"/api/applications/{app_id}/pipeline", headers=h_b, json=body
+        )
+
+        assert resp.status_code == 404
+
+    def test_put_pipeline_persiste_en_pipeline_json(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+
+        body = {"steps": [_barcode_step_payload("bc-xyz")]}
+        client.put(f"/api/applications/{app_id}/pipeline", headers=h, json=body)
+
+        # Verifica via GET /applications/:id (endpoint existente)
+        resp = client.get(f"/api/applications/{app_id}", headers=h)
+        import json
+
+        stored = json.loads(resp.json()["pipeline_json"])
+        assert len(stored) == 1
+        assert stored[0]["id"] == "bc-xyz"
+
+    def test_put_pipeline_lista_vacia_ok(self, client):
+        h = _auth_header(client)
+        app_id = _create_app_and_get_id(client, h)
+
+        resp = client.put(
+            f"/api/applications/{app_id}/pipeline", headers=h, json={"steps": []}
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["steps"] == []
