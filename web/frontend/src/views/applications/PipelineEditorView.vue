@@ -34,8 +34,8 @@ onMounted(async () => {
 })
 
 onBeforeRouteLeave(() => {
-  if (pipelineStore.saving) {
-    return confirm('Hay cambios guardándose. ¿Salir de todos modos?')
+  if (pipelineStore.saving || drawerOpen.value) {
+    return confirm('Hay cambios sin guardar. ¿Salir de todos modos?')
   }
   return true
 })

@@ -48,7 +48,7 @@ const router = createRouter({
           name: 'pipeline-editor',
           component: () =>
             import('@/views/applications/PipelineEditorView.vue'),
-          meta: { requiresAuth: true },
+          meta: { auth: true },
         },
         {
           path: 'batches',

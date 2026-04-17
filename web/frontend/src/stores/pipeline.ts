@@ -24,7 +24,7 @@ function defaultsFor(type: StepType): Partial<PipelineStep> {
 
 export const usePipelineStore = defineStore('pipeline', () => {
   const steps = ref<PipelineStep[]>([])
-  const loading = ref(false)
+  const loading = ref(true)
   const saving = ref(false)
   const error = ref<string | null>(null)
 
