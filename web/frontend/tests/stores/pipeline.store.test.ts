@@ -119,4 +119,18 @@ describe('usePipelineStore', () => {
     expect(store.error).toContain('Pipeline inválido')
     expect(store.saving).toBe(false)
   })
+
+  it('addStep image_op devuelve un step con defaults correctos', () => {
+    const store = usePipelineStore()
+    const step = store.addStep('image_op')
+
+    expect(step.type).toBe('image_op')
+    expect(step.enabled).toBe(true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = step as any
+    expect(s.op).toBe('')
+    expect(s.params).toEqual({})
+    expect(s.window).toBeNull()
+    expect(step.id).toBeTruthy()
+  })
 })

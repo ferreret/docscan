@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { pipelineApi } from '@/api/pipeline'
-import type { PipelineStep, StepType, BarcodeStep } from '@/api/types-pipeline'
+import type { PipelineStep, StepType, BarcodeStep, ImageOpStep } from '@/api/types-pipeline'
 
 function defaultsFor(type: StepType): Partial<PipelineStep> {
   if (type === 'barcode') {
@@ -18,7 +18,17 @@ function defaultsFor(type: StepType): Partial<PipelineStep> {
     }
     return defaults
   }
-  // Otros tipos no son editables en v1; no se construyen nuevos.
+  if (type === 'image_op') {
+    const defaults: Omit<ImageOpStep, 'id'> = {
+      type: 'image_op',
+      enabled: true,
+      op: '',
+      params: {},
+      window: null,
+    }
+    return defaults
+  }
+  // Otros tipos no son editables aún; no se construyen nuevos.
   return { type, enabled: true }
 }
 
