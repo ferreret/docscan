@@ -12,7 +12,6 @@ import {
 import NumberField from '../fields/NumberField.vue'
 import EnumField from '../fields/EnumField.vue'
 import BooleanField from '../fields/BooleanField.vue'
-import PointField from '../fields/PointField.vue'
 import ColorField from '../fields/ColorField.vue'
 import WindowField from '../WindowField.vue'
 
@@ -54,9 +53,7 @@ const resizeMode = computed<'scale' | 'size'>(() => {
   return 'scale'
 })
 
-function isResize(): boolean {
-  return selectedOp.value?.name === 'Resize'
-}
+const isResize = computed(() => selectedOp.value?.name === 'Resize')
 
 // Qué fields del schema mostrar según el modo (solo aplica a Resize).
 function visibleFields(op: OpSchema): FieldSchema[] {
@@ -139,7 +136,7 @@ function fieldValue(key: string, fallback: unknown): unknown {
     </div>
 
     <!-- Selector de modo para Resize -->
-    <div v-if="selectedOp && isResize()">
+    <div v-if="selectedOp && isResize">
       <EnumField
         label="Modo"
         :model-value="resizeMode"
