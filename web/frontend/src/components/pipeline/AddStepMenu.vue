@@ -44,13 +44,19 @@ function pick(type: StepType) {
       <div class="px-3 py-1.5 text-[11px] text-subtext uppercase tracking-wide">
         Próximamente
       </div>
+      <button
+        @click="pick('ocr')"
+        class="w-full text-left px-3 py-2 text-sm hover:bg-surface-0 flex items-center gap-2"
+      >
+        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+        <span>OCR</span>
+        <span class="ml-auto text-xs text-subtext">v3</span>
+      </button>
       <div
-        v-for="type in ['ocr', 'script']"
-        :key="type"
         class="w-full text-left px-3 py-2 text-sm text-subtext flex items-center gap-2 cursor-not-allowed"
       >
         <span class="w-2 h-2 rounded-full bg-gray-300"></span>
-        <span>{{ type }}</span>
+        <span>script</span>
       </div>
     </div>
   </div>

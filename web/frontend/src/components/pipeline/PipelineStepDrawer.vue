@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import type { PipelineStep, BarcodeStep, ImageOpStep } from '@/api/types-pipeline'
+import type { PipelineStep, BarcodeStep, ImageOpStep, OcrStep } from '@/api/types-pipeline'
 import BarcodeStepForm from './forms/BarcodeStepForm.vue'
 import ImageOpStepForm from './forms/ImageOpStepForm.vue'
+import OcrStepForm from './forms/OcrStepForm.vue'
 
 const props = defineProps<{
   open: boolean
@@ -45,7 +46,10 @@ function onSave() {
 }
 
 const isEditable = computed(
-  () => props.step?.type === 'barcode' || props.step?.type === 'image_op',
+  () =>
+    props.step?.type === 'barcode' ||
+    props.step?.type === 'image_op' ||
+    props.step?.type === 'ocr',
 )
 
 const canSave = computed(() => {
@@ -85,6 +89,11 @@ const canSave = computed(() => {
         <ImageOpStepForm
           v-else-if="draft?.type === 'image_op'"
           :model-value="draft as ImageOpStep"
+          @update:model-value="onDraftUpdate"
+        />
+        <OcrStepForm
+          v-else-if="draft?.type === 'ocr'"
+          :model-value="draft as OcrStep"
           @update:model-value="onDraftUpdate"
         />
         <div v-else class="text-sm text-subtext bg-amber-50 border border-amber-200 rounded p-3">
