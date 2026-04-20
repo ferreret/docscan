@@ -19,12 +19,19 @@ export interface BarcodeStep extends BasePipelineStep {
   window: [number, number, number, number] | null
 }
 
+export interface ImageOpStep extends BasePipelineStep {
+  type: 'image_op'
+  op: string
+  params: Record<string, unknown>
+  window: [number, number, number, number] | null
+}
+
 // Union para el resto de tipos: en v1 solo se leen, no se editan.
 export interface GenericStep extends BasePipelineStep {
   [key: string]: unknown
 }
 
-export type PipelineStep = BarcodeStep | GenericStep
+export type PipelineStep = BarcodeStep | ImageOpStep | GenericStep
 
 export interface PipelineResponse {
   steps: PipelineStep[]
