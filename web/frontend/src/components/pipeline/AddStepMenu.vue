@@ -32,12 +32,20 @@ function pick(type: StepType) {
         <span>Barcode</span>
         <span class="ml-auto text-xs text-subtext">v1</span>
       </button>
+      <button
+        @click="pick('image_op')"
+        class="w-full text-left px-3 py-2 text-sm hover:bg-surface-0 flex items-center gap-2"
+      >
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>Operación de imagen</span>
+        <span class="ml-auto text-xs text-subtext">v2</span>
+      </button>
       <div class="border-t border-surface-0 my-1"></div>
       <div class="px-3 py-1.5 text-[11px] text-subtext uppercase tracking-wide">
         Próximamente
       </div>
       <div
-        v-for="type in ['image_op', 'ocr', 'script']"
+        v-for="type in ['ocr', 'script']"
         :key="type"
         class="w-full text-left px-3 py-2 text-sm text-subtext flex items-center gap-2 cursor-not-allowed"
       >

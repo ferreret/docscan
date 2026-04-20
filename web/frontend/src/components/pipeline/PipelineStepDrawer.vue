@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import type { PipelineStep, BarcodeStep } from '@/api/types-pipeline'
+import type { PipelineStep, BarcodeStep, ImageOpStep } from '@/api/types-pipeline'
 import BarcodeStepForm from './forms/BarcodeStepForm.vue'
+import ImageOpStepForm from './forms/ImageOpStepForm.vue'
 
 const props = defineProps<{
   open: boolean
@@ -43,7 +44,17 @@ function onSave() {
   emit('save', draft.value)
 }
 
-const isEditable = computed(() => props.step?.type === 'barcode')
+const isEditable = computed(
+  () => props.step?.type === 'barcode' || props.step?.type === 'image_op',
+)
+
+const canSave = computed(() => {
+  if (!draft.value) return false
+  if (draft.value.type === 'image_op') {
+    return (draft.value as ImageOpStep).op !== ''
+  }
+  return true
+})
 </script>
 
 <template>
@@ -65,10 +76,15 @@ const isEditable = computed(() => props.step?.type === 'barcode')
 
       <div class="flex-1 overflow-y-auto p-4">
         <BarcodeStepForm
-          v-if="isEditable && draft"
+          v-if="draft?.type === 'barcode'"
           :model-value="draft as BarcodeStep"
           @update:model-value="onDraftUpdate"
           @validity-change="(v) => (valid = v)"
+        />
+        <ImageOpStepForm
+          v-else-if="draft?.type === 'image_op'"
+          :model-value="draft as ImageOpStep"
+          @update:model-value="onDraftUpdate"
         />
         <div v-else class="text-sm text-subtext bg-amber-50 border border-amber-200 rounded p-3">
           Este tipo de step (<code>{{ step?.type }}</code>) se edita desde el
@@ -86,7 +102,7 @@ const isEditable = computed(() => props.step?.type === 'barcode')
         <button
           v-if="isEditable"
           @click="onSave"
-          :disabled="!valid"
+          :disabled="!valid || !canSave"
           class="px-4 py-2 text-[13px] bg-primary text-white rounded-md font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
         >
           Guardar step
