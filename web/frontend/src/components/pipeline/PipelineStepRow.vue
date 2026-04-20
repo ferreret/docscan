@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PipelineStep, BarcodeStep, ImageOpStep } from '@/api/types-pipeline'
+import type { PipelineStep, BarcodeStep, ImageOpStep, OcrStep } from '@/api/types-pipeline'
 import { IMAGE_OP_CATALOG } from '@/api/image-op-catalog'
 import { computed } from 'vue'
 
@@ -40,6 +40,16 @@ const summary = computed(() => {
     return paramsTxt
       ? `${label} · ${paramsTxt}${windowTxt}`
       : `${label}${windowTxt}`
+  }
+  if (s.type === 'ocr') {
+    const oc = s as OcrStep
+    const langs = oc.languages.length ? oc.languages.join(',') : 'sin idiomas'
+    const area = oc.full_page
+      ? 'página completa'
+      : oc.window
+        ? `región ${oc.window.join(',')}`
+        : 'sin región'
+    return `OCR (${oc.engine}) · ${langs} · ${area}`
   }
   return 'Editable desde configurador de escritorio'
 })
