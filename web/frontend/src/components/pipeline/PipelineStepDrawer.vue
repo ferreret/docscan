@@ -50,6 +50,7 @@ const isEditable = computed(
 
 const canSave = computed(() => {
   if (!draft.value) return false
+  if (!valid.value) return false
   if (draft.value.type === 'image_op') {
     return (draft.value as ImageOpStep).op !== ''
   }
@@ -102,7 +103,7 @@ const canSave = computed(() => {
         <button
           v-if="isEditable"
           @click="onSave"
-          :disabled="!valid || !canSave"
+          :disabled="!canSave"
           class="px-4 py-2 text-[13px] bg-primary text-white rounded-md font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
         >
           Guardar step
