@@ -133,4 +133,19 @@ describe('usePipelineStore', () => {
     expect(s.window).toBeNull()
     expect(step.id).toBeTruthy()
   })
+
+  it('addStep ocr devuelve un step con defaults correctos', () => {
+    const store = usePipelineStore()
+    const step = store.addStep('ocr')
+
+    expect(step.type).toBe('ocr')
+    expect(step.enabled).toBe(true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = step as any
+    expect(s.engine).toBe('rapidocr')
+    expect(s.languages).toEqual(['es'])
+    expect(s.full_page).toBe(true)
+    expect(s.window).toBeNull()
+    expect(step.id).toBeTruthy()
+  })
 })

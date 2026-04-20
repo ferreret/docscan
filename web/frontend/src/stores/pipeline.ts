@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { pipelineApi } from '@/api/pipeline'
-import type { PipelineStep, StepType, BarcodeStep, ImageOpStep } from '@/api/types-pipeline'
+import type { PipelineStep, StepType, BarcodeStep, ImageOpStep, OcrStep } from '@/api/types-pipeline'
 
 function defaultsFor(type: StepType): Partial<PipelineStep> {
   if (type === 'barcode') {
@@ -24,6 +24,17 @@ function defaultsFor(type: StepType): Partial<PipelineStep> {
       enabled: true,
       op: '',
       params: {},
+      window: null,
+    }
+    return defaults
+  }
+  if (type === 'ocr') {
+    const defaults: Omit<OcrStep, 'id'> = {
+      type: 'ocr',
+      enabled: true,
+      engine: 'rapidocr',
+      languages: ['es'],
+      full_page: true,
       window: null,
     }
     return defaults
