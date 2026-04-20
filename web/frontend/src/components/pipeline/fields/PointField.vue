@@ -1,4 +1,8 @@
 <script setup lang="ts">
+// Widget disponible para futuras ops con tipo 'point'. Actualmente ningún
+// entry de IMAGE_OP_CATALOG lo usa — FloodFill modela x/y como dos campos
+// 'int' separados. Para adoptarlo: añadir type: 'point' en el catálogo y
+// una rama v-else-if en ImageOpStepForm.vue que expanda {x,y} a params.
 import NumberField from './NumberField.vue'
 
 const props = defineProps<{
