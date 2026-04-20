@@ -26,12 +26,20 @@ export interface ImageOpStep extends BasePipelineStep {
   window: [number, number, number, number] | null
 }
 
+export interface OcrStep extends BasePipelineStep {
+  type: 'ocr'
+  engine: 'rapidocr' | 'easyocr' | 'tesseract'
+  languages: string[]
+  full_page: boolean
+  window: [number, number, number, number] | null
+}
+
 // Union para el resto de tipos: en v1 solo se leen, no se editan.
 export interface GenericStep extends BasePipelineStep {
   [key: string]: unknown
 }
 
-export type PipelineStep = BarcodeStep | ImageOpStep | GenericStep
+export type PipelineStep = BarcodeStep | ImageOpStep | OcrStep | GenericStep
 
 export interface PipelineResponse {
   steps: PipelineStep[]
