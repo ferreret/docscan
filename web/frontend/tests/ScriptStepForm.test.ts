@@ -2,24 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ScriptStepForm from '@/components/pipeline/forms/ScriptStepForm.vue'
 import type { ScriptStep } from '@/api/types-pipeline'
-import { DEFAULT_SCRIPT_TEMPLATE } from '@/api/script-context-help'
+import { DEFAULT_SCRIPT_TEMPLATE, SNIPPETS } from '@/api/script-context-help'
 
-// Mock del wrapper del editor para no montar CodeMirror real.
-const insertAtCursorMock = vi.fn()
-const destroyMock = vi.fn()
-const onChangeRef: { value: ((doc: string) => void) | null } = { value: null }
+let latestUpdateModelValue: ((doc: string) => void) | null = null
 
-vi.mock('@/components/code-editor/editor', () => ({
-  createEditor: vi.fn(async (args: { onChange: (doc: string) => void }) => {
-    onChangeRef.value = args.onChange
-    return {
-      insertAtCursor: insertAtCursorMock,
-      destroy: destroyMock,
-    }
-  }),
-  // Los tests 3-4 no necesitan estos pero se exportan igualmente.
-  shouldPrefixNewline: vi.fn(() => false),
-  buildContextSuggestions: vi.fn(() => []),
+vi.mock('@/components/CodeEditor.vue', () => ({
+  default: {
+    name: 'CodeEditor',
+    props: ['modelValue', 'contextVariables', 'snippets', 'minHeight', 'helpPanelStorageKey', 'disabled'],
+    emits: ['update:modelValue'],
+    setup(_props: unknown, ctx: { emit: (name: string, ...args: unknown[]) => void }) {
+      latestUpdateModelValue = (doc: string) => ctx.emit('update:modelValue', doc)
+      return {}
+    },
+    template: '<div data-test="stub-code-editor"></div>',
+  },
 }))
 
 function makeStep(overrides: Partial<ScriptStep> = {}): ScriptStep {
@@ -36,158 +33,72 @@ function makeStep(overrides: Partial<ScriptStep> = {}): ScriptStep {
 
 describe('ScriptStepForm — campos base', () => {
   beforeEach(() => {
-    insertAtCursorMock.mockClear()
-    destroyMock.mockClear()
-    onChangeRef.value = null
     localStorage.clear()
+    latestUpdateModelValue = null
   })
 
   it('renderiza Activo, Nombre y Función con los valores iniciales', () => {
     const step = makeStep({ label: 'mi-script', entry_point: 'process' })
     const wrapper = mount(ScriptStepForm, { props: { modelValue: step } })
 
-    const enabled = wrapper.find('input[type="checkbox"]')
-    expect((enabled.element as HTMLInputElement).checked).toBe(true)
-
-    const label = wrapper.find('[data-test="field-label"]')
-    expect((label.element as HTMLInputElement).value).toBe('mi-script')
-
-    const entry = wrapper.find('[data-test="field-entry-point"]')
-    expect((entry.element as HTMLInputElement).value).toBe('process')
+    expect((wrapper.find('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(true)
+    expect((wrapper.find('[data-test="field-label"]').element as HTMLInputElement).value).toBe('mi-script')
+    expect((wrapper.find('[data-test="field-entry-point"]').element as HTMLInputElement).value).toBe('process')
   })
 
   it('cambio de label emite update:modelValue con el nuevo label', async () => {
-    const step = makeStep()
-    const wrapper = mount(ScriptStepForm, { props: { modelValue: step } })
-    const label = wrapper.find('[data-test="field-label"]')
-    await label.setValue('nuevo-nombre')
+    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
+    await wrapper.find('[data-test="field-label"]').setValue('nuevo-nombre')
     const events = wrapper.emitted('update:modelValue')!
-    const last = events[events.length - 1][0] as ScriptStep
-    expect(last.label).toBe('nuevo-nombre')
+    expect((events[events.length - 1][0] as ScriptStep).label).toBe('nuevo-nombre')
   })
 
   it('cambio de entry_point emite con el nuevo valor', async () => {
-    const step = makeStep()
-    const wrapper = mount(ScriptStepForm, { props: { modelValue: step } })
-    const entry = wrapper.find('[data-test="field-entry-point"]')
-    await entry.setValue('run')
+    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
+    await wrapper.find('[data-test="field-entry-point"]').setValue('run')
     const events = wrapper.emitted('update:modelValue')!
-    const last = events[events.length - 1][0] as ScriptStep
-    expect(last.entry_point).toBe('run')
+    expect((events[events.length - 1][0] as ScriptStep).entry_point).toBe('run')
   })
 
   it('entry_point vacío tras blur se restaura a "process"', async () => {
-    const step = makeStep({ entry_point: 'run' })
-    const wrapper = mount(ScriptStepForm, { props: { modelValue: step } })
+    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep({ entry_point: 'run' }) } })
     const entry = wrapper.find('[data-test="field-entry-point"]')
     await entry.setValue('')
     await entry.trigger('blur')
     const events = wrapper.emitted('update:modelValue')!
-    const last = events[events.length - 1][0] as ScriptStep
-    expect(last.entry_point).toBe('process')
+    expect((events[events.length - 1][0] as ScriptStep).entry_point).toBe('process')
   })
 
   it('toggle de enabled emite el booleano invertido', async () => {
-    const step = makeStep({ enabled: true })
-    const wrapper = mount(ScriptStepForm, { props: { modelValue: step } })
-    const enabled = wrapper.find('input[type="checkbox"]')
-    await enabled.setValue(false)
+    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep({ enabled: true }) } })
+    await wrapper.find('input[type="checkbox"]').setValue(false)
     const events = wrapper.emitted('update:modelValue')!
-    const last = events[events.length - 1][0] as ScriptStep
-    expect(last.enabled).toBe(false)
+    expect((events[events.length - 1][0] as ScriptStep).enabled).toBe(false)
   })
 })
 
-describe('ScriptStepForm — editor CodeMirror', () => {
+describe('ScriptStepForm — integración CodeEditor', () => {
   beforeEach(() => {
-    insertAtCursorMock.mockClear()
-    destroyMock.mockClear()
-    onChangeRef.value = null
-    localStorage.clear()
+    latestUpdateModelValue = null
   })
 
-  it('monta el wrapper y emite update:modelValue cuando el editor cambia', async () => {
-    const step = makeStep({ script: 'x = 1\n' })
-    const wrapper = mount(ScriptStepForm, { props: { modelValue: step } })
-
-    // Esperar a que onMounted haga el import dinámico y llame createEditor.
-    await new Promise((r) => setTimeout(r, 0))
+  it('cuando CodeEditor emite update:modelValue, se propaga con patch({script})', async () => {
+    const wrapper = mount(ScriptStepForm, {
+      props: { modelValue: makeStep({ script: 'x = 1\n' }) },
+    })
     await wrapper.vm.$nextTick()
-
-    expect(onChangeRef.value).toBeTypeOf('function')
-    onChangeRef.value!('y = 2\n')
-
+    expect(latestUpdateModelValue).toBeTypeOf('function')
+    latestUpdateModelValue!('y = 2\n')
     const events = wrapper.emitted('update:modelValue')!
-    const last = events[events.length - 1][0] as ScriptStep
-    expect(last.script).toBe('y = 2\n')
-  })
-})
-
-describe('ScriptStepForm — snippets', () => {
-  beforeEach(() => {
-    insertAtCursorMock.mockClear()
-    destroyMock.mockClear()
-    onChangeRef.value = null
-    localStorage.clear()
+    expect((events[events.length - 1][0] as ScriptStep).script).toBe('y = 2\n')
   })
 
-  it('el dropdown lista los 4 snippets disponibles', async () => {
+  it('pasa CONTEXT_VARIABLES y SNIPPETS al CodeEditor', async () => {
     const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
-    await new Promise((r) => setTimeout(r, 0))
     await wrapper.vm.$nextTick()
-
-    const button = wrapper.find('[data-test="snippets-button"]')
-    await button.trigger('click')
-    const items = wrapper.findAll('[data-test="snippet-item"]')
-    expect(items).toHaveLength(4)
-    const labels = items.map((it) => it.text())
-    expect(labels.some((l) => l.includes('Asignar primer barcode'))).toBe(true)
-  })
-
-  it('elegir un snippet invoca insertAtCursor con su code', async () => {
-    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
-    await new Promise((r) => setTimeout(r, 0))
-    await wrapper.vm.$nextTick()
-
-    await wrapper.find('[data-test="snippets-button"]').trigger('click')
-    const items = wrapper.findAll('[data-test="snippet-item"]')
-    await items[0].trigger('click')
-
-    expect(insertAtCursorMock).toHaveBeenCalledTimes(1)
-    const arg = insertAtCursorMock.mock.calls[0][0] as string
-    expect(arg).toContain('page.barcodes')
-    expect(arg).toContain('page.fields["documento"]')
-  })
-})
-
-describe('ScriptStepForm — panel de ayuda', () => {
-  beforeEach(() => {
-    insertAtCursorMock.mockClear()
-    destroyMock.mockClear()
-    onChangeRef.value = null
-    localStorage.clear()
-    // Simular viewport md+ (≥768 px).
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 })
-  })
-
-  it('colapsar el panel persiste helpPanelOpen=false en localStorage', async () => {
-    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
-    await new Promise((r) => setTimeout(r, 0))
-    await wrapper.vm.$nextTick()
-
-    // Por defecto en viewport ≥md el panel está abierto.
-    expect(wrapper.find('[data-test="help-panel"]').exists()).toBe(true)
-
-    await wrapper.find('[data-test="help-close"]').trigger('click')
-
-    expect(wrapper.find('[data-test="help-panel"]').exists()).toBe(false)
-    expect(localStorage.getItem('scriptEditor.helpPanelOpen')).toBe('false')
-
-    // Re-montar y comprobar que persiste cerrado.
-    wrapper.unmount()
-    const wrapper2 = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
-    await new Promise((r) => setTimeout(r, 0))
-    await wrapper2.vm.$nextTick()
-    expect(wrapper2.find('[data-test="help-panel"]').exists()).toBe(false)
+    const codeEditor = wrapper.findComponent({ name: 'CodeEditor' })
+    expect(codeEditor.exists()).toBe(true)
+    expect(codeEditor.props('snippets')).toEqual(SNIPPETS)
+    expect(codeEditor.props('helpPanelStorageKey')).toBe('scriptEditor.helpPanelOpen')
   })
 })
