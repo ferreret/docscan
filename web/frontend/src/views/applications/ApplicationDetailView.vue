@@ -3,6 +3,7 @@ import { onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore } from '@/stores/applications'
 import { useBatchesStore } from '@/stores/batches'
+import AppHeader from '@/components/AppHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,22 +31,12 @@ async function onCreateBatch() {
 
 <template>
   <div v-if="appStore.current">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <button @click="router.push('/applications')" class="text-xs text-subtext hover:text-text mb-2 inline-flex items-center gap-1 transition-colors">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-          Aplicaciones
-        </button>
-        <h1 class="text-2xl font-bold text-text">{{ appStore.current.name }}</h1>
-        <p class="text-xs text-subtext mt-1">{{ appStore.current.description || 'Sin descripción' }}</p>
-      </div>
-      <div class="flex gap-2">
-        <button
-          @click="router.push(`/applications/${appId}/pipeline`)"
-          class="bg-white text-primary border border-primary/40 rounded-md px-4 py-2 text-[13px] font-medium hover:bg-primary hover:text-white transition-colors"
-        >
-          Editar pipeline
-        </button>
+    <AppHeader
+      :app-id="appId"
+      :app-name="appStore.current.name"
+      :description="appStore.current.description || 'Sin descripción'"
+    >
+      <template #actions>
         <button
           @click="onCreateBatch"
           class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
@@ -58,8 +49,8 @@ async function onCreateBatch() {
         >
           Eliminar
         </button>
-      </div>
-    </div>
+      </template>
+    </AppHeader>
 
     <!-- Info -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
