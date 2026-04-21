@@ -34,12 +34,19 @@ export interface OcrStep extends BasePipelineStep {
   window: [number, number, number, number] | null
 }
 
+export interface ScriptStep extends BasePipelineStep {
+  type: 'script'
+  label: string
+  entry_point: string
+  script: string
+}
+
 // Union para el resto de tipos: en v1 solo se leen, no se editan.
 export interface GenericStep extends BasePipelineStep {
   [key: string]: unknown
 }
 
-export type PipelineStep = BarcodeStep | ImageOpStep | OcrStep | GenericStep
+export type PipelineStep = BarcodeStep | ImageOpStep | OcrStep | ScriptStep | GenericStep
 
 export interface PipelineResponse {
   steps: PipelineStep[]
