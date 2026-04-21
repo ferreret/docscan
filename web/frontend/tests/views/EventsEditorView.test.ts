@@ -74,43 +74,37 @@ describe('EventsEditorView', () => {
     localStorage.clear()
   })
 
-  it('fetch inicial carga events_json y selecciona on_app_start por defecto', async () => {
+  it('fetch inicial carga events_json y selecciona on_scan_complete por defecto', async () => {
     const { wrapper, store } = await mountView(JSON.stringify({
-      on_app_end: 'log.info("bye")\n',
+      on_scan_complete: 'log.info("done")\n',
     }))
     await flushPromises()
     expect(store.fetchOne).toHaveBeenCalledWith(8)
 
     const items = wrapper.findAll('[data-test="event-item"]')
-    expect(items).toHaveLength(13)
+    expect(items).toHaveLength(1)
     expect(items[0].classes().join(' ')).toContain('text-primary')
-    expect(items[0].text()).toContain('on_app_start')
+    expect(items[0].text()).toContain('on_scan_complete')
   })
 
   it('sidebar marca con indicador los eventos con código', async () => {
     const { wrapper } = await mountView(JSON.stringify({
-      on_app_end: 'log.info("bye")\n',
-      on_scan_complete: 'pass',
+      on_scan_complete: 'log.info("done")\n',
     }))
     await flushPromises()
     const active = wrapper.findAll('[data-test="event-indicator-active"]')
     const activeNames = active.map((a) => a.attributes('data-event'))
-    expect(activeNames).toEqual(expect.arrayContaining(['on_app_end', 'on_scan_complete']))
+    expect(activeNames).toEqual(['on_scan_complete'])
   })
 
-  it('click en otro evento cambia el modelValue pasado al CodeEditor', async () => {
+  it('el único evento seleccionado muestra su código en el editor', async () => {
     const { wrapper } = await mountView(JSON.stringify({
-      on_app_end: 'log.info("bye")\n',
+      on_scan_complete: 'log.info("done")\n',
     }))
     await flushPromises()
 
-    const items = wrapper.findAll('[data-test="event-item"]')
-    const onAppEnd = items.find((it) => it.text().includes('on_app_end'))!
-    await onAppEnd.trigger('click')
-    await wrapper.vm.$nextTick()
-
     const editor = wrapper.find('[data-test="stub-code-editor"]')
-    expect(editor.text()).toContain('log.info("bye")')
+    expect(editor.text()).toContain('log.info("done")')
   })
 
   it('seleccionar evento sin código muestra su template sin ensuciar hasChanges', async () => {
@@ -118,7 +112,7 @@ describe('EventsEditorView', () => {
     await flushPromises()
 
     const editor = wrapper.find('[data-test="stub-code-editor"]')
-    expect(editor.text()).toContain('def on_app_start(app, batch):')
+    expect(editor.text()).toContain('def on_scan_complete(app, batch):')
 
     const saveBtn = wrapper.find('[data-test="save-events"]')
     expect(saveBtn.attributes('disabled')).toBeDefined()
@@ -149,7 +143,7 @@ describe('EventsEditorView', () => {
     await flushPromises()
 
     expect(store.update).toHaveBeenCalledWith(8, expect.objectContaining({
-      events_json: expect.stringContaining('on_app_start'),
+      events_json: expect.stringContaining('on_scan_complete'),
     }))
 
     expect(wrapper.find('[data-test="save-events"]').attributes('disabled')).toBeDefined()
@@ -157,7 +151,7 @@ describe('EventsEditorView', () => {
 
   it('Deshacer restaura events al snapshot original', async () => {
     const { wrapper } = await mountView(JSON.stringify({
-      on_app_end: 'log.info("bye")\n',
+      on_scan_complete: 'log.info("done")\n',
     }))
     await flushPromises()
 
@@ -170,12 +164,11 @@ describe('EventsEditorView', () => {
     expect(wrapper.find('[data-test="save-events"]').attributes('disabled')).toBeDefined()
   })
 
-  it('renderiza los 13 eventos en la sidebar', async () => {
+  it('la sidebar lista el único evento del catálogo', async () => {
     const { wrapper } = await mountView('{}')
     await flushPromises()
     const items = wrapper.findAll('[data-test="event-item"]')
-    expect(items).toHaveLength(13)
-    expect(items[items.length - 1].text()).toContain('verification_panel')
-    expect(items.map((i) => i.text()).join('\n')).toContain(EVENT_DEFINITIONS[0].name)
+    expect(items).toHaveLength(1)
+    expect(items[0].text()).toContain(EVENT_DEFINITIONS[0].name)
   })
 })
