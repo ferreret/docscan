@@ -142,6 +142,13 @@ def run_pipeline_for_batch(
             total,
             batch.state,
         )
+
+        # Evento de ciclo de vida: se dispara con el lote ya marcado,
+        # justo antes de notificar a los suscriptores del WebSocket.
+        # El batch_ctx debe reflejar el estado final.
+        final_batch_ctx = _build_batch_context(batch)
+        _fire_scan_complete(application, app_ctx, final_batch_ctx)
+
         emit(
             "pipeline_completed",
             total_pages=total,
@@ -270,6 +277,63 @@ def _persist_page_results(
                 pos_h=bc.pos_h,
                 role=bc.role,
             )
+        )
+
+
+def _fire_scan_complete(
+    application: Application,
+    app_ctx: AppContext,
+    batch_ctx: BatchContext,
+) -> None:
+    """Ejecuta el evento ``on_scan_complete`` si está definido en events_json.
+
+    Errores de parseo, compilación o ejecución se loguean como warning pero
+    nunca abortan el flujo del pipeline.
+
+    Args:
+        application: Aplicación ORM con el JSON de eventos.
+        app_ctx: Contexto de aplicación para pasar al script.
+        batch_ctx: Contexto del lote (ya con estado final) para pasar al script.
+    """
+    try:
+        events = json.loads(application.events_json or "{}")
+    except json.JSONDecodeError:
+        log.warning(
+            "events_json inválido en app %d, no se dispara on_scan_complete",
+            application.id,
+        )
+        return
+
+    if not isinstance(events, dict):
+        return
+
+    script = events.get("on_scan_complete")
+    if not script or not script.strip():
+        return
+
+    engine = ScriptEngine()
+    try:
+        engine.compile_script("on_scan_complete", script, "on_scan_complete")
+    except Exception as e:
+        log.warning(
+            "Error compilando on_scan_complete para app %d: %s",
+            application.id,
+            e,
+        )
+        return
+
+    try:
+        engine.run_event(
+            "on_scan_complete",
+            "on_scan_complete",
+            app=app_ctx,
+            batch=batch_ctx,
+        )
+    except Exception as e:
+        log.warning(
+            "Error ejecutando on_scan_complete para app %d: %s",
+            application.id,
+            e,
         )
 
 
