@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
-import type { PipelineStep, BarcodeStep, ImageOpStep, OcrStep } from '@/api/types-pipeline'
+import { ref, watch, computed, defineAsyncComponent } from 'vue'
+import type { PipelineStep, BarcodeStep, ImageOpStep, OcrStep, ScriptStep } from '@/api/types-pipeline'
 import BarcodeStepForm from './forms/BarcodeStepForm.vue'
 import ImageOpStepForm from './forms/ImageOpStepForm.vue'
 import OcrStepForm from './forms/OcrStepForm.vue'
+
+const ScriptStepForm = defineAsyncComponent(
+  () => import('./forms/ScriptStepForm.vue'),
+)
 
 const props = defineProps<{
   open: boolean
@@ -49,7 +53,8 @@ const isEditable = computed(
   () =>
     props.step?.type === 'barcode' ||
     props.step?.type === 'image_op' ||
-    props.step?.type === 'ocr',
+    props.step?.type === 'ocr' ||
+    props.step?.type === 'script',
 )
 
 const canSave = computed(() => {
@@ -69,7 +74,10 @@ const canSave = computed(() => {
 
     <!-- Drawer -->
     <div
-      class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col"
+      :class="[
+        'absolute top-0 right-0 bottom-0 w-full bg-white shadow-2xl flex flex-col',
+        draft?.type === 'script' ? 'max-w-4xl' : 'max-w-lg',
+      ]"
     >
       <div class="p-4 border-b border-surface-0 flex items-center justify-between">
         <h2 class="text-lg font-semibold text-text">
@@ -96,10 +104,11 @@ const canSave = computed(() => {
           :model-value="draft as OcrStep"
           @update:model-value="onDraftUpdate"
         />
-        <div v-else class="text-sm text-subtext bg-amber-50 border border-amber-200 rounded p-3">
-          Este tipo de step (<code>{{ step?.type }}</code>) se edita desde el
-          configurador de escritorio. Próximamente disponible aquí.
-        </div>
+        <ScriptStepForm
+          v-else-if="draft?.type === 'script'"
+          :model-value="draft as ScriptStep"
+          @update:model-value="onDraftUpdate"
+        />
       </div>
 
       <div class="p-4 border-t border-surface-0 flex justify-end gap-2">
