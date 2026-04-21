@@ -36,6 +36,8 @@ describe('script-context-help', () => {
     for (const snippet of SNIPPETS) {
       expect(snippet.label).toBeTruthy()
       expect(snippet.code).toBeTruthy()
+      // El código debe terminar en \n para inserción consistente
+      expect(snippet.code.endsWith('\n')).toBe(true)
     }
   })
 

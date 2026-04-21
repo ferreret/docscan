@@ -114,10 +114,10 @@ export const CONTEXT_VARIABLES: ContextVariable[] = [
   },
   { name: 'pipeline', summary: 'Control de flujo del pipeline (solo ScriptStep).',
     members: [
-      { name: 'skip_step',     signature: 'skip_step(n=1)',     description: 'Salta los siguientes n steps.' },
+      { name: 'skip_step',     signature: 'skip_step(step_id)', description: 'Marca un paso por id para saltarlo.' },
       { name: 'skip_to',       signature: 'skip_to(step_id)',   description: 'Salta hasta el step con ese id.' },
       { name: 'abort',         signature: 'abort(reason="")',   description: 'Interrumpe el pipeline para esta página.' },
-      { name: 'repeat_step',   signature: 'repeat_step()',      description: 'Repite el step actual (max 3).' },
+      { name: 'repeat_step',   signature: 'repeat_step(step_id)', description: 'Re-ejecuta un paso por id (max 3).' },
       { name: 'replace_image', signature: 'replace_image(img)', description: 'Sustituye page.image.' },
       { name: 'get_metadata',  signature: 'get_metadata(key)',  description: 'Lee metadata del pipeline.' },
       { name: 'set_metadata',  signature: 'set_metadata(k, v)', description: 'Escribe metadata del pipeline.' },
