@@ -23,22 +23,31 @@ function onEntryPointBlur(ev: Event): void {
   }
 }
 
+let cancelled = false
 onMounted(async () => {
   if (!editorHost.value) return
   try {
     const { createEditor } = await import('./script-editor/editor')
-    editorHandle.value = await createEditor({
+    if (cancelled || !editorHost.value) return
+    const handle = await createEditor({
       parent: editorHost.value,
       initialDoc: props.modelValue.script,
       onChange: (doc) => patch({ script: doc }),
     })
+    if (cancelled) {
+      handle.destroy()
+      return
+    }
+    editorHandle.value = handle
   } catch (err) {
+    if (cancelled) return
     console.error('[ScriptStepForm] falló la carga del editor', err)
     editorError.value = 'No se pudo cargar el editor de código. Recarga la página o prueba de nuevo.'
   }
 })
 
 onBeforeUnmount(() => {
+  cancelled = true
   editorHandle.value?.destroy()
   editorHandle.value = null
 })

@@ -18,7 +18,6 @@ export interface CreateEditorArgs {
 }
 
 export interface EditorHandle {
-  view: EditorView
   insertAtCursor: (text: string) => void
   destroy: () => void
 }
@@ -158,5 +157,5 @@ export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle
     view.destroy()
   }
 
-  return { view, insertAtCursor, destroy }
+  return { insertAtCursor, destroy }
 }

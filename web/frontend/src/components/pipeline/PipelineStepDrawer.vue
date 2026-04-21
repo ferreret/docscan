@@ -106,6 +106,7 @@ const canSave = computed(() => {
         />
         <ScriptStepForm
           v-else-if="draft?.type === 'script'"
+          :key="draft.id"
           :model-value="draft as ScriptStep"
           @update:model-value="onDraftUpdate"
         />

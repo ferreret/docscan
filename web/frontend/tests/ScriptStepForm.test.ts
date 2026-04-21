@@ -13,7 +13,6 @@ vi.mock('@/components/pipeline/forms/script-editor/editor', () => ({
   createEditor: vi.fn(async (args: { onChange: (doc: string) => void }) => {
     onChangeRef.value = args.onChange
     return {
-      view: {} as unknown,
       insertAtCursor: insertAtCursorMock,
       destroy: destroyMock,
     }
