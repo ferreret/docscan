@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PipelineStep, BarcodeStep, ImageOpStep, OcrStep } from '@/api/types-pipeline'
+import type { PipelineStep, BarcodeStep, ImageOpStep, OcrStep, ScriptStep } from '@/api/types-pipeline'
 import { IMAGE_OP_CATALOG } from '@/api/image-op-catalog'
 import { computed } from 'vue'
 
@@ -50,6 +50,13 @@ const summary = computed(() => {
         ? `región ${oc.window.join(',')}`
         : 'sin región'
     return `OCR (${oc.engine}) · ${langs} · ${area}`
+  }
+  if (s.type === 'script') {
+    const sc = s as ScriptStep
+    const name = sc.label?.trim() || 'Script sin nombre'
+    const entry = sc.entry_point?.trim() || 'process'
+    const lines = (sc.script?.match(/\n/g)?.length ?? 0) + (sc.script ? 1 : 0)
+    return `${name} · ${entry}() · ${lines} líneas`
   }
   return 'Editable desde configurador de escritorio'
 })
