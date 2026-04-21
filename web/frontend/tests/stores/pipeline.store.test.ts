@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { usePipelineStore } from '@/stores/pipeline'
-import type { BarcodeStep } from '@/api/types-pipeline'
+import type { BarcodeStep, ScriptStep } from '@/api/types-pipeline'
 
 vi.mock('@/api/pipeline', () => ({
   pipelineApi: {
@@ -146,6 +146,18 @@ describe('usePipelineStore', () => {
     expect(s.languages).toEqual(['es'])
     expect(s.full_page).toBe(true)
     expect(s.window).toBeNull()
+    expect(step.id).toBeTruthy()
+  })
+
+  it('addStep("script") crea un step con defaults de plantilla', async () => {
+    const { DEFAULT_SCRIPT_TEMPLATE } = await import('@/api/script-context-help')
+    const store = usePipelineStore()
+    const step = store.addStep('script') as ScriptStep
+    expect(step.type).toBe('script')
+    expect(step.enabled).toBe(true)
+    expect(step.label).toBe('')
+    expect(step.entry_point).toBe('process')
+    expect(step.script).toBe(DEFAULT_SCRIPT_TEMPLATE)
     expect(step.id).toBeTruthy()
   })
 })
