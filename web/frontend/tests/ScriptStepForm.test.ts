@@ -160,3 +160,35 @@ describe('ScriptStepForm — snippets', () => {
     expect(arg).toContain('page.fields["documento"]')
   })
 })
+
+describe('ScriptStepForm — panel de ayuda', () => {
+  beforeEach(() => {
+    insertAtCursorMock.mockClear()
+    destroyMock.mockClear()
+    onChangeRef.value = null
+    localStorage.clear()
+    // Simular viewport md+ (≥768 px).
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 })
+  })
+
+  it('colapsar el panel persiste helpPanelOpen=false en localStorage', async () => {
+    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
+    await new Promise((r) => setTimeout(r, 0))
+    await wrapper.vm.$nextTick()
+
+    // Por defecto en viewport ≥md el panel está abierto.
+    expect(wrapper.find('[data-test="help-panel"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="help-toggle"]').trigger('click')
+
+    expect(wrapper.find('[data-test="help-panel"]').exists()).toBe(false)
+    expect(localStorage.getItem('scriptEditor.helpPanelOpen')).toBe('false')
+
+    // Re-montar y comprobar que persiste cerrado.
+    wrapper.unmount()
+    const wrapper2 = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
+    await new Promise((r) => setTimeout(r, 0))
+    await wrapper2.vm.$nextTick()
+    expect(wrapper2.find('[data-test="help-panel"]').exists()).toBe(false)
+  })
+})
