@@ -22,37 +22,40 @@ export interface EditorHandle {
   destroy: () => void
 }
 
-/** True si hay que prefijar `\n` al insertar texto en esa línea. */
 export function shouldPrefixNewline(currentLineText: string): boolean {
   return currentLineText.trim().length > 0
 }
 
+const TOP_LEVEL_COMPLETIONS: Completion[] = CONTEXT_VARIABLES.map((v) => ({
+  label: v.name,
+  type: 'variable',
+  info: v.summary,
+}))
+
+const MEMBER_COMPLETIONS: Map<string, Completion[]> = new Map(
+  CONTEXT_VARIABLES
+    .filter((v) => v.members)
+    .map((v) => [
+      v.name,
+      v.members!.map((m) => ({
+        label: m.name,
+        type: m.signature ? 'method' : 'property',
+        detail: m.signature,
+        info: m.description,
+      })),
+    ]),
+)
+
 /**
- * Dado un prefijo textual, devuelve las completions aplicables.
- * - "" → variables top-level
+ * Completions aplicables a un prefijo textual.
+ * - ""          → variables top-level
  * - "page."     → members de page
  * - "pipeline." → members de pipeline
  */
 export function buildContextSuggestions(prefix: string): Completion[] {
   const dotMatch = prefix.match(/(\w+)\.$/)
-  if (dotMatch) {
-    const varName = dotMatch[1]
-    const variable = CONTEXT_VARIABLES.find((v) => v.name === varName)
-    if (variable?.members) {
-      return variable.members.map((m) => ({
-        label: m.name,
-        type: m.signature ? 'method' : 'property',
-        detail: m.signature,
-        info: m.description,
-      }))
-    }
-    return []
-  }
-  return CONTEXT_VARIABLES.map((v) => ({
-    label: v.name,
-    type: 'variable',
-    info: v.summary,
-  }))
+  if (dotMatch) return MEMBER_COMPLETIONS.get(dotMatch[1]) ?? []
+  return TOP_LEVEL_COMPLETIONS
 }
 
 function contextCompletions(context: CompletionContext): CompletionResult | null {
@@ -61,12 +64,10 @@ function contextCompletions(context: CompletionContext): CompletionResult | null
 
   const dotMatch = textBeforeCursor.match(/(\w+)\.(\w*)$/)
   if (dotMatch) {
-    const base = dotMatch[1]
-    const fragment = dotMatch[2]
-    const suggestions = buildContextSuggestions(`${base}.`)
+    const suggestions = MEMBER_COMPLETIONS.get(dotMatch[1]) ?? []
     if (suggestions.length === 0) return null
     return {
-      from: context.pos - fragment.length,
+      from: context.pos - dotMatch[2].length,
       options: suggestions,
       validFor: /^\w*$/,
     }
@@ -76,7 +77,7 @@ function contextCompletions(context: CompletionContext): CompletionResult | null
   if (wordMatch) {
     return {
       from: context.pos - wordMatch[1].length,
-      options: buildContextSuggestions(''),
+      options: TOP_LEVEL_COMPLETIONS,
       validFor: /^\w*$/,
     }
   }
@@ -84,7 +85,7 @@ function contextCompletions(context: CompletionContext): CompletionResult | null
   if (context.explicit) {
     return {
       from: context.pos,
-      options: buildContextSuggestions(''),
+      options: TOP_LEVEL_COMPLETIONS,
       validFor: /^\w*$/,
     }
   }

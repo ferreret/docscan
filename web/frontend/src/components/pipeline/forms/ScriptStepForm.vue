@@ -89,7 +89,6 @@ function copyToClipboard(text: string): void {
 
 <template>
   <div class="space-y-4">
-    <!-- Activo -->
     <div class="flex items-center gap-2">
       <input
         id="script_enabled"
@@ -100,7 +99,6 @@ function copyToClipboard(text: string): void {
       <label for="script_enabled" class="text-sm">Activo</label>
     </div>
 
-    <!-- Nombre -->
     <div>
       <label for="script_label" class="block text-sm font-medium mb-1">Nombre</label>
       <input
@@ -114,7 +112,6 @@ function copyToClipboard(text: string): void {
       />
     </div>
 
-    <!-- Función -->
     <div>
       <label for="script_entry" class="block text-sm font-medium mb-1">Función</label>
       <input
@@ -131,7 +128,6 @@ function copyToClipboard(text: string): void {
       <p class="text-xs text-subtext mt-1">Nombre de la función Python a ejecutar (default: <code>process</code>).</p>
     </div>
 
-    <!-- Editor de código + panel lateral -->
     <div>
       <div class="flex items-center justify-between mb-1">
         <label class="block text-sm font-medium">Código Python</label>
@@ -139,7 +135,7 @@ function copyToClipboard(text: string): void {
           <button
             v-if="!helpPanelOpen"
             type="button"
-            data-test="help-toggle"
+            data-test="help-open"
             @click="toggleHelpPanel"
             class="text-xs text-subtext hover:text-text border border-surface-0 rounded px-2 py-1"
           >
@@ -203,7 +199,7 @@ function copyToClipboard(text: string): void {
             <div class="text-xs font-medium uppercase tracking-wide text-subtext">Variables</div>
             <button
               type="button"
-              data-test="help-toggle"
+              data-test="help-close"
               @click="toggleHelpPanel"
               class="text-xs text-subtext hover:text-text"
             >

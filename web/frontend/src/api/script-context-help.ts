@@ -1,8 +1,3 @@
-// Catálogo estático consumido por el editor de ScriptStep:
-//   - CONTEXT_VARIABLES → panel lateral + autocompletado
-//   - SNIPPETS          → menú "Insertar snippet"
-//   - DEFAULT_SCRIPT_TEMPLATE → defaultsFor('script') en el store
-
 export interface ContextMember {
   name: string
   signature?: string

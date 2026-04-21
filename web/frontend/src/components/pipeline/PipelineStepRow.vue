@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { PipelineStep, BarcodeStep, ImageOpStep, OcrStep, ScriptStep } from '@/api/types-pipeline'
+import type { PipelineStep, BarcodeStep, ImageOpStep, OcrStep, ScriptStep, StepType } from '@/api/types-pipeline'
 import { IMAGE_OP_CATALOG } from '@/api/image-op-catalog'
 import { computed } from 'vue'
 
 const props = defineProps<{ step: PipelineStep; index: number }>()
 defineEmits<{ edit: []; remove: [] }>()
 
-const typeColors: Record<string, string> = {
+const typeColors: Record<StepType, string> = {
   barcode: 'bg-sky-500',
   image_op: 'bg-emerald-500',
   ocr: 'bg-amber-500',

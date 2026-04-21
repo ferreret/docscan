@@ -178,7 +178,7 @@ describe('ScriptStepForm — panel de ayuda', () => {
     // Por defecto en viewport ≥md el panel está abierto.
     expect(wrapper.find('[data-test="help-panel"]').exists()).toBe(true)
 
-    await wrapper.find('[data-test="help-toggle"]').trigger('click')
+    await wrapper.find('[data-test="help-close"]').trigger('click')
 
     expect(wrapper.find('[data-test="help-panel"]').exists()).toBe(false)
     expect(localStorage.getItem('scriptEditor.helpPanelOpen')).toBe('false')
