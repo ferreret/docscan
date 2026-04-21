@@ -98,3 +98,28 @@ describe('ScriptStepForm — campos base', () => {
     expect(last.enabled).toBe(false)
   })
 })
+
+describe('ScriptStepForm — editor CodeMirror', () => {
+  beforeEach(() => {
+    insertAtCursorMock.mockClear()
+    destroyMock.mockClear()
+    onChangeRef.value = null
+    localStorage.clear()
+  })
+
+  it('monta el wrapper y emite update:modelValue cuando el editor cambia', async () => {
+    const step = makeStep({ script: 'x = 1\n' })
+    const wrapper = mount(ScriptStepForm, { props: { modelValue: step } })
+
+    // Esperar a que onMounted haga el import dinámico y llame createEditor.
+    await new Promise((r) => setTimeout(r, 0))
+    await wrapper.vm.$nextTick()
+
+    expect(onChangeRef.value).toBeTypeOf('function')
+    onChangeRef.value!('y = 2\n')
+
+    const events = wrapper.emitted('update:modelValue')!
+    const last = events[events.length - 1][0] as ScriptStep
+    expect(last.script).toBe('y = 2\n')
+  })
+})

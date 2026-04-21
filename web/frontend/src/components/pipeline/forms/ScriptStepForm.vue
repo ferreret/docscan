@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { onMounted, onBeforeUnmount, ref, shallowRef } from 'vue'
 import type { ScriptStep } from '@/api/types-pipeline'
+import type { EditorHandle } from './script-editor/editor'
 
 const props = defineProps<{ modelValue: ScriptStep }>()
 const emit = defineEmits<{ 'update:modelValue': [step: ScriptStep] }>()
+
+const editorHost = ref<HTMLDivElement | null>(null)
+const editorHandle = shallowRef<EditorHandle | null>(null)
+const editorError = ref<string | null>(null)
 
 function patch(update: Partial<ScriptStep>): void {
   emit('update:modelValue', { ...props.modelValue, ...update })
@@ -15,6 +21,26 @@ function onEntryPointBlur(ev: Event): void {
     patch({ entry_point: next })
   }
 }
+
+onMounted(async () => {
+  if (!editorHost.value) return
+  try {
+    const { createEditor } = await import('./script-editor/editor')
+    editorHandle.value = await createEditor({
+      parent: editorHost.value,
+      initialDoc: props.modelValue.script,
+      onChange: (doc) => patch({ script: doc }),
+    })
+  } catch (err) {
+    console.error('[ScriptStepForm] falló la carga del editor', err)
+    editorError.value = 'No se pudo cargar el editor de código. Recarga la página o prueba de nuevo.'
+  }
+})
+
+onBeforeUnmount(() => {
+  editorHandle.value?.destroy()
+  editorHandle.value = null
+})
 </script>
 
 <template>
@@ -61,9 +87,22 @@ function onEntryPointBlur(ev: Event): void {
       <p class="text-xs text-subtext mt-1">Nombre de la función Python a ejecutar (default: <code>process</code>).</p>
     </div>
 
-    <!-- Placeholder para el editor (se implementa en Task 7) -->
-    <div data-test="editor-placeholder" class="text-xs text-subtext italic">
-      (editor de código — pendiente de implementar)
+    <!-- Editor de código -->
+    <div>
+      <label class="block text-sm font-medium mb-1">Código Python</label>
+      <div
+        v-if="editorError"
+        class="p-4 text-sm bg-red-50 border border-red-200 rounded"
+      >
+        {{ editorError }}
+      </div>
+      <div
+        v-else
+        ref="editorHost"
+        data-test="editor-host"
+        class="border border-surface-0 rounded-md overflow-hidden"
+        style="min-height: 420px; height: 420px;"
+      ></div>
     </div>
   </div>
 </template>
