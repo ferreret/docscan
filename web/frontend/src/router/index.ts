@@ -51,6 +51,13 @@ const router = createRouter({
           meta: { auth: true },
         },
         {
+          path: 'applications/:id/events',
+          name: 'events',
+          component: () =>
+            import('@/views/applications/EventsEditorView.vue'),
+          meta: { auth: true },
+        },
+        {
           path: 'batches',
           name: 'batches',
           component: () => import('@/views/batches/BatchListView.vue'),
