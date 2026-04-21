@@ -123,3 +123,40 @@ describe('ScriptStepForm — editor CodeMirror', () => {
     expect(last.script).toBe('y = 2\n')
   })
 })
+
+describe('ScriptStepForm — snippets', () => {
+  beforeEach(() => {
+    insertAtCursorMock.mockClear()
+    destroyMock.mockClear()
+    onChangeRef.value = null
+    localStorage.clear()
+  })
+
+  it('el dropdown lista los 4 snippets disponibles', async () => {
+    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
+    await new Promise((r) => setTimeout(r, 0))
+    await wrapper.vm.$nextTick()
+
+    const button = wrapper.find('[data-test="snippets-button"]')
+    await button.trigger('click')
+    const items = wrapper.findAll('[data-test="snippet-item"]')
+    expect(items).toHaveLength(4)
+    const labels = items.map((it) => it.text())
+    expect(labels.some((l) => l.includes('Asignar primer barcode'))).toBe(true)
+  })
+
+  it('elegir un snippet invoca insertAtCursor con su code', async () => {
+    const wrapper = mount(ScriptStepForm, { props: { modelValue: makeStep() } })
+    await new Promise((r) => setTimeout(r, 0))
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-test="snippets-button"]').trigger('click')
+    const items = wrapper.findAll('[data-test="snippet-item"]')
+    await items[0].trigger('click')
+
+    expect(insertAtCursorMock).toHaveBeenCalledTimes(1)
+    const arg = insertAtCursorMock.mock.calls[0][0] as string
+    expect(arg).toContain('page.barcodes')
+    expect(arg).toContain('page.fields["documento"]')
+  })
+})

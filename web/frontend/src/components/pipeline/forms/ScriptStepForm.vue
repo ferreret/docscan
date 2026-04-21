@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, ref, shallowRef } from 'vue'
 import type { ScriptStep } from '@/api/types-pipeline'
 import type { EditorHandle } from './script-editor/editor'
+import { SNIPPETS } from '@/api/script-context-help'
 
 const props = defineProps<{ modelValue: ScriptStep }>()
 const emit = defineEmits<{ 'update:modelValue': [step: ScriptStep] }>()
@@ -41,6 +42,19 @@ onBeforeUnmount(() => {
   editorHandle.value?.destroy()
   editorHandle.value = null
 })
+
+const snippetsOpen = ref(false)
+
+function toggleSnippets(): void {
+  snippetsOpen.value = !snippetsOpen.value
+}
+
+function applySnippet(id: string): void {
+  const snippet = SNIPPETS.find((s) => s.id === id)
+  if (!snippet || !editorHandle.value) return
+  editorHandle.value.insertAtCursor(snippet.code)
+  snippetsOpen.value = false
+}
 </script>
 
 <template>
@@ -89,7 +103,35 @@ onBeforeUnmount(() => {
 
     <!-- Editor de código -->
     <div>
-      <label class="block text-sm font-medium mb-1">Código Python</label>
+      <div class="flex items-center justify-between mb-1">
+        <label class="block text-sm font-medium">Código Python</label>
+        <div class="relative">
+          <button
+            type="button"
+            data-test="snippets-button"
+            @click="toggleSnippets"
+            class="text-xs text-primary hover:text-primary-hover border border-primary/40 rounded px-2 py-1"
+          >
+            Insertar snippet ▾
+          </button>
+          <div
+            v-if="snippetsOpen"
+            class="absolute right-0 mt-1 w-80 bg-white rounded-md border border-surface-0 shadow-lg py-1 z-10"
+          >
+            <button
+              v-for="snippet in SNIPPETS"
+              :key="snippet.id"
+              type="button"
+              data-test="snippet-item"
+              @click="applySnippet(snippet.id)"
+              class="w-full text-left px-3 py-2 hover:bg-surface-0"
+            >
+              <div class="text-sm font-medium">{{ snippet.label }}</div>
+              <div class="text-xs text-subtext">{{ snippet.description }}</div>
+            </button>
+          </div>
+        </div>
+      </div>
       <div
         v-if="editorError"
         class="p-4 text-sm bg-red-50 border border-red-200 rounded"
