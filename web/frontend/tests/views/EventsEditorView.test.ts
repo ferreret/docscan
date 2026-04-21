@@ -40,20 +40,14 @@ function makeRouter() {
   })
 }
 
-function mountView(eventsJson: string = '{}') {
+async function mountView(eventsJson: string = '{}') {
   const router = makeRouter()
-  router.push('/applications/8/events')
+  await router.push('/applications/8/events')
+  await router.isReady()
 
-  const wrapper = mount(EventsEditorView, {
-    global: {
-      plugins: [
-        router,
-        createTestingPinia({ stubActions: false, createSpy: vi.fn }),
-      ],
-    },
-  })
+  const pinia = createTestingPinia({ stubActions: false, createSpy: vi.fn })
 
-  const store = useApplicationsStore()
+  const store = useApplicationsStore(pinia)
   store.current = {
     id: 8, name: 'Demo', description: '', active: true,
     pipeline_json: '[]', events_json: eventsJson, transfer_json: '{}',
@@ -64,6 +58,13 @@ function mountView(eventsJson: string = '{}') {
     tenant_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   }
   ;(store.fetchOne as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue(undefined)
+
+  const wrapper = mount(EventsEditorView, {
+    global: {
+      plugins: [router, pinia],
+    },
+  })
+
   return { wrapper, store, router }
 }
 
@@ -74,7 +75,7 @@ describe('EventsEditorView', () => {
   })
 
   it('fetch inicial carga events_json y selecciona on_app_start por defecto', async () => {
-    const { wrapper, store } = mountView(JSON.stringify({
+    const { wrapper, store } = await mountView(JSON.stringify({
       on_app_end: 'log.info("bye")\n',
     }))
     await flushPromises()
@@ -87,7 +88,7 @@ describe('EventsEditorView', () => {
   })
 
   it('sidebar marca con indicador los eventos con código', async () => {
-    const { wrapper } = mountView(JSON.stringify({
+    const { wrapper } = await mountView(JSON.stringify({
       on_app_end: 'log.info("bye")\n',
       on_scan_complete: 'pass',
     }))
@@ -98,7 +99,7 @@ describe('EventsEditorView', () => {
   })
 
   it('click en otro evento cambia el modelValue pasado al CodeEditor', async () => {
-    const { wrapper } = mountView(JSON.stringify({
+    const { wrapper } = await mountView(JSON.stringify({
       on_app_end: 'log.info("bye")\n',
     }))
     await flushPromises()
@@ -113,7 +114,7 @@ describe('EventsEditorView', () => {
   })
 
   it('seleccionar evento sin código muestra su template sin ensuciar hasChanges', async () => {
-    const { wrapper } = mountView('{}')
+    const { wrapper } = await mountView('{}')
     await flushPromises()
 
     const editor = wrapper.find('[data-test="stub-code-editor"]')
@@ -124,7 +125,7 @@ describe('EventsEditorView', () => {
   })
 
   it('editar en el editor actualiza el estado y habilita Guardar', async () => {
-    const { wrapper } = mountView('{}')
+    const { wrapper } = await mountView('{}')
     await flushPromises()
 
     expect(latestUpdateModelValue).toBeTypeOf('function')
@@ -136,7 +137,7 @@ describe('EventsEditorView', () => {
   })
 
   it('Guardar cambios llama a store.update con events_json stringified y resetea hasChanges', async () => {
-    const { wrapper, store } = mountView('{}')
+    const { wrapper, store } = await mountView('{}')
     await flushPromises()
 
     latestUpdateModelValue!('log.info("hola")\n')
@@ -155,7 +156,7 @@ describe('EventsEditorView', () => {
   })
 
   it('Deshacer restaura events al snapshot original', async () => {
-    const { wrapper } = mountView(JSON.stringify({
+    const { wrapper } = await mountView(JSON.stringify({
       on_app_end: 'log.info("bye")\n',
     }))
     await flushPromises()
@@ -170,7 +171,7 @@ describe('EventsEditorView', () => {
   })
 
   it('renderiza los 13 eventos en la sidebar', async () => {
-    const { wrapper } = mountView('{}')
+    const { wrapper } = await mountView('{}')
     await flushPromises()
     const items = wrapper.findAll('[data-test="event-item"]')
     expect(items).toHaveLength(13)

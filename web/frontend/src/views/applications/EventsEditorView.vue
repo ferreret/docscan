@@ -9,17 +9,7 @@ import CodeEditor from '@/components/CodeEditor.vue'
 const route = useRoute()
 const appStore = useApplicationsStore()
 
-// Prefer :id de la ruta; si aún no está disponible, cae al store.current.id
-// (útil en entornos de test donde la store se prehidrata antes de que el router
-// propague los parámetros).
-const appId = computed(() => {
-  const raw = route.params.id
-  if (typeof raw === 'string' && raw.length > 0) {
-    const n = Number(raw)
-    if (!Number.isNaN(n)) return n
-  }
-  return appStore.current?.id ?? Number.NaN
-})
+const appId = computed(() => Number(route.params.id))
 
 const originalEvents = ref<Record<string, string>>({})
 const events = ref<Record<string, string>>({})
@@ -198,7 +188,12 @@ onBeforeRouteLeave((_to, _from, next) => {
             v-for="ev in EVENT_DEFINITIONS"
             :key="ev.name"
             data-test="event-item"
+            role="button"
+            tabindex="0"
+            :aria-current="currentEventName === ev.name ? 'true' : undefined"
             @click="selectEvent(ev.name)"
+            @keydown.enter.prevent="selectEvent(ev.name)"
+            @keydown.space.prevent="selectEvent(ev.name)"
             :class="[
               'cursor-pointer px-3 py-2 border-b border-surface-0 last:border-b-0',
               currentEventName === ev.name ? 'bg-primary-soft text-primary font-semibold' : 'text-text hover:bg-surface-0',
