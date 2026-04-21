@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { computed } from 'vue'
 
-defineProps<{
+const props = defineProps<{
   appId: number
   appName: string
   description?: string
 }>()
 
 const router = useRouter()
+
+const tabs = computed(() => [
+  { to: `/applications/${props.appId}`, label: 'Resumen', exact: true },
+  { to: `/applications/${props.appId}/pipeline`, label: 'Pipeline', exact: false },
+  { to: `/applications/${props.appId}/events`, label: 'Eventos', exact: false },
+])
 </script>
 
 <template>
@@ -31,24 +38,14 @@ const router = useRouter()
 
     <nav class="flex gap-1 border-b border-surface-0 mt-4" aria-label="Pestañas de configuración">
       <router-link
+        v-for="tab in tabs"
+        :key="tab.to"
         data-test="app-tab"
-        :to="`/applications/${appId}`"
+        :to="tab.to"
         active-class="text-primary border-primary font-semibold"
-        exact-active-class="text-primary border-primary font-semibold"
+        :exact-active-class="tab.exact ? 'text-primary border-primary font-semibold' : undefined"
         class="px-4 py-2 text-[13px] border-b-2 border-transparent text-subtext hover:text-text transition-colors"
-      >Resumen</router-link>
-      <router-link
-        data-test="app-tab"
-        :to="`/applications/${appId}/pipeline`"
-        active-class="text-primary border-primary font-semibold"
-        class="px-4 py-2 text-[13px] border-b-2 border-transparent text-subtext hover:text-text transition-colors"
-      >Pipeline</router-link>
-      <router-link
-        data-test="app-tab"
-        :to="`/applications/${appId}/events`"
-        active-class="text-primary border-primary font-semibold"
-        class="px-4 py-2 text-[13px] border-b-2 border-transparent text-subtext hover:text-text transition-colors"
-      >Eventos</router-link>
+      >{{ tab.label }}</router-link>
     </nav>
   </div>
 </template>

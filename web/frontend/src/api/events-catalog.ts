@@ -1,4 +1,4 @@
-import type { ContextVariable } from './script-context-help'
+import { CONTEXT_VARIABLES, type ContextVariable } from './script-context-help'
 
 export interface EventDefinition {
   name: string
@@ -8,16 +8,11 @@ export interface EventDefinition {
   contextVariables: ContextVariable[]
 }
 
-const BASE_VARS: ContextVariable[] = [
-  { name: 'app',      summary: 'AppContext: id, name.' },
-  { name: 'batch',    summary: 'BatchContext: id, state, fields, page_count.' },
-  { name: 'log',      summary: 'logger estándar: log.info(...), log.warning(...).' },
-  { name: 'http',     summary: 'httpx — http.get(url), http.post(url, json=...).' },
-  { name: 're',       summary: 'módulo re de Python.' },
-  { name: 'json',     summary: 'módulo json de Python.' },
-  { name: 'datetime', summary: 'módulo datetime de Python.' },
-  { name: 'Path',     summary: 'pathlib.Path.' },
-]
+// Reutiliza el catálogo de ScriptStep excluyendo `page` y `pipeline`
+// (no disponibles en lifecycle events de nivel batch).
+const BASE_VARS: ContextVariable[] = CONTEXT_VARIABLES.filter(
+  (v) => v.name !== 'page' && v.name !== 'pipeline',
+)
 
 export const EVENT_DEFINITIONS: EventDefinition[] = [
   {

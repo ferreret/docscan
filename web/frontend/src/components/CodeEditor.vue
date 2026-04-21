@@ -9,12 +9,10 @@ const props = withDefaults(defineProps<{
   snippets?: Snippet[]
   minHeight?: number
   helpPanelStorageKey?: string
-  disabled?: boolean
 }>(), {
   snippets: () => [],
   minHeight: 420,
   helpPanelStorageKey: 'codeEditor.helpPanelOpen',
-  disabled: false,
 })
 
 const emit = defineEmits<{ 'update:modelValue': [doc: string] }>()

@@ -35,7 +35,7 @@ from app.pipeline.serializer import deserialize
 from app.services.barcode_service import BarcodeService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.ocr_service import OcrService
-from app.services.script_engine import ScriptEngine
+from app.services.script_engine import ScriptCompilationError, ScriptEngine
 from web.api.database import get_session_factory
 from web.api.events import PipelineEvent, PipelineEventBus, get_event_bus
 from web.api.storage import BaseStorage
@@ -85,7 +85,7 @@ def run_pipeline_for_batch(
             return
 
         try:
-            executor = _build_executor(application)
+            executor, pipeline_engine = _build_executor(application)
         except Exception as e:
             log.exception("Error preparando executor: %s", e)
             batch.state = "error_read"
@@ -93,68 +93,71 @@ def run_pipeline_for_batch(
             emit("pipeline_error", error=str(e))
             return
 
-        app_ctx = _build_app_context(application)
-        batch_ctx = _build_batch_context(batch)
+        try:
+            app_ctx = _build_app_context(application)
+            batch_ctx = _build_batch_context(batch)
 
-        pages = (
-            session.execute(
-                select(Page).where(Page.batch_id == batch_id).order_by(Page.page_index)
+            pages = (
+                session.execute(
+                    select(Page)
+                    .where(Page.batch_id == batch_id)
+                    .order_by(Page.page_index)
+                )
+                .scalars()
+                .all()
             )
-            .scalars()
-            .all()
-        )
 
-        total = len(pages)
-        emit("pipeline_started", total_pages=total)
+            total = len(pages)
+            emit("pipeline_started", total_pages=total)
 
-        any_error = False
-        for idx, page in enumerate(pages, start=1):
-            try:
-                _process_page(page, executor, app_ctx, batch_ctx, storage, session)
-                emit(
-                    "page_processed",
-                    page_id=page.id,
-                    page_index=page.page_index,
-                    processed=idx,
-                    total=total,
-                    ok=True,
-                )
-            except Exception as e:
-                log.exception("Error procesando página %d: %s", page.id, e)
-                any_error = True
-                _record_processing_error(page, str(e))
-                emit(
-                    "page_processed",
-                    page_id=page.id,
-                    page_index=page.page_index,
-                    processed=idx,
-                    total=total,
-                    ok=False,
-                    error=str(e),
-                )
+            any_error = False
+            for idx, page in enumerate(pages, start=1):
+                try:
+                    _process_page(page, executor, app_ctx, batch_ctx, storage, session)
+                    emit(
+                        "page_processed",
+                        page_id=page.id,
+                        page_index=page.page_index,
+                        processed=idx,
+                        total=total,
+                        ok=True,
+                    )
+                except Exception as e:
+                    log.exception("Error procesando página %d: %s", page.id, e)
+                    any_error = True
+                    _record_processing_error(page, str(e))
+                    emit(
+                        "page_processed",
+                        page_id=page.id,
+                        page_index=page.page_index,
+                        processed=idx,
+                        total=total,
+                        ok=False,
+                        error=str(e),
+                    )
 
-        batch.state = "error_read" if any_error else "read"
-        batch.page_count = total
-        session.commit()
-        log.info(
-            "Pipeline completado para batch %d: %d páginas, estado=%s",
-            batch_id,
-            total,
-            batch.state,
-        )
+            batch.state = "error_read" if any_error else "read"
+            batch.page_count = total
+            session.commit()
+            log.info(
+                "Pipeline completado para batch %d: %d páginas, estado=%s",
+                batch_id,
+                total,
+                batch.state,
+            )
 
-        # Evento de ciclo de vida: se dispara con el lote ya marcado,
-        # justo antes de notificar a los suscriptores del WebSocket.
-        # El batch_ctx debe reflejar el estado final.
-        final_batch_ctx = _build_batch_context(batch)
-        _fire_scan_complete(application, app_ctx, final_batch_ctx)
+            # on_scan_complete se dispara tras commit y antes de notificar al WebSocket.
+            final_batch_ctx = _build_batch_context(batch)
+            _fire_scan_complete(application, app_ctx, final_batch_ctx)
 
-        emit(
-            "pipeline_completed",
-            total_pages=total,
-            state=batch.state,
-            any_error=any_error,
-        )
+            emit(
+                "pipeline_completed",
+                total_pages=total,
+                state=batch.state,
+                any_error=any_error,
+            )
+        finally:
+            pipeline_engine.shutdown()
 
 
 # ----------------------------------------------------------------------
@@ -162,8 +165,14 @@ def run_pipeline_for_batch(
 # ----------------------------------------------------------------------
 
 
-def _build_executor(application: Application) -> PipelineExecutor:
-    """Construye un PipelineExecutor a partir del JSON de la aplicación."""
+def _build_executor(
+    application: Application,
+) -> tuple[PipelineExecutor, ScriptEngine]:
+    """Construye un PipelineExecutor y devuelve su ScriptEngine asociado.
+
+    El caller es responsable de llamar a script_engine.shutdown() cuando
+    termine el procesamiento para liberar el ThreadPoolExecutor interno.
+    """
     steps = deserialize(application.pipeline_json)
 
     script_engine = ScriptEngine()
@@ -174,13 +183,14 @@ def _build_executor(application: Application) -> PipelineExecutor:
             except Exception as e:
                 log.warning("Error compilando script '%s': %s", step.id, e)
 
-    return PipelineExecutor(
+    executor = PipelineExecutor(
         steps=steps,
         image_service=ImagePipelineService(),
         script_engine=script_engine,
         barcode_service=BarcodeService(),
         ocr_service=OcrService(),
     )
+    return executor, script_engine
 
 
 def _build_app_context(application: Application) -> AppContext:
@@ -285,26 +295,22 @@ def _fire_scan_complete(
     app_ctx: AppContext,
     batch_ctx: BatchContext,
 ) -> None:
-    """Ejecuta el evento ``on_scan_complete`` si está definido en events_json.
+    """Ejecuta on_scan_complete si está definido. Errores logueados como warning.
 
-    Errores de parseo, compilación o ejecución se loguean como warning pero
-    nunca abortan el flujo del pipeline.
-
-    Args:
-        application: Aplicación ORM con el JSON de eventos.
-        app_ctx: Contexto de aplicación para pasar al script.
-        batch_ctx: Contexto del lote (ya con estado final) para pasar al script.
+    Ordering invariant: llamar TRAS session.commit() y ANTES del emit
+    pipeline_completed — así el script ve el estado final del lote y los
+    subscriptores del WebSocket reciben la señal cuando todo el trabajo ha
+    terminado (incluido este evento).
     """
     try:
         events = json.loads(application.events_json or "{}")
+        if not isinstance(events, dict):
+            return
     except json.JSONDecodeError:
         log.warning(
             "events_json inválido en app %d, no se dispara on_scan_complete",
             application.id,
         )
-        return
-
-    if not isinstance(events, dict):
         return
 
     script = events.get("on_scan_complete")
@@ -314,27 +320,26 @@ def _fire_scan_complete(
     engine = ScriptEngine()
     try:
         engine.compile_script("on_scan_complete", script, "on_scan_complete")
-    except Exception as e:
-        log.warning(
-            "Error compilando on_scan_complete para app %d: %s",
-            application.id,
-            e,
-        )
-        return
-
-    try:
         engine.run_event(
             "on_scan_complete",
             "on_scan_complete",
             app=app_ctx,
             batch=batch_ctx,
         )
-    except Exception as e:
+    except ScriptCompilationError as e:
         log.warning(
-            "Error ejecutando on_scan_complete para app %d: %s",
+            "Error compilando on_scan_complete (app %d): %s",
             application.id,
             e,
         )
+    except Exception as e:
+        log.warning(
+            "Error ejecutando on_scan_complete (app %d): %s",
+            application.id,
+            e,
+        )
+    finally:
+        engine.shutdown()
 
 
 def _record_processing_error(page: Page, message: str) -> None:

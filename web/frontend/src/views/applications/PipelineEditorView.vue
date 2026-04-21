@@ -86,7 +86,6 @@ async function onDrawerSave(updated: PipelineStep) {
 }
 
 function onDrawerCancel() {
-  // Si era un step nuevo y cancela, lo quitamos.
   if (drawerIsNew.value && drawerStep.value) {
     pipelineStore.removeStep(drawerStep.value.id)
   }

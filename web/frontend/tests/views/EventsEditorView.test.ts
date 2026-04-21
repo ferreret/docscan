@@ -11,7 +11,7 @@ let latestUpdateModelValue: ((doc: string) => void) | null = null
 vi.mock('@/components/CodeEditor.vue', () => ({
   default: {
     name: 'CodeEditor',
-    props: ['modelValue', 'contextVariables', 'snippets', 'minHeight', 'helpPanelStorageKey', 'disabled'],
+    props: ['modelValue', 'contextVariables', 'snippets', 'minHeight', 'helpPanelStorageKey'],
     emits: ['update:modelValue'],
     setup(_: unknown, ctx: { emit: (name: string, ...args: unknown[]) => void }) {
       latestUpdateModelValue = (doc: string) => ctx.emit('update:modelValue', doc)

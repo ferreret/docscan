@@ -50,19 +50,12 @@ function parseEventsJson(raw: string): Record<string, string> {
   }
 }
 
+// Match desktop: no persistir si el doc iguala la plantilla (evento nunca tuvo código) o está vacío.
 function onEditorChange(doc: string): void {
-  // Si el doc coincide con el template y no había código previamente,
-  // no persistir (mantiene el evento como "sin código").
-  if (doc === currentEvent.value.template && originalEvents.value[currentEventName.value] === undefined) {
-    if (events.value[currentEventName.value] !== undefined) {
-      const next = { ...events.value }
-      delete next[currentEventName.value]
-      events.value = next
-    }
-    return
-  }
-  // Si el código está vacío tras trim, eliminar la clave (match desktop).
-  if (doc.trim() === '') {
+  const isTemplate = doc === currentEvent.value.template
+    && originalEvents.value[currentEventName.value] === undefined
+  const isEmpty = doc.trim() === ''
+  if (isTemplate || isEmpty) {
     if (events.value[currentEventName.value] !== undefined) {
       const next = { ...events.value }
       delete next[currentEventName.value]
@@ -107,11 +100,7 @@ function onBeforeUnload(ev: BeforeUnloadEvent): void {
   }
 }
 
-let fetchedForId: number | null = null
-
 async function loadFromStore(id: number): Promise<void> {
-  if (fetchedForId === id) return
-  fetchedForId = id
   await appStore.fetchOne(id)
   const parsed = parseEventsJson(appStore.current?.events_json ?? '{}')
   originalEvents.value = parsed
