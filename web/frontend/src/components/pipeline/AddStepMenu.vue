@@ -40,10 +40,6 @@ function pick(type: StepType) {
         <span>Operación de imagen</span>
         <span class="ml-auto text-xs text-subtext">v2</span>
       </button>
-      <div class="border-t border-surface-0 my-1"></div>
-      <div class="px-3 py-1.5 text-[11px] text-subtext uppercase tracking-wide">
-        Próximamente
-      </div>
       <button
         @click="pick('ocr')"
         class="w-full text-left px-3 py-2 text-sm hover:bg-surface-0 flex items-center gap-2"
@@ -52,12 +48,14 @@ function pick(type: StepType) {
         <span>OCR</span>
         <span class="ml-auto text-xs text-subtext">v3</span>
       </button>
-      <div
-        class="w-full text-left px-3 py-2 text-sm text-subtext flex items-center gap-2 cursor-not-allowed"
+      <button
+        @click="pick('script')"
+        class="w-full text-left px-3 py-2 text-sm hover:bg-surface-0 flex items-center gap-2"
       >
-        <span class="w-2 h-2 rounded-full bg-gray-300"></span>
-        <span>script</span>
-      </div>
+        <span class="w-2 h-2 rounded-full bg-violet-500"></span>
+        <span>Script Python</span>
+        <span class="ml-auto text-xs text-subtext">v4</span>
+      </button>
     </div>
   </div>
 </template>
