@@ -2224,3 +2224,26 @@ Expected: push OK, rama `feature/web` actualizada con todos los commits del sub-
 - `<CodeEditor>` reutilizable — base para futuras pestañas que necesiten editor de código.
 
 **Próximo paso:** actualizar `memory/project_web_session_next.md` marcando Eventos como completado y proponiendo el siguiente sub-proyecto (Imagen, Campos de lote, Transferencia o General).
+
+---
+
+## Revisión post-implementación (2026-04-21 PM)
+
+Tras completar T1-T8 y hacer el final review, se detectó que el backend web no ejecuta lifecycle events. Ver sección 0 del spec para la decisión.
+
+### Tasks adicionales ejecutadas (T10-T13)
+
+- **T10** (commit `d457f01`): `refactor(web-frontend): reducir events-catalog a solo on_scan_complete`. Catálogo queda con 1 entrada.
+- **T11** (commit `ea6a935`): `test(web-frontend): ajustar EventsEditorView al catálogo reducido`. 8 tests adaptados al nuevo scope.
+- **T12** (commit `486efdd`): `feat(web-api): disparar on_scan_complete tras pipeline`. Helper `_fire_scan_complete` en `web/api/tasks/pipeline_runner.py` + 7 tests en `tests/test_pipeline_runner_events.py`. Backend suite 967/967 PASS.
+- **T13**: esta propia actualización de documentación.
+
+### Estado final
+
+- **Frontend**: 92/92 tests passing.
+- **Backend**: 967/967 tests passing.
+- **Scope entregado**: pestaña Eventos con 1 evento (`on_scan_complete`) que el runner web ejecuta tras cada lote procesado. Infraestructura (`<CodeEditor>` genérico, `<AppHeader>`, refactor `ScriptStepForm`) lista para absorber más eventos cuando lleguen las pestañas de Transferencia y el visor programable.
+
+### Próximo paso
+
+QA manual (Task 9 del plan original) + push al remote.

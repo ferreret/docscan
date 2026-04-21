@@ -7,6 +7,28 @@
 a un componente genérico `<CodeEditor>` reutilizable y construye sobre
 él la pestaña de Eventos (13 entry points de ciclo de vida).
 
+## 0 · Revisión de scope (2026-04-21 PM)
+
+Durante la implementación se detectó que el backend web (`web/api/tasks/pipeline_runner.py`) solo ejecuta los `ScriptStep` del pipeline; **no dispara lifecycle events**. Mostrar los 13 eventos del desktop en la pestaña web confundiría al usuario: editaría código que nunca correría.
+
+**Decisión:** reducir el scope de esta iteración a **solo `on_scan_complete`** (único evento con semántica idéntica en web — se dispara tras completar el pipeline del lote). El resto se añadirán en sub-proyectos futuros cuando llegue su UI correspondiente:
+
+| Evento | Cuándo añadir |
+| --- | --- |
+| `on_transfer_validate`, `on_transfer_advanced`, `on_transfer_page` | Cuando llegue la pestaña Transferencia en web. |
+| `on_navigate_prev/next/script`, `on_key_event` | Cuando exista visor programable en web. |
+| `on_app_start`, `on_app_end` | Pendiente: definir cuándo tienen sentido en web (no hay Workbench persistente). |
+| `init_global`, `verification_panel` | Nunca: intrínsecamente desktop (launcher / QWidget). |
+
+**Cambios en este spec frente a lo documentado abajo:**
+
+- El catálogo `events-catalog.ts` contiene solo 1 entrada (`on_scan_complete`).
+- La pestaña web sigue la misma arquitectura (sidebar + CodeEditor), pero la sidebar tendrá 1 item hasta que se añadan los de Transferencia.
+- `web/api/tasks/pipeline_runner.py` incorpora un helper `_fire_scan_complete(application, app_ctx, batch_ctx)` que parsea `events_json`, compila el script con `ScriptEngine` y lo ejecuta tras el `session.commit()` del lote. Errores logueados como warning sin abortar el flujo. Tests en `tests/test_pipeline_runner_events.py`.
+- `VERIFICATION_PANEL_VARS`, `PAGE_VAR`, `RESULT_VAR`, `KEY_VAR` y el helper `tpl()` del catálogo propuesto se han eliminado porque no hay eventos que los consuman en esta iteración.
+
+El resto de este documento describe la arquitectura tal como se implementó (con la reducción del catálogo como única desviación).
+
 ## 1 · Objetivo
 
 Permitir editar los 13 eventos lifecycle (`on_app_start`, `on_app_end`,
