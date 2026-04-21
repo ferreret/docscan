@@ -1,6 +1,3 @@
-// Wrapper de CodeMirror 6. Concentra todas las importaciones para
-// que Vite genere un chunk separado al ser importado dinámicamente.
-
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands'
@@ -9,11 +6,12 @@ import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { autocompletion } from '@codemirror/autocomplete'
 import type { CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete'
 import { python } from '@codemirror/lang-python'
-import { CONTEXT_VARIABLES } from '@/api/script-context-help'
+import type { ContextVariable } from '@/api/script-context-help'
 
 export interface CreateEditorArgs {
   parent: HTMLElement
   initialDoc: string
+  contextVariables: ContextVariable[]
   onChange: (doc: string) => void
 }
 
@@ -26,70 +24,63 @@ export function shouldPrefixNewline(currentLineText: string): boolean {
   return currentLineText.trim().length > 0
 }
 
-const TOP_LEVEL_COMPLETIONS: Completion[] = CONTEXT_VARIABLES.map((v) => ({
-  label: v.name,
-  type: 'variable',
-  info: v.summary,
-}))
-
-const MEMBER_COMPLETIONS: Map<string, Completion[]> = new Map(
-  CONTEXT_VARIABLES
-    .filter((v) => v.members)
-    .map((v) => [
-      v.name,
-      v.members!.map((m) => ({
-        label: m.name,
-        type: m.signature ? 'method' : 'property',
-        detail: m.signature,
-        info: m.description,
-      })),
-    ]),
-)
-
-/**
- * Completions aplicables a un prefijo textual.
- * - ""          → variables top-level
- * - "page."     → members de page
- * - "pipeline." → members de pipeline
- */
-export function buildContextSuggestions(prefix: string): Completion[] {
-  const dotMatch = prefix.match(/(\w+)\.$/)
-  if (dotMatch) return MEMBER_COMPLETIONS.get(dotMatch[1]) ?? []
-  return TOP_LEVEL_COMPLETIONS
+export function buildContextSuggestions(
+  prefix: string,
+  vars: ContextVariable[],
+): Completion[] {
+  const dotMatch = prefix.match(/([\w.]+)\.$/)
+  if (dotMatch) {
+    const varName = dotMatch[1]
+    const variable = vars.find((v) => v.name === varName)
+    if (!variable?.members) return []
+    return variable.members.map((m) => ({
+      label: m.name,
+      type: m.signature ? 'method' : 'property',
+      detail: m.signature,
+      info: m.description,
+    }))
+  }
+  return vars.map((v) => ({
+    label: v.name,
+    type: 'variable',
+    info: v.summary,
+  }))
 }
 
-function contextCompletions(context: CompletionContext): CompletionResult | null {
-  const line = context.state.doc.lineAt(context.pos)
-  const textBeforeCursor = line.text.slice(0, context.pos - line.from)
+function buildContextCompletions(vars: ContextVariable[]) {
+  return (context: CompletionContext): CompletionResult | null => {
+    const line = context.state.doc.lineAt(context.pos)
+    const textBeforeCursor = line.text.slice(0, context.pos - line.from)
 
-  const dotMatch = textBeforeCursor.match(/(\w+)\.(\w*)$/)
-  if (dotMatch) {
-    const suggestions = MEMBER_COMPLETIONS.get(dotMatch[1]) ?? []
-    if (suggestions.length === 0) return null
-    return {
-      from: context.pos - dotMatch[2].length,
-      options: suggestions,
-      validFor: /^\w*$/,
+    const dotMatch = textBeforeCursor.match(/([\w.]+)\.(\w*)$/)
+    if (dotMatch) {
+      const suggestions = buildContextSuggestions(`${dotMatch[1]}.`, vars)
+      if (suggestions.length === 0) return null
+      return {
+        from: context.pos - dotMatch[2].length,
+        options: suggestions,
+        validFor: /^\w*$/,
+      }
     }
-  }
 
-  const wordMatch = textBeforeCursor.match(/(\w+)$/)
-  if (wordMatch) {
-    return {
-      from: context.pos - wordMatch[1].length,
-      options: TOP_LEVEL_COMPLETIONS,
-      validFor: /^\w*$/,
+    const wordMatch = textBeforeCursor.match(/(\w+)$/)
+    if (wordMatch) {
+      return {
+        from: context.pos - wordMatch[1].length,
+        options: buildContextSuggestions('', vars),
+        validFor: /^\w*$/,
+      }
     }
-  }
 
-  if (context.explicit) {
-    return {
-      from: context.pos,
-      options: TOP_LEVEL_COMPLETIONS,
-      validFor: /^\w*$/,
+    if (context.explicit) {
+      return {
+        from: context.pos,
+        options: buildContextSuggestions('', vars),
+        validFor: /^\w*$/,
+      }
     }
+    return null
   }
-  return null
 }
 
 const lightTheme = EditorView.theme(
@@ -131,7 +122,7 @@ export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle
       indentOnInput(),
       bracketMatching(),
       closeBrackets(),
-      autocompletion({ override: [contextCompletions] }),
+      autocompletion({ override: [buildContextCompletions(args.contextVariables)] }),
       keymap.of([
         ...closeBracketsKeymap,
         ...defaultKeymap,

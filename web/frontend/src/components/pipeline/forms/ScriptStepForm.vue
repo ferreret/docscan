@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, shallowRef } from 'vue'
 import type { ScriptStep } from '@/api/types-pipeline'
-import type { EditorHandle } from './script-editor/editor'
+import type { EditorHandle } from '@/components/code-editor/editor'
 import { SNIPPETS, CONTEXT_VARIABLES } from '@/api/script-context-help'
 
 const props = defineProps<{ modelValue: ScriptStep }>()
@@ -27,11 +27,12 @@ let cancelled = false
 onMounted(async () => {
   if (!editorHost.value) return
   try {
-    const { createEditor } = await import('./script-editor/editor')
+    const { createEditor } = await import('@/components/code-editor/editor')
     if (cancelled || !editorHost.value) return
     const handle = await createEditor({
       parent: editorHost.value,
       initialDoc: props.modelValue.script,
+      contextVariables: CONTEXT_VARIABLES,
       onChange: (doc) => patch({ script: doc }),
     })
     if (cancelled) {

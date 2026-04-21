@@ -9,7 +9,7 @@ const insertAtCursorMock = vi.fn()
 const destroyMock = vi.fn()
 const onChangeRef: { value: ((doc: string) => void) | null } = { value: null }
 
-vi.mock('@/components/pipeline/forms/script-editor/editor', () => ({
+vi.mock('@/components/code-editor/editor', () => ({
   createEditor: vi.fn(async (args: { onChange: (doc: string) => void }) => {
     onChangeRef.value = args.onChange
     return {
