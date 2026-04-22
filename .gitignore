@@ -43,3 +43,6 @@ site/
 /batch_*/
 
 .superpowers/
+
+# Playwright MCP traces/screenshots
+.playwright-mcp/
