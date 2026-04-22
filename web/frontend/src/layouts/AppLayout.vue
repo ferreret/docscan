@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
+import ThemeSelector from '@/components/ThemeSelector.vue'
 
 const auth = useAuthStore()
 </script>
@@ -72,7 +73,10 @@ const auth = useAuthStore()
         </router-link>
       </nav>
 
-      <div class="p-3 border-t border-surface-0">
+      <div class="p-3 border-t border-surface-0 space-y-2">
+        <div class="flex justify-center">
+          <ThemeSelector />
+        </div>
         <div class="flex items-center gap-2.5 px-2 py-1.5">
           <div class="w-8 h-8 rounded-full bg-primary-soft border border-primary/30 flex items-center justify-center text-primary font-semibold text-xs">
             {{ auth.user?.display_name?.charAt(0)?.toUpperCase() }}
