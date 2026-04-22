@@ -415,7 +415,7 @@ const fieldsParsed = computed(() => {
             :alt="`Página ${page.page_index + 1}`"
             class="w-full aspect-[3/4] object-cover bg-crust"
           />
-          <div class="absolute bottom-0 left-0 right-0 bg-text/80 text-base text-[11px] px-2 py-1 flex justify-between items-center">
+          <div class="absolute bottom-0 left-0 right-0 bg-crust/90 text-text text-[11px] px-2 py-1 flex justify-between items-center">
             <span class="font-semibold">#{{ page.page_index + 1 }}</span>
             <div class="flex gap-1">
               <span v-if="page.needs_review" class="text-warning" title="Requiere revisión">!</span>
@@ -436,7 +436,7 @@ const fieldsParsed = computed(() => {
     <!-- Modal Visor -->
     <div
       v-if="selectedPage && store.currentPage"
-      class="fixed inset-0 bg-text/80 backdrop-blur-sm z-50 flex flex-col"
+      class="fixed inset-0 bg-crust/90 backdrop-blur-sm z-50 flex flex-col"
       @click.self="closeViewer"
     >
       <!-- Toolbar superior -->
