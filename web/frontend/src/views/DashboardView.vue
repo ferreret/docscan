@@ -21,15 +21,15 @@ onMounted(() => {
 
     <!-- Stats -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div class="bg-white rounded-lg border border-surface-0 p-5">
+      <div class="bg-base rounded-lg border border-surface-0 p-5">
         <p class="text-xs font-medium text-subtext uppercase tracking-wide">Aplicaciones</p>
         <p class="text-3xl font-bold text-text mt-2">{{ apps.items.length }}</p>
       </div>
-      <div class="bg-white rounded-lg border border-surface-0 p-5">
+      <div class="bg-base rounded-lg border border-surface-0 p-5">
         <p class="text-xs font-medium text-subtext uppercase tracking-wide">Lotes</p>
         <p class="text-3xl font-bold text-text mt-2">{{ batches.items.length }}</p>
       </div>
-      <div class="bg-white rounded-lg border border-surface-0 p-5">
+      <div class="bg-base rounded-lg border border-surface-0 p-5">
         <p class="text-xs font-medium text-subtext uppercase tracking-wide">Páginas totales</p>
         <p class="text-3xl font-bold text-text mt-2">
           {{ batches.items.reduce((sum, b) => sum + b.page_count, 0) }}
@@ -39,7 +39,7 @@ onMounted(() => {
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <!-- Aplicaciones recientes -->
-      <div class="bg-white rounded-lg border border-surface-0 overflow-hidden">
+      <div class="bg-base rounded-lg border border-surface-0 overflow-hidden">
         <div class="px-5 py-3 border-b border-surface-0 bg-mantle flex items-center justify-between">
           <h2 class="text-[13px] font-semibold text-text uppercase tracking-wide">Aplicaciones</h2>
           <router-link to="/applications" class="text-xs text-primary hover:text-primary-hover font-medium">Ver todas →</router-link>
@@ -71,7 +71,7 @@ onMounted(() => {
       </div>
 
       <!-- Lotes recientes -->
-      <div class="bg-white rounded-lg border border-surface-0 overflow-hidden">
+      <div class="bg-base rounded-lg border border-surface-0 overflow-hidden">
         <div class="px-5 py-3 border-b border-surface-0 bg-mantle flex items-center justify-between">
           <h2 class="text-[13px] font-semibold text-text uppercase tracking-wide">Lotes recientes</h2>
           <router-link to="/batches" class="text-xs text-primary hover:text-primary-hover font-medium">Ver todos →</router-link>

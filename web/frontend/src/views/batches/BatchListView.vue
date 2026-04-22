@@ -15,10 +15,10 @@ onMounted(() => store.fetchAll())
     </div>
 
     <div v-if="store.loading" class="text-sm text-subtext">Cargando...</div>
-    <div v-else-if="store.items.length === 0" class="bg-white rounded-lg border border-surface-0 py-16 text-center">
+    <div v-else-if="store.items.length === 0" class="bg-base rounded-lg border border-surface-0 py-16 text-center">
       <p class="text-sm text-subtext">No hay lotes. Crea uno desde una aplicación.</p>
     </div>
-    <div v-else class="bg-white rounded-lg border border-surface-0 overflow-hidden">
+    <div v-else class="bg-base rounded-lg border border-surface-0 overflow-hidden">
       <router-link
         v-for="batch in store.items"
         :key="batch.id"

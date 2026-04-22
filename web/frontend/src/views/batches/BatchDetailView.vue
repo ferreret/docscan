@@ -312,14 +312,14 @@ const fieldsParsed = computed(() => {
         <h1 class="text-2xl font-bold text-text">Lote #{{ store.current.id }}</h1>
       </div>
       <div class="flex gap-2">
-        <label class="bg-white border border-surface-1 text-text rounded-md px-4 py-2 text-[13px] font-medium hover:bg-crust cursor-pointer transition-colors">
+        <label class="bg-base border border-surface-1 text-text rounded-md px-4 py-2 text-[13px] font-medium hover:bg-crust cursor-pointer transition-colors">
           {{ uploading ? 'Subiendo...' : '↑ Subir ficheros' }}
           <input type="file" multiple accept=".jpg,.jpeg,.png,.bmp,.tif,.tiff,.pdf" class="hidden" @change="onUpload" :disabled="uploading" />
         </label>
         <button
           @click="onRunPipeline"
           :disabled="running || store.current.page_count === 0"
-          class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm min-w-[170px]"
+          class="bg-primary text-base rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm min-w-[170px]"
         >
           <span v-if="progress">Procesando {{ progress.processed }}/{{ progress.total }}…</span>
           <span v-else-if="running">Iniciando…</span>
@@ -332,7 +332,7 @@ const fieldsParsed = computed(() => {
           data-test="btn-transfer"
           @click="startTransfer"
           :disabled="!canTransfer"
-          class="bg-white border border-surface-1 text-text rounded-md px-4 py-2 text-[13px] font-medium hover:bg-crust disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          class="bg-base border border-surface-1 text-text rounded-md px-4 py-2 text-[13px] font-medium hover:bg-crust disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <span v-if="transferProgress">
             Transfiriendo {{ transferProgress.page_index }}/{{ transferProgress.total }}…
@@ -344,11 +344,11 @@ const fieldsParsed = computed(() => {
         <button
           @click="onDownload"
           :disabled="downloading || store.current.page_count === 0"
-          class="bg-white border border-surface-1 text-text rounded-md px-4 py-2 text-[13px] font-medium hover:bg-crust disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          class="bg-base border border-surface-1 text-text rounded-md px-4 py-2 text-[13px] font-medium hover:bg-crust disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {{ downloading ? 'Descargando…' : '↓ Descargar ZIP' }}
         </button>
-        <button @click="onDelete" class="text-danger border border-danger/40 bg-white rounded-md px-4 py-2 text-[13px] font-medium hover:bg-danger hover:text-white transition-colors">
+        <button @click="onDelete" class="text-danger border border-danger/40 bg-base rounded-md px-4 py-2 text-[13px] font-medium hover:bg-danger hover:text-base transition-colors">
           Eliminar
         </button>
       </div>
@@ -373,7 +373,7 @@ const fieldsParsed = computed(() => {
 
     <!-- Info -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-      <div class="bg-white rounded-lg border border-surface-0 p-4">
+      <div class="bg-base rounded-lg border border-surface-0 p-4">
         <p class="text-[11px] text-subtext uppercase tracking-wide font-medium">Estado</p>
         <p class="text-sm font-semibold mt-1.5" :class="{
           'text-warning': store.current.state === 'created',
@@ -381,22 +381,22 @@ const fieldsParsed = computed(() => {
           'text-danger': store.current.state.startsWith('error'),
         }">{{ store.current.state }}</p>
       </div>
-      <div class="bg-white rounded-lg border border-surface-0 p-4">
+      <div class="bg-base rounded-lg border border-surface-0 p-4">
         <p class="text-[11px] text-subtext uppercase tracking-wide font-medium">Páginas</p>
         <p class="text-sm font-semibold text-text mt-1.5">{{ store.current.page_count }}</p>
       </div>
-      <div class="bg-white rounded-lg border border-surface-0 p-4">
+      <div class="bg-base rounded-lg border border-surface-0 p-4">
         <p class="text-[11px] text-subtext uppercase tracking-wide font-medium">Aplicación</p>
         <p class="text-sm font-semibold text-text mt-1.5">#{{ store.current.application_id }}</p>
       </div>
-      <div class="bg-white rounded-lg border border-surface-0 p-4">
+      <div class="bg-base rounded-lg border border-surface-0 p-4">
         <p class="text-[11px] text-subtext uppercase tracking-wide font-medium">Creado</p>
         <p class="text-sm font-semibold text-text mt-1.5">{{ new Date(store.current.created_at).toLocaleString('es-ES') }}</p>
       </div>
     </div>
 
     <!-- Thumbnails grid -->
-    <div class="bg-white rounded-lg border border-surface-0 overflow-hidden">
+    <div class="bg-base rounded-lg border border-surface-0 overflow-hidden">
       <div class="px-5 py-3 border-b border-surface-0 bg-mantle">
         <h2 class="text-[13px] font-semibold text-text uppercase tracking-wide">Páginas</h2>
       </div>
@@ -408,14 +408,14 @@ const fieldsParsed = computed(() => {
           v-for="page in store.pages"
           :key="page.id"
           @click="openViewer(page.id)"
-          class="group relative bg-white rounded-md border-2 overflow-hidden cursor-pointer transition-all hover:shadow-md border-surface-0 hover:border-surface-1"
+          class="group relative bg-base rounded-md border-2 overflow-hidden cursor-pointer transition-all hover:shadow-md border-surface-0 hover:border-surface-1"
         >
           <AuthImage
             :url="store.pageImageUrl(batchId, page.id)"
             :alt="`Página ${page.page_index + 1}`"
             class="w-full aspect-[3/4] object-cover bg-crust"
           />
-          <div class="absolute bottom-0 left-0 right-0 bg-text/80 text-white text-[11px] px-2 py-1 flex justify-between items-center">
+          <div class="absolute bottom-0 left-0 right-0 bg-text/80 text-base text-[11px] px-2 py-1 flex justify-between items-center">
             <span class="font-semibold">#{{ page.page_index + 1 }}</span>
             <div class="flex gap-1">
               <span v-if="page.needs_review" class="text-warning" title="Requiere revisión">!</span>
@@ -424,7 +424,7 @@ const fieldsParsed = computed(() => {
           </div>
           <button
             @click.stop="onDeletePage(page.id)"
-            class="absolute top-1.5 right-1.5 bg-danger text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+            class="absolute top-1.5 right-1.5 bg-danger text-base rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
             title="Eliminar"
           >
             ×
@@ -457,7 +457,7 @@ const fieldsParsed = computed(() => {
           <button
             @click="navigate(-1)"
             :disabled="selectedIndex <= 0"
-            class="px-3 h-8 flex items-center gap-1 rounded-md text-[13px] font-medium text-text bg-white border border-surface-1 hover:bg-crust disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="px-3 h-8 flex items-center gap-1 rounded-md text-[13px] font-medium text-text bg-base border border-surface-1 hover:bg-crust disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Anterior (←)"
           >
             ← Anterior
@@ -465,7 +465,7 @@ const fieldsParsed = computed(() => {
           <button
             @click="navigate(1)"
             :disabled="selectedIndex >= store.pages.length - 1"
-            class="px-3 h-8 flex items-center gap-1 rounded-md text-[13px] font-medium text-text bg-white border border-surface-1 hover:bg-crust disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="px-3 h-8 flex items-center gap-1 rounded-md text-[13px] font-medium text-text bg-base border border-surface-1 hover:bg-crust disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Siguiente (→)"
           >
             Siguiente →
@@ -473,7 +473,7 @@ const fieldsParsed = computed(() => {
           <div class="w-px h-6 bg-surface-1 mx-1"></div>
           <button
             @click="onDeletePage(selectedPage)"
-            class="px-3 h-8 flex items-center text-[13px] font-medium text-danger border border-danger/40 bg-white hover:bg-danger hover:text-white rounded-md transition-colors"
+            class="px-3 h-8 flex items-center text-[13px] font-medium text-danger border border-danger/40 bg-base hover:bg-danger hover:text-base rounded-md transition-colors"
           >
             Eliminar página
           </button>
@@ -511,7 +511,7 @@ const fieldsParsed = computed(() => {
                 <div
                   v-for="bc in store.currentPage.barcodes"
                   :key="bc.id"
-                  class="bg-white border border-surface-0 rounded-md p-2.5"
+                  class="bg-base border border-surface-0 rounded-md p-2.5"
                 >
                   <div class="flex items-center justify-between gap-2">
                     <span class="text-[10px] font-semibold text-subtext uppercase">{{ bc.symbology }}</span>
@@ -525,7 +525,7 @@ const fieldsParsed = computed(() => {
             <!-- Campos -->
             <div v-if="fieldsParsed" class="space-y-1.5">
               <p class="text-[11px] font-medium text-subtext uppercase tracking-wide">Campos</p>
-              <div class="bg-white border border-surface-0 rounded-md divide-y divide-surface-0">
+              <div class="bg-base border border-surface-0 rounded-md divide-y divide-surface-0">
                 <div
                   v-for="(value, key) in fieldsParsed"
                   :key="key"
@@ -540,7 +540,7 @@ const fieldsParsed = computed(() => {
             <!-- OCR -->
             <div v-if="store.currentPage.ocr_text" class="space-y-1.5">
               <p class="text-[11px] font-medium text-subtext uppercase tracking-wide">OCR</p>
-              <p class="text-xs text-text bg-white border border-surface-0 rounded-md p-3 max-h-60 overflow-auto whitespace-pre-wrap">{{ store.currentPage.ocr_text }}</p>
+              <p class="text-xs text-text bg-base border border-surface-0 rounded-md p-3 max-h-60 overflow-auto whitespace-pre-wrap">{{ store.currentPage.ocr_text }}</p>
             </div>
 
             <!-- Errores -->

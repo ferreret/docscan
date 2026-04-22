@@ -116,7 +116,7 @@ function closeInvite() {
 </script>
 
 <template>
-  <div v-if="!isAdmin" class="bg-white rounded-lg border border-surface-0 p-10 text-center">
+  <div v-if="!isAdmin" class="bg-base rounded-lg border border-surface-0 p-10 text-center">
     <p class="text-sm text-subtext">
       Solo los administradores pueden gestionar el equipo.
     </p>
@@ -130,7 +130,7 @@ function closeInvite() {
       </div>
       <button
         @click="showInvite = true"
-        class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
+        class="bg-primary text-base rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
       >
         + Invitar usuario
       </button>
@@ -140,7 +140,7 @@ function closeInvite() {
     <div v-if="loading" class="text-sm text-subtext">Cargando...</div>
 
     <!-- Invitaciones pendientes -->
-    <div v-if="invitations.length" class="bg-white rounded-lg border border-surface-0 overflow-hidden mb-6">
+    <div v-if="invitations.length" class="bg-base rounded-lg border border-surface-0 overflow-hidden mb-6">
       <div class="px-5 py-3 border-b border-surface-0 bg-mantle">
         <h2 class="text-[13px] font-semibold text-text uppercase tracking-wide">
           Invitaciones pendientes ({{ invitations.length }})
@@ -161,13 +161,13 @@ function closeInvite() {
           <div class="flex gap-2 ml-4 shrink-0">
             <button
               @click="copyToken(inv.token)"
-              class="text-xs px-2.5 py-1 bg-primary-soft text-primary border border-primary/30 rounded hover:bg-primary hover:text-white transition-colors font-medium"
+              class="text-xs px-2.5 py-1 bg-primary-soft text-primary border border-primary/30 rounded hover:bg-primary hover:text-base transition-colors font-medium"
             >
               Copiar enlace
             </button>
             <button
               @click="onRevoke(inv.id)"
-              class="text-xs text-danger border border-danger/40 bg-white px-2.5 py-1 rounded hover:bg-danger hover:text-white transition-colors"
+              class="text-xs text-danger border border-danger/40 bg-base px-2.5 py-1 rounded hover:bg-danger hover:text-base transition-colors"
             >
               Revocar
             </button>
@@ -177,7 +177,7 @@ function closeInvite() {
     </div>
 
     <!-- Usuarios -->
-    <div class="bg-white rounded-lg border border-surface-0 overflow-hidden">
+    <div class="bg-base rounded-lg border border-surface-0 overflow-hidden">
       <div class="px-5 py-3 border-b border-surface-0 bg-mantle">
         <h2 class="text-[13px] font-semibold text-text uppercase tracking-wide">
           Usuarios ({{ users.length }})
@@ -206,7 +206,7 @@ function closeInvite() {
               :value="u.role"
               @change="(e) => onChangeRole(u, (e.target as HTMLSelectElement).value)"
               :disabled="u.id === auth.user?.id"
-              class="text-xs border border-surface-1 rounded px-2 py-1 bg-white text-text disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-xs border border-surface-1 rounded px-2 py-1 bg-base text-text disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="operator">operator</option>
               <option value="company_admin">company_admin</option>
@@ -216,8 +216,8 @@ function closeInvite() {
               :disabled="u.id === auth.user?.id"
               class="text-[11px] px-2 py-1 rounded-full font-medium border disabled:opacity-50 disabled:cursor-not-allowed"
               :class="u.active
-                ? 'bg-success-soft text-success border-success/30 hover:bg-success hover:text-white'
-                : 'bg-crust text-subtext border-surface-0 hover:bg-subtext hover:text-white'"
+                ? 'bg-success-soft text-success border-success/30 hover:bg-success hover:text-base'
+                : 'bg-crust text-subtext border-surface-0 hover:bg-subtext hover:text-base'"
             >
               {{ u.active ? 'Activo' : 'Inactivo' }}
             </button>
@@ -241,7 +241,7 @@ function closeInvite() {
       <form
         v-if="!lastToken"
         @submit.prevent="onCreateInvitation"
-        class="bg-white rounded-lg shadow-xl border border-surface-0 p-6 w-full max-w-md space-y-4"
+        class="bg-base rounded-lg shadow-xl border border-surface-0 p-6 w-full max-w-md space-y-4"
       >
         <h2 class="text-base font-semibold text-text">Invitar usuario</h2>
         <div v-if="inviteError" class="text-xs text-danger bg-danger-soft border border-danger/30 rounded-md px-3 py-2">{{ inviteError }}</div>
@@ -252,14 +252,14 @@ function closeInvite() {
             type="email"
             required
             placeholder="usuario@empresa.com"
-            class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            class="w-full rounded-md border border-surface-1 bg-base px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
         <div>
           <label class="block text-xs font-medium text-subtext mb-1">Rol</label>
           <select
             v-model="inviteRole"
-            class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary"
+            class="w-full rounded-md border border-surface-1 bg-base px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary"
           >
             <option value="operator">operator</option>
             <option value="company_admin">company_admin</option>
@@ -270,7 +270,7 @@ function closeInvite() {
           <button
             type="submit"
             :disabled="creating"
-            class="bg-primary text-white px-4 py-2 text-[13px] font-semibold rounded-md hover:bg-primary-hover disabled:opacity-50 transition-colors"
+            class="bg-primary text-base px-4 py-2 text-[13px] font-semibold rounded-md hover:bg-primary-hover disabled:opacity-50 transition-colors"
           >
             {{ creating ? 'Creando…' : 'Crear invitación' }}
           </button>
@@ -279,7 +279,7 @@ function closeInvite() {
 
       <div
         v-else
-        class="bg-white rounded-lg shadow-xl border border-surface-0 p-6 w-full max-w-md space-y-4"
+        class="bg-base rounded-lg shadow-xl border border-surface-0 p-6 w-full max-w-md space-y-4"
       >
         <h2 class="text-base font-semibold text-text">Invitación creada</h2>
         <p class="text-xs text-subtext">
@@ -291,7 +291,7 @@ function closeInvite() {
         <div class="flex justify-end gap-2 pt-2">
           <button
             @click="copyToken(lastToken!)"
-            class="bg-primary text-white px-4 py-2 text-[13px] font-semibold rounded-md hover:bg-primary-hover transition-colors"
+            class="bg-primary text-base px-4 py-2 text-[13px] font-semibold rounded-md hover:bg-primary-hover transition-colors"
           >
             {{ copied ? '¡Copiado!' : 'Copiar enlace' }}
           </button>
