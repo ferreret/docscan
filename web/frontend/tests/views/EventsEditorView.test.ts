@@ -82,9 +82,10 @@ describe('EventsEditorView', () => {
     expect(store.fetchOne).toHaveBeenCalledWith(8)
 
     const items = wrapper.findAll('[data-test="event-item"]')
-    expect(items).toHaveLength(1)
-    expect(items[0].classes().join(' ')).toContain('text-primary')
-    expect(items[0].text()).toContain('on_scan_complete')
+    expect(items).toHaveLength(EVENT_DEFINITIONS.length)
+    const firstItem = items[0]
+    expect(firstItem.classes().join(' ')).toContain('text-primary')
+    expect(firstItem.text()).toContain('on_scan_complete')
   })
 
   it('sidebar marca con indicador los eventos con código', async () => {
@@ -164,11 +165,16 @@ describe('EventsEditorView', () => {
     expect(wrapper.find('[data-test="save-events"]').attributes('disabled')).toBeDefined()
   })
 
-  it('la sidebar lista el único evento del catálogo', async () => {
+  it('la sidebar lista todos los eventos del catálogo', async () => {
     const { wrapper } = await mountView('{}')
     await flushPromises()
     const items = wrapper.findAll('[data-test="event-item"]')
-    expect(items).toHaveLength(1)
+    expect(items).toHaveLength(EVENT_DEFINITIONS.length)
     expect(items[0].text()).toContain(EVENT_DEFINITIONS[0].name)
+    // Verificar que los eventos de transferencia están presentes
+    const allText = wrapper.text()
+    expect(allText).toContain('on_transfer_validate')
+    expect(allText).toContain('on_transfer_advanced')
+    expect(allText).toContain('on_transfer_page')
   })
 })
