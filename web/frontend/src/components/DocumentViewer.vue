@@ -200,32 +200,6 @@ defineExpose({
       </div>
     </div>
 
-    <!-- Toolbar overlay -->
-    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-base/95 backdrop-blur border border-surface-1 rounded-lg shadow-md px-2 py-1.5">
-      <button
-        @click="zoomBy(1 / ZOOM_STEP)"
-        class="w-7 h-7 flex items-center justify-center rounded text-text hover:bg-mantle text-base font-semibold"
-        title="Reducir"
-      >−</button>
-      <span class="text-xs text-subtext font-medium min-w-[3rem] text-center">{{ zoomPercent }}%</span>
-      <button
-        @click="zoomBy(ZOOM_STEP)"
-        class="w-7 h-7 flex items-center justify-center rounded text-text hover:bg-mantle text-base font-semibold"
-        title="Ampliar"
-      >+</button>
-      <div class="w-px h-5 bg-surface-1 mx-1"></div>
-      <button
-        @click="fitToViewport"
-        class="px-2 h-7 flex items-center rounded text-text hover:bg-mantle text-xs font-medium"
-        title="Ajustar"
-      >Ajustar</button>
-      <button
-        @click="resetView"
-        class="px-2 h-7 flex items-center rounded text-text hover:bg-mantle text-xs font-medium"
-        title="Tamaño real"
-      >1:1</button>
-    </div>
-
     <!-- Loader -->
     <div v-if="!src" class="absolute inset-0 flex items-center justify-center text-subtext text-sm">
       Cargando…
