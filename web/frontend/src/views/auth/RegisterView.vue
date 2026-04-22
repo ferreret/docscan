@@ -42,7 +42,7 @@ async function onSubmit() {
 
       <form
         @submit.prevent="onSubmit"
-        class="bg-white rounded-lg shadow-sm border border-surface-0 p-6 space-y-4"
+        class="bg-base rounded-lg shadow-sm border border-surface-0 p-6 space-y-4"
       >
         <h2 class="text-base font-semibold text-text">Crear cuenta</h2>
 
@@ -56,7 +56,7 @@ async function onSubmit() {
             v-model="displayName"
             type="text"
             required
-            class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            class="w-full rounded-md border border-surface-1 bg-base px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
@@ -66,7 +66,7 @@ async function onSubmit() {
             v-model="tenantName"
             type="text"
             required
-            class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            class="w-full rounded-md border border-surface-1 bg-base px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             placeholder="Nombre de la empresa"
           />
         </div>
@@ -77,7 +77,7 @@ async function onSubmit() {
             v-model="email"
             type="email"
             required
-            class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            class="w-full rounded-md border border-surface-1 bg-base px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
@@ -88,7 +88,7 @@ async function onSubmit() {
             type="password"
             required
             minlength="8"
-            class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            class="w-full rounded-md border border-surface-1 bg-base px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
           <p class="text-[11px] text-subtext mt-1">Mínimo 8 caracteres.</p>
         </div>
@@ -96,7 +96,7 @@ async function onSubmit() {
         <button
           type="submit"
           :disabled="auth.loading"
-          class="w-full bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover disabled:opacity-50 transition-colors"
+          class="w-full bg-primary text-base rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover disabled:opacity-50 transition-colors"
         >
           {{ auth.loading ? 'Registrando...' : 'Registrarse' }}
         </button>
