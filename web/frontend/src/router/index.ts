@@ -79,6 +79,13 @@ const router = createRouter({
           meta: { auth: true },
         },
         {
+          path: 'applications/:id/transfer',
+          name: 'transfer',
+          component: () =>
+            import('@/views/applications/TransferEditorView.vue'),
+          meta: { auth: true },
+        },
+        {
           path: 'batches',
           name: 'batches',
           component: () => import('@/views/batches/BatchListView.vue'),
