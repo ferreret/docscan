@@ -58,6 +58,27 @@ const router = createRouter({
           meta: { auth: true },
         },
         {
+          path: 'applications/:id/general',
+          name: 'general',
+          component: () =>
+            import('@/views/applications/GeneralConfigEditorView.vue'),
+          meta: { auth: true },
+        },
+        {
+          path: 'applications/:id/image',
+          name: 'image',
+          component: () =>
+            import('@/views/applications/ImageConfigEditorView.vue'),
+          meta: { auth: true },
+        },
+        {
+          path: 'applications/:id/batch-fields',
+          name: 'batch-fields',
+          component: () =>
+            import('@/views/applications/BatchFieldsEditorView.vue'),
+          meta: { auth: true },
+        },
+        {
           path: 'batches',
           name: 'batches',
           component: () => import('@/views/batches/BatchListView.vue'),

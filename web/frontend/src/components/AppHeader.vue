@@ -12,7 +12,10 @@ const router = useRouter()
 
 const tabs = computed(() => [
   { to: `/applications/${props.appId}`, label: 'Resumen', exact: true },
+  { to: `/applications/${props.appId}/general`, label: 'General', exact: false },
   { to: `/applications/${props.appId}/pipeline`, label: 'Pipeline', exact: false },
+  { to: `/applications/${props.appId}/image`, label: 'Imagen', exact: false },
+  { to: `/applications/${props.appId}/batch-fields`, label: 'Campos', exact: false },
   { to: `/applications/${props.appId}/events`, label: 'Eventos', exact: false },
 ])
 </script>

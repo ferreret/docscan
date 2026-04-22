@@ -9,7 +9,10 @@ function makeRouter(initialPath: string) {
     routes: [
       { path: '/applications', component: { template: '<div/>' } },
       { path: '/applications/:id', component: { template: '<div/>' } },
+      { path: '/applications/:id/general', component: { template: '<div/>' } },
       { path: '/applications/:id/pipeline', component: { template: '<div/>' } },
+      { path: '/applications/:id/image', component: { template: '<div/>' } },
+      { path: '/applications/:id/batch-fields', component: { template: '<div/>' } },
       { path: '/applications/:id/events', component: { template: '<div/>' } },
     ],
   })
@@ -18,7 +21,7 @@ function makeRouter(initialPath: string) {
 }
 
 describe('AppHeader', () => {
-  it('renderiza las 3 tabs con la activa correcta según la ruta', async () => {
+  it('renderiza las 6 tabs con la activa correcta según la ruta', async () => {
     const router = makeRouter('/applications/8/events')
     await router.isReady()
     const wrapper = mount(AppHeader, {
@@ -26,11 +29,14 @@ describe('AppHeader', () => {
       global: { plugins: [router] },
     })
     const tabs = wrapper.findAll('[data-test="app-tab"]')
-    expect(tabs).toHaveLength(3)
+    expect(tabs).toHaveLength(6)
     expect(tabs[0].text()).toBe('Resumen')
-    expect(tabs[1].text()).toBe('Pipeline')
-    expect(tabs[2].text()).toBe('Eventos')
-    expect(tabs[2].classes().join(' ')).toContain('text-primary')
+    expect(tabs[1].text()).toBe('General')
+    expect(tabs[2].text()).toBe('Pipeline')
+    expect(tabs[3].text()).toBe('Imagen')
+    expect(tabs[4].text()).toBe('Campos')
+    expect(tabs[5].text()).toBe('Eventos')
+    expect(tabs[5].classes().join(' ')).toContain('text-primary')
   })
 
   it('expone un slot "actions" para inyectar botones en la cabecera', async () => {
