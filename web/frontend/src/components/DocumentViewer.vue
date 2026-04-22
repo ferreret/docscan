@@ -143,6 +143,14 @@ const BARCODE_PALETTE = [
 function colorFor(idx: number) {
   return BARCODE_PALETTE[idx % BARCODE_PALETTE.length]
 }
+
+defineExpose({
+  zoomIn: () => zoomBy(1.25),
+  zoomOut: () => zoomBy(1 / 1.25),
+  resetView,
+  fitToViewport,
+  zoomPercent,
+})
 </script>
 
 <template>
