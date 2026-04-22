@@ -15,14 +15,14 @@ function pick(type: StepType) {
   <div class="relative">
     <button
       @click="open = !open"
-      class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
+      class="bg-primary text-base rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
     >
       + Añadir step
     </button>
 
     <div
       v-if="open"
-      class="absolute right-0 mt-1 w-64 bg-white rounded-md border border-surface-0 shadow-lg py-1 z-10"
+      class="absolute right-0 mt-1 w-64 bg-base rounded-md border border-surface-0 shadow-lg py-1 z-10"
     >
       <button
         @click="pick('barcode')"

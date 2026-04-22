@@ -193,7 +193,7 @@ function colorFor(idx: number) {
     </div>
 
     <!-- Toolbar overlay -->
-    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/95 backdrop-blur border border-surface-1 rounded-lg shadow-md px-2 py-1.5">
+    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-base/95 backdrop-blur border border-surface-1 rounded-lg shadow-md px-2 py-1.5">
       <button
         @click="zoomBy(1 / ZOOM_STEP)"
         class="w-7 h-7 flex items-center justify-center rounded text-text hover:bg-mantle text-base font-semibold"

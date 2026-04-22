@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
           </button>
           <div
             v-if="snippetsOpen"
-            class="absolute right-0 mt-1 w-80 bg-white rounded-md border border-surface-0 shadow-lg py-1 z-10"
+            class="absolute right-0 mt-1 w-80 bg-base rounded-md border border-surface-0 shadow-lg py-1 z-10"
           >
             <button
               v-for="snippet in snippets"
@@ -130,7 +130,7 @@ onBeforeUnmount(() => {
       <div class="flex-1 min-w-0">
         <div
           v-if="editorError"
-          class="p-4 text-sm bg-red-50 border border-red-200 rounded"
+          class="p-4 text-sm bg-danger-soft border border-danger/30 rounded"
         >
           {{ editorError }}
         </div>

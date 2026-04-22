@@ -40,5 +40,5 @@ onUnmounted(revoke)
 
 <template>
   <img v-if="src" :src="src" :alt="alt" v-bind="$attrs" />
-  <div v-else class="animate-pulse bg-gray-200" v-bind="$attrs" />
+  <div v-else class="animate-pulse bg-surface-0" v-bind="$attrs" />
 </template>

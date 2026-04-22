@@ -64,13 +64,13 @@ const summary = computed(() => {
 
 <template>
   <div
-    class="flex items-center gap-2 p-2 bg-white rounded-md border border-surface-0 hover:border-primary/40 transition-colors"
+    class="flex items-center gap-2 p-2 bg-base rounded-md border border-surface-0 hover:border-primary/40 transition-colors"
     :class="{ 'opacity-50': !step.enabled }"
   >
     <span class="cursor-grab text-subtext select-none" title="Reordenar">⋮⋮</span>
     <span
       class="text-white text-[11px] px-2 py-0.5 rounded font-medium"
-      :class="typeColors[step.type] || 'bg-gray-500'"
+      :class="typeColors[step.type] || 'bg-surface-2'"
     >
       {{ step.type }}
     </span>

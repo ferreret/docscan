@@ -23,7 +23,7 @@ const kindIcons: Record<ToastKind, string> = {
         v-for="t in toasts"
         :key="t.id"
         :class="[
-          'pointer-events-auto flex min-w-[260px] max-w-md items-start gap-3 rounded-card border-l-4 bg-white px-4 py-3 shadow-lg',
+          'pointer-events-auto flex min-w-[260px] max-w-md items-start gap-3 rounded-card border-l-4 bg-base px-4 py-3 shadow-lg',
           kindStyles[t.kind],
         ]"
       >

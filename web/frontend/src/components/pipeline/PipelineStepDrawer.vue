@@ -70,12 +70,12 @@ const canSave = computed(() => {
 <template>
   <div v-if="open" class="fixed inset-0 z-40">
     <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/30" @click="onCancel"></div>
+    <div class="absolute inset-0 bg-text/30" @click="onCancel"></div>
 
     <!-- Drawer -->
     <div
       :class="[
-        'absolute top-0 right-0 bottom-0 w-full bg-white shadow-2xl flex flex-col',
+        'absolute top-0 right-0 bottom-0 w-full bg-base shadow-2xl flex flex-col',
         draft?.type === 'script' ? 'max-w-4xl' : 'max-w-lg',
       ]"
     >
@@ -123,7 +123,7 @@ const canSave = computed(() => {
           v-if="isEditable"
           @click="onSave"
           :disabled="!canSave"
-          class="px-4 py-2 text-[13px] bg-primary text-white rounded-md font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+          class="px-4 py-2 text-[13px] bg-primary text-base rounded-md font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
         >
           Guardar step
         </button>
