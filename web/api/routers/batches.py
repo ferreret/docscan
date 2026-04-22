@@ -25,6 +25,7 @@ from web.api.schemas.pagination import (
 )
 from web.api.storage import StorageDep
 from web.api.tasks.pipeline_runner import run_pipeline_for_batch
+from web.api.tasks.transfer_runner import run_transfer_for_batch
 
 router = APIRouter()
 
@@ -158,6 +159,38 @@ def run_batch_pipeline(
 
     background_tasks.add_task(
         run_pipeline_for_batch,
+        batch_id=batch.id,
+        storage=storage,
+    )
+    return batch
+
+
+@router.post("/{batch_id}/transfer", response_model=BatchResponse, status_code=202)
+def transfer_batch(
+    batch_id: int,
+    background_tasks: BackgroundTasks,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+):
+    """Dispara la transferencia del lote en background.
+
+    El lote debe estar en estado ``read`` (pipeline completado). El estado
+    real de la transferencia se notifica vía WebSocket
+    ``/ws/batches/{batch_id}`` con eventos ``transfer_started``,
+    ``transfer_page``, ``transfer_completed``, ``transfer_aborted`` o
+    ``transfer_error``.
+    """
+    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+
+    if batch.state != "read":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El lote no está listo para transferir",
+        )
+
+    background_tasks.add_task(
+        run_transfer_for_batch,
         batch_id=batch.id,
         storage=storage,
     )

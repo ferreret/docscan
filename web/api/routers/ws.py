@@ -48,7 +48,13 @@ async def batch_events(
         while True:
             event = await queue.get()
             await websocket.send_json(event.to_dict())
-            if event.type in ("pipeline_completed", "pipeline_error"):
+            if event.type in (
+                "pipeline_completed",
+                "pipeline_error",
+                "transfer_completed",
+                "transfer_error",
+                "transfer_aborted",
+            ):
                 break
     except WebSocketDisconnect:
         pass

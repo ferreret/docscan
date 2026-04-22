@@ -1905,3 +1905,353 @@ class TestPipelineEditorPut:
 
         assert resp.status_code == 200
         assert resp.json()["steps"] == []
+
+
+# ------------------------------------------------------------------
+# Transferencia (background task)
+# ------------------------------------------------------------------
+
+
+def _create_app_for_transfer(
+    client,
+    headers,
+    transfer_json: str,
+    events_json: str = "{}",
+) -> int:
+    """Crea una aplicación con configuración de transferencia y eventos."""
+
+    resp = client.post(
+        "/api/applications",
+        headers=headers,
+        json={
+            "name": f"XferApp-{transfer_json[:8]}-{events_json[:8]}",
+            "transfer_json": transfer_json,
+            "events_json": events_json,
+        },
+    )
+    return resp.json()["id"]
+
+
+def _prepare_batch_in_read(client, headers, app_id: int) -> tuple[int, int]:
+    """Crea un lote, sube una página y la procesa con pipeline vacío.
+
+    Tras esto el lote queda en estado ``read`` y es transferible.
+    """
+    batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+    resp = client.post(f"/api/batches/{batch_id}/run", headers=headers)
+    assert resp.status_code == 202
+    # Pipeline vacío => state queda como "read"
+    return batch_id, page_id
+
+
+class TestTransferEndpoint:
+    def test_transfer_202_dispara_background_y_devuelve_batch(self, client, tmp_path):
+        import json as _json
+
+        h = _auth_header(client)
+        dest = tmp_path / "salida"
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(dest),
+                "create_subdirs": True,
+            }
+        )
+        app_id = _create_app_for_transfer(client, h, transfer)
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+        assert resp.status_code == 202
+        body = resp.json()
+        assert body["id"] == batch_id
+
+        # El BackgroundTask de FastAPI ya corrió bajo TestClient.
+        # Verificar que el destino existe y contiene la página.
+        out_dir = dest / f"batch_{batch_id}"
+        assert out_dir.exists()
+        files = list(out_dir.iterdir())
+        assert len(files) == 1
+
+    def test_transfer_409_si_estado_no_es_read(self, client, tmp_path):
+        h = _auth_header(client)
+        app_id = _create_app_for_transfer(client, h, "{}")
+        # Lote recién creado (state = "created"), sin pipeline ejecutado
+        batch_id, _ = _create_batch_with_page(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+        assert resp.status_code == 409
+
+    def test_transfer_404_lote_inexistente(self, client):
+        h = _auth_header(client)
+        resp = client.post("/api/batches/99999/transfer", headers=h)
+        assert resp.status_code == 404
+
+    def test_transfer_404_otro_tenant(self, client, tmp_path):
+        import json as _json
+
+        h1 = _auth_header(client)
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(tmp_path / "x"),
+            }
+        )
+        app_id = _create_app_for_transfer(client, h1, transfer)
+        batch_id, _ = _prepare_batch_in_read(client, h1, app_id)
+
+        client.post(
+            "/api/auth/register",
+            json={
+                "email": "intruso2@x.com",
+                "password": "password123",
+                "display_name": "I",
+                "tenant_name": "OtraOrgXfer",
+            },
+        )
+        token2 = client.post(
+            "/api/auth/login",
+            json={"email": "intruso2@x.com", "password": "password123"},
+        ).json()["access_token"]
+        h2 = {"Authorization": f"Bearer {token2}"}
+
+        resp = client.post(f"/api/batches/{batch_id}/transfer", headers=h2)
+        assert resp.status_code == 404
+
+    def test_transfer_emite_started_y_completed(self, client, tmp_path):
+        import json as _json
+
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h = _auth_header(client)
+        token = h["Authorization"].split()[1]
+
+        dest = tmp_path / "out"
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(dest),
+                "create_subdirs": True,
+            }
+        )
+        app_id = _create_app_for_transfer(client, h, transfer)
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+            received = []
+            # transfer_started + transfer_page + transfer_completed
+            for _ in range(3):
+                received.append(ws.receive_json())
+
+        types = [e["type"] for e in received]
+        assert "transfer_started" in types
+        assert "transfer_completed" in types
+        completed = [e for e in received if e["type"] == "transfer_completed"][0]
+        assert completed["success"] is True
+        assert completed["files_transferred"] == 1
+
+    def test_transfer_aborted_si_validate_devuelve_false(self, client, tmp_path):
+        import json as _json
+
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h = _auth_header(client)
+        token = h["Authorization"].split()[1]
+
+        dest = tmp_path / "out"
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(dest),
+            }
+        )
+        events = _json.dumps(
+            {
+                "on_transfer_validate": (
+                    "def on_transfer_validate(app, batch):\n    return False\n"
+                )
+            }
+        )
+        app_id = _create_app_for_transfer(client, h, transfer, events_json=events)
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+            event = ws.receive_json()
+
+        assert event["type"] == "transfer_aborted"
+        assert event["reason"] == "validate_returned_false"
+        # Y no se debe haber escrito nada
+        assert not dest.exists()
+
+    def test_transfer_aborted_si_no_configurada(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h = _auth_header(client)
+        token = h["Authorization"].split()[1]
+
+        # transfer_json vacío → not_configured
+        app_id = _create_app_for_transfer(client, h, "{}")
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+            event = ws.receive_json()
+
+        assert event["type"] == "transfer_aborted"
+        assert event["reason"] == "not_configured"
+
+    def test_transfer_aborted_si_standard_disabled(self, client, tmp_path):
+        import json as _json
+
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h = _auth_header(client)
+        token = h["Authorization"].split()[1]
+
+        transfer = _json.dumps(
+            {
+                "standard_enabled": False,
+                "mode": "folder",
+                "destination": str(tmp_path / "no_se_usa"),
+            }
+        )
+        app_id = _create_app_for_transfer(client, h, transfer)
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+            event = ws.receive_json()
+
+        assert event["type"] == "transfer_aborted"
+        assert event["reason"] == "not_configured"
+
+    def test_transfer_emite_error_si_excepcion(self, client, tmp_path):
+        """Si TransferService lanza excepción, se emite transfer_error."""
+        import json as _json
+        from unittest.mock import patch
+
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h = _auth_header(client)
+        token = h["Authorization"].split()[1]
+
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(tmp_path / "out"),
+            }
+        )
+        app_id = _create_app_for_transfer(client, h, transfer)
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        # Patchear TransferService.transfer para que lance.
+        with patch(
+            "app.services.transfer_service.TransferService.transfer",
+            side_effect=RuntimeError("boom-xfer"),
+        ):
+            with client.websocket_connect(
+                f"/ws/batches/{batch_id}?token={token}"
+            ) as ws:
+                client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+                event = ws.receive_json()
+                # Saltar transfer_started si llega antes
+                if event["type"] == "transfer_started":
+                    event = ws.receive_json()
+
+        assert event["type"] == "transfer_error"
+        assert "boom-xfer" in event["error"]
+
+    def test_transfer_dispara_on_transfer_advanced(self, client, tmp_path):
+        """on_transfer_advanced se ejecuta tras la transferencia OK."""
+        import json as _json
+
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h = _auth_header(client)
+
+        # El script escribe un fichero marcador en tmp_path.
+        marker = tmp_path / "advanced_ran.txt"
+        dest = tmp_path / "out"
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(dest),
+            }
+        )
+        events = _json.dumps(
+            {
+                "on_transfer_advanced": (
+                    "def on_transfer_advanced(app, batch, result):\n"
+                    f"    Path(r'{marker}').write_text(str(result.success))\n"
+                )
+            }
+        )
+        app_id = _create_app_for_transfer(
+            client,
+            h,
+            transfer,
+            events_json=events,
+        )
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+        assert resp.status_code == 202
+
+        assert marker.exists()
+        assert marker.read_text() == "True"
+
+    def test_transfer_dispara_on_transfer_page_por_pagina(self, client, tmp_path):
+        """on_transfer_page se ejecuta una vez por página transferida."""
+        import json as _json
+
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        h = _auth_header(client)
+
+        counter = tmp_path / "page_counter.txt"
+        dest = tmp_path / "out"
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(dest),
+            }
+        )
+        events = _json.dumps(
+            {
+                "on_transfer_page": (
+                    "def on_transfer_page(app, batch, page, result):\n"
+                    f"    p = Path(r'{counter}')\n"
+                    "    prev = int(p.read_text()) if p.exists() else 0\n"
+                    "    p.write_text(str(prev + 1))\n"
+                )
+            }
+        )
+        app_id = _create_app_for_transfer(
+            client,
+            h,
+            transfer,
+            events_json=events,
+        )
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+        assert resp.status_code == 202
+
+        # Debe haberse llamado exactamente una vez (1 página subida).
+        assert counter.exists()
+        assert counter.read_text() == "1"
