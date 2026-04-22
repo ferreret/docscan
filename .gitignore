@@ -46,3 +46,4 @@ site/
 
 # Playwright MCP traces/screenshots
 .playwright-mcp/
+qa-*.png
