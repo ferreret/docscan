@@ -84,7 +84,13 @@ export interface ApplicationUpdate {
   batch_fields_json?: string
   index_fields_json?: string
   auto_transfer?: boolean
+  close_after_transfer?: boolean
+  background_color?: string
+  default_tab?: string
+  scanner_backend?: string
   output_format?: string
+  image_config_json?: string
+  ai_config_json?: string
 }
 
 // --- Batches ---
