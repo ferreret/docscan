@@ -3,19 +3,23 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 export type ThemePreference = 'auto' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
 
-const STORAGE_KEY = 'theme'
-const VALID: ThemePreference[] = ['auto', 'light', 'dark']
+export const THEME_STORAGE_KEY = 'theme'
+export const VALID_THEME_PREFERENCES: readonly ThemePreference[] = ['auto', 'light', 'dark']
 
-function readStoredPreference(): ThemePreference {
+/** Lee y sanea la preferencia almacenada. Compartido con main.ts (pre-mount). */
+export function readStoredThemePreference(): ThemePreference {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return VALID.includes(raw as ThemePreference) ? (raw as ThemePreference) : 'auto'
+    const raw = localStorage.getItem(THEME_STORAGE_KEY)
+    return VALID_THEME_PREFERENCES.includes(raw as ThemePreference)
+      ? (raw as ThemePreference)
+      : 'auto'
   } catch {
     return 'auto'
   }
 }
 
-function osPrefersDark(): boolean {
+/** Detecta si el SO prefiere oscuro. Compartido con main.ts (pre-mount). */
+export function osPrefersDarkScheme(): boolean {
   try {
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   } catch {
@@ -23,8 +27,15 @@ function osPrefersDark(): boolean {
   }
 }
 
-const preference = ref<ThemePreference>(readStoredPreference())
-const osDark = ref<boolean>(osPrefersDark())
+/** Resuelve preferencia a tema concreto consultando OS si es 'auto'. */
+export function resolveTheme(pref: ThemePreference): ResolvedTheme {
+  if (pref === 'light') return 'light'
+  if (pref === 'dark') return 'dark'
+  return osPrefersDarkScheme() ? 'dark' : 'light'
+}
+
+const preference = ref<ThemePreference>(readStoredThemePreference())
+const osDark = ref<boolean>(osPrefersDarkScheme())
 
 const current = computed<ResolvedTheme>(() => {
   if (preference.value === 'light') return 'light'
@@ -35,7 +46,7 @@ const current = computed<ResolvedTheme>(() => {
 function setPreference(p: ThemePreference): void {
   preference.value = p
   try {
-    localStorage.setItem(STORAGE_KEY, p)
+    localStorage.setItem(THEME_STORAGE_KEY, p)
   } catch {
     /* localStorage bloqueado: solo memoria */
   }
@@ -72,7 +83,7 @@ export function useTheme(): ThemeApi {
 
 /** Solo para tests: resetea el estado singleton entre tests. */
 export function _resetThemeForTests(): void {
-  preference.value = readStoredPreference()
-  osDark.value = osPrefersDark()
+  preference.value = readStoredThemePreference()
+  osDark.value = osPrefersDarkScheme()
   osListenerAttached = false
 }
