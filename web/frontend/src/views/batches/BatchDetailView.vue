@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBatchesStore } from '@/stores/batches'
+import { useApplicationsStore } from '@/stores/applications'
 import { ApiError } from '@/api/client'
 import AuthImage from '@/components/AuthImage.vue'
 import DocumentViewer from '@/components/DocumentViewer.vue'
@@ -12,6 +13,7 @@ const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 const store = useBatchesStore()
+const appStore = useApplicationsStore()
 
 const batchId = computed(() => Number(route.params.id))
 const uploading = ref(false)
@@ -20,9 +22,23 @@ const error = ref<string | null>(null)
 const selectedPage = ref<number | null>(null)
 const progress = ref<{ processed: number; total: number } | null>(null)
 
+// ---- Transfer state ----
+const transferring = ref(false)
+const transferProgress = ref<{ page_index: number; total: number } | null>(null)
+const transferStatus = ref<'idle' | 'running' | 'completed' | 'error' | 'aborted'>('idle')
+const transferMessage = ref<string | null>(null)
+
+const canTransfer = computed(
+  () => store.current?.state === 'read' && !transferring.value && !running.value,
+)
+
 onMounted(async () => {
   await store.fetchOne(batchId.value)
   await store.fetchPages(batchId.value)
+  // Load application to know auto_transfer setting
+  if (store.current?.application_id) {
+    await appStore.fetchOne(store.current.application_id)
+  }
   window.addEventListener('keydown', onKeydown)
 })
 
@@ -46,16 +62,20 @@ async function onUpload(event: Event) {
   }
 }
 
+function openWs(): WebSocket {
+  const token = localStorage.getItem('access_token') ?? ''
+  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  return new WebSocket(
+    `${proto}://${window.location.host}/ws/batches/${batchId.value}?token=${encodeURIComponent(token)}`,
+  )
+}
+
 async function onRunPipeline() {
   running.value = true
   error.value = null
   progress.value = null
 
-  const token = localStorage.getItem('access_token') ?? ''
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  const ws = new WebSocket(
-    `${proto}://${window.location.host}/ws/batches/${batchId.value}?token=${encodeURIComponent(token)}`,
-  )
+  const ws = openWs()
 
   ws.onmessage = async (msg) => {
     const event = JSON.parse(msg.data)
@@ -76,6 +96,13 @@ async function onRunPipeline() {
         toast.error('Pipeline completado con errores — revisa las páginas marcadas')
       } else {
         toast.success('Pipeline completado correctamente')
+      }
+      // Auto-transfer if configured and batch is now 'read'
+      if (
+        appStore.current?.auto_transfer &&
+        store.current?.state === 'read'
+      ) {
+        await startTransfer()
       }
     } else if (event.type === 'pipeline_error') {
       error.value = `Error en pipeline: ${event.error}`
@@ -103,6 +130,90 @@ async function onRunPipeline() {
     running.value = false
     progress.value = null
     ws.close()
+  }
+}
+
+async function startTransfer() {
+  if (transferring.value) return
+  transferring.value = true
+  transferStatus.value = 'running'
+  transferMessage.value = null
+  transferProgress.value = null
+
+  const ws = openWs()
+
+  ws.onmessage = async (msg) => {
+    const event = JSON.parse(msg.data)
+    if (event.type === 'transfer_started') {
+      transferProgress.value = { page_index: 0, total: event.total_pages }
+    } else if (event.type === 'transfer_page') {
+      if (transferProgress.value) {
+        transferProgress.value = {
+          page_index: event.page_index + 1,
+          total: transferProgress.value.total,
+        }
+      }
+    } else if (event.type === 'transfer_completed') {
+      transferring.value = false
+      ws.close()
+      if (event.success) {
+        transferStatus.value = 'completed'
+        transferMessage.value = event.output_path
+          ? `Transferencia completada → ${event.output_path}`
+          : 'Transferencia completada correctamente.'
+        toast.success(transferMessage.value)
+      } else {
+        transferStatus.value = 'error'
+        transferMessage.value = event.errors?.join('; ') || 'Error desconocido en la transferencia.'
+        toast.error(transferMessage.value)
+      }
+      transferProgress.value = null
+      await store.fetchOne(batchId.value)
+    } else if (event.type === 'transfer_error') {
+      transferring.value = false
+      transferStatus.value = 'error'
+      transferMessage.value = `Error: ${event.error}`
+      transferProgress.value = null
+      ws.close()
+      toast.error(transferMessage.value)
+    } else if (event.type === 'transfer_aborted') {
+      transferring.value = false
+      transferStatus.value = 'aborted'
+      transferMessage.value = `Transferencia abortada: ${event.reason}`
+      transferProgress.value = null
+      ws.close()
+      toast.error(transferMessage.value)
+    }
+  }
+
+  ws.onerror = () => {
+    transferring.value = false
+    transferStatus.value = 'error'
+    transferMessage.value = 'Error de conexión durante la transferencia'
+    transferProgress.value = null
+  }
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      ws.onopen = () => resolve()
+      ws.addEventListener('error', () => reject(new Error('ws transfer connect failed')), { once: true })
+    })
+    const token = localStorage.getItem('access_token') ?? ''
+    const res = await fetch(`/api/batches/${batchId.value}/transfer`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(body.detail || `Error ${res.status}`)
+    }
+  } catch (e) {
+    transferring.value = false
+    transferStatus.value = 'error'
+    transferMessage.value = e instanceof Error ? e.message : 'Error al iniciar la transferencia'
+    transferProgress.value = null
+    ws.close()
+    toast.error(transferMessage.value!)
   }
 }
 
@@ -214,6 +325,22 @@ const fieldsParsed = computed(() => {
           <span v-else-if="running">Iniciando…</span>
           <span v-else>▶ Ejecutar pipeline</span>
         </button>
+
+        <!-- Botón Transferir ahora: solo visible si state==='read' -->
+        <button
+          v-if="store.current.state === 'read'"
+          data-test="btn-transfer"
+          @click="startTransfer"
+          :disabled="!canTransfer"
+          class="bg-white border border-surface-1 text-text rounded-md px-4 py-2 text-[13px] font-medium hover:bg-crust disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <span v-if="transferProgress">
+            Transfiriendo {{ transferProgress.page_index }}/{{ transferProgress.total }}…
+          </span>
+          <span v-else-if="transferring">Iniciando…</span>
+          <span v-else>↗ Transferir ahora</span>
+        </button>
+
         <button
           @click="onDownload"
           :disabled="downloading || store.current.page_count === 0"
@@ -228,6 +355,21 @@ const fieldsParsed = computed(() => {
     </div>
 
     <div v-if="error" class="text-xs text-danger bg-danger-soft border border-danger/30 rounded-md px-3 py-2 mb-4">{{ error }}</div>
+
+    <!-- Transfer status banner -->
+    <div
+      v-if="transferStatus !== 'idle' && transferMessage"
+      data-test="transfer-status-banner"
+      class="rounded-md px-3 py-2 mb-4 text-xs"
+      :class="{
+        'bg-success-soft border border-success/30 text-success': transferStatus === 'completed',
+        'bg-danger-soft border border-danger/30 text-danger': transferStatus === 'error',
+        'bg-warning-soft border border-warning/30 text-warning': transferStatus === 'aborted',
+        'bg-primary-soft border border-primary/30 text-primary': transferStatus === 'running',
+      }"
+    >
+      {{ transferMessage }}
+    </div>
 
     <!-- Info -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
