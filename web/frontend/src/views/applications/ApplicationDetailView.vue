@@ -39,13 +39,13 @@ async function onCreateBatch() {
       <template #actions>
         <button
           @click="onCreateBatch"
-          class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
+          class="bg-primary text-base rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
         >
           + Nuevo lote
         </button>
         <button
           @click="onDelete"
-          class="text-danger border border-danger/40 bg-white rounded-md px-4 py-2 text-[13px] font-medium hover:bg-danger hover:text-white transition-colors"
+          class="text-danger border border-danger/40 bg-base rounded-md px-4 py-2 text-[13px] font-medium hover:bg-danger hover:text-base transition-colors"
         >
           Eliminar
         </button>
@@ -54,28 +54,28 @@ async function onCreateBatch() {
 
     <!-- Info -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-      <div class="bg-white rounded-lg border border-surface-0 p-4">
+      <div class="bg-base rounded-lg border border-surface-0 p-4">
         <p class="text-[11px] text-subtext uppercase tracking-wide font-medium">Estado</p>
         <p class="text-sm font-semibold mt-1.5" :class="appStore.current.active ? 'text-success' : 'text-subtext'">
           {{ appStore.current.active ? 'Activa' : 'Inactiva' }}
         </p>
       </div>
-      <div class="bg-white rounded-lg border border-surface-0 p-4">
+      <div class="bg-base rounded-lg border border-surface-0 p-4">
         <p class="text-[11px] text-subtext uppercase tracking-wide font-medium">Formato salida</p>
         <p class="text-sm font-semibold text-text mt-1.5">{{ appStore.current.output_format || 'tiff' }}</p>
       </div>
-      <div class="bg-white rounded-lg border border-surface-0 p-4">
+      <div class="bg-base rounded-lg border border-surface-0 p-4">
         <p class="text-[11px] text-subtext uppercase tracking-wide font-medium">Auto-transferencia</p>
         <p class="text-sm font-semibold text-text mt-1.5">{{ appStore.current.auto_transfer ? 'Sí' : 'No' }}</p>
       </div>
-      <div class="bg-white rounded-lg border border-surface-0 p-4">
+      <div class="bg-base rounded-lg border border-surface-0 p-4">
         <p class="text-[11px] text-subtext uppercase tracking-wide font-medium">Lotes</p>
         <p class="text-sm font-semibold text-text mt-1.5">{{ batchStore.items.length }}</p>
       </div>
     </div>
 
     <!-- Lotes de esta aplicación -->
-    <div class="bg-white rounded-lg border border-surface-0 overflow-hidden">
+    <div class="bg-base rounded-lg border border-surface-0 overflow-hidden">
       <div class="px-5 py-3 border-b border-surface-0 bg-mantle">
         <h2 class="text-[13px] font-semibold text-text uppercase tracking-wide">Lotes</h2>
       </div>

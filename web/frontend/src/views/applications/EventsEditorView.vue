@@ -155,20 +155,20 @@ onBeforeRouteLeave((_to, _from, next) => {
           data-test="save-events"
           :disabled="!hasChanges || saving"
           @click="onSave"
-          class="text-[13px] bg-primary text-white rounded-md px-4 py-2 font-semibold hover:bg-primary-hover disabled:opacity-50"
+          class="text-[13px] bg-primary text-base rounded-md px-4 py-2 font-semibold hover:bg-primary-hover disabled:opacity-50"
         >
           {{ saving ? 'Guardando...' : 'Guardar cambios' }}
         </button>
       </template>
     </AppHeader>
 
-    <div v-if="saveError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-danger">
+    <div v-if="saveError" class="mb-4 p-3 bg-danger-soft border border-danger/30 rounded text-sm text-danger">
       {{ saveError }}
     </div>
 
     <div class="flex gap-4">
       <!-- Sidebar -->
-      <aside class="w-64 flex-shrink-0 bg-white rounded-md border border-surface-0 overflow-y-auto" style="max-height: 560px;">
+      <aside class="w-64 flex-shrink-0 bg-base rounded-md border border-surface-0 overflow-y-auto" style="max-height: 560px;">
         <div class="px-3 py-2 border-b border-surface-0 text-xs font-medium uppercase tracking-wide text-subtext">
           Eventos
         </div>

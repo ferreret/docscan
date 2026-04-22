@@ -214,19 +214,19 @@ onBeforeRouteLeave((_to, _from, next) => {
           data-test="save-transfer"
           :disabled="!hasChanges || !!destinationError || saving"
           @click="onSave"
-          class="text-[13px] bg-primary text-white rounded-md px-4 py-2 font-semibold hover:bg-primary-hover disabled:opacity-50"
+          class="text-[13px] bg-primary text-base rounded-md px-4 py-2 font-semibold hover:bg-primary-hover disabled:opacity-50"
         >
           {{ saving ? 'Guardando...' : 'Guardar cambios' }}
         </button>
       </template>
     </AppHeader>
 
-    <div v-if="saveError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-danger">
+    <div v-if="saveError" class="mb-4 p-3 bg-danger-soft border border-danger/30 rounded text-sm text-danger">
       {{ saveError }}
     </div>
 
     <div
-      class="bg-white rounded-md border border-surface-0 p-6 max-w-2xl space-y-6"
+      class="bg-base rounded-md border border-surface-0 p-6 max-w-2xl space-y-6"
       :class="{ 'opacity-100': true }"
     >
       <h2 class="text-sm font-semibold uppercase tracking-wide text-subtext">Configuración de transferencia</h2>
@@ -269,7 +269,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             id="field-mode"
             v-model="current.mode"
             data-test="field-mode"
-            class="w-full rounded border border-surface-0 bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+            class="w-full rounded border border-surface-0 bg-base px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="folder">Carpeta (imágenes)</option>
             <option value="pdf">PDF</option>
@@ -329,7 +329,7 @@ onBeforeRouteLeave((_to, _from, next) => {
             id="field-collision-policy"
             v-model="current.collision_policy"
             data-test="field-collision-policy"
-            class="w-full rounded border border-surface-0 bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+            class="w-full rounded border border-surface-0 bg-base px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="suffix">Añadir sufijo numérico</option>
             <option value="overwrite">Sobreescribir</option>
@@ -347,7 +347,7 @@ onBeforeRouteLeave((_to, _from, next) => {
               id="field-output-format"
               v-model="current.output_format"
               data-test="field-output-format"
-              class="w-full rounded border border-surface-0 bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+              class="w-full rounded border border-surface-0 bg-base px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Original (sin convertir)</option>
               <option value="tiff">TIFF</option>
@@ -383,7 +383,7 @@ onBeforeRouteLeave((_to, _from, next) => {
               id="field-output-color-mode"
               v-model="current.output_color_mode"
               data-test="field-output-color-mode"
-              class="w-full rounded border border-surface-0 bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+              class="w-full rounded border border-surface-0 bg-base px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Original (sin convertir)</option>
               <option value="color">Color</option>
@@ -475,7 +475,7 @@ onBeforeRouteLeave((_to, _from, next) => {
               id="field-pdf-color-mode"
               v-model="current.output_color_mode"
               data-test="field-pdf-color-mode"
-              class="w-full rounded border border-surface-0 bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+              class="w-full rounded border border-surface-0 bg-base px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Original (sin convertir)</option>
               <option value="color">Color</option>
@@ -539,7 +539,7 @@ onBeforeRouteLeave((_to, _from, next) => {
                 type="button"
                 data-test="csv-field-add"
                 @click="addCsvField"
-                class="text-[13px] bg-primary text-white rounded px-3 py-1.5 font-medium hover:bg-primary-hover"
+                class="text-[13px] bg-primary text-base rounded px-3 py-1.5 font-medium hover:bg-primary-hover"
               >
                 Añadir
               </button>

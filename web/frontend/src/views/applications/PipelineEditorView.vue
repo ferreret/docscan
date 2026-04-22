@@ -139,8 +139,8 @@ function onDrawerCancel() {
       v-if="toast"
       class="fixed bottom-4 right-4 px-4 py-2 rounded-md shadow-lg text-sm z-50"
       :class="toast.kind === 'ok'
-        ? 'bg-green-500 text-white'
-        : 'bg-red-500 text-white'"
+        ? 'bg-success text-base'
+        : 'bg-danger text-base'"
     >
       {{ toast.msg }}
     </div>

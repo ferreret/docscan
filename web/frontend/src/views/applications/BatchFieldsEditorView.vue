@@ -245,7 +245,7 @@ watch(
           data-test="save-fields"
           :disabled="!hasChanges || saving"
           @click="save"
-          class="text-[13px] bg-primary text-white rounded-md px-4 py-2 font-semibold hover:bg-primary-hover disabled:opacity-50"
+          class="text-[13px] bg-primary text-base rounded-md px-4 py-2 font-semibold hover:bg-primary-hover disabled:opacity-50"
         >
           {{ saving ? 'Guardando...' : 'Guardar cambios' }}
         </button>
@@ -256,13 +256,13 @@ watch(
     <div
       v-if="saveError"
       data-test="save-error"
-      class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-danger"
+      class="mb-4 p-3 bg-danger-soft border border-danger/30 rounded text-sm text-danger"
     >
       {{ saveError }}
     </div>
 
     <!-- Tabla de campos -->
-    <div v-if="fields.length > 0" class="bg-white rounded-md border border-surface-0 overflow-hidden">
+    <div v-if="fields.length > 0" class="bg-base rounded-md border border-surface-0 overflow-hidden">
       <table class="w-full text-[13px]">
         <thead>
           <tr class="bg-surface-0 border-b border-surface-0">
@@ -298,7 +298,7 @@ watch(
                 :value="field.type"
                 data-test="field-type"
                 aria-label="Tipo de campo"
-                class="w-full rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary bg-white"
+                class="w-full rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary bg-base"
                 @change="onTypeChange(field, ($event.target as HTMLSelectElement).value as FieldType)"
               >
                 <option
@@ -324,7 +324,7 @@ watch(
                   v-model="(fechaCfg(field)).format"
                   data-test="field-date-format"
                   aria-label="Formato de fecha"
-                  class="rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary bg-white"
+                  class="rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary bg-base"
                 >
                   <option v-for="fmt in DATE_FORMATS" :key="fmt" :value="fmt">{{ fmt }}</option>
                 </select>
@@ -409,7 +409,7 @@ watch(
                   data-test="remove-field"
                   :aria-label="`Eliminar campo ${field.label || index + 1}`"
                   @click="removeField(index)"
-                  class="w-7 h-7 flex items-center justify-center rounded border border-surface-0 text-danger hover:bg-red-50 hover:border-red-200"
+                  class="w-7 h-7 flex items-center justify-center rounded border border-surface-0 text-danger hover:bg-danger-soft hover:border-danger/30"
                 >✕</button>
               </div>
             </td>
@@ -422,7 +422,7 @@ watch(
     <div
       v-else
       data-test="empty-state"
-      class="flex flex-col items-center justify-center py-16 text-subtext bg-white rounded-md border border-surface-0 border-dashed"
+      class="flex flex-col items-center justify-center py-16 text-subtext bg-base rounded-md border border-surface-0 border-dashed"
     >
       <svg class="w-12 h-12 mb-3 text-surface-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />

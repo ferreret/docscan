@@ -38,7 +38,7 @@ async function onDelete(id: number) {
       </div>
       <button
         @click="showCreate = true"
-        class="bg-primary text-white rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
+        class="bg-primary text-base rounded-md px-4 py-2 text-[13px] font-semibold hover:bg-primary-hover transition-colors shadow-sm"
       >
         + Nueva aplicación
       </button>
@@ -46,31 +46,31 @@ async function onDelete(id: number) {
 
     <!-- Modal crear -->
     <div v-if="showCreate" class="fixed inset-0 bg-text/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-      <form @submit.prevent="onCreate" class="bg-white rounded-lg shadow-xl border border-surface-0 p-6 w-full max-w-md space-y-4">
+      <form @submit.prevent="onCreate" class="bg-base rounded-lg shadow-xl border border-surface-0 p-6 w-full max-w-md space-y-4">
         <h2 class="text-base font-semibold text-text">Nueva aplicación</h2>
         <div v-if="createError" class="text-xs text-danger bg-danger-soft border border-danger/30 rounded-md px-3 py-2">{{ createError }}</div>
         <div>
           <label class="block text-xs font-medium text-subtext mb-1">Nombre</label>
-          <input v-model="newName" required class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+          <input v-model="newName" required class="w-full rounded-md border border-surface-1 bg-base px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
         </div>
         <div>
           <label class="block text-xs font-medium text-subtext mb-1">Descripción</label>
-          <textarea v-model="newDescription" rows="2" class="w-full rounded-md border border-surface-1 bg-white px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"></textarea>
+          <textarea v-model="newDescription" rows="2" class="w-full rounded-md border border-surface-1 bg-base px-3 py-2 text-[13px] text-text focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" @click="showCreate = false" class="px-4 py-2 text-[13px] font-medium text-text bg-crust hover:bg-surface-0 border border-surface-1 rounded-md transition-colors">Cancelar</button>
-          <button type="submit" class="bg-primary text-white px-4 py-2 text-[13px] font-semibold rounded-md hover:bg-primary-hover transition-colors">Crear</button>
+          <button type="submit" class="bg-primary text-base px-4 py-2 text-[13px] font-semibold rounded-md hover:bg-primary-hover transition-colors">Crear</button>
         </div>
       </form>
     </div>
 
     <!-- Lista -->
     <div v-if="store.loading" class="text-sm text-subtext">Cargando...</div>
-    <div v-else-if="store.items.length === 0" class="bg-white rounded-lg border border-surface-0 py-16 text-center">
+    <div v-else-if="store.items.length === 0" class="bg-base rounded-lg border border-surface-0 py-16 text-center">
       <p class="text-sm text-subtext">No hay aplicaciones todavía.</p>
       <button @click="showCreate = true" class="mt-3 text-primary hover:text-primary-hover text-[13px] font-medium">Crear la primera</button>
     </div>
-    <div v-else class="bg-white rounded-lg border border-surface-0 overflow-hidden">
+    <div v-else class="bg-base rounded-lg border border-surface-0 overflow-hidden">
       <div
         v-for="app in store.items"
         :key="app.id"

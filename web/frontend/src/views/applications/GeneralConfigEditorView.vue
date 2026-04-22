@@ -139,18 +139,18 @@ onBeforeRouteLeave((_to, _from, next) => {
           data-test="save-general"
           :disabled="!hasChanges || !!nameError || saving"
           @click="save"
-          class="text-[13px] bg-primary text-white rounded-md px-4 py-2 font-semibold hover:bg-primary-hover disabled:opacity-50"
+          class="text-[13px] bg-primary text-base rounded-md px-4 py-2 font-semibold hover:bg-primary-hover disabled:opacity-50"
         >
           {{ saving ? 'Guardando...' : 'Guardar cambios' }}
         </button>
       </template>
     </AppHeader>
 
-    <div v-if="saveError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-danger">
+    <div v-if="saveError" class="mb-4 p-3 bg-danger-soft border border-danger/30 rounded text-sm text-danger">
       {{ saveError }}
     </div>
 
-    <div class="bg-white rounded-md border border-surface-0 p-6 max-w-2xl space-y-6">
+    <div class="bg-base rounded-md border border-surface-0 p-6 max-w-2xl space-y-6">
 
       <!-- Nombre -->
       <div>
