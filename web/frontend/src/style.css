@@ -55,16 +55,17 @@
   --color-warning-soft: #45475a;
 }
 
-html,
-body {
+html {
   background-color: var(--color-base);
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: 13px;
+  color-scheme: light dark;
 }
 
-html {
-  color-scheme: light dark;
+body {
+  background-color: inherit;
+  color: inherit;
 }
 
 /* Scrollbar estilo desktop */
