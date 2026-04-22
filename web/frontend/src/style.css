@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  /* Default = Catppuccin Latte (claro). Sobrescrito por [data-theme="dark"]. */
   --color-base: #eff1f5;
   --color-mantle: #e6e9ef;
   --color-crust: #dce0e8;
@@ -28,12 +29,42 @@
   --radius-card: 0.5rem;
 }
 
+/* Tema oscuro = Catppuccin Mocha. Sobrescribe las mismas variables CSS;
+   las utilities de Tailwind las leen dinámicamente desde var(--color-*). */
+[data-theme="dark"] {
+  --color-base: #1e1e2e;
+  --color-mantle: #181825;
+  --color-crust: #11111b;
+  --color-surface-0: #313244;
+  --color-surface-1: #45475a;
+  --color-surface-2: #585b70;
+  --color-overlay-0: #6c7086;
+  --color-overlay-1: #7f849c;
+  --color-subtext: #a6adc8;
+  --color-text: #cdd6f4;
+
+  --color-primary: #89b4fa;
+  --color-primary-hover: #74c7ec;
+  --color-primary-soft: #313244;
+
+  --color-danger: #f38ba8;
+  --color-danger-soft: #45475a;
+  --color-success: #a6e3a1;
+  --color-success-soft: #45475a;
+  --color-warning: #fab387;
+  --color-warning-soft: #45475a;
+}
+
 html,
 body {
   background-color: var(--color-base);
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: 13px;
+}
+
+html {
+  color-scheme: light dark;
 }
 
 /* Scrollbar estilo desktop */
