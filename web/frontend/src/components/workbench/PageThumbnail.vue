@@ -1,0 +1,53 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import AuthImage from '@/components/AuthImage.vue'
+import { determinePageState, PAGE_STATE_BORDER_CLASS } from '@/composables/usePageState'
+import { useBatchesStore } from '@/stores/batches'
+import type { PageResponse } from '@/api/types'
+
+const props = defineProps<{
+  page: PageResponse
+  batchId: number
+  selected: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'select'): void
+  (e: 'fit'): void
+}>()
+
+const store = useBatchesStore()
+
+const borderClass = computed(() => PAGE_STATE_BORDER_CLASS[determinePageState(props.page)])
+const imageUrl = computed(() => store.pageImageUrl(props.batchId, props.page.id))
+</script>
+
+<template>
+  <button
+    type="button"
+    :data-test="`page-thumbnail-${page.page_index}`"
+    :aria-label="`Página ${page.page_index + 1}`"
+    :aria-pressed="selected"
+    class="relative w-full text-left rounded overflow-hidden border-4 transition-colors"
+    :class="[
+      borderClass,
+      selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-base' : '',
+    ]"
+    @click="emit('select')"
+    @dblclick="emit('fit')"
+  >
+    <AuthImage
+      :src="imageUrl"
+      :alt="`Página ${page.page_index + 1}`"
+      class="w-full aspect-[3/4] object-cover bg-crust"
+    />
+    <div class="absolute bottom-0 left-0 right-0 bg-crust/90 text-text text-[11px] px-2 py-1 flex justify-between items-center">
+      <span class="font-semibold">#{{ page.page_index + 1 }}</span>
+      <div class="flex gap-1">
+        <span v-if="page.needs_review" class="text-warning" title="Requiere revisión">!</span>
+        <span v-if="page.pipeline_processed" class="text-success" title="Procesada">✓</span>
+        <span v-if="page.is_excluded" class="text-danger" title="Excluida">×</span>
+      </div>
+    </div>
+  </button>
+</template>
