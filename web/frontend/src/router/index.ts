@@ -93,7 +93,7 @@ const router = createRouter({
         {
           path: 'batches/:id',
           name: 'batch-detail',
-          component: () => import('@/views/batches/BatchDetailView.vue'),
+          component: () => import('@/views/batches/WorkbenchView.vue'),
           props: true,
         },
         {
