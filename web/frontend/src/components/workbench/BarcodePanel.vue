@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import type { BarcodeResponse } from '@/api/types'
 
-defineProps<{
+withDefaults(defineProps<{
   barcodes: BarcodeResponse[]
   pageCounters: { total: number; withBarcode: number; separators: number; needsReview: number }
+  readOnly?: boolean
+}>(), {
+  readOnly: false,
+})
+
+const emit = defineEmits<{
+  (e: 'add-barcode'): void
+  (e: 'delete-barcode', id: number): void
 }>()
 
 const COLORS = ['#1e66f5', '#40a02b', '#df8e1d', '#d20f39', '#8839ef', '#179299', '#e64553', '#dd7878']
@@ -16,7 +24,16 @@ function colorFor(idx: number): string {
 <template>
   <section class="h-full flex flex-col bg-mantle border-l border-surface-0">
     <header class="px-3 py-2 border-b border-surface-0 flex items-center justify-between text-xs">
-      <h2 class="font-semibold text-text uppercase tracking-wide">Barcodes</h2>
+      <div class="flex items-center gap-2">
+        <h2 class="font-semibold text-text uppercase tracking-wide">Barcodes</h2>
+        <button
+          v-if="!readOnly"
+          data-testid="btn-add-barcode"
+          type="button"
+          class="ml-2 px-2 py-0.5 bg-primary text-base rounded text-xs hover:opacity-90"
+          @click="emit('add-barcode')"
+        >+ Añadir</button>
+      </div>
       <div class="flex gap-3 text-subtext">
         <span data-test="counter-total">Páginas: {{ pageCounters.total }}</span>
         <span data-test="counter-with-barcode">Con barcode: {{ pageCounters.withBarcode }}</span>
@@ -34,6 +51,7 @@ function colorFor(idx: number): string {
             <th class="text-left px-2 py-1.5">Símbolo</th>
             <th class="text-left px-2 py-1.5">Motor</th>
             <th class="text-left px-2 py-1.5">Rol</th>
+            <th v-if="!readOnly" class="w-6"></th>
           </tr>
         </thead>
         <tbody>
@@ -43,6 +61,15 @@ function colorFor(idx: number): string {
             <td class="px-2 py-1 text-subtext">{{ bc.symbology }}</td>
             <td class="px-2 py-1 text-subtext">{{ bc.engine }}</td>
             <td class="px-2 py-1 text-subtext">{{ bc.role || '—' }}</td>
+            <td v-if="!readOnly" class="px-1">
+              <button
+                :data-testid="`btn-delete-bc-${bc.id}`"
+                type="button"
+                class="text-danger hover:bg-crust rounded px-1"
+                title="Eliminar"
+                @click="emit('delete-barcode', bc.id)"
+              >×</button>
+            </td>
           </tr>
         </tbody>
       </table>
