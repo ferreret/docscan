@@ -11,10 +11,17 @@ import BarcodePanel from '@/components/workbench/BarcodePanel.vue'
 import MetadataPanel from '@/components/workbench/MetadataPanel.vue'
 import ViewerToolbar from '@/components/workbench/ViewerToolbar.vue'
 import WorkbenchToolbar from '@/components/workbench/WorkbenchToolbar.vue'
+import ThumbnailContextMenu from '@/components/workbench/ThumbnailContextMenu.vue'
+import AddBarcodeDialog from '@/components/workbench/AddBarcodeDialog.vue'
+import DeleteBarcodeDialog from '@/components/workbench/DeleteBarcodeDialog.vue'
 import { useBatchesStore } from '@/stores/batches'
 import { useApplicationsStore } from '@/stores/applications'
 import { useToast } from '@/composables/useToast'
 import { useWorkbenchLayout } from '@/composables/useWorkbenchLayout'
+import { useOverlayToggles } from '@/composables/useOverlayToggles'
+import { useWorkbenchLog } from '@/composables/useWorkbenchLog'
+import { usePageActions } from '@/composables/usePageActions'
+import type { PageListItem, PageResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +29,9 @@ const store = useBatchesStore()
 const appStore = useApplicationsStore()
 const toast = useToast()
 const { sizes, setSizes } = useWorkbenchLayout()
+const { showBarcodes, showFields } = useOverlayToggles()
+const log = useWorkbenchLog()
+const pageActions = usePageActions()
 
 const batchId = computed(() => Number(route.params.id))
 const selectedPageIndex = ref(0)
@@ -35,15 +45,69 @@ const progress = ref<{ processed: number; total: number } | null>(null)
 const error = ref<string | null>(null)
 const savingMetadata = ref(false)
 
+// Cache-bust tick: incrementa al rotar para forzar recarga del blob de imagen.
+const imageCacheTick = ref(0)
+
+// Context menu state
+const contextMenuVisible = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const contextMenuPageId = ref(0)
+
+// Barcode dialogs state
+const addBarcodeOpen = ref(false)
+const deleteBarcodeOpen = ref(false)
+const deleteBarcodeTarget = ref<{ id: number; value: string } | null>(null)
+
 const viewerRef = useTemplateRef<InstanceType<typeof DocumentViewer>>('viewerRef')
 
 const sortedPages = computed(() => [...(store.pages ?? [])].sort((a, b) => a.page_index - b.page_index))
-const currentPageListItem = computed(() => sortedPages.value[selectedPageIndex.value])
+const currentPageListItem = computed<PageListItem | undefined>(() => sortedPages.value[selectedPageIndex.value])
 
-const currentPage = computed(() => store.currentPage)
-const currentImageUrl = computed(() =>
-  currentPageListItem.value ? store.pageImageUrl(batchId.value, currentPageListItem.value.id) : '',
-)
+const currentPage = computed<PageResponse | null>(() => store.currentPage)
+const currentImageUrl = computed(() => {
+  if (!currentPageListItem.value) return ''
+  const base = store.pageImageUrl(batchId.value, currentPageListItem.value.id)
+  const tick = imageCacheTick.value
+  return tick > 0 ? `${base}?v=${tick}` : base
+})
+
+const currentFields = computed<Record<string, unknown>>(() => {
+  if (!currentPage.value) return {}
+  try {
+    const parsed = JSON.parse(currentPage.value.index_fields_json || '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+})
+
+// Read-only cascade when pipeline/transfer está corriendo
+const isReadOnly = computed(() => {
+  const st = store.current?.state ?? ''
+  return st === 'running' || st === 'transferring'
+})
+
+// Context menu page state snapshot
+const contextMenuPage = computed<PageResponse | PageListItem | undefined>(() => {
+  const pid = contextMenuPageId.value
+  if (!pid) return undefined
+  if (currentPage.value?.id === pid) return currentPage.value
+  return sortedPages.value.find((p) => p.id === pid)
+})
+
+const contextMenuIsLastPage = computed(() => {
+  if (!contextMenuPageId.value) return false
+  const last = sortedPages.value[sortedPages.value.length - 1]
+  return last?.id === contextMenuPageId.value
+})
+
+const contextMenuIsExcluded = computed(() => {
+  const p = contextMenuPage.value as PageResponse | undefined
+  return !!p?.is_excluded
+})
+
+const contextMenuNeedsReview = computed(() => !!contextMenuPage.value?.needs_review)
 
 const counters = computed(() => {
   let withBarcode = 0
@@ -66,6 +130,26 @@ watch(
   async (id) => {
     if (id) await store.fetchPage(batchId.value, id)
   },
+)
+
+// Cuando las páginas se cargan/cambian, vuelca los errores persistidos al log.
+watch(
+  () => store.pages,
+  (pages) => {
+    if (pages && pages.length > 0) {
+      // Solo consideramos entradas que tengan processing_errors_json/script_errors_json
+      // (PageListItem no los tiene, pero ampliamos aquí con un cast defensivo).
+      const withErrors = pages.filter((p) => {
+        const ap = p as unknown as { processing_errors_json?: string; script_errors_json?: string }
+        return ap.processing_errors_json || ap.script_errors_json
+      }) as unknown as Array<{
+        id: number; page_index: number;
+        processing_errors_json: string; script_errors_json: string; updated_at: string
+      }>
+      if (withErrors.length > 0) log.loadPersistedErrors(withErrors)
+    }
+  },
+  { immediate: false },
 )
 
 onMounted(async () => {
@@ -120,6 +204,7 @@ async function onRunPipeline(): Promise<void> {
   const ws = openWs()
   ws.onmessage = async (msg) => {
     const event = JSON.parse(msg.data)
+    log.appendFromEvent(event)
     if (event.type === 'pipeline_started') {
       progress.value = { processed: 0, total: event.total_pages }
     } else if (event.type === 'page_processed') {
@@ -142,6 +227,13 @@ async function onRunPipeline(): Promise<void> {
       progress.value = null
       ws.close()
       toast.error(error.value)
+    } else if (event.type === 'page_updated') {
+      // Refrescar datos del lote y de la página afectada
+      await store.fetchOne(batchId.value)
+      await store.fetchPages(batchId.value)
+      if (currentPageListItem.value?.id === event.page_id) {
+        await store.fetchPage(batchId.value, event.page_id)
+      }
     }
   }
   ws.onerror = () => { error.value = 'Error de conexión'; running.value = false }
@@ -167,6 +259,7 @@ async function onTransfer(): Promise<void> {
   const ws = openWs()
   ws.onmessage = async (msg) => {
     const event = JSON.parse(msg.data)
+    log.appendFromEvent(event)
     if (event.type === 'transfer_started') {
       transferProgress.value = { page_index: 0, total: event.total_pages }
     } else if (event.type === 'transfer_page' && transferProgress.value) {
@@ -267,6 +360,154 @@ function onColumnsResize(panes: Array<{ size: number }>): void {
 function onRightResize(panes: Array<{ size: number }>): void {
   setSizes({ columns: sizes.value.columns, rightVertical: panes.map((p) => p.size) as [number, number] })
 }
+
+// --- Page actions handlers (Fase 3) ---
+
+function handleApiError(e: unknown, fallback: string): void {
+  if (e instanceof ApiError) {
+    if (e.status === 409) {
+      toast.error('El lote está en ejecución, no se puede modificar')
+    } else if (e.status === 404) {
+      toast.error('Recurso no encontrado')
+    } else {
+      toast.error(e.detail || fallback)
+    }
+  } else {
+    toast.error(e instanceof Error ? e.message : fallback)
+  }
+}
+
+function onThumbContextMenu(pageId: number, x: number, y: number): void {
+  if (isReadOnly.value) return
+  contextMenuPageId.value = pageId
+  contextMenuX.value = x
+  contextMenuY.value = y
+  contextMenuVisible.value = true
+}
+
+function closeContextMenu(): void {
+  contextMenuVisible.value = false
+}
+
+async function refreshPages(): Promise<void> {
+  await store.fetchPages(batchId.value)
+  if (currentPageListItem.value?.id) {
+    await store.fetchPage(batchId.value, currentPageListItem.value.id)
+  }
+}
+
+async function onContextMenuAction(
+  type: 'toggle-excluded' | 'toggle-review' | 'delete-page' | 'delete-after',
+  pageId: number,
+): Promise<void> {
+  try {
+    if (type === 'toggle-excluded') {
+      const p = sortedPages.value.find((x) => x.id === pageId) as PageResponse | undefined
+      const next = !(p?.is_excluded ?? false)
+      await pageActions.toggleExcluded(pageId, next)
+      log.append('info', 'user', `Página ${pageId} ${next ? 'excluida' : 'incluida'}`)
+      await refreshPages()
+    } else if (type === 'toggle-review') {
+      const p = sortedPages.value.find((x) => x.id === pageId)
+      const next = !(p?.needs_review ?? false)
+      await pageActions.toggleReview(pageId, next)
+      log.append('info', 'user', `Página ${pageId} ${next ? 'marcada para revisión' : 'revisión retirada'}`)
+      await refreshPages()
+    } else if (type === 'delete-page') {
+      if (!confirm('¿Eliminar esta página?')) return
+      await pageActions.deletePage(batchId.value, pageId)
+      log.append('info', 'user', `Página ${pageId} eliminada`)
+      selectedPageIndex.value = Math.max(0, selectedPageIndex.value - 1)
+      await refreshPages()
+      await store.fetchOne(batchId.value)
+    } else if (type === 'delete-after') {
+      if (!confirm('¿Eliminar desde esta página hasta el final?')) return
+      await pageActions.deleteFromPage(batchId.value, pageId)
+      log.append('info', 'user', `Páginas eliminadas desde ${pageId}`)
+      await refreshPages()
+      await store.fetchOne(batchId.value)
+    }
+  } catch (e) {
+    handleApiError(e, 'Error al actualizar la página')
+  }
+}
+
+async function onReorder(newOrder: number[]): Promise<void> {
+  const originalOrder = sortedPages.value.map((p) => p.id)
+  try {
+    await pageActions.reorderPages(batchId.value, newOrder)
+    log.append('info', 'user', 'Orden de páginas actualizado')
+    await refreshPages()
+  } catch (e) {
+    handleApiError(e, 'Error al reordenar')
+    // Rollback: volvemos a cargar desde el backend (orden original)
+    await store.fetchPages(batchId.value)
+    // (originalOrder se usa implícitamente: al volver a cargar recuperamos ese estado)
+    void originalOrder
+  }
+}
+
+async function onRotate(turns: number): Promise<void> {
+  const pid = currentPageListItem.value?.id
+  if (!pid) return
+  try {
+    await pageActions.rotatePage(pid, turns)
+    imageCacheTick.value = Date.now()
+    log.append('info', 'user', `Página ${pid} rotada ${turns * 90}°`)
+    await store.fetchPage(batchId.value, pid)
+  } catch (e) {
+    handleApiError(e, 'Error al rotar la página')
+  }
+}
+
+function onToggleBarcodes(): void {
+  showBarcodes.value = !showBarcodes.value
+}
+
+function onToggleFields(): void {
+  showFields.value = !showFields.value
+}
+
+function onAddBarcodeClick(): void {
+  if (isReadOnly.value) return
+  addBarcodeOpen.value = true
+}
+
+async function onAddBarcodeSubmit(data: { value: string; symbology: string }): Promise<void> {
+  const pid = currentPageListItem.value?.id
+  if (!pid) return
+  try {
+    await pageActions.addBarcode(pid, data.value, data.symbology)
+    log.append('info', 'user', `Barcode añadido a página ${pid}: ${data.value}`)
+    addBarcodeOpen.value = false
+    await store.fetchPage(batchId.value, pid)
+  } catch (e) {
+    handleApiError(e, 'Error al añadir barcode')
+  }
+}
+
+function onDeleteBarcodeClick(id: number): void {
+  if (isReadOnly.value) return
+  const bc = currentPage.value?.barcodes?.find((b) => b.id === id)
+  if (!bc) return
+  deleteBarcodeTarget.value = { id, value: bc.value }
+  deleteBarcodeOpen.value = true
+}
+
+async function onDeleteBarcodeConfirm(): Promise<void> {
+  const pid = currentPageListItem.value?.id
+  const target = deleteBarcodeTarget.value
+  if (!pid || !target) return
+  try {
+    await pageActions.deleteBarcode(pid, target.id)
+    log.append('info', 'user', `Barcode ${target.value} eliminado de página ${pid}`)
+    deleteBarcodeOpen.value = false
+    deleteBarcodeTarget.value = null
+    await store.fetchPage(batchId.value, pid)
+  } catch (e) {
+    handleApiError(e, 'Error al eliminar barcode')
+  }
+}
 </script>
 
 <template>
@@ -293,28 +534,49 @@ function onRightResize(panes: Array<{ size: number }>): void {
           :pages="sortedPages"
           :batchId="batchId"
           :currentIndex="selectedPageIndex"
-          :readOnly="false"
+          :readOnly="isReadOnly"
           @select="(i) => (selectedPageIndex = i)"
           @fit="viewerRef?.fitToViewport()"
+          @reorder="onReorder"
+          @contextmenu="onThumbContextMenu"
         />
       </Pane>
       <Pane :size="sizes.columns[1]" :min-size="20">
         <div class="relative h-full">
-          <DocumentViewer ref="viewerRef" :imageUrl="currentImageUrl" :barcodes="currentPage?.barcodes" />
+          <DocumentViewer
+            ref="viewerRef"
+            :imageUrl="currentImageUrl"
+            :barcodes="currentPage?.barcodes"
+            :fields="currentFields"
+            :showBarcodes="showBarcodes"
+            :showFields="showFields"
+          />
           <ViewerToolbar
             v-if="viewerRef"
             :zoom-percent="viewerRef.zoomPercent ?? 100"
+            :canRotate="!isReadOnly"
+            :showBarcodes="showBarcodes"
+            :showFields="showFields"
             @zoom-in="viewerRef.zoomIn()"
             @zoom-out="viewerRef.zoomOut()"
             @reset="viewerRef.resetView()"
             @fit="viewerRef.fitToViewport()"
+            @rotate="onRotate"
+            @toggle-barcodes="onToggleBarcodes"
+            @toggle-fields="onToggleFields"
           />
         </div>
       </Pane>
       <Pane :size="sizes.columns[2]" :min-size="20">
         <Splitpanes horizontal @resized="onRightResize">
           <Pane :size="sizes.rightVertical[0]" :min-size="20">
-            <BarcodePanel :barcodes="currentPage?.barcodes ?? []" :pageCounters="counters" />
+            <BarcodePanel
+              :barcodes="currentPage?.barcodes ?? []"
+              :pageCounters="counters"
+              :readOnly="isReadOnly"
+              @add-barcode="onAddBarcodeClick"
+              @delete-barcode="onDeleteBarcodeClick"
+            />
           </Pane>
           <Pane :size="sizes.rightVertical[1]" :min-size="20">
             <MetadataPanel :app="appStore.current" :batch="store.current" :saving="savingMetadata" @save="onSaveMetadata" />
@@ -322,6 +584,33 @@ function onRightResize(panes: Array<{ size: number }>): void {
         </Splitpanes>
       </Pane>
     </Splitpanes>
+
+    <!-- Menú contextual de thumbnails -->
+    <ThumbnailContextMenu
+      :visible="contextMenuVisible"
+      :x="contextMenuX"
+      :y="contextMenuY"
+      :pageId="contextMenuPageId"
+      :isExcluded="contextMenuIsExcluded"
+      :needsReview="contextMenuNeedsReview"
+      :readOnly="isReadOnly"
+      :isLastPage="contextMenuIsLastPage"
+      @action="onContextMenuAction"
+      @close="closeContextMenu"
+    />
+
+    <!-- Diálogos de barcode -->
+    <AddBarcodeDialog
+      :visible="addBarcodeOpen"
+      @submit="onAddBarcodeSubmit"
+      @close="addBarcodeOpen = false"
+    />
+    <DeleteBarcodeDialog
+      :visible="deleteBarcodeOpen"
+      :barcodeValue="deleteBarcodeTarget?.value ?? ''"
+      @confirm="onDeleteBarcodeConfirm"
+      @close="deleteBarcodeOpen = false; deleteBarcodeTarget = null"
+    />
   </div>
 </template>
 
