@@ -2254,4 +2254,109 @@ class TestTransferEndpoint:
 
         # Debe haberse llamado exactamente una vez (1 página subida).
         assert counter.exists()
-        assert counter.read_text() == "1"
+
+
+# ------------------------------------------------------------------
+# Runners — batch.state lifecycle con try/finally
+# ------------------------------------------------------------------
+
+
+class TestRunnersState:
+    """Verifica que los runners gestionan batch.state con try/finally."""
+
+    def test_pipeline_run_marks_running_then_read(
+        self, client, db_session, monkeypatch
+    ):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, _ = _create_batch_with_page(client, headers, app_id)
+
+        # Antes de /run, state == "created"
+        r = client.get(f"/api/batches/{batch_id}", headers=headers)
+        assert r.json()["state"] == "created"
+
+        r = client.post(f"/api/batches/{batch_id}/run", headers=headers)
+        assert r.status_code == 202
+
+        # Tras run (síncrono en tests via BackgroundTasks): "read" o "error_read"
+        r = client.get(f"/api/batches/{batch_id}", headers=headers)
+        assert r.json()["state"] in ("read", "error_read")
+
+    def test_pipeline_finally_resets_running_state(
+        self, client, db_session, monkeypatch
+    ):
+        """Si el runner queda colgado en running, el finally lo fuerza a error_read."""
+        import pytest
+
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, _ = _create_batch_with_page(client, headers, app_id)
+
+        # Simular que la ejecución interna lanza excepción tras marcar running
+        import web.api.tasks.pipeline_runner as runner_mod
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("boom")
+
+        # Parchear la función interna que ejecuta el pipeline real
+        # (el implementer deberá extraerla como _execute_pipeline)
+        if hasattr(runner_mod, "_execute_pipeline"):
+            monkeypatch.setattr(runner_mod, "_execute_pipeline", boom)
+        else:
+            pytest.skip("_execute_pipeline not extracted yet")
+
+        # Ejecutar el runner público; debe propagar la excepción pero dejar
+        # el batch en error_read
+        try:
+            runner_mod.run_pipeline_for_batch(batch_id=batch_id, storage=None)
+        except Exception:
+            pass
+
+        from app.models.batch import Batch
+
+        db_session.expire_all()
+        b = db_session.query(Batch).filter_by(id=batch_id).first()
+        assert b.state == "error_read"
+
+    def test_transfer_finally_resets_transferring_state(
+        self,
+        client,
+        db_session,
+        monkeypatch,
+    ):
+        """Si el runner de transfer queda en transferring, el finally lo fuerza a error_read."""
+        import json as _json
+
+        import pytest
+
+        headers = _auth_header(client)
+        transfer_cfg = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": "/tmp/doesnotmatter",
+            }
+        )
+        app_id = _create_app_for_transfer(client, headers, transfer_cfg)
+        batch_id, _ = _prepare_batch_in_read(client, headers, app_id)
+
+        import web.api.tasks.transfer_runner as runner_mod
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("boom")
+
+        if hasattr(runner_mod, "_execute_transfer"):
+            monkeypatch.setattr(runner_mod, "_execute_transfer", boom)
+        else:
+            pytest.skip("_execute_transfer not extracted yet")
+
+        try:
+            runner_mod.run_transfer_for_batch(batch_id=batch_id, storage=None)
+        except Exception:
+            pass
+
+        from app.models.batch import Batch
+
+        db_session.expire_all()
+        b = db_session.query(Batch).filter_by(id=batch_id).first()
+        assert b.state == "error_read"

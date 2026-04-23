@@ -20,6 +20,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.models.application import Application
 from app.models.batch import Batch
@@ -52,7 +53,12 @@ def run_transfer_for_batch(
 
     Pensada para invocarse como BackgroundTask de FastAPI. Es síncrona,
     abre su propia session de BD a través del singleton de session
-    factory y captura todas las excepciones para emitir ``transfer_error``.
+    factory.
+
+    Marca el lote como ``transferring`` al empezar y garantiza un estado
+    terminal (``read`` o ``error_read``) al salir mediante ``try/finally``.
+    Si algo deja el lote colgado en ``transferring``, el finally lo
+    fuerza a ``error_read``.
 
     Args:
         batch_id: ID del lote a transferir.
@@ -71,144 +77,210 @@ def run_transfer_for_batch(
         )
 
     factory = get_session_factory()
-    try:
-        with factory() as session:
+    with factory() as session:
+        batch = session.get(Batch, batch_id)
+        if batch is None:
+            log.warning("Batch %d no encontrado para transferencia", batch_id)
+            emit("transfer_error", error="batch_not_found")
+            return
+
+        # Guardar el estado previo para poder restaurarlo si la
+        # transferencia aborta por validación (no es un error).
+        previous_state = batch.state
+        batch.state = "transferring"
+        session.commit()
+
+        try:
+            _execute_transfer(batch_id, storage, service, session, emit)
+        except Exception:
+            log.exception("Transfer falló para batch %d", batch_id)
+            session.rollback()
             batch = session.get(Batch, batch_id)
-            if batch is None:
-                log.warning("Batch %d no encontrado para transferencia", batch_id)
-                emit("transfer_error", error="batch_not_found")
-                return
-
-            application = session.get(Application, batch.application_id)
-            if application is None:
-                log.error("Aplicación %d no encontrada", batch.application_id)
-                emit("transfer_error", error="application_not_found")
-                return
-
-            # 1. Parsear configuración
-            try:
-                config = parse_transfer_config(application.transfer_json or "{}")
-            except (json.JSONDecodeError, TypeError, ValueError) as e:
-                log.warning(
-                    "transfer_json inválido en app %d: %s",
-                    application.id,
-                    e,
+            if batch is not None:
+                batch.state = "error_read"
+                session.commit()
+            emit("transfer_error", error="unexpected_exception")
+            raise
+        finally:
+            # Garantía de estado terminal: si algo dejó el state en
+            # "transferring", forzar error_read. Rollback previo porque
+            # la session puede estar en estado sucio tras una excepción.
+            session.rollback()
+            batch = session.get(Batch, batch_id)
+            if batch is not None and batch.state == "transferring":
+                # Si la transferencia abortó antes de empezar (ej. no
+                # configurada), restauramos el estado previo en vez de
+                # marcar error. El _execute_transfer ya debería haber
+                # restaurado el estado, pero defendemos aquí.
+                batch.state = (
+                    previous_state if previous_state != "transferring" else "error_read"
                 )
-                emit("transfer_aborted", reason="not_configured")
-                return
+                session.commit()
 
-            if not config.standard_enabled:
-                emit("transfer_aborted", reason="not_configured")
-                return
 
-            if not config.destination:
-                emit("transfer_aborted", reason="not_configured")
-                return
+def _execute_transfer(
+    batch_id: int,
+    storage: BaseStorage,
+    service: TransferService,
+    session: Session,
+    emit: Any,
+) -> None:
+    """Ejecuta el cuerpo de la transferencia para el lote.
 
-            # 2. Construir contextos para los firers
-            app_ctx = _build_app_context(application)
-            batch_ctx = _build_batch_context(batch)
+    Asume que ``batch.state`` ya está marcado como ``transferring`` y que
+    el caller gestiona el try/finally de limpieza. Al terminar
+    correctamente, deja ``batch.state`` en ``read``.
 
-            # 3. on_transfer_validate puede cancelar
-            validate_result = _fire_transfer_validate(
-                application,
-                app_ctx,
-                batch_ctx,
-            )
-            if validate_result is False:
-                log.info(
-                    "Transferencia cancelada por on_transfer_validate en batch %d",
-                    batch_id,
-                )
-                emit("transfer_aborted", reason="validate_returned_false")
-                return
+    Si la transferencia aborta por configuración inválida o por
+    ``on_transfer_validate``, restaura el estado a ``read`` (el lote
+    sigue siendo válido para reintentar).
+    """
+    batch = session.get(Batch, batch_id)
+    if batch is None:
+        log.warning("Batch %d desapareció durante la transferencia", batch_id)
+        return
 
-            # 4. Cargar páginas y batch_fields
-            pages_orm = (
-                session.execute(
-                    select(Page)
-                    .where(Page.batch_id == batch_id)
-                    .order_by(Page.page_index)
-                )
-                .scalars()
-                .all()
-            )
-            total = len(pages_orm)
-            try:
-                batch_fields = (
-                    json.loads(batch.fields_json) if batch.fields_json else {}
-                )
-            except json.JSONDecodeError:
-                batch_fields = {}
+    application = session.get(Application, batch.application_id)
+    if application is None:
+        log.error("Aplicación %d no encontrada", batch.application_id)
+        batch.state = "error_read"
+        session.commit()
+        emit("transfer_error", error="application_not_found")
+        return
 
-            emit("transfer_started", total_pages=total, mode=config.mode)
+    # 1. Parsear configuración
+    try:
+        config = parse_transfer_config(application.transfer_json or "{}")
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        log.warning(
+            "transfer_json inválido en app %d: %s",
+            application.id,
+            e,
+        )
+        batch.state = "read"
+        session.commit()
+        emit("transfer_aborted", reason="not_configured")
+        return
 
-            # 5. Bajar imágenes a tempdir + transferir
-            with tempfile.TemporaryDirectory(prefix="docscan_xfer_") as tmpdir:
-                tmpdir_path = Path(tmpdir)
-                pages_payload = _materialize_pages(
-                    pages_orm,
-                    storage,
-                    tmpdir_path,
-                )
+    if not config.standard_enabled:
+        batch.state = "read"
+        session.commit()
+        emit("transfer_aborted", reason="not_configured")
+        return
 
-                def on_page(page_index: int, success: bool) -> None:
-                    emit(
-                        "transfer_page",
-                        page_index=page_index,
-                        success=success,
-                    )
-                    page_orm = next(
-                        (p for p in pages_orm if p.page_index == page_index),
-                        None,
-                    )
-                    page_ctx = _build_page_context(page_orm)
-                    _fire_transfer_page(
-                        application,
-                        app_ctx,
-                        batch_ctx,
-                        page_ctx,
-                        success=success,
-                    )
+    if not config.destination:
+        batch.state = "read"
+        session.commit()
+        emit("transfer_aborted", reason="not_configured")
+        return
 
-                try:
-                    result = service.transfer(
-                        pages=pages_payload,
-                        config=config,
-                        batch_fields=batch_fields,
-                        batch_id=batch_id,
-                        on_page_callback=on_page,
-                    )
-                except Exception as e:
-                    log.exception("Error en TransferService: %s", e)
-                    emit("transfer_error", error=str(e))
-                    return
+    # 2. Construir contextos para los firers
+    app_ctx = _build_app_context(application)
+    batch_ctx = _build_batch_context(batch)
 
-            # 6. on_transfer_advanced (post-procesado)
-            _fire_transfer_advanced(
-                application,
-                app_ctx,
-                batch_ctx,
-                result,
-            )
+    # 3. on_transfer_validate puede cancelar
+    validate_result = _fire_transfer_validate(
+        application,
+        app_ctx,
+        batch_ctx,
+    )
+    if validate_result is False:
+        log.info(
+            "Transferencia cancelada por on_transfer_validate en batch %d",
+            batch_id,
+        )
+        batch.state = "read"
+        session.commit()
+        emit("transfer_aborted", reason="validate_returned_false")
+        return
 
-            # 7. Notificar éxito final
+    # 4. Cargar páginas y batch_fields
+    pages_orm = (
+        session.execute(
+            select(Page).where(Page.batch_id == batch_id).order_by(Page.page_index)
+        )
+        .scalars()
+        .all()
+    )
+    total = len(pages_orm)
+    try:
+        batch_fields = json.loads(batch.fields_json) if batch.fields_json else {}
+    except json.JSONDecodeError:
+        batch_fields = {}
+
+    emit("transfer_started", total_pages=total, mode=config.mode)
+
+    # 5. Bajar imágenes a tempdir + transferir
+    with tempfile.TemporaryDirectory(prefix="docscan_xfer_") as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        pages_payload = _materialize_pages(
+            pages_orm,
+            storage,
+            tmpdir_path,
+        )
+
+        def on_page(page_index: int, success: bool) -> None:
             emit(
-                "transfer_completed",
-                success=result.success,
-                output_path=result.output_path,
-                files_transferred=result.files_transferred,
-                errors=list(result.errors),
+                "transfer_page",
+                page_index=page_index,
+                success=success,
             )
-            log.info(
-                "Transferencia completada para batch %d: %d ficheros (success=%s)",
-                batch_id,
-                result.files_transferred,
-                result.success,
+            page_orm = next(
+                (p for p in pages_orm if p.page_index == page_index),
+                None,
             )
-    except Exception as e:
-        log.exception("Error inesperado en run_transfer_for_batch: %s", e)
-        emit("transfer_error", error=str(e))
+            page_ctx = _build_page_context(page_orm)
+            _fire_transfer_page(
+                application,
+                app_ctx,
+                batch_ctx,
+                page_ctx,
+                success=success,
+            )
+
+        try:
+            result = service.transfer(
+                pages=pages_payload,
+                config=config,
+                batch_fields=batch_fields,
+                batch_id=batch_id,
+                on_page_callback=on_page,
+            )
+        except Exception as e:
+            log.exception("Error en TransferService: %s", e)
+            batch.state = "error_read"
+            session.commit()
+            emit("transfer_error", error=str(e))
+            return
+
+    # 6. on_transfer_advanced (post-procesado)
+    _fire_transfer_advanced(
+        application,
+        app_ctx,
+        batch_ctx,
+        result,
+    )
+
+    # 7. Estado terminal en éxito: el lote vuelve a "read" (el comportamiento
+    # previo no cambiaba el estado, pero ahora estaba en "transferring" así
+    # que hay que devolverlo a "read").
+    batch.state = "read"
+    session.commit()
+
+    # 8. Notificar éxito final
+    emit(
+        "transfer_completed",
+        success=result.success,
+        output_path=result.output_path,
+        files_transferred=result.files_transferred,
+        errors=list(result.errors),
+    )
+    log.info(
+        "Transferencia completada para batch %d: %d ficheros (success=%s)",
+        batch_id,
+        result.files_transferred,
+        result.success,
+    )
 
 
 # ----------------------------------------------------------------------

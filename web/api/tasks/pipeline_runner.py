@@ -51,9 +51,12 @@ def run_pipeline_for_batch(
     """Ejecuta el pipeline de la aplicación sobre todas las páginas del lote.
 
     Pensada para invocarse como BackgroundTask de FastAPI. Es síncrona,
-    abre su propia session de BD a través del singleton de session factory
-    y captura todas las excepciones para registrar el estado final del lote
-    (``read`` o ``error_read``).
+    abre su propia session de BD a través del singleton de session factory.
+
+    Marca el lote como ``running`` al empezar y garantiza un estado
+    terminal (``read`` o ``error_read``) al salir mediante ``try/finally``.
+    Si algo deja el lote colgado en ``running``, el finally lo fuerza a
+    ``error_read``.
 
     Args:
         batch_id: ID del lote a procesar.
@@ -76,88 +79,130 @@ def run_pipeline_for_batch(
             emit("pipeline_error", error="batch_not_found")
             return
 
-        application = session.get(Application, batch.application_id)
-        if application is None:
-            log.error("Aplicación %d no encontrada", batch.application_id)
-            batch.state = "error_read"
-            session.commit()
-            emit("pipeline_error", error="application_not_found")
-            return
+        # Marcar como running antes de cualquier trabajo pesado.
+        batch.state = "running"
+        session.commit()
 
         try:
-            executor, pipeline_engine = _build_executor(application)
-        except Exception as e:
-            log.exception("Error preparando executor: %s", e)
-            batch.state = "error_read"
-            session.commit()
-            emit("pipeline_error", error=str(e))
-            return
-
-        try:
-            app_ctx = _build_app_context(application)
-            batch_ctx = _build_batch_context(batch)
-
-            pages = (
-                session.execute(
-                    select(Page)
-                    .where(Page.batch_id == batch_id)
-                    .order_by(Page.page_index)
-                )
-                .scalars()
-                .all()
-            )
-
-            total = len(pages)
-            emit("pipeline_started", total_pages=total)
-
-            any_error = False
-            for idx, page in enumerate(pages, start=1):
-                try:
-                    _process_page(page, executor, app_ctx, batch_ctx, storage, session)
-                    emit(
-                        "page_processed",
-                        page_id=page.id,
-                        page_index=page.page_index,
-                        processed=idx,
-                        total=total,
-                        ok=True,
-                    )
-                except Exception as e:
-                    log.exception("Error procesando página %d: %s", page.id, e)
-                    any_error = True
-                    _record_processing_error(page, str(e))
-                    emit(
-                        "page_processed",
-                        page_id=page.id,
-                        page_index=page.page_index,
-                        processed=idx,
-                        total=total,
-                        ok=False,
-                        error=str(e),
-                    )
-
-            batch.state = "error_read" if any_error else "read"
-            batch.page_count = total
-            session.commit()
-            log.info(
-                "Pipeline completado para batch %d: %d páginas, estado=%s",
-                batch_id,
-                total,
-                batch.state,
-            )
-
-            # on_scan_complete se dispara tras commit y antes de notificar al WebSocket.
-            final_batch_ctx = _build_batch_context(batch)
-            _fire_scan_complete(application, app_ctx, final_batch_ctx)
-
-            emit(
-                "pipeline_completed",
-                total_pages=total,
-                state=batch.state,
-                any_error=any_error,
-            )
+            _execute_pipeline(batch_id, storage, session, emit)
+        except Exception:
+            log.exception("Pipeline falló para batch %d", batch_id)
+            session.rollback()
+            batch = session.get(Batch, batch_id)
+            if batch is not None:
+                batch.state = "error_read"
+                session.commit()
+            raise
         finally:
-            pipeline_engine.shutdown()
+            # Garantía de estado terminal: si algo dejó el state en
+            # "running", forzar error_read. Rollback previo porque la
+            # session puede estar en estado sucio tras una excepción.
+            session.rollback()
+            batch = session.get(Batch, batch_id)
+            if batch is not None and batch.state == "running":
+                batch.state = "error_read"
+                session.commit()
+
+
+def _execute_pipeline(
+    batch_id: int,
+    storage: BaseStorage,
+    session: Session,
+    emit: Any,
+) -> None:
+    """Ejecuta el cuerpo del pipeline para todas las páginas del lote.
+
+    Asume que ``batch.state`` ya está marcado como ``running`` y que el
+    caller gestiona el try/finally de limpieza. Al terminar correctamente,
+    deja ``batch.state`` en ``read`` o ``error_read`` según si alguna
+    página falló.
+    """
+    batch = session.get(Batch, batch_id)
+    if batch is None:
+        # El caller ya comprobó esto, pero defendemos por si se llama directamente.
+        log.warning("Batch %d desapareció durante la ejecución", batch_id)
+        return
+
+    application = session.get(Application, batch.application_id)
+    if application is None:
+        log.error("Aplicación %d no encontrada", batch.application_id)
+        batch.state = "error_read"
+        session.commit()
+        emit("pipeline_error", error="application_not_found")
+        return
+
+    try:
+        executor, pipeline_engine = _build_executor(application)
+    except Exception as e:
+        log.exception("Error preparando executor: %s", e)
+        batch.state = "error_read"
+        session.commit()
+        emit("pipeline_error", error=str(e))
+        return
+
+    try:
+        app_ctx = _build_app_context(application)
+        batch_ctx = _build_batch_context(batch)
+
+        pages = (
+            session.execute(
+                select(Page).where(Page.batch_id == batch_id).order_by(Page.page_index)
+            )
+            .scalars()
+            .all()
+        )
+
+        total = len(pages)
+        emit("pipeline_started", total_pages=total)
+
+        any_error = False
+        for idx, page in enumerate(pages, start=1):
+            try:
+                _process_page(page, executor, app_ctx, batch_ctx, storage, session)
+                emit(
+                    "page_processed",
+                    page_id=page.id,
+                    page_index=page.page_index,
+                    processed=idx,
+                    total=total,
+                    ok=True,
+                )
+            except Exception as e:
+                log.exception("Error procesando página %d: %s", page.id, e)
+                any_error = True
+                _record_processing_error(page, str(e))
+                emit(
+                    "page_processed",
+                    page_id=page.id,
+                    page_index=page.page_index,
+                    processed=idx,
+                    total=total,
+                    ok=False,
+                    error=str(e),
+                )
+
+        batch.state = "error_read" if any_error else "read"
+        batch.page_count = total
+        session.commit()
+        log.info(
+            "Pipeline completado para batch %d: %d páginas, estado=%s",
+            batch_id,
+            total,
+            batch.state,
+        )
+
+        # on_scan_complete se dispara tras commit y antes de notificar al WebSocket.
+        final_batch_ctx = _build_batch_context(batch)
+        _fire_scan_complete(application, app_ctx, final_batch_ctx)
+
+        emit(
+            "pipeline_completed",
+            total_pages=total,
+            state=batch.state,
+            any_error=any_error,
+        )
+    finally:
+        pipeline_engine.shutdown()
 
 
 # ----------------------------------------------------------------------
