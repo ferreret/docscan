@@ -3,10 +3,12 @@ import { mount } from '@vue/test-utils'
 import ViewerToolbar from '@/components/workbench/ViewerToolbar.vue'
 
 describe('ViewerToolbar', () => {
-  it('renders four buttons and a percent indicator', () => {
+  it('renders zoom buttons and a percent indicator', () => {
     const wrapper = mount(ViewerToolbar, { props: { zoomPercent: 100 } })
-    const buttons = wrapper.findAll('button')
-    expect(buttons).toHaveLength(4)
+    expect(wrapper.find('[data-test="vt-zoom-in"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="vt-zoom-out"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="vt-reset"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="vt-fit"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('100%')
   })
 
@@ -37,5 +39,69 @@ describe('ViewerToolbar', () => {
   it('shows the current zoom percent', () => {
     const wrapper = mount(ViewerToolbar, { props: { zoomPercent: 75 } })
     expect(wrapper.find('[data-test="vt-percent"]').text()).toBe('75%')
+  })
+})
+
+describe('ViewerToolbar — rotate + overlay toggles', () => {
+  const defaults = {
+    zoomPercent: 100,
+    canRotate: true,
+    showBarcodes: true,
+    showFields: true,
+  }
+
+  it('emits rotate with turns=1 when clicking 90°', async () => {
+    const wrapper = mount(ViewerToolbar, { props: defaults, attachTo: document.body })
+    await wrapper.find('[data-testid="btn-rotate"]').trigger('click')
+    await wrapper.find('[data-testid="rotate-90"]').trigger('click')
+    expect(wrapper.emitted('rotate')?.[0]).toEqual([1])
+    wrapper.unmount()
+  })
+
+  it('emits rotate with turns=2 when clicking 180°', async () => {
+    const wrapper = mount(ViewerToolbar, { props: defaults, attachTo: document.body })
+    await wrapper.find('[data-testid="btn-rotate"]').trigger('click')
+    await wrapper.find('[data-testid="rotate-180"]').trigger('click')
+    expect(wrapper.emitted('rotate')?.[0]).toEqual([2])
+    wrapper.unmount()
+  })
+
+  it('emits rotate with turns=3 when clicking 270°', async () => {
+    const wrapper = mount(ViewerToolbar, { props: defaults, attachTo: document.body })
+    await wrapper.find('[data-testid="btn-rotate"]').trigger('click')
+    await wrapper.find('[data-testid="rotate-270"]').trigger('click')
+    expect(wrapper.emitted('rotate')?.[0]).toEqual([3])
+    wrapper.unmount()
+  })
+
+  it('disables rotate when canRotate=false', () => {
+    const wrapper = mount(ViewerToolbar, {
+      props: { ...defaults, canRotate: false },
+    })
+    const btn = wrapper.find('[data-testid="btn-rotate"]')
+    expect(btn.attributes('disabled')).toBeDefined()
+  })
+
+  it('emits toggle-barcodes on click', async () => {
+    const wrapper = mount(ViewerToolbar, { props: defaults })
+    await wrapper.find('[data-testid="btn-toggle-barcodes"]').trigger('click')
+    expect(wrapper.emitted('toggle-barcodes')).toBeTruthy()
+  })
+
+  it('emits toggle-fields on click', async () => {
+    const wrapper = mount(ViewerToolbar, { props: defaults })
+    await wrapper.find('[data-testid="btn-toggle-fields"]').trigger('click')
+    expect(wrapper.emitted('toggle-fields')).toBeTruthy()
+  })
+
+  it('toggle buttons reflect state (ON vs OFF)', () => {
+    const wrapperOn = mount(ViewerToolbar, {
+      props: { ...defaults, showBarcodes: true },
+    })
+    const wrapperOff = mount(ViewerToolbar, {
+      props: { ...defaults, showBarcodes: false },
+    })
+    expect(wrapperOn.find('[data-testid="btn-toggle-barcodes"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapperOff.find('[data-testid="btn-toggle-barcodes"]').attributes('aria-pressed')).toBe('false')
   })
 })
