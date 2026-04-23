@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class BarcodeResponse(BaseModel):
@@ -87,4 +87,11 @@ class AddBarcodeIn(BaseModel):
     """Payload para añadir un barcode manual."""
 
     value: str = Field(min_length=1)
-    symbology: str = "MANUAL"
+    symbology: str = Field(default="MANUAL", min_length=1, max_length=50)
+
+    @field_validator("value")
+    @classmethod
+    def _value_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("value no puede ser solo espacios")
+        return v.strip()

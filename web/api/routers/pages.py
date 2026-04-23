@@ -19,7 +19,7 @@ from app.services.image_lib import ImageLib
 from web.api.auth.dependencies import CurrentUser
 from web.api.config import get_web_settings
 from web.api.database import SessionDep
-from web.api.routers._helpers import get_batch_for_tenant
+from web.api.routers._helpers import ensure_batch_mutable, get_batch_for_tenant
 from web.api.schemas.page import (
     AddBarcodeIn,
     BarcodeResponse,
@@ -276,12 +276,7 @@ def patch_page(
     Devuelve 409 si el lote está en ejecución (``running`` o ``transferring``).
     """
     page = _get_page_for_user(page_id, user.tenant_id, db)
-    batch = page.batch
-    if batch.state in ("running", "transferring"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No se pueden editar páginas mientras el lote está en ejecución",
-        )
+    ensure_batch_mutable(page.batch, action="editar página")
 
     if payload.is_excluded is not None:
         page.is_excluded = payload.is_excluded
@@ -317,11 +312,7 @@ def rotate_page(
     la imagen queda intacta.
     """
     page = _get_page_for_user(page_id, user.tenant_id, db)
-    if page.batch.state in ("running", "transferring"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No se puede rotar mientras el lote está en ejecución",
-        )
+    ensure_batch_mutable(page.batch, action="rotar")
 
     # Sólo backend filesystem soporta rotación actualmente.
     if not isinstance(storage, FilesystemStorage):
@@ -424,16 +415,12 @@ def add_manual_barcode(
     Devuelve 422 si el value está vacío (validado por Pydantic).
     """
     page = _get_page_for_user(page_id, user.tenant_id, db)
-    if page.batch.state in ("running", "transferring"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No se pueden añadir barcodes mientras el lote está en ejecución",
-        )
+    ensure_batch_mutable(page.batch, action="añadir barcode")
 
     bc = Barcode(
         page_id=page.id,
         value=payload.value,
-        symbology=payload.symbology or "MANUAL",
+        symbology=payload.symbology,
         engine="manual",
         step_id="manual",
         quality=0.0,

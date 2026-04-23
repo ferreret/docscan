@@ -2773,3 +2773,28 @@ class TestPagesBarcodes:
             headers=headers_b,
         )
         assert r.status_code == 404
+
+    def test_add_barcode_whitespace_only_value_422(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "   ", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        assert r.status_code == 422
+
+    def test_add_barcode_trims_value(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "  ABC  ", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        assert r.status_code == 201
+        assert r.json()["value"] == "ABC"

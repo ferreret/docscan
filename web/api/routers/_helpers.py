@@ -23,3 +23,15 @@ def get_batch_for_tenant(batch_id: int, tenant_id: int, db: Session) -> Batch:
             detail="Lote no encontrado",
         )
     return batch
+
+
+def ensure_batch_mutable(batch: Batch, action: str = "modificar") -> None:
+    """Rechaza mutaciones si el lote está en ejecución.
+
+    Lanza 409 si ``batch.state`` ∈ {"running", "transferring"}.
+    """
+    if batch.state in ("running", "transferring"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"No se puede {action} mientras el lote está en ejecución",
+        )
