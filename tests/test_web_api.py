@@ -1162,6 +1162,34 @@ class TestPipelineRun:
         resp = client.post("/api/batches/1/run")
         assert resp.status_code == 401
 
+    def test_run_409_when_already_running(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, _ = _create_batch_with_page(client, headers, app_id)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+
+        r = client.post(f"/api/batches/{batch_id}/run", headers=headers)
+        assert r.status_code == 409
+
+    def test_run_409_when_transferring(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, _ = _create_batch_with_page(client, headers, app_id)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "transferring"
+        db_session.commit()
+
+        r = client.post(f"/api/batches/{batch_id}/run", headers=headers)
+        assert r.status_code == 409
+
 
 # ------------------------------------------------------------------
 # Storage backends — unit tests
@@ -2254,6 +2282,34 @@ class TestTransferEndpoint:
 
         # Debe haberse llamado exactamente una vez (1 página subida).
         assert counter.exists()
+
+    def test_transfer_409_when_transferring(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, _ = _create_batch_with_page(client, headers, app_id)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "transferring"
+        db_session.commit()
+
+        r = client.post(f"/api/batches/{batch_id}/transfer", headers=headers)
+        assert r.status_code == 409
+
+    def test_transfer_409_when_running(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, _ = _create_batch_with_page(client, headers, app_id)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+
+        r = client.post(f"/api/batches/{batch_id}/transfer", headers=headers)
+        assert r.status_code == 409
 
 
 # ------------------------------------------------------------------

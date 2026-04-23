@@ -156,6 +156,7 @@ def run_batch_pipeline(
     el background task lo actualiza a ``read`` o ``error_read``.
     """
     batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+    ensure_batch_mutable(batch, action="re-ejecutar el pipeline")
 
     if batch.page_count == 0:
         raise HTTPException(
@@ -188,6 +189,7 @@ def transfer_batch(
     ``transfer_error``.
     """
     batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+    ensure_batch_mutable(batch, action="transferir")
 
     if batch.state != "read":
         raise HTTPException(
