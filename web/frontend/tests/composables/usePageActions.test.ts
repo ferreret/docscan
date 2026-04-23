@@ -48,10 +48,10 @@ describe('usePageActions', () => {
     expect(api.post).toHaveBeenCalledWith('/pages/42/rotate', { turns: 2 })
   })
 
-  it('deletePage calls DELETE /pages/:id', async () => {
+  it('deletePage calls DELETE /batches/:bid/pages/:pid', async () => {
     const actions = usePageActions()
-    await actions.deletePage(42)
-    expect(api.delete).toHaveBeenCalledWith('/pages/42')
+    await actions.deletePage(5, 42)
+    expect(api.delete).toHaveBeenCalledWith('/batches/5/pages/42')
   })
 
   it('deleteFromPage calls DELETE /batches/:batch/pages/after/:page', async () => {

@@ -17,8 +17,8 @@ export function usePageActions() {
     rotatePage: (pageId: number, turns: number) =>
       api.post(`/pages/${pageId}/rotate`, { turns }),
 
-    deletePage: (pageId: number) =>
-      api.delete(`/pages/${pageId}`),
+    deletePage: (batchId: number, pageId: number) =>
+      api.delete(`/batches/${batchId}/pages/${pageId}`),
 
     deleteFromPage: (batchId: number, pageId: number) =>
       api.delete(`/batches/${batchId}/pages/after/${pageId}`),
