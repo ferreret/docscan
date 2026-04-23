@@ -3136,3 +3136,173 @@ class TestBatchesDeleteAfter:
             headers=headers_b,
         )
         assert r.status_code == 404
+
+
+# ------------------------------------------------------------------
+# Evento WS page_updated en mutaciones de página
+# ------------------------------------------------------------------
+
+
+class TestWsPageUpdated:
+    def test_patch_page_emits_event(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        headers = _auth_header(client)
+        token = headers["Authorization"].split()[1]
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.patch(
+                f"/api/pages/{page_id}",
+                json={"is_excluded": True},
+                headers=headers,
+            )
+            ev = ws.receive_json()
+            assert ev["type"] == "page_updated"
+            assert ev["page_id"] == page_id
+            assert ev["action"] == "flags"
+
+    def test_rotate_emits_event(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        headers = _auth_header(client)
+        token = headers["Authorization"].split()[1]
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.post(
+                f"/api/pages/{page_id}/rotate",
+                json={"turns": 1},
+                headers=headers,
+            )
+            ev = ws.receive_json()
+            assert ev["type"] == "page_updated"
+            assert ev["action"] == "rotated"
+            assert ev["page_id"] == page_id
+
+    def test_add_barcode_emits_event(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        headers = _auth_header(client)
+        token = headers["Authorization"].split()[1]
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            r = client.post(
+                f"/api/pages/{page_id}/barcodes",
+                json={"value": "X", "symbology": "MANUAL"},
+                headers=headers,
+            )
+            bc_id = r.json()["id"]
+            ev = ws.receive_json()
+            assert ev["type"] == "page_updated"
+            assert ev["action"] == "barcode_added"
+            assert ev["page_id"] == page_id
+            assert ev.get("barcode_id") == bc_id
+
+    def test_delete_barcode_emits_event(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        headers = _auth_header(client)
+        token = headers["Authorization"].split()[1]
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "X", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        bc_id = r.json()["id"]
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.delete(
+                f"/api/pages/{page_id}/barcodes/{bc_id}",
+                headers=headers,
+            )
+            ev = ws.receive_json()
+            assert ev["type"] == "page_updated"
+            assert ev["action"] == "barcode_deleted"
+            assert ev.get("barcode_id") == bc_id
+
+    def test_reorder_emits_event(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        headers = _auth_header(client)
+        token = headers["Authorization"].split()[1]
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, first_page = _create_batch_with_page(client, headers, app_id)
+        # Añadir una segunda página
+        files = [("files", ("p.png", _make_png_bytes(), "image/png"))]
+        r = client.post(
+            f"/api/batches/{batch_id}/pages",
+            files=files,
+            headers=headers,
+        )
+        second_page = r.json()["created"][0]["id"]
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.post(
+                f"/api/batches/{batch_id}/reorder",
+                json={"page_ids": [second_page, first_page]},
+                headers=headers,
+            )
+            ev = ws.receive_json()
+            assert ev["type"] == "page_updated"
+            assert ev["action"] == "reordered"
+            assert ev.get("new_order") == [second_page, first_page]
+
+    def test_delete_page_emits_event(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        headers = _auth_header(client)
+        token = headers["Authorization"].split()[1]
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.delete(
+                f"/api/batches/{batch_id}/pages/{page_id}",
+                headers=headers,
+            )
+            ev = ws.receive_json()
+            assert ev["type"] == "page_updated"
+            assert ev["action"] == "deleted"
+            assert ev["page_id"] == page_id
+
+    def test_delete_pages_from_emits_event(self, client):
+        from web.api.events import reset_event_bus
+
+        reset_event_bus()
+        headers = _auth_header(client)
+        token = headers["Authorization"].split()[1]
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, first_page = _create_batch_with_page(client, headers, app_id)
+        files = [("files", ("p.png", _make_png_bytes(), "image/png"))]
+        r = client.post(
+            f"/api/batches/{batch_id}/pages",
+            files=files,
+            headers=headers,
+        )
+        second_page = r.json()["created"][0]["id"]
+
+        with client.websocket_connect(f"/ws/batches/{batch_id}?token={token}") as ws:
+            client.delete(
+                f"/api/batches/{batch_id}/pages/after/{first_page}",
+                headers=headers,
+            )
+            ev = ws.receive_json()
+            assert ev["type"] == "page_updated"
+            assert ev["action"] == "deleted"
+            assert ev["page_id"] == 0
+            assert set(ev.get("deleted_ids", [])) == {first_page, second_page}
+            assert ev.get("batch_page_count") == 0

@@ -20,6 +20,7 @@ from web.api.auth.dependencies import CurrentUser
 from web.api.config import get_web_settings
 from web.api.database import SessionDep
 from web.api.routers._helpers import ensure_batch_mutable, get_batch_for_tenant
+from web.api.routers.ws import broadcast_page_updated
 from web.api.schemas.page import (
     AddBarcodeIn,
     BarcodeResponse,
@@ -289,6 +290,7 @@ def patch_page(
 
     db.commit()
     db.refresh(page)
+    broadcast_page_updated(page.batch_id, page.id, "flags")
     return page
 
 
@@ -369,6 +371,7 @@ def rotate_page(
     # 4. Commit final.
     db.commit()
     db.refresh(page)
+    broadcast_page_updated(page.batch_id, page.id, "rotated")
     return page
 
 
@@ -386,6 +389,7 @@ def delete_page(
     """Elimina una página y su fichero de imagen asociado."""
     page = _get_page_in_batch_or_404(batch_id, page_id, user.tenant_id, db)
     image_path = page.image_path
+    deleted_page_id = page.id
 
     db.delete(page)
     batch = db.get(Batch, batch_id)
@@ -395,6 +399,8 @@ def delete_page(
 
     if image_path:
         storage.delete(image_path)
+
+    broadcast_page_updated(batch_id, deleted_page_id, "deleted")
 
 
 @router.post(
@@ -433,6 +439,12 @@ def add_manual_barcode(
     db.add(bc)
     db.commit()
     db.refresh(bc)
+    broadcast_page_updated(
+        page.batch_id,
+        page.id,
+        "barcode_added",
+        extra={"barcode_id": bc.id},
+    )
     return bc
 
 
@@ -461,6 +473,14 @@ def delete_barcode(
             detail="Barcode no encontrado en esta página",
         )
 
+    batch_id = page.batch_id
+    page_id_local = page.id
     db.delete(bc)
     db.commit()
+    broadcast_page_updated(
+        batch_id,
+        page_id_local,
+        "barcode_deleted",
+        extra={"barcode_id": barcode_id},
+    )
     return Response(status_code=204)

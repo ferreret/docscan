@@ -16,6 +16,7 @@ from app.models.page import Page
 from web.api.auth.dependencies import CurrentUser
 from web.api.database import SessionDep
 from web.api.routers._helpers import ensure_batch_mutable, get_batch_for_tenant
+from web.api.routers.ws import broadcast_page_updated
 from web.api.schemas.batch import (
     BatchCreate,
     BatchListItem,
@@ -237,6 +238,12 @@ def reorder_batch(
 
     db.commit()
     db.refresh(batch)
+    broadcast_page_updated(
+        batch_id,
+        0,
+        "reordered",
+        extra={"new_order": list(payload.page_ids)},
+    )
     return batch
 
 
@@ -273,6 +280,7 @@ def delete_pages_from(
         .all()
     )
     deleted_count = len(to_delete)
+    deleted_ids = [p.id for p in to_delete]
     for p in to_delete:
         try:
             storage.delete(p.image_path)
@@ -284,6 +292,15 @@ def delete_pages_from(
     batch.page_count = db.query(Page).filter_by(batch_id=batch_id).count()
     db.commit()
 
+    broadcast_page_updated(
+        batch_id,
+        0,
+        "deleted",
+        extra={
+            "deleted_ids": deleted_ids,
+            "batch_page_count": batch.page_count,
+        },
+    )
     return DeletePagesResult(deleted=deleted_count, batch_page_count=batch.page_count)
 
 

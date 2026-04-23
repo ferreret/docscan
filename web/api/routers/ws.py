@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 
 from app.models.batch import Batch
 from web.api.auth.security import decode_access_token
 from web.api.database import get_session_factory
-from web.api.events import get_event_bus
+from web.api.events import PipelineEvent, PipelineEventBus, get_event_bus
 from web.api.models import User
 
 log = logging.getLogger(__name__)
@@ -64,6 +65,40 @@ async def batch_events(
             await websocket.close()
         except RuntimeError:
             pass
+
+
+def broadcast_page_updated(
+    batch_id: int,
+    page_id: int,
+    action: str,
+    extra: dict[str, Any] | None = None,
+    event_bus: PipelineEventBus | None = None,
+) -> None:
+    """Publica un evento ``page_updated`` para los subscriptores del lote.
+
+    Helper thread-safe: se usa desde endpoints HTTP síncronos (FastAPI los
+    ejecuta en threadpool). Delega en ``PipelineEventBus.publish_from_thread``
+    que internamente usa ``call_soon_threadsafe`` para entregar al loop
+    del WebSocket sin condiciones de carrera.
+
+    Args:
+        batch_id: ID del lote (routing del evento).
+        page_id: ID de la página afectada. Usar ``0`` para acciones que
+            afectan a todo el lote (``reordered``, batch-level ``deleted``).
+        action: ``"rotated"`` | ``"flags"`` | ``"barcode_added"`` |
+            ``"barcode_deleted"`` | ``"deleted"`` | ``"reordered"``.
+        extra: Campos adicionales a incluir en el payload (p.ej.
+            ``{"barcode_id": 42}``).
+        event_bus: Bus opcional (para tests). Si es ``None`` se usa el
+            singleton.
+    """
+    bus = event_bus if event_bus is not None else get_event_bus()
+    payload: dict[str, Any] = {"page_id": page_id, "action": action}
+    if extra:
+        payload.update(extra)
+    bus.publish_from_thread(
+        PipelineEvent(batch_id=batch_id, type="page_updated", payload=payload)
+    )
 
 
 def _authenticate(token: str) -> User | None:
