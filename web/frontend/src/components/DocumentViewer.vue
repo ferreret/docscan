@@ -2,10 +2,21 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import type { BarcodeResponse } from '@/api/types'
 
-const props = defineProps<{
-  imageUrl: string
-  barcodes?: BarcodeResponse[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    imageUrl: string
+    barcodes?: BarcodeResponse[]
+    fields?: Record<string, unknown>
+    showBarcodes?: boolean
+    showFields?: boolean
+  }>(),
+  {
+    barcodes: () => [],
+    fields: () => ({}),
+    showBarcodes: true,
+    showFields: true,
+  },
+)
 
 // --- Estado ---
 const src = ref<string | null>(null)
@@ -140,9 +151,44 @@ const BARCODE_PALETTE = [
   '#8e24aa', '#00acc1', '#d81b60', '#6d4c41',
 ]
 
+// Paleta Catppuccin para fields (decalada respecto a barcodes).
+const FIELD_PALETTE = [
+  '#8839ef', '#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#1e66f5',
+]
+
 function colorFor(idx: number) {
   return BARCODE_PALETTE[idx % BARCODE_PALETTE.length]
 }
+
+function fieldColorFor(idx: number) {
+  return FIELD_PALETTE[idx % FIELD_PALETTE.length]
+}
+
+interface FieldOverlay {
+  name: string
+  x: number
+  y: number
+  w: number
+  h: number
+  value: string
+}
+
+const fieldOverlays = computed<FieldOverlay[]>(() => {
+  if (!props.fields) return []
+  return Object.entries(props.fields).flatMap(([name, v]) => {
+    if (typeof v !== 'object' || v === null) return []
+    const o = v as { x?: unknown; y?: unknown; w?: unknown; h?: unknown; value?: unknown }
+    const x = Number(o.x)
+    const y = Number(o.y)
+    const w = Number(o.w)
+    const h = Number(o.h)
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return []
+    if (!Number.isFinite(w) || !Number.isFinite(h)) return []
+    if (!(w > 0) || !(h > 0)) return []
+    const value = o.value === undefined || o.value === null ? '' : String(o.value)
+    return [{ name, x, y, w, h, value }]
+  })
+})
 
 defineExpose({
   zoomIn: () => zoomBy(1.25),
@@ -178,26 +224,54 @@ defineExpose({
       />
 
       <!-- Overlays de barcodes -->
-      <div
-        v-for="(bc, idx) in barcodes ?? []"
-        :key="bc.id"
-        class="absolute pointer-events-none"
-        :style="{
-          left: bc.pos_x + 'px',
-          top: bc.pos_y + 'px',
-          width: bc.pos_w + 'px',
-          height: bc.pos_h + 'px',
-          border: `2px solid ${colorFor(idx)}`,
-          backgroundColor: colorFor(idx) + '22',
-        }"
-      >
-        <span
-          class="absolute -top-5 left-0 text-[10px] font-semibold px-1.5 py-0.5 rounded text-white whitespace-nowrap"
-          :style="{ backgroundColor: colorFor(idx) }"
+      <template v-if="showBarcodes">
+        <div
+          v-for="(bc, idx) in barcodes ?? []"
+          :key="'bc-' + bc.id"
+          data-barcode-overlay
+          class="absolute pointer-events-none"
+          :style="{
+            left: bc.pos_x + 'px',
+            top: bc.pos_y + 'px',
+            width: bc.pos_w + 'px',
+            height: bc.pos_h + 'px',
+            border: `2px solid ${colorFor(idx)}`,
+            backgroundColor: colorFor(idx) + '22',
+          }"
         >
-          {{ bc.symbology }}: {{ bc.value }}
-        </span>
-      </div>
+          <span
+            class="absolute -top-5 left-0 text-[10px] font-semibold px-1.5 py-0.5 rounded text-white whitespace-nowrap"
+            :style="{ backgroundColor: colorFor(idx) }"
+          >
+            {{ bc.symbology }}: {{ bc.value }}
+          </span>
+        </div>
+      </template>
+
+      <!-- Overlays de fields -->
+      <template v-if="showFields">
+        <div
+          v-for="(f, idx) in fieldOverlays"
+          :key="'field-' + f.name"
+          data-field-overlay
+          class="absolute pointer-events-none"
+          :style="{
+            left: f.x + 'px',
+            top: f.y + 'px',
+            width: f.w + 'px',
+            height: f.h + 'px',
+            border: `2px dashed ${fieldColorFor(idx)}`,
+            backgroundColor: fieldColorFor(idx) + '22',
+          }"
+        >
+          <span
+            class="absolute -top-5 left-0 text-[10px] font-semibold px-1.5 py-0.5 rounded text-white whitespace-nowrap"
+            :style="{ backgroundColor: fieldColorFor(idx) }"
+          >
+            {{ f.value ? `${f.name}: ${f.value}` : f.name }}
+          </span>
+        </div>
+      </template>
     </div>
 
     <!-- Loader -->
