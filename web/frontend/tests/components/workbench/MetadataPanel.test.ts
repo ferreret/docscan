@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import MetadataPanel from '@/components/workbench/MetadataPanel.vue'
+import { useWorkbenchLog } from '@/composables/useWorkbenchLog'
 import type { ApplicationResponse, BatchResponse } from '@/api/types'
 
 function makeApp(batchFields: unknown[] = []): ApplicationResponse {
@@ -23,6 +24,12 @@ function makeBatch(fields: Record<string, unknown> = {}): BatchResponse {
 }
 
 describe('MetadataPanel', () => {
+  beforeEach(() => {
+    const log = useWorkbenchLog()
+    log.clear()
+    log.filterLevel.value = 'debug'
+  })
+
   it('renders empty state when application has no batch_fields', () => {
     const wrapper = mount(MetadataPanel, {
       props: { app: makeApp([]), batch: makeBatch(), saving: false },
@@ -110,5 +117,54 @@ describe('MetadataPanel', () => {
       },
     })
     expect((wrapper.find('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('MetadataPanel — Log tab', () => {
+  beforeEach(() => {
+    const log = useWorkbenchLog()
+    log.clear()
+    log.filterLevel.value = 'debug'
+  })
+
+  const defaultProps = {
+    app: makeApp([]),
+    batch: makeBatch(),
+    saving: false,
+  }
+
+  it('renders "Log" tab (not disabled)', () => {
+    const wrapper = mount(MetadataPanel, { props: defaultProps })
+    const tab = wrapper.find('[data-testid="tab-log"]')
+    expect(tab.exists()).toBe(true)
+    expect(tab.attributes('disabled')).toBeUndefined()
+  })
+
+  it('shows Log tab label without count when no warns/errors', () => {
+    const wrapper = mount(MetadataPanel, { props: defaultProps })
+    const label = wrapper.find('[data-testid="tab-log-label"]')
+    expect(label.text().trim()).toBe('Log')
+  })
+
+  it('shows count in Log tab label when warns/errors present', () => {
+    const log = useWorkbenchLog()
+    log.append('error', 'pipeline', 'boom')
+    log.append('warn', 'script', 'oops')
+    log.append('info', 'pipeline', 'ok') // no cuenta
+    const wrapper = mount(MetadataPanel, { props: defaultProps })
+    const label = wrapper.find('[data-testid="tab-log-label"]')
+    expect(label.text()).toContain('2')
+  })
+
+  it('renders LogPanel when Log tab is active', async () => {
+    const wrapper = mount(MetadataPanel, { props: defaultProps })
+    await wrapper.find('[data-testid="tab-log"]').trigger('click')
+    expect(wrapper.findComponent({ name: 'LogPanel' }).exists()).toBe(true)
+  })
+
+  it('Lote tab remains default active', () => {
+    const wrapper = mount(MetadataPanel, { props: defaultProps })
+    // Por defecto "Lote" activa: no se renderiza LogPanel
+    expect(wrapper.findComponent({ name: 'LogPanel' }).exists()).toBe(false)
   })
 })

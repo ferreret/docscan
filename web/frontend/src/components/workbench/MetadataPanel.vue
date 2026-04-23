@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { ApplicationResponse, BatchResponse } from '@/api/types'
+import LogPanel from './LogPanel.vue'
+import { useWorkbenchLog } from '@/composables/useWorkbenchLog'
 
 interface BatchField {
   label: string
@@ -20,6 +22,11 @@ const emit = defineEmits<{
 }>()
 
 const activeTab = ref<'lote' | 'log'>('lote')
+
+const log = useWorkbenchLog()
+const warnErrorCount = computed(() =>
+  log.entries.value.filter((e) => e.level === 'warn' || e.level === 'error').length,
+)
 
 const fieldDefs = computed<BatchField[]>(() => {
   if (!props.app) return []
@@ -70,21 +77,26 @@ function onSave(): void {
   <section class="h-full flex flex-col bg-mantle border-l border-t border-surface-0">
     <nav class="flex border-b border-surface-0" aria-label="Pestañas de metadatos">
       <button
+        data-testid="tab-lote"
         type="button"
         :aria-pressed="activeTab === 'lote'"
         class="px-3 py-2 text-xs uppercase tracking-wide font-semibold transition-colors"
         :class="activeTab === 'lote' ? 'text-primary border-b-2 border-primary' : 'text-subtext hover:text-text'"
         @click="activeTab = 'lote'"
       >
-        Lote
+        <span data-testid="tab-lote-label">Lote</span>
       </button>
       <button
+        data-testid="tab-log"
         type="button"
-        disabled
-        class="px-3 py-2 text-xs uppercase tracking-wide text-overlay-0 cursor-not-allowed"
-        title="Disponible en Fase 3"
+        :aria-pressed="activeTab === 'log'"
+        class="px-3 py-2 text-xs uppercase tracking-wide font-semibold transition-colors"
+        :class="activeTab === 'log' ? 'text-primary border-b-2 border-primary' : 'text-subtext hover:text-text'"
+        @click="activeTab = 'log'"
       >
-        Log
+        <span data-testid="tab-log-label">
+          Log<span v-if="warnErrorCount > 0" class="text-warning"> ({{ warnErrorCount }})</span>
+        </span>
       </button>
     </nav>
 
@@ -141,6 +153,10 @@ function onSave(): void {
           {{ saving ? 'Guardando…' : 'Guardar' }}
         </button>
       </form>
+    </div>
+
+    <div v-else-if="activeTab === 'log'" class="flex-1 min-h-0">
+      <LogPanel />
     </div>
   </section>
 </template>
