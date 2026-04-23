@@ -41,6 +41,21 @@ const imageUrl = computed(() => store.pageImageUrl(props.batchId, props.page.id)
       :alt="`Página ${page.page_index + 1}`"
       class="w-full aspect-[3/4] object-cover bg-crust"
     />
+    <!-- Badges de estado (sobre la imagen, esquina inferior izquierda) -->
+    <div class="absolute bottom-7 left-1 flex gap-0.5 pointer-events-none">
+      <span
+        v-if="page.is_excluded"
+        data-testid="badge-excluded"
+        class="bg-danger/90 text-base rounded px-1 text-xs leading-tight font-bold"
+        title="Excluida"
+      >⊘</span>
+      <span
+        v-if="page.needs_review"
+        data-testid="badge-review"
+        class="bg-warning/90 text-base rounded px-1 text-xs leading-tight font-bold"
+        title="Revisión manual"
+      >⚐</span>
+    </div>
     <div class="absolute bottom-0 left-0 right-0 bg-crust/90 text-text text-[11px] px-2 py-1 flex justify-between items-center">
       <span class="font-semibold">#{{ page.page_index + 1 }}</span>
       <div class="flex gap-1">

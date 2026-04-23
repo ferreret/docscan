@@ -78,4 +78,49 @@ describe('PageThumbnail', () => {
     })
     expect(wrapper.text()).toContain('✓')
   })
+
+  it('shows excluded badge when is_excluded=true', () => {
+    const wrapper = mount(PageThumbnail, {
+      props: { page: makePage({ is_excluded: true }), batchId: 1, selected: false },
+      global: { stubs: { AuthImage: true } },
+    })
+    expect(wrapper.find('[data-testid="badge-excluded"]').exists()).toBe(true)
+  })
+
+  it('does NOT show excluded badge when is_excluded=false', () => {
+    const wrapper = mount(PageThumbnail, {
+      props: { page: makePage(), batchId: 1, selected: false },
+      global: { stubs: { AuthImage: true } },
+    })
+    expect(wrapper.find('[data-testid="badge-excluded"]').exists()).toBe(false)
+  })
+
+  it('shows review badge when needs_review=true', () => {
+    const wrapper = mount(PageThumbnail, {
+      props: { page: makePage({ needs_review: true }), batchId: 1, selected: false },
+      global: { stubs: { AuthImage: true } },
+    })
+    expect(wrapper.find('[data-testid="badge-review"]').exists()).toBe(true)
+  })
+
+  it('does NOT show review badge when needs_review=false', () => {
+    const wrapper = mount(PageThumbnail, {
+      props: { page: makePage(), batchId: 1, selected: false },
+      global: { stubs: { AuthImage: true } },
+    })
+    expect(wrapper.find('[data-testid="badge-review"]').exists()).toBe(false)
+  })
+
+  it('shows both badges when both flags are true', () => {
+    const wrapper = mount(PageThumbnail, {
+      props: {
+        page: makePage({ is_excluded: true, needs_review: true }),
+        batchId: 1,
+        selected: false,
+      },
+      global: { stubs: { AuthImage: true } },
+    })
+    expect(wrapper.find('[data-testid="badge-excluded"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="badge-review"]').exists()).toBe(true)
+  })
 })
