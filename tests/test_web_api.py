@@ -2489,3 +2489,141 @@ class TestPagesPatch:
         body = r.json()
         assert body["needs_review"] is False
         assert body["review_reason"] == ""
+
+
+class TestPagesRotate:
+    def test_rotate_90_swaps_dimensions(self, client, db_session, storage_dir):
+        import cv2
+        from pathlib import Path
+        from app.models.page import Page
+
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        # Lee dimensiones antes
+        page = db_session.query(Page).filter_by(id=page_id).first()
+        full_path = Path(storage_dir) / page.image_path
+        img_before = cv2.imread(str(full_path))
+        h_before, w_before = img_before.shape[:2]
+
+        r = client.post(
+            f"/api/pages/{page_id}/rotate",
+            json={"turns": 1},
+            headers=headers,
+        )
+        assert r.status_code == 200
+
+        img_after = cv2.imread(str(full_path))
+        h_after, w_after = img_after.shape[:2]
+        assert h_after == w_before
+        assert w_after == h_before
+
+    def test_rotate_180_preserves_dimensions(self, client, db_session, storage_dir):
+        import cv2
+        from pathlib import Path
+        from app.models.page import Page
+
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        page = db_session.query(Page).filter_by(id=page_id).first()
+        full_path = Path(storage_dir) / page.image_path
+        img_before = cv2.imread(str(full_path))
+        h_before, w_before = img_before.shape[:2]
+
+        r = client.post(
+            f"/api/pages/{page_id}/rotate",
+            json={"turns": 2},
+            headers=headers,
+        )
+        assert r.status_code == 200
+
+        img_after = cv2.imread(str(full_path))
+        assert img_after.shape[:2] == (h_before, w_before)
+
+    def test_rotate_adjusts_barcode_coords(self, client, db_session, storage_dir):
+        import cv2
+        from pathlib import Path
+
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        # Leer dimensiones reales de la imagen test
+        page = db_session.query(Page).filter_by(id=page_id).first()
+        full_path = Path(storage_dir) / page.image_path
+        img = cv2.imread(str(full_path))
+        h, w = img.shape[:2]
+
+        # Inyectar barcode con coords conocidas
+        bc = Barcode(
+            page_id=page_id,
+            value="TEST",
+            symbology="CODE128",
+            engine="test",
+            step_id="s1",
+            pos_x=10,
+            pos_y=20,
+            pos_w=30,
+            pos_h=5,
+            quality=0.9,
+            role="",
+        )
+        db_session.add(bc)
+        db_session.commit()
+        bc_id = bc.id
+
+        r = client.post(
+            f"/api/pages/{page_id}/rotate",
+            json={"turns": 1},
+            headers=headers,
+        )
+        assert r.status_code == 200
+
+        db_session.expire_all()
+        bc_after = db_session.query(Barcode).filter_by(id=bc_id).first()
+        # 90° CW: new_x = h - old_y - old_h, new_y = old_x, new_w = old_h, new_h = old_w
+        assert bc_after.pos_x == h - 20 - 5
+        assert bc_after.pos_y == 10
+        assert bc_after.pos_w == 5
+        assert bc_after.pos_h == 30
+
+    def test_rotate_409_when_running(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+
+        r = client.post(
+            f"/api/pages/{page_id}/rotate",
+            json={"turns": 1},
+            headers=headers,
+        )
+        assert r.status_code == 409
+
+    def test_rotate_invalid_turns_422(self, client):
+        """turns fuera de {1,2,3} debe devolver 422."""
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/rotate",
+            json={"turns": 0},
+            headers=headers,
+        )
+        assert r.status_code == 422
+
+        r = client.post(
+            f"/api/pages/{page_id}/rotate",
+            json={"turns": 4},
+            headers=headers,
+        )
+        assert r.status_code == 422

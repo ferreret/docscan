@@ -75,3 +75,9 @@ class PagePatchIn(BaseModel):
     is_excluded: bool | None = None
     needs_review: bool | None = None
     review_reason: str | None = None
+
+
+class RotatePageIn(BaseModel):
+    """Número de rotaciones 90° CW a aplicar."""
+
+    turns: int = 1

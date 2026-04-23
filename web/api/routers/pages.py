@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 
+import cv2
 import pymupdf
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
@@ -22,8 +23,9 @@ from web.api.schemas.page import (
     PagePatchIn,
     PageResponse,
     PageUploadResponse,
+    RotatePageIn,
 )
-from web.api.storage import StorageDep
+from web.api.storage import FilesystemStorage, StorageDep
 
 log = logging.getLogger(__name__)
 
@@ -285,6 +287,74 @@ def patch_page(
             page.review_reason = ""
     if payload.review_reason is not None:
         page.review_reason = payload.review_reason
+
+    db.commit()
+    db.refresh(page)
+    return page
+
+
+@router.post("/pages/{page_id}/rotate", response_model=PageResponse)
+def rotate_page(
+    page_id: int,
+    payload: RotatePageIn,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+):
+    """Rota la imagen N×90° CW (destructivo) y actualiza coords de barcodes.
+
+    Devuelve 404 si la página no existe o no pertenece al tenant.
+    Devuelve 409 si el lote está en ejecución (``running`` o ``transferring``).
+    Devuelve 422 si ``turns`` no está en {1, 2, 3}.
+    """
+    if payload.turns not in (1, 2, 3):
+        raise HTTPException(
+            status_code=422,
+            detail="turns debe ser 1, 2 o 3",
+        )
+
+    page = _get_page_for_user(page_id, user.tenant_id, db)
+    if page.batch.state in ("running", "transferring"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No se puede rotar mientras el lote está en ejecución",
+        )
+
+    # Resolver ruta absoluta de la imagen.
+    if isinstance(storage, FilesystemStorage):
+        abs_path = str(storage.absolute_path(page.image_path))
+        img = cv2.imread(abs_path, cv2.IMREAD_UNCHANGED)
+        if img is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No se pudo leer la imagen",
+            )
+        h, w = img.shape[:2]
+        for _ in range(payload.turns):
+            img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+        if not cv2.imwrite(abs_path, img):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No se pudo escribir la imagen",
+            )
+    else:
+        # Backend no-filesystem (p.ej. MinIO): leer bytes, decodificar, rotar,
+        # re-codificar y sobrescribir. No implementado todavía.
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Rotación sólo soportada en backend filesystem",
+        )
+
+    # Ajustar coords de barcodes N veces.
+    cur_h, cur_w = h, w
+    for _ in range(payload.turns):
+        for bc in page.barcodes:
+            old_x, old_y, old_w, old_h = bc.pos_x, bc.pos_y, bc.pos_w, bc.pos_h
+            bc.pos_x = cur_h - old_y - old_h
+            bc.pos_y = old_x
+            bc.pos_w = old_h
+            bc.pos_h = old_w
+        cur_h, cur_w = cur_w, cur_h
 
     db.commit()
     db.refresh(page)
