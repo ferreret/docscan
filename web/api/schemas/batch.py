@@ -72,3 +72,10 @@ class ReorderBatchIn(BaseModel):
     """Nuevo orden de páginas del lote (lista de page_ids en orden deseado)."""
 
     page_ids: list[int]
+
+
+class DeletePagesResult(BaseModel):
+    """Resultado de una eliminación en bulk de páginas."""
+
+    deleted: int
+    batch_page_count: int

@@ -21,6 +21,7 @@ from web.api.schemas.batch import (
     BatchListItem,
     BatchResponse,
     BatchUpdate,
+    DeletePagesResult,
     ReorderBatchIn,
 )
 from web.api.schemas.pagination import (
@@ -237,7 +238,10 @@ def reorder_batch(
     return batch
 
 
-@router.delete("/{batch_id}/pages/after/{page_id}")
+@router.delete(
+    "/{batch_id}/pages/after/{page_id}",
+    response_model=DeletePagesResult,
+)
 def delete_pages_from(
     batch_id: int,
     page_id: int,
@@ -278,7 +282,7 @@ def delete_pages_from(
     batch.page_count = db.query(Page).filter_by(batch_id=batch_id).count()
     db.commit()
 
-    return {"deleted": deleted_count, "batch_page_count": batch.page_count}
+    return DeletePagesResult(deleted=deleted_count, batch_page_count=batch.page_count)
 
 
 def _safe_filename(name: str, fallback: str) -> str:
