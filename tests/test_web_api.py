@@ -2441,3 +2441,51 @@ class TestPagesPatch:
             headers=headers,
         )
         assert r.status_code == 409
+
+    def test_patch_empty_body_is_noop(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+        r = client.patch(f"/api/pages/{page_id}", json={}, headers=headers)
+        assert r.status_code == 200
+        assert r.json()["is_excluded"] is False
+        assert r.json()["needs_review"] is False
+
+    def test_patch_review_reason_only(self, client):
+        """review_reason can be sent alone without needs_review."""
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+        r = client.patch(
+            f"/api/pages/{page_id}",
+            json={"review_reason": "only reason"},
+            headers=headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["review_reason"] == "only reason"
+
+    def test_patch_dismiss_review_clears_reason(self, client):
+        """Setting needs_review=False auto-clears review_reason."""
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        # Primero marcar para revisión con razón
+        r = client.patch(
+            f"/api/pages/{page_id}",
+            json={"needs_review": True, "review_reason": "check"},
+            headers=headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["review_reason"] == "check"
+
+        # Ahora dismiss la revisión
+        r = client.patch(
+            f"/api/pages/{page_id}",
+            json={"needs_review": False},
+            headers=headers,
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["needs_review"] is False
+        assert body["review_reason"] == ""

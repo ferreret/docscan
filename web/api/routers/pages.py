@@ -281,6 +281,8 @@ def patch_page(
         page.is_excluded = payload.is_excluded
     if payload.needs_review is not None:
         page.needs_review = payload.needs_review
+        if not payload.needs_review:
+            page.review_reason = ""
     if payload.review_reason is not None:
         page.review_reason = payload.review_reason
 
