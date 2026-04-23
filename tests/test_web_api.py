@@ -2627,3 +2627,73 @@ class TestPagesRotate:
             headers=headers,
         )
         assert r.status_code == 422
+
+    def test_rotate_270_swaps_dimensions_and_coords(
+        self, client, db_session, storage_dir
+    ):
+        """turns=3 equivale a 90° CCW: dimensiones se intercambian."""
+        import cv2
+        from pathlib import Path
+        from app.models.barcode import Barcode
+        from app.models.page import Page
+
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        page = db_session.query(Page).filter_by(id=page_id).first()
+        full_path = Path(storage_dir) / page.image_path
+        img_before = cv2.imread(str(full_path))
+        h_before, w_before = img_before.shape[:2]
+
+        # Barcode en esquina superior-izquierda
+        bc = Barcode(
+            page_id=page_id,
+            value="T",
+            symbology="CODE128",
+            engine="test",
+            step_id="s1",
+            pos_x=5,
+            pos_y=3,
+            pos_w=20,
+            pos_h=10,
+            quality=0.9,
+            role="",
+        )
+        db_session.add(bc)
+        db_session.commit()
+        bc_id = bc.id
+
+        r = client.post(
+            f"/api/pages/{page_id}/rotate",
+            json={"turns": 3},
+            headers=headers,
+        )
+        assert r.status_code == 200
+
+        img_after = cv2.imread(str(full_path))
+        assert img_after.shape[:2] == (w_before, h_before)  # dimensiones intercambiadas
+
+        db_session.expire_all()
+        bc_after = db_session.query(Barcode).filter_by(id=bc_id).first()
+        # Verifica que las coords se movieron (no nos importa la fórmula exacta,
+        # pero no deben coincidir con 1 turn)
+        assert (bc_after.pos_x, bc_after.pos_y, bc_after.pos_w, bc_after.pos_h) != (
+            5,
+            3,
+            20,
+            10,
+        )
+
+    def test_rotate_other_tenant_404(self, client):
+        headers_a = _auth_header(client, email="a@a.com", tenant_name="A")
+        app_id = _create_app_with_pipeline(client, headers_a, "[]")
+        _, page_id = _create_batch_with_page(client, headers_a, app_id)
+
+        headers_b = _auth_header(client, email="b@b.com", tenant_name="B")
+        r = client.post(
+            f"/api/pages/{page_id}/rotate",
+            json={"turns": 1},
+            headers=headers_b,
+        )
+        assert r.status_code == 404

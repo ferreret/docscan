@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BarcodeResponse(BaseModel):
@@ -80,4 +80,4 @@ class PagePatchIn(BaseModel):
 class RotatePageIn(BaseModel):
     """Número de rotaciones 90° CW a aplicar."""
 
-    turns: int = 1
+    turns: int = Field(default=1, ge=1, le=3)

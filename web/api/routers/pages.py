@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models.batch import Batch
 from app.models.page import Page
+from app.services.image_lib import ImageLib
 from web.api.auth.dependencies import CurrentUser
 from web.api.config import get_web_settings
 from web.api.database import SessionDep
@@ -305,14 +306,13 @@ def rotate_page(
 
     Devuelve 404 si la página no existe o no pertenece al tenant.
     Devuelve 409 si el lote está en ejecución (``running`` o ``transferring``).
-    Devuelve 422 si ``turns`` no está en {1, 2, 3}.
-    """
-    if payload.turns not in (1, 2, 3):
-        raise HTTPException(
-            status_code=422,
-            detail="turns debe ser 1, 2 o 3",
-        )
+    Devuelve 422 si ``turns`` no está en {1, 2, 3} (validado por Pydantic).
 
+    Orden de operaciones para mitigar atomicidad parcial: primero se calculan
+    y persisten (flush) las nuevas coords de barcodes en BD; después se
+    escribe la imagen rotada; finalmente se hace commit. Si el flush falla,
+    la imagen queda intacta.
+    """
     page = _get_page_for_user(page_id, user.tenant_id, db)
     if page.batch.state in ("running", "transferring"):
         raise HTTPException(
@@ -320,32 +320,27 @@ def rotate_page(
             detail="No se puede rotar mientras el lote está en ejecución",
         )
 
-    # Resolver ruta absoluta de la imagen.
-    if isinstance(storage, FilesystemStorage):
-        abs_path = str(storage.absolute_path(page.image_path))
-        img = cv2.imread(abs_path, cv2.IMREAD_UNCHANGED)
-        if img is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No se pudo leer la imagen",
-            )
-        h, w = img.shape[:2]
-        for _ in range(payload.turns):
-            img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
-        if not cv2.imwrite(abs_path, img):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No se pudo escribir la imagen",
-            )
-    else:
-        # Backend no-filesystem (p.ej. MinIO): leer bytes, decodificar, rotar,
-        # re-codificar y sobrescribir. No implementado todavía.
+    # Sólo backend filesystem soporta rotación actualmente.
+    if not isinstance(storage, FilesystemStorage):
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             detail="Rotación sólo soportada en backend filesystem",
         )
 
-    # Ajustar coords de barcodes N veces.
+    abs_path = str(storage.absolute_path(page.image_path))
+    img = cv2.imread(abs_path, cv2.IMREAD_UNCHANGED)
+    if img is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo leer la imagen",
+        )
+    h, w = img.shape[:2]
+
+    # Rotar en memoria.
+    for _ in range(payload.turns):
+        img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+
+    # 1. Calcular y aplicar coords barcodes (en memoria — pendiente flush).
     cur_h, cur_w = h, w
     for _ in range(payload.turns):
         for bc in page.barcodes:
@@ -354,8 +349,30 @@ def rotate_page(
             bc.pos_y = old_x
             bc.pos_w = old_h
             bc.pos_h = old_w
+        # Tras cada 90° CW, H y W se intercambian.
         cur_h, cur_w = cur_w, cur_h
 
+    # 2. Flush a BD sin commit — si falla, imagen intacta.
+    try:
+        db.flush()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error persistiendo coords de barcodes",
+        ) from e
+
+    # 3. Escribir imagen rotada usando ImageLib (preserva DPI y calidad).
+    try:
+        ImageLib.save(img, abs_path)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo escribir la imagen",
+        ) from e
+
+    # 4. Commit final.
     db.commit()
     db.refresh(page)
     return page
