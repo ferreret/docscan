@@ -2375,3 +2375,69 @@ class TestRunnersState:
         # Tras fallar _execute_transfer, el finally debe dejar error_read.
         r = client.get(f"/api/batches/{batch_id}", headers=headers)
         assert r.json()["state"] == "error_read"
+
+
+# ------------------------------------------------------------------
+# PATCH /api/pages/{page_id} — toggle de flags
+# ------------------------------------------------------------------
+
+
+class TestPagesPatch:
+    def test_toggle_is_excluded(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.patch(
+            f"/api/pages/{page_id}",
+            json={"is_excluded": True},
+            headers=headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["is_excluded"] is True
+
+    def test_toggle_needs_review_with_reason(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.patch(
+            f"/api/pages/{page_id}",
+            json={"needs_review": True, "review_reason": "check manually"},
+            headers=headers,
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["needs_review"] is True
+        assert body["review_reason"] == "check manually"
+
+    def test_patch_other_tenant_404(self, client, db_session):
+        headers_a = _auth_header(client, email="a@a.com", tenant_name="A")
+        app_id = _create_app_with_pipeline(client, headers_a, "[]")
+        _, page_id = _create_batch_with_page(client, headers_a, app_id)
+
+        headers_b = _auth_header(client, email="b@b.com", tenant_name="B")
+        r = client.patch(
+            f"/api/pages/{page_id}",
+            json={"is_excluded": True},
+            headers=headers_b,
+        )
+        assert r.status_code == 404
+
+    def test_patch_409_when_running(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+
+        r = client.patch(
+            f"/api/pages/{page_id}",
+            json={"is_excluded": True},
+            headers=headers,
+        )
+        assert r.status_code == 409

@@ -67,3 +67,11 @@ class PageUploadResponse(BaseModel):
 
     created: list[PageResponse]
     batch_page_count: int
+
+
+class PagePatchIn(BaseModel):
+    """Patch parcial de flags de página."""
+
+    is_excluded: bool | None = None
+    needs_review: bool | None = None
+    review_reason: str | None = None

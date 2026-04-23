@@ -19,6 +19,7 @@ from web.api.database import SessionDep
 from web.api.routers._helpers import get_batch_for_tenant
 from web.api.schemas.page import (
     PageListItem,
+    PagePatchIn,
     PageResponse,
     PageUploadResponse,
 )
@@ -53,6 +54,28 @@ def _get_page_in_batch_or_404(
         select(Page).where(
             Page.id == page_id,
             Page.batch_id == batch_id,
+        )
+    ).scalar_one_or_none()
+    if not page:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Página no encontrada",
+        )
+    return page
+
+
+def _get_page_for_user(page_id: int, tenant_id: int, db: Session) -> Page:
+    """Obtiene una página del tenant actual (join Page → Batch) o lanza 404.
+
+    Helper independiente del batch_id en URL: valida tenant uniendo
+    ``Page`` con ``Batch`` y filtrando por ``Batch.tenant_id``.
+    """
+    page = db.execute(
+        select(Page)
+        .join(Batch, Page.batch_id == Batch.id)
+        .where(
+            Page.id == page_id,
+            Batch.tenant_id == tenant_id,
         )
     ).scalar_one_or_none()
     if not page:
@@ -232,6 +255,38 @@ def get_page_image(
         content=content,
         media_type=_MEDIA_TYPES.get(ext, "application/octet-stream"),
     )
+
+
+@router.patch("/pages/{page_id}", response_model=PageResponse)
+def patch_page(
+    page_id: int,
+    payload: PagePatchIn,
+    user: CurrentUser,
+    db: SessionDep,
+):
+    """Actualiza flags de una página (is_excluded, needs_review, review_reason).
+
+    Devuelve 404 si la página no existe o no pertenece al tenant.
+    Devuelve 409 si el lote está en ejecución (``running`` o ``transferring``).
+    """
+    page = _get_page_for_user(page_id, user.tenant_id, db)
+    batch = page.batch
+    if batch.state in ("running", "transferring"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No se pueden editar páginas mientras el lote está en ejecución",
+        )
+
+    if payload.is_excluded is not None:
+        page.is_excluded = payload.is_excluded
+    if payload.needs_review is not None:
+        page.needs_review = payload.needs_review
+    if payload.review_reason is not None:
+        page.review_reason = payload.review_reason
+
+    db.commit()
+    db.refresh(page)
+    return page
 
 
 @router.delete(
