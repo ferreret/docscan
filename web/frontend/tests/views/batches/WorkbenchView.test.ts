@@ -29,6 +29,10 @@ describe('WorkbenchView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
+    // Aislamiento del log global entre tests: evita fugas de entradas.
+    const log = useWorkbenchLog()
+    log.clear()
+    log.filterLevel.value = 'debug'
   })
 
   it('mounts and calls store.fetchOne + fetchPages on the route batchId', async () => {

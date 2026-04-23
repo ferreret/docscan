@@ -61,6 +61,10 @@ const deleteBarcodeTarget = ref<{ id: number; value: string } | null>(null)
 
 const viewerRef = useTemplateRef<InstanceType<typeof DocumentViewer>>('viewerRef')
 
+// WebSocket activo (pipeline o transferencia). Se cierra en onUnmounted para
+// evitar que handlers tardíos corrompan el estado de otras vistas.
+const activeWs = ref<WebSocket | null>(null)
+
 const sortedPages = computed(() => [...(store.pages ?? [])].sort((a, b) => a.page_index - b.page_index))
 const currentPageListItem = computed<PageListItem | undefined>(() => sortedPages.value[selectedPageIndex.value])
 
@@ -110,19 +114,11 @@ const contextMenuIsExcluded = computed(() => {
 const contextMenuNeedsReview = computed(() => !!contextMenuPage.value?.needs_review)
 
 const counters = computed(() => {
-  let withBarcode = 0
-  let separators = 0
-  let needsReview = 0
-  for (const p of sortedPages.value) {
-    if (p.needs_review) needsReview++
-  }
-  if (currentPage.value?.barcodes?.length) {
-    withBarcode = sortedPages.value.length // approximation: per-page barcode count needs lazy fetch
-  }
-  if (currentPage.value?.barcodes?.some((b) => b.role === 'separator')) {
-    separators = 1
-  }
-  return { total: sortedPages.value.length, withBarcode, separators, needsReview }
+  const total = sortedPages.value.length
+  const needsReview = sortedPages.value.filter((p) => p.needs_review).length
+  // withBarcode y separators requieren datos de barcodes de todas las páginas
+  // que hoy no están cargados; se quedan en 0 hasta que el backend lo sirva.
+  return { total, withBarcode: 0, separators: 0, needsReview }
 })
 
 watch(
@@ -164,6 +160,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
+  // Cierra cualquier WebSocket activo para que handlers tardíos no muten estado
+  // de otras vistas tras navegar fuera del Workbench.
+  activeWs.value?.close()
+  activeWs.value = null
 })
 
 function onKeydown(e: KeyboardEvent): void {
@@ -202,7 +202,10 @@ async function onRunPipeline(): Promise<void> {
   error.value = null
   progress.value = null
   const ws = openWs()
+  activeWs.value = ws
   ws.onmessage = async (msg) => {
+    // Early-return si el componente se desmontó o se abrió otra WS.
+    if (activeWs.value !== ws) return
     const event = JSON.parse(msg.data)
     log.appendFromEvent(event)
     if (event.type === 'pipeline_started') {
@@ -215,6 +218,7 @@ async function onRunPipeline(): Promise<void> {
       running.value = false
       progress.value = null
       ws.close()
+      if (activeWs.value === ws) activeWs.value = null
       toast[event.any_error ? 'error' : 'success'](
         event.any_error ? 'Pipeline con errores' : 'Pipeline completado',
       )
@@ -226,6 +230,7 @@ async function onRunPipeline(): Promise<void> {
       running.value = false
       progress.value = null
       ws.close()
+      if (activeWs.value === ws) activeWs.value = null
       toast.error(error.value)
     } else if (event.type === 'page_updated') {
       // Refrescar datos del lote y de la página afectada
@@ -247,6 +252,7 @@ async function onRunPipeline(): Promise<void> {
     error.value = e instanceof ApiError ? e.detail : 'Error al ejecutar pipeline'
     running.value = false
     ws.close()
+    if (activeWs.value === ws) activeWs.value = null
   }
 }
 
@@ -257,7 +263,10 @@ async function onTransfer(): Promise<void> {
   transferMessage.value = null
   transferProgress.value = null
   const ws = openWs()
+  activeWs.value = ws
   ws.onmessage = async (msg) => {
+    // Early-return si el componente se desmontó o se abrió otra WS.
+    if (activeWs.value !== ws) return
     const event = JSON.parse(msg.data)
     log.appendFromEvent(event)
     if (event.type === 'transfer_started') {
@@ -267,6 +276,7 @@ async function onTransfer(): Promise<void> {
     } else if (event.type === 'transfer_completed') {
       transferring.value = false
       ws.close()
+      if (activeWs.value === ws) activeWs.value = null
       transferStatus.value = event.success ? 'completed' : 'error'
       transferMessage.value = event.success
         ? (event.output_path ? `Transferencia → ${event.output_path}` : 'Transferencia completada')
@@ -280,6 +290,7 @@ async function onTransfer(): Promise<void> {
       transferMessage.value = `Error: ${event.error}`
       transferProgress.value = null
       ws.close()
+      if (activeWs.value === ws) activeWs.value = null
       toast.error(transferMessage.value)
     } else if (event.type === 'transfer_aborted') {
       transferring.value = false
@@ -287,6 +298,7 @@ async function onTransfer(): Promise<void> {
       transferMessage.value = `Transferencia abortada: ${event.reason}`
       transferProgress.value = null
       ws.close()
+      if (activeWs.value === ws) activeWs.value = null
       toast.error(transferMessage.value)
     }
   }
@@ -309,6 +321,7 @@ async function onTransfer(): Promise<void> {
     transferStatus.value = 'error'
     transferMessage.value = e instanceof Error ? e.message : 'Error al iniciar transferencia'
     ws.close()
+    if (activeWs.value === ws) activeWs.value = null
     toast.error(transferMessage.value!)
   }
 }
@@ -433,17 +446,14 @@ async function onContextMenuAction(
 }
 
 async function onReorder(newOrder: number[]): Promise<void> {
-  const originalOrder = sortedPages.value.map((p) => p.id)
   try {
     await pageActions.reorderPages(batchId.value, newOrder)
     log.append('info', 'user', 'Orden de páginas actualizado')
     await refreshPages()
   } catch (e) {
     handleApiError(e, 'Error al reordenar')
-    // Rollback: volvemos a cargar desde el backend (orden original)
+    // Rollback: refetch desde el backend recupera el orden auténtico.
     await store.fetchPages(batchId.value)
-    // (originalOrder se usa implícitamente: al volver a cargar recuperamos ese estado)
-    void originalOrder
   }
 }
 
