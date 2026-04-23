@@ -2987,3 +2987,96 @@ class TestBatchesReorder:
             headers=headers_b,
         )
         assert r.status_code == 404
+
+
+class TestBatchesDeleteAfter:
+    def _make_batch_with_n_pages(self, client, headers, n=5):
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, first_page = _create_batch_with_page(client, headers, app_id)
+        page_ids = [first_page]
+        for _ in range(n - 1):
+            files = [("files", ("p.png", _make_png_bytes(), "image/png"))]
+            r = client.post(
+                f"/api/batches/{batch_id}/pages",
+                files=files,
+                headers=headers,
+            )
+            page_ids.extend(p["id"] for p in r.json()["created"])
+        return batch_id, page_ids
+
+    def test_delete_from_middle(self, client):
+        headers = _auth_header(client)
+        batch_id, ids = self._make_batch_with_n_pages(client, headers, 5)
+
+        # Eliminar desde la posición 2 (tercera página): se borran 3 (índices 2,3,4)
+        r = client.delete(
+            f"/api/batches/{batch_id}/pages/after/{ids[2]}",
+            headers=headers,
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert body["deleted"] == 3
+        assert body["batch_page_count"] == 2
+
+    def test_delete_from_first(self, client):
+        """Borrar desde la primera página elimina todas."""
+        headers = _auth_header(client)
+        batch_id, ids = self._make_batch_with_n_pages(client, headers, 3)
+
+        r = client.delete(
+            f"/api/batches/{batch_id}/pages/after/{ids[0]}",
+            headers=headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["deleted"] == 3
+        assert r.json()["batch_page_count"] == 0
+
+    def test_delete_from_last(self, client):
+        """Borrar desde la última página solo la elimina a ella."""
+        headers = _auth_header(client)
+        batch_id, ids = self._make_batch_with_n_pages(client, headers, 3)
+
+        r = client.delete(
+            f"/api/batches/{batch_id}/pages/after/{ids[-1]}",
+            headers=headers,
+        )
+        assert r.status_code == 200
+        assert r.json()["deleted"] == 1
+        assert r.json()["batch_page_count"] == 2
+
+    def test_delete_after_page_not_in_batch_404(self, client):
+        headers = _auth_header(client)
+        batch_id, _ = self._make_batch_with_n_pages(client, headers, 2)
+
+        r = client.delete(
+            f"/api/batches/{batch_id}/pages/after/999999",
+            headers=headers,
+        )
+        assert r.status_code == 404
+
+    def test_delete_after_409_when_running(self, client, db_session):
+        headers = _auth_header(client)
+        batch_id, ids = self._make_batch_with_n_pages(client, headers, 3)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+
+        r = client.delete(
+            f"/api/batches/{batch_id}/pages/after/{ids[1]}",
+            headers=headers,
+        )
+        assert r.status_code == 409
+
+    def test_delete_after_other_tenant_404(self, client):
+        headers_a = _auth_header(client, email="a@a.com", tenant_name="A")
+        batch_id, ids = self._make_batch_with_n_pages(client, headers_a, 2)
+
+        headers_b = _auth_header(client, email="b@b.com", tenant_name="B")
+        r = client.delete(
+            f"/api/batches/{batch_id}/pages/after/{ids[0]}",
+            headers=headers_b,
+        )
+        assert r.status_code == 404

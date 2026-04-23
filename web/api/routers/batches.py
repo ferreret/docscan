@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
+log = logging.getLogger(__name__)
 
 from app.models.application import Application
 from app.models.batch import Batch
@@ -232,6 +235,50 @@ def reorder_batch(
     db.commit()
     db.refresh(batch)
     return batch
+
+
+@router.delete("/{batch_id}/pages/after/{page_id}")
+def delete_pages_from(
+    batch_id: int,
+    page_id: int,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+):
+    """Elimina ``page_id`` y todas las páginas con ``page_index >= anchor.page_index``.
+
+    - 404 si el lote no es del tenant.
+    - 409 si el lote está en ejecución.
+    - 404 si la página no pertenece al lote.
+    """
+    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+    ensure_batch_mutable(batch, action="eliminar páginas")
+
+    anchor = db.query(Page).filter_by(id=page_id, batch_id=batch_id).first()
+    if anchor is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Página no encontrada en este lote",
+        )
+
+    to_delete = (
+        db.query(Page)
+        .filter(Page.batch_id == batch_id, Page.page_index >= anchor.page_index)
+        .all()
+    )
+    deleted_count = len(to_delete)
+    for p in to_delete:
+        try:
+            storage.delete(p.image_path)
+        except Exception:
+            log.warning("No se pudo borrar fichero %s", p.image_path)
+        db.delete(p)
+
+    db.flush()
+    batch.page_count = db.query(Page).filter_by(batch_id=batch_id).count()
+    db.commit()
+
+    return {"deleted": deleted_count, "batch_page_count": batch.page_count}
 
 
 def _safe_filename(name: str, fallback: str) -> str:
