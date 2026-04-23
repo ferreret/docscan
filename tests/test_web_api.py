@@ -2798,3 +2798,102 @@ class TestPagesBarcodes:
         )
         assert r.status_code == 201
         assert r.json()["value"] == "ABC"
+
+    def test_delete_barcode(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        # Crear barcode
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "X", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        bc_id = r.json()["id"]
+
+        # Borrar
+        r = client.delete(
+            f"/api/pages/{page_id}/barcodes/{bc_id}",
+            headers=headers,
+        )
+        assert r.status_code == 204
+
+        # Verificar que ya no existe en BD
+        from app.models.barcode import Barcode
+
+        assert db_session.query(Barcode).filter_by(id=bc_id).first() is None
+
+    def test_delete_barcode_from_wrong_page_404(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id_a = _create_batch_with_page(client, headers, app_id)
+        _, page_id_b = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id_a}/barcodes",
+            json={"value": "X", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        bc_id = r.json()["id"]
+
+        # Intentar borrar desde otra página del mismo tenant
+        r = client.delete(
+            f"/api/pages/{page_id_b}/barcodes/{bc_id}",
+            headers=headers,
+        )
+        assert r.status_code == 404
+
+    def test_delete_barcode_nonexistent_404(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.delete(
+            f"/api/pages/{page_id}/barcodes/999999",
+            headers=headers,
+        )
+        assert r.status_code == 404
+
+    def test_delete_barcode_409_when_running(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "X", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        bc_id = r.json()["id"]
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+
+        r = client.delete(
+            f"/api/pages/{page_id}/barcodes/{bc_id}",
+            headers=headers,
+        )
+        assert r.status_code == 409
+
+    def test_delete_barcode_other_tenant_404(self, client):
+        headers_a = _auth_header(client, email="a@a.com", tenant_name="A")
+        app_id = _create_app_with_pipeline(client, headers_a, "[]")
+        _, page_id = _create_batch_with_page(client, headers_a, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "X", "symbology": "MANUAL"},
+            headers=headers_a,
+        )
+        bc_id = r.json()["id"]
+
+        headers_b = _auth_header(client, email="b@b.com", tenant_name="B")
+        r = client.delete(
+            f"/api/pages/{page_id}/barcodes/{bc_id}",
+            headers=headers_b,
+        )
+        assert r.status_code == 404

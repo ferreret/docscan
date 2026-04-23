@@ -434,3 +434,33 @@ def add_manual_barcode(
     db.commit()
     db.refresh(bc)
     return bc
+
+
+@router.delete(
+    "/pages/{page_id}/barcodes/{barcode_id}",
+    status_code=204,
+)
+def delete_barcode(
+    page_id: int,
+    barcode_id: int,
+    user: CurrentUser,
+    db: SessionDep,
+):
+    """Elimina un barcode de la página.
+
+    Devuelve 404 si la página no es del tenant del usuario, o si el barcode
+    no pertenece a la página. Devuelve 409 si el lote está en ejecución.
+    """
+    page = _get_page_for_user(page_id, user.tenant_id, db)
+    ensure_batch_mutable(page.batch, action="eliminar barcode")
+
+    bc = next((b for b in page.barcodes if b.id == barcode_id), None)
+    if bc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Barcode no encontrado en esta página",
+        )
+
+    db.delete(bc)
+    db.commit()
+    return Response(status_code=204)
