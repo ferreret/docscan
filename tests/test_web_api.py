@@ -2697,3 +2697,79 @@ class TestPagesRotate:
             headers=headers_b,
         )
         assert r.status_code == 404
+
+
+class TestPagesBarcodes:
+    def test_add_manual_barcode(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "ABC123", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        assert r.status_code == 201
+        bc = r.json()
+        assert bc["value"] == "ABC123"
+        assert bc["symbology"] == "MANUAL"
+        assert bc["engine"] == "manual"
+        assert bc["step_id"] == "manual"
+        assert bc["pos_x"] == 0 and bc["pos_y"] == 0
+
+    def test_add_barcode_with_custom_symbology(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "XYZ", "symbology": "QR"},
+            headers=headers,
+        )
+        assert r.status_code == 201
+        assert r.json()["symbology"] == "QR"
+
+    def test_add_barcode_empty_value_422(self, client):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        _, page_id = _create_batch_with_page(client, headers, app_id)
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        assert r.status_code == 422
+
+    def test_add_barcode_409_when_running(self, client, db_session):
+        headers = _auth_header(client)
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, page_id = _create_batch_with_page(client, headers, app_id)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "X", "symbology": "MANUAL"},
+            headers=headers,
+        )
+        assert r.status_code == 409
+
+    def test_add_barcode_other_tenant_404(self, client):
+        headers_a = _auth_header(client, email="a@a.com", tenant_name="A")
+        app_id = _create_app_with_pipeline(client, headers_a, "[]")
+        _, page_id = _create_batch_with_page(client, headers_a, app_id)
+
+        headers_b = _auth_header(client, email="b@b.com", tenant_name="B")
+        r = client.post(
+            f"/api/pages/{page_id}/barcodes",
+            json={"value": "X", "symbology": "MANUAL"},
+            headers=headers_b,
+        )
+        assert r.status_code == 404

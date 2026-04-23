@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.barcode import Barcode
 from app.models.batch import Batch
 from app.models.page import Page
 from app.services.image_lib import ImageLib
@@ -20,6 +21,8 @@ from web.api.config import get_web_settings
 from web.api.database import SessionDep
 from web.api.routers._helpers import get_batch_for_tenant
 from web.api.schemas.page import (
+    AddBarcodeIn,
+    BarcodeResponse,
     PageListItem,
     PagePatchIn,
     PageResponse,
@@ -401,3 +404,46 @@ def delete_page(
 
     if image_path:
         storage.delete(image_path)
+
+
+@router.post(
+    "/pages/{page_id}/barcodes",
+    response_model=BarcodeResponse,
+    status_code=201,
+)
+def add_manual_barcode(
+    page_id: int,
+    payload: AddBarcodeIn,
+    user: CurrentUser,
+    db: SessionDep,
+):
+    """Añade un barcode manual a la página.
+
+    Devuelve 404 si la página no existe o no pertenece al tenant.
+    Devuelve 409 si el lote está en ejecución (``running`` o ``transferring``).
+    Devuelve 422 si el value está vacío (validado por Pydantic).
+    """
+    page = _get_page_for_user(page_id, user.tenant_id, db)
+    if page.batch.state in ("running", "transferring"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No se pueden añadir barcodes mientras el lote está en ejecución",
+        )
+
+    bc = Barcode(
+        page_id=page.id,
+        value=payload.value,
+        symbology=payload.symbology or "MANUAL",
+        engine="manual",
+        step_id="manual",
+        quality=0.0,
+        pos_x=0,
+        pos_y=0,
+        pos_w=0,
+        pos_h=0,
+        role="",
+    )
+    db.add(bc)
+    db.commit()
+    db.refresh(bc)
+    return bc

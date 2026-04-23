@@ -81,3 +81,10 @@ class RotatePageIn(BaseModel):
     """Número de rotaciones 90° CW a aplicar."""
 
     turns: int = Field(default=1, ge=1, le=3)
+
+
+class AddBarcodeIn(BaseModel):
+    """Payload para añadir un barcode manual."""
+
+    value: str = Field(min_length=1)
+    symbology: str = "MANUAL"
