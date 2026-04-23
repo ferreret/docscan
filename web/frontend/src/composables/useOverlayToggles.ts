@@ -27,10 +27,14 @@ export function useOverlayToggles() {
   const showFields = ref(stored.fields)
 
   watch([showBarcodes, showFields], ([b, f]) => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ barcodes: b, fields: f }),
-    )
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ barcodes: b, fields: f }),
+      )
+    } catch {
+      // localStorage puede no estar disponible (Safari private mode, quota)
+    }
   })
 
   return { showBarcodes, showFields }
