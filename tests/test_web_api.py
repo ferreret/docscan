@@ -2278,53 +2278,71 @@ class TestRunnersState:
         r = client.post(f"/api/batches/{batch_id}/run", headers=headers)
         assert r.status_code == 202
 
-        # Tras run (síncrono en tests via BackgroundTasks): "read" o "error_read"
+        # Tras run (síncrono en tests via BackgroundTasks) con pipeline vacío
+        # y página válida: el estado terminal DEBE ser "read" exactamente.
+        # Aceptar "error_read" aquí enmascararía regresiones que hagan
+        # fallar siempre el pipeline.
         r = client.get(f"/api/batches/{batch_id}", headers=headers)
-        assert r.json()["state"] in ("read", "error_read")
+        assert r.json()["state"] == "read"
 
     def test_pipeline_finally_resets_running_state(
         self, client, db_session, monkeypatch
     ):
-        """Si el runner queda colgado en running, el finally lo fuerza a error_read."""
+        """Si el runner queda colgado en running, el finally lo fuerza a error_read.
+
+        Ejerce la ruta completa HTTP + BackgroundTasks: parchea
+        ``_execute_pipeline`` para que lance excepción y verifica, tras el
+        POST al endpoint, que el lote acaba en ``error_read``.
+
+        Nota: ``run_pipeline_for_batch`` re-propaga la excepción tras marcar
+        ``error_read``, por lo que el BackgroundTask de Starlette la
+        levanta durante la finalización del response. Envolvemos el POST en
+        try/except para aislarla y luego consultamos el estado por otro GET.
+        """
         import pytest
 
         headers = _auth_header(client)
         app_id = _create_app_with_pipeline(client, headers, "[]")
         batch_id, _ = _create_batch_with_page(client, headers, app_id)
 
-        # Simular que la ejecución interna lanza excepción tras marcar running
+        # Parchear la función interna que ejecuta el pipeline real.
         import web.api.tasks.pipeline_runner as runner_mod
 
         def boom(*args, **kwargs):
             raise RuntimeError("boom")
 
-        # Parchear la función interna que ejecuta el pipeline real
-        # (el implementer deberá extraerla como _execute_pipeline)
-        if hasattr(runner_mod, "_execute_pipeline"):
-            monkeypatch.setattr(runner_mod, "_execute_pipeline", boom)
-        else:
+        if not hasattr(runner_mod, "_execute_pipeline"):
             pytest.skip("_execute_pipeline not extracted yet")
+        monkeypatch.setattr(runner_mod, "_execute_pipeline", boom)
 
-        # Ejecutar el runner público; debe propagar la excepción pero dejar
-        # el batch en error_read
-        try:
-            runner_mod.run_pipeline_for_batch(batch_id=batch_id, storage=None)
-        except Exception:
-            pass
+        # POST al endpoint: FastAPI TestClient ejecuta el BackgroundTask
+        # síncrono tras el response. La excepción del runner aflora aquí,
+        # pero para entonces el finally ya ha persistido error_read.
+        with pytest.raises(RuntimeError, match="boom"):
+            client.post(f"/api/batches/{batch_id}/run", headers=headers)
 
-        from app.models.batch import Batch
-
-        db_session.expire_all()
-        b = db_session.query(Batch).filter_by(id=batch_id).first()
-        assert b.state == "error_read"
+        # Tras ejecutar el background con _execute_pipeline rota, el finally
+        # del runner debe haber dejado el lote en error_read.
+        r = client.get(f"/api/batches/{batch_id}", headers=headers)
+        assert r.json()["state"] == "error_read"
 
     def test_transfer_finally_resets_transferring_state(
         self,
         client,
         db_session,
         monkeypatch,
+        tmp_path,
     ):
-        """Si el runner de transfer queda en transferring, el finally lo fuerza a error_read."""
+        """Si el runner de transfer queda en transferring, el finally lo fuerza a error_read.
+
+        Ejerce la ruta completa HTTP + BackgroundTasks: parchea
+        ``_execute_transfer`` para que lance excepción y verifica, tras el
+        POST al endpoint, que el lote acaba en ``error_read``.
+
+        Como en el test del pipeline, ``run_transfer_for_batch`` re-propaga
+        la excepción tras marcar ``error_read``; envolvemos el POST en
+        ``pytest.raises`` y consultamos el estado con un GET aparte.
+        """
         import json as _json
 
         import pytest
@@ -2334,7 +2352,7 @@ class TestRunnersState:
             {
                 "standard_enabled": True,
                 "mode": "folder",
-                "destination": "/tmp/doesnotmatter",
+                "destination": str(tmp_path / "salida"),
             }
         )
         app_id = _create_app_for_transfer(client, headers, transfer_cfg)
@@ -2345,18 +2363,15 @@ class TestRunnersState:
         def boom(*args, **kwargs):
             raise RuntimeError("boom")
 
-        if hasattr(runner_mod, "_execute_transfer"):
-            monkeypatch.setattr(runner_mod, "_execute_transfer", boom)
-        else:
+        if not hasattr(runner_mod, "_execute_transfer"):
             pytest.skip("_execute_transfer not extracted yet")
+        monkeypatch.setattr(runner_mod, "_execute_transfer", boom)
 
-        try:
-            runner_mod.run_transfer_for_batch(batch_id=batch_id, storage=None)
-        except Exception:
-            pass
+        # POST al endpoint: el BackgroundTask corre síncronamente en tests y
+        # re-propaga la excepción, pero el finally ya escribió error_read.
+        with pytest.raises(RuntimeError, match="boom"):
+            client.post(f"/api/batches/{batch_id}/transfer", headers=headers)
 
-        from app.models.batch import Batch
-
-        db_session.expire_all()
-        b = db_session.query(Batch).filter_by(id=batch_id).first()
-        assert b.state == "error_read"
+        # Tras fallar _execute_transfer, el finally debe dejar error_read.
+        r = client.get(f"/api/batches/{batch_id}", headers=headers)
+        assert r.json()["state"] == "error_read"
