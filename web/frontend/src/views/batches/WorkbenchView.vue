@@ -292,7 +292,8 @@ function onRightResize(panes: Array<{ size: number }>): void {
         <ThumbnailPanel
           :pages="sortedPages"
           :batchId="batchId"
-          :selectedIndex="selectedPageIndex"
+          :currentIndex="selectedPageIndex"
+          :readOnly="false"
           @select="(i) => (selectedPageIndex = i)"
           @fit="viewerRef?.fitToViewport()"
         />
