@@ -2897,3 +2897,93 @@ class TestPagesBarcodes:
             headers=headers_b,
         )
         assert r.status_code == 404
+
+
+class TestBatchesReorder:
+    def _make_batch_with_n_pages(self, client, headers, n=3):
+        app_id = _create_app_with_pipeline(client, headers, "[]")
+        batch_id, first_page = _create_batch_with_page(client, headers, app_id)
+        page_ids = [first_page]
+        for _ in range(n - 1):
+            files = [("files", ("p.png", _make_png_bytes(), "image/png"))]
+            r = client.post(
+                f"/api/batches/{batch_id}/pages",
+                files=files,
+                headers=headers,
+            )
+            page_ids.extend(p["id"] for p in r.json()["created"])
+        return batch_id, page_ids
+
+    def test_reorder_changes_indices(self, client):
+        headers = _auth_header(client)
+        batch_id, ids = self._make_batch_with_n_pages(client, headers, 3)
+
+        reversed_ids = list(reversed(ids))
+        r = client.post(
+            f"/api/batches/{batch_id}/reorder",
+            json={"page_ids": reversed_ids},
+            headers=headers,
+        )
+        assert r.status_code == 200
+
+        # Verificar orden vía GET pages
+        r = client.get(f"/api/batches/{batch_id}/pages", headers=headers)
+        body = r.json()
+        pages = body["items"] if isinstance(body, dict) and "items" in body else body
+        page_ids_ordered = [p["id"] for p in pages]
+        page_indices = [p["page_index"] for p in pages]
+        assert page_ids_ordered == reversed_ids
+        assert page_indices == [0, 1, 2]
+
+    def test_reorder_422_if_set_mismatch(self, client):
+        headers = _auth_header(client)
+        batch_id, ids = self._make_batch_with_n_pages(client, headers, 2)
+
+        r = client.post(
+            f"/api/batches/{batch_id}/reorder",
+            json={"page_ids": [ids[0], 999999]},
+            headers=headers,
+        )
+        assert r.status_code == 422
+
+    def test_reorder_422_if_length_mismatch(self, client):
+        """Si faltan o sobran ids respecto al set actual → 422."""
+        headers = _auth_header(client)
+        batch_id, ids = self._make_batch_with_n_pages(client, headers, 3)
+
+        # Falta uno
+        r = client.post(
+            f"/api/batches/{batch_id}/reorder",
+            json={"page_ids": ids[:2]},
+            headers=headers,
+        )
+        assert r.status_code == 422
+
+    def test_reorder_409_when_running(self, client, db_session):
+        headers = _auth_header(client)
+        batch_id, ids = self._make_batch_with_n_pages(client, headers, 2)
+
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+
+        r = client.post(
+            f"/api/batches/{batch_id}/reorder",
+            json={"page_ids": list(reversed(ids))},
+            headers=headers,
+        )
+        assert r.status_code == 409
+
+    def test_reorder_other_tenant_404(self, client):
+        headers_a = _auth_header(client, email="a@a.com", tenant_name="A")
+        batch_id, ids = self._make_batch_with_n_pages(client, headers_a, 2)
+
+        headers_b = _auth_header(client, email="b@b.com", tenant_name="B")
+        r = client.post(
+            f"/api/batches/{batch_id}/reorder",
+            json={"page_ids": list(reversed(ids))},
+            headers=headers_b,
+        )
+        assert r.status_code == 404

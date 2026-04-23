@@ -66,3 +66,9 @@ class BatchListItem(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ReorderBatchIn(BaseModel):
+    """Nuevo orden de páginas del lote (lista de page_ids en orden deseado)."""
+
+    page_ids: list[int]

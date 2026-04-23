@@ -9,14 +9,16 @@ from sqlalchemy.orm import Session
 
 from app.models.application import Application
 from app.models.batch import Batch
+from app.models.page import Page
 from web.api.auth.dependencies import CurrentUser
 from web.api.database import SessionDep
-from web.api.routers._helpers import get_batch_for_tenant
+from web.api.routers._helpers import ensure_batch_mutable, get_batch_for_tenant
 from web.api.schemas.batch import (
     BatchCreate,
     BatchListItem,
     BatchResponse,
     BatchUpdate,
+    ReorderBatchIn,
 )
 from web.api.schemas.pagination import (
     PageParams,
@@ -194,6 +196,41 @@ def transfer_batch(
         batch_id=batch.id,
         storage=storage,
     )
+    return batch
+
+
+@router.post("/{batch_id}/reorder", response_model=BatchResponse)
+def reorder_batch(
+    batch_id: int,
+    payload: ReorderBatchIn,
+    user: CurrentUser,
+    db: SessionDep,
+):
+    """Reordena las páginas del lote aplicando page_index = posición en la lista.
+
+    - 404 si el lote no es del tenant.
+    - 409 si el lote está en ejecución.
+    - 422 si page_ids no coincide con el set actual de páginas.
+    """
+    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+    ensure_batch_mutable(batch, action="reordenar páginas")
+
+    pages = db.execute(select(Page).where(Page.batch_id == batch_id)).scalars().all()
+    existing_ids = {p.id for p in pages}
+    requested = set(payload.page_ids)
+
+    if existing_ids != requested or len(payload.page_ids) != len(existing_ids):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="page_ids no coincide con el set actual de páginas del lote",
+        )
+
+    id_to_page = {p.id: p for p in pages}
+    for idx, pid in enumerate(payload.page_ids):
+        id_to_page[pid].page_index = idx
+
+    db.commit()
+    db.refresh(batch)
     return batch
 
 
