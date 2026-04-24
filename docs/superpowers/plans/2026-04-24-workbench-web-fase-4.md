@@ -834,7 +834,206 @@ git commit -m "test(web-api): helpers _create_application y _upload_page para te
 
 ---
 
-## Task 7: Catálogo único de shortcuts en TypeScript
+## Task 7: Endpoint `POST /api/pages/{id}/reprocess`
+
+Nuevo endpoint síncrono para reprocesar el pipeline de una sola página. Habilita el shortcut `P` y es útil para debugging/testing de scripts.
+
+**Files:**
+- Modify: `web/api/routers/pages.py`
+- Modify: `tests/test_web_api.py`
+
+- [ ] **Step 1: Escribir los 4 tests primero**
+
+En `tests/test_web_api.py`, añadir una nueva clase `TestPageReprocess` (tras `TestPagesRotate`):
+
+```python
+class TestPageReprocess:
+    """Endpoint POST /api/pages/{id}/reprocess — re-ejecuta pipeline en 1 página."""
+
+    def test_reprocess_pagina_devuelve_200_y_page_response(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["id"] == page_id
+        assert data["pipeline_processed"] is True
+
+    def test_reprocess_reaplica_pipeline_fields(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        # Configurar pipeline con ScriptStep que setea un field
+        import json as _json
+        pipeline = _json.dumps([{
+            "id": "s1", "type": "script", "name": "Set", "enabled": True,
+            "label": "S", "entry_point": "main",
+            "script": "def main(page, batch, app, pipeline):\n    page.fields['reproc'] = 'ok'\n",
+        }])
+        client.patch(
+            f"/api/applications/{app_id}",
+            headers=h, json={"pipeline_json": pipeline},
+        )
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        # Reprocesar debe setear fields aunque la página ya no estaba processed
+        resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h)
+        assert resp.status_code == 200
+        fields = _json.loads(resp.json()["index_fields_json"])
+        assert fields["reproc"] == "ok"
+
+    def test_reprocess_page_no_existe_404(self, client):
+        h = _auth_header(client)
+        resp = client.post("/api/pages/9999999/reprocess", headers=h)
+        assert resp.status_code == 404
+
+    def test_reprocess_page_otro_tenant_404(self, client):
+        h1 = _auth_header(client)
+        batch_id = _create_batch(client, h1)
+        page_id = _upload_page(client, h1, batch_id)
+        h2 = _auth_header(client, email="otro@docscan.example.com")
+        resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h2)
+        assert resp.status_code == 404
+
+    def test_reprocess_bloqueado_durante_running_409(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        from web.api.deps import SessionLocal
+        from app.models.batch import Batch
+        with SessionLocal() as s:
+            b = s.query(Batch).get(batch_id)
+            b.state = "running"
+            s.commit()
+        resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h)
+        assert resp.status_code == 409
+```
+
+- [ ] **Step 2: Ejecutar los tests y confirmar que fallan**
+
+Run:
+```bash
+source .venv/bin/activate && DOCSCAN_WEB_DATABASE__URL="sqlite:///test.db" pytest tests/test_web_api.py::TestPageReprocess -xvs
+```
+Expected: FAIL con 404/405 (el endpoint no existe).
+
+- [ ] **Step 3: Commit de los tests**
+
+```bash
+git add tests/test_web_api.py
+git commit -m "test(web-api): TDD para reprocess de página individual"
+```
+
+- [ ] **Step 4: Implementar el endpoint en `web/api/routers/pages.py`**
+
+Al final del archivo, tras `rotate_page`:
+
+```python
+@router.post("/pages/{page_id}/reprocess", response_model=PageResponse)
+def reprocess_page(
+    page_id: int,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+) -> PageResponse:
+    """Re-ejecuta el pipeline solo en esta página (síncrono).
+
+    Útil para iterar sobre scripts durante desarrollo. Bloquea durante la
+    ejecución y devuelve el PageResponse actualizado.
+
+    - 404 si la página no existe o no pertenece al tenant.
+    - 409 si el lote está en estado running/transferring.
+    """
+    from web.api.tasks.pipeline_runner import (
+        _build_app_context, _build_batch_context, _process_page,
+        _build_executor,
+    )
+
+    page = _get_page_for_user(page_id, user.tenant_id, db)
+    batch = page.batch
+    ensure_batch_mutable(batch, action="reprocesar página")
+
+    executor, script_engine = _build_executor(batch.application)
+    try:
+        app_ctx = _build_app_context(batch.application)
+        batch_ctx = _build_batch_context(batch)
+        _process_page(page, executor, app_ctx, batch_ctx, storage, db)
+        page.pipeline_processed = True
+        db.commit()
+        db.refresh(page)
+    finally:
+        script_engine.shutdown()
+
+    return PageResponse.model_validate(page)
+```
+
+Si el helper `_get_page_for_user` no está importado, importarlo desde `_helpers.py` (o replicar su uso: `db.query(Page).join(Batch).filter(Page.id == page_id, Batch.tenant_id == user.tenant_id).first()`, 404 si `None`).
+
+- [ ] **Step 5: Ejecutar los tests y verificar que pasan**
+
+Run:
+```bash
+source .venv/bin/activate && DOCSCAN_WEB_DATABASE__URL="sqlite:///test.db" pytest tests/test_web_api.py::TestPageReprocess -xvs
+```
+Expected: 5 PASS.
+
+- [ ] **Step 6: Ejecutar suite completa**
+
+Run:
+```bash
+source .venv/bin/activate && DOCSCAN_WEB_DATABASE__URL="sqlite:///test.db" pytest tests/test_web_api.py -q
+```
+Expected: 191 passed (186 anteriores + 5 nuevos).
+
+- [ ] **Step 7: Commit del endpoint backend**
+
+```bash
+git add web/api/routers/pages.py
+git commit -m "feat(web-api): endpoint POST /api/pages/:id/reprocess"
+```
+
+- [ ] **Step 8: Añadir `reprocessPage` al composable frontend**
+
+Editar `web/frontend/src/composables/usePageActions.ts`, añadir dentro del objeto retornado:
+
+```typescript
+    reprocessPage: (pageId: number) =>
+      api.post(`/pages/${pageId}/reprocess`, {}),
+```
+
+- [ ] **Step 9: Extender test del composable**
+
+Editar `web/frontend/tests/composables/usePageActions.test.ts` y añadir:
+
+```typescript
+  it('reprocessPage llama POST /pages/:id/reprocess', async () => {
+    const postSpy = vi.spyOn(api, 'post').mockResolvedValue({} as any)
+    const actions = usePageActions()
+    await actions.reprocessPage(42)
+    expect(postSpy).toHaveBeenCalledWith('/pages/42/reprocess', {})
+  })
+```
+
+- [ ] **Step 10: Ejecutar el test**
+
+Run:
+```bash
+cd web/frontend && npx vitest run tests/composables/usePageActions.test.ts 2>&1 | tail -6
+```
+Expected: todos PASS (11 tests anteriores + 1 nuevo).
+
+- [ ] **Step 11: Commit del composable**
+
+```bash
+git add web/frontend/src/composables/usePageActions.ts web/frontend/tests/composables/usePageActions.test.ts
+git commit -m "feat(web-frontend): usePageActions.reprocessPage"
+```
+
+---
+
+## Task 8: Catálogo único de shortcuts en TypeScript
 
 **Files:**
 - Create: `web/frontend/src/constants/shortcuts.ts`
@@ -874,6 +1073,7 @@ export type ShortcutAction =
   | 'rotate'
   | 'toggleReview'
   | 'toggleExcluded'
+  | 'reprocessPage'
   | 'insertBarcode'
   | 'deletePage'
   | 'prevPage'
@@ -896,6 +1096,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { key: 'r', action: 'rotate', label: 'Rotar página 90°', category: 'edit', editOnly: true, display: 'R' },
   { key: 'm', action: 'toggleReview', label: 'Toggle revisión', category: 'edit', editOnly: true, display: 'M' },
   { key: 'x', action: 'toggleExcluded', label: 'Toggle excluida', category: 'edit', editOnly: true, display: 'X' },
+  { key: 'p', action: 'reprocessPage', label: 'Reprocesar página', category: 'edit', editOnly: true, display: 'P' },
   { key: 'b', action: 'insertBarcode', label: 'Insertar barcode', category: 'edit', editOnly: true, display: 'B' },
   { key: 'Delete', action: 'deletePage', label: 'Eliminar página', category: 'edit', editOnly: true, display: 'Del' },
 
@@ -962,7 +1163,7 @@ git commit -m "feat(web-frontend): catálogo único de shortcuts con eventToKeyS
 
 ---
 
-## Task 8: Test de `useWorkbenchEvents`
+## Task 9: Test de `useWorkbenchEvents`
 
 **Files:**
 - Create: `web/frontend/tests/composables/useWorkbenchEvents.test.ts`
@@ -1083,7 +1284,7 @@ git commit -m "test(web-frontend): tests TDD para useWorkbenchEvents"
 
 ---
 
-## Task 9: Cliente API `fireEvent` y tipos TS
+## Task 10: Cliente API `fireEvent` y tipos TS
 
 **Files:**
 - Modify: `web/frontend/src/api/types.ts`
@@ -1151,7 +1352,7 @@ git commit -m "feat(web-frontend): tipo EventResult + cliente fireEvent"
 
 ---
 
-## Task 10: Implementación de `useWorkbenchEvents`
+## Task 11: Implementación de `useWorkbenchEvents`
 
 **Files:**
 - Create: `web/frontend/src/composables/useWorkbenchEvents.ts`
@@ -1246,7 +1447,7 @@ git commit -m "feat(web-frontend): useWorkbenchEvents con fireSync/fireAsync y t
 
 ---
 
-## Task 11: Test de `useWorkbenchShortcuts`
+## Task 12: Test de `useWorkbenchShortcuts`
 
 **Files:**
 - Create: `web/frontend/tests/composables/useWorkbenchShortcuts.test.ts`
@@ -1419,7 +1620,7 @@ git commit -m "test(web-frontend): tests TDD para useWorkbenchShortcuts"
 
 ---
 
-## Task 12: Implementación de `useWorkbenchShortcuts`
+## Task 13: Implementación de `useWorkbenchShortcuts`
 
 **Files:**
 - Create: `web/frontend/src/composables/useWorkbenchShortcuts.ts`
@@ -1511,7 +1712,7 @@ git commit -m "feat(web-frontend): useWorkbenchShortcuts con filtro de foco y fa
 
 ---
 
-## Task 13: Test de `ShortcutsHelpDialog`
+## Task 14: Test de `ShortcutsHelpDialog`
 
 **Files:**
 - Create: `web/frontend/tests/components/workbench/ShortcutsHelpDialog.test.ts`
@@ -1572,7 +1773,7 @@ git commit -m "test(web-frontend): tests TDD para ShortcutsHelpDialog"
 
 ---
 
-## Task 14: Implementación de `ShortcutsHelpDialog.vue`
+## Task 15: Implementación de `ShortcutsHelpDialog.vue`
 
 **Files:**
 - Create: `web/frontend/src/components/workbench/ShortcutsHelpDialog.vue`
@@ -1664,7 +1865,7 @@ git commit -m "feat(web-frontend): ShortcutsHelpDialog con 4 categorías"
 
 ---
 
-## Task 15: Actualizar catálogo `events-catalog.ts` y su test
+## Task 16: Actualizar catálogo `events-catalog.ts` y su test
 
 **Files:**
 - Modify: `web/frontend/src/api/events-catalog.ts`
@@ -1797,7 +1998,7 @@ git commit -m "feat(web-frontend): 5 eventos Fase 4 en events-catalog"
 
 ---
 
-## Task 16: Wiring en `WorkbenchView.vue` — eventos on_batch_loaded + on_page_changed
+## Task 17: Wiring en `WorkbenchView.vue` — eventos on_batch_loaded + on_page_changed
 
 **Files:**
 - Modify: `web/frontend/src/views/batches/WorkbenchView.vue`
@@ -1870,7 +2071,7 @@ git commit -m "feat(web-frontend): wiring on_batch_loaded y on_page_changed"
 
 ---
 
-## Task 17: Wiring en `WorkbenchView.vue` — navegación con on_navigate_prev/next
+## Task 18: Wiring en `WorkbenchView.vue` — navegación con on_navigate_prev/next
 
 **Files:**
 - Modify: `web/frontend/src/views/batches/WorkbenchView.vue`
@@ -1927,7 +2128,7 @@ git commit -m "feat(web-frontend): navegación prev/next respeta on_navigate_*"
 
 ---
 
-## Task 18: Wiring en `WorkbenchView.vue` — shortcuts + dialog de ayuda
+## Task 19: Wiring en `WorkbenchView.vue` — shortcuts + dialog de ayuda
 
 **Files:**
 - Modify: `web/frontend/src/views/batches/WorkbenchView.vue`
@@ -1958,9 +2159,26 @@ useWorkbenchShortcuts({
     transfer: () => onTransfer(),
     closeBatch: () => router.push('/batches'),
     openHelp: () => { helpDialogOpen.value = true },
-    rotate: () => currentPage.value && pageActions.rotate(currentPage.value.id, 1).then(() => refreshCurrent()),
-    toggleReview: () => currentPage.value && pageActions.patch(currentPage.value.id, { needs_review: !currentPage.value.needs_review }).then(() => refreshCurrent()),
-    toggleExcluded: () => currentPage.value && pageActions.patch(currentPage.value.id, { is_excluded: !currentPage.value.is_excluded }).then(() => refreshCurrent()),
+    rotate: async () => {
+      if (!currentPage.value) return
+      await pageActions.rotatePage(currentPage.value.id, 1)
+      await refreshCurrent()
+    },
+    toggleReview: async () => {
+      if (!currentPage.value) return
+      await pageActions.toggleReview(currentPage.value.id, !currentPage.value.needs_review)
+      await refreshCurrent()
+    },
+    toggleExcluded: async () => {
+      if (!currentPage.value) return
+      await pageActions.toggleExcluded(currentPage.value.id, !currentPage.value.is_excluded)
+      await refreshCurrent()
+    },
+    reprocessPage: async () => {
+      if (!currentPage.value) return
+      await pageActions.reprocessPage(currentPage.value.id)
+      await refreshCurrent()
+    },
     insertBarcode: () => { addBarcodeDialogOpen.value = true },
     deletePage: () => currentPage.value && onDeletePage(currentPage.value.id),
     prevPage: () => goPrev(),
@@ -2016,7 +2234,7 @@ git commit -m "feat(web-frontend): shortcuts integrados + botón de ayuda en too
 
 ---
 
-## Task 19: Tests de integración en `WorkbenchView.test.ts`
+## Task 20: Tests de integración en `WorkbenchView.test.ts`
 
 **Files:**
 - Modify: `web/frontend/tests/views/batches/WorkbenchView.test.ts`
@@ -2094,7 +2312,7 @@ git commit -m "test(web-frontend): integración Fase 4 en WorkbenchView"
 
 ---
 
-## Task 20: Correr suite completa + ruff format
+## Task 21: Correr suite completa + ruff format
 
 **Files:** ninguno nuevo; solo verificación.
 
@@ -2130,7 +2348,7 @@ git diff --quiet || { git add -u && git commit -m "chore: format tras Fase 4"; }
 
 ---
 
-## Task 21: QA visual con Playwright
+## Task 22: QA visual con Playwright
 
 Seguir el mismo procedimiento que en Fase 3 (ver `docs/progreso_2026-04-24.md`, sección 2).
 
@@ -2157,14 +2375,15 @@ Checks:
 4. **on_page_changed actualiza fields**: script que `page.fields['cliente'] = 'Acme ' + str(page.page_index)` — el field aparece en UI tras cambiar.
 5. **on_key_event**: script que loguea la tecla — pulsar `Alt+L` y verificar log.
 6. **Shortcut R**: rota la página actual.
-7. **Shortcut M**: toggle revisión.
-8. **Shortcut X**: toggle excluida.
-9. **Shortcut Delete**: elimina la página tras confirm.
-10. **Shortcut ←/→**: navega.
-11. **Shortcut ?**: abre modal; Esc lo cierra.
-12. **Con input enfocado**: escribir "rata" en un input no activa ningún shortcut.
-13. **Durante pipeline running**: R/M/X/Delete son no-op; ←/→ navegan.
-14. **Temas claro y oscuro**: modal legible.
+7. **Shortcut P**: reprocesa el pipeline solo de la página actual (comprobar que pipeline_processed sigue true, fields recalculados).
+8. **Shortcut M**: toggle revisión.
+9. **Shortcut X**: toggle excluida.
+10. **Shortcut Delete**: elimina la página tras confirm.
+11. **Shortcut ←/→**: navega.
+12. **Shortcut ?**: abre modal; Esc lo cierra.
+13. **Con input enfocado**: escribir "rata" en un input no activa ningún shortcut.
+14. **Durante pipeline running**: R/M/X/P/Delete son no-op; ←/→ navegan.
+15. **Temas claro y oscuro**: modal legible.
 
 - [ ] **Step 3: Fix bugs detectados**
 
@@ -2178,7 +2397,7 @@ pkill -f "uvicorn.*web.api"; pkill -f "vite"; docker compose down
 
 ---
 
-## Task 22: Actualizar memoria, informe de progreso y push
+## Task 23: Actualizar memoria, informe de progreso y push
 
 - [ ] **Step 1: Actualizar MEMORY**
 
@@ -2202,8 +2421,8 @@ git push origin feature/web
 
 ## Summary
 
-- **22 tasks** secuenciales.
-- Paralelizables tras la Task 7: 8+9+10 (composable eventos), 11+12 (composable shortcuts), 13+14 (dialog) y 15 (catálogo) son independientes entre sí.
-- **TDD estricto**: tests antes de implementación en Tasks 2→3, 8→10, 11→12, 13→14.
-- **Commits frecuentes**: 22 commits como mínimo + ajustes granulares.
+- **23 tasks** secuenciales.
+- Paralelizables tras la Task 8: 9+10+11 (composable eventos), 12+13 (composable shortcuts), 14+15 (dialog) y 16 (catálogo) son independientes entre sí.
+- **TDD estricto**: tests antes de implementación en Tasks 2→3, 7 (tests→impl), 9→11, 12→13, 14→15.
+- **Commits frecuentes**: 23 commits como mínimo + ajustes granulares.
 - **Superpowers recomendado**: `subagent-driven-development` para paralelizar.
