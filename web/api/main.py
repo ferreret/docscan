@@ -79,6 +79,7 @@ def create_app() -> FastAPI:
     from web.api.routers.team import router as team_router
     from web.api.routers.ws import router as ws_router
     from web.api.routers.pipeline import router as pipeline_router
+    from web.api.routers.events import router as events_router
 
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
@@ -88,5 +89,6 @@ def create_app() -> FastAPI:
     app.include_router(team_router, prefix="/api", tags=["team"])
     app.include_router(pipeline_router, prefix="/api/applications", tags=["pipeline"])
     app.include_router(ws_router, tags=["websocket"])
+    app.include_router(events_router, prefix="/api/batches", tags=["events"])
 
     return app
