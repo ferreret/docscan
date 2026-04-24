@@ -126,7 +126,9 @@ export interface PageListItem {
   batch_id: number
   page_index: number
   needs_review: boolean
+  review_reason: string
   is_blank: boolean
+  is_excluded: boolean
   pipeline_processed: boolean
   created_at: string
 }
