@@ -3359,6 +3359,27 @@ class TestWsPageUpdated:
 class TestEventsFire:
     """Endpoint POST /api/batches/{id}/events/{name}."""
 
+    def _set_event_script(
+        self,
+        client,
+        h,
+        application_id: int,
+        event_name: str,
+        script: str,
+    ):
+        """Helper: configura el script de un evento en events_json de la app."""
+        resp = client.get(f"/api/applications/{application_id}", headers=h)
+        events = resp.json().get("events_json") or "{}"
+        import json as _json
+
+        events_d = _json.loads(events)
+        events_d[event_name] = script
+        client.patch(
+            f"/api/applications/{application_id}",
+            headers=h,
+            json={"events_json": _json.dumps(events_d)},
+        )
+
     def test_fire_script_no_definido_devuelve_executed_false(self, client):
         h = _auth_header(client)
         batch_id = _create_batch(client, h)
@@ -3372,3 +3393,66 @@ class TestEventsFire:
         assert data["executed"] is False
         assert data["cancel"] is False
         assert data["error"] is None
+
+    def test_fire_on_batch_loaded_ejecuta_devuelve_executed_true(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_batch_loaded",
+            "def on_batch_loaded(app, batch):\n    return {'result': 'hola'}\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["executed"] is True
+        assert data["result"] == "hola"
+        assert data["cancel"] is False
+
+    def test_fire_on_navigate_prev_con_cancel_true(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_navigate_prev",
+            "def on_navigate_prev(app, batch, page):\n    return False\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_navigate_prev",
+            headers=h,
+            json={"page_id": page_id},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["cancel"] is True
+
+    def test_fire_on_navigate_next_con_target_page_id(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_navigate_next",
+            "def on_navigate_next(app, batch, page):\n"
+            "    return {'target_page_id': 999}\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_navigate_next",
+            headers=h,
+            json={"page_id": page_id},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["target_page_id"] == 999
