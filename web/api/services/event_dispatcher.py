@@ -6,6 +6,7 @@ Reutiliza el ScriptEngine del pipeline. Los scripts viven en
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
 from typing import Any
@@ -42,10 +43,9 @@ EVENTS_REQUIRING_PAGE_ID = frozenset(
     }
 )
 
-# Timeout usado al instanciar ScriptEngine (segundos).
-# run_event no acepta timeout directamente; el timeout se aplica
-# en run_step vía _execute_with_timeout. Para eventos de ciclo de
-# vida el timeout se configura en el constructor.
+# Timeout para ejecución de scripts de evento (segundos).
+# Se aplica en el dispatcher con ThreadPoolExecutor, no en ScriptEngine,
+# porque run_event_raw propaga excepciones y no aplica timeout propio.
 SCRIPT_TIMEOUT_SECONDS = 5
 
 
@@ -67,7 +67,7 @@ def dispatch_event(
     - Un retorno ``dict`` se mapea a ``EventResult`` campo a campo
       (``cancel``, ``target_page_id``, ``fields_updated``, ``batch_fields_updated``,
       ``logs``, ``result``).
-    - Cualquier excepción del script se captura y devuelve
+    - Cualquier excepción del script (incluido timeout >5s) se captura y devuelve
       ``EventResult(executed=True, error=str(e))``.
     - Las mutaciones de ``page.fields`` y ``batch.fields`` se persisten en BD.
     """
@@ -75,7 +75,7 @@ def dispatch_event(
     if not script_source:
         return EventResult(executed=False)
 
-    engine = ScriptEngine(script_timeout=SCRIPT_TIMEOUT_SECONDS)
+    engine = ScriptEngine()
     try:
         engine.compile_script(event_name, script_source, event_name)
     except Exception as e:
@@ -94,14 +94,13 @@ def dispatch_event(
     if extra:
         kwargs["extra"] = extra
 
-    # run_event ya captura y loguea internamente las excepciones del script.
-    # No acepta parámetro timeout — el timeout se aplica vía script_timeout
-    # del constructor de ScriptEngine (solo afecta a run_step/run_pipeline).
-    raw = engine.run_event(
-        script_id=event_name,
-        entry_point=event_name,
-        **kwargs,
-    )
+    # Usamos run_event_raw (no traga excepciones) + ThreadPoolExecutor propio
+    # para enforzar el timeout de 5s.  Si el script se cuelga o lanza,
+    # devolvemos EventResult(executed=True, error=...) en lugar de None opaco.
+    raw = _run_with_timeout(engine, event_name, kwargs)
+    if isinstance(raw, EventResult):
+        # _run_with_timeout devuelve EventResult solo en caso de error/timeout
+        return raw
 
     result = _map_return_to_event_result(raw)
 
@@ -119,6 +118,43 @@ def dispatch_event(
         session.commit()
 
     return result
+
+
+def _run_with_timeout(
+    engine: ScriptEngine,
+    event_name: str,
+    kwargs: dict[str, Any],
+) -> Any:
+    """Ejecuta ``engine.run_event_raw`` con timeout de ``SCRIPT_TIMEOUT_SECONDS``.
+
+    Usa un ``ThreadPoolExecutor`` de un hilo dedicado para que el timeout sea
+    real (el hilo del worker FastAPI no queda bloqueado indefinidamente).
+
+    Returns:
+        El valor devuelto por el script en caso de éxito.
+        Un ``EventResult(executed=True, error=...)`` si el script excede el
+        timeout o lanza cualquier excepción.
+    """
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(
+            engine.run_event_raw,
+            event_name,
+            event_name,
+            **kwargs,
+        )
+        try:
+            return future.result(timeout=SCRIPT_TIMEOUT_SECONDS)
+        except concurrent.futures.TimeoutError:
+            log.error(
+                "Evento '%s' excedió el timeout de %ds",
+                event_name,
+                SCRIPT_TIMEOUT_SECONDS,
+            )
+            future.cancel()
+            return EventResult(executed=True, error="timeout")
+        except Exception as e:  # noqa: BLE001
+            log.error("Error ejecutando evento '%s': %s", event_name, e)
+            return EventResult(executed=True, error=str(e))
 
 
 def _load_event_script(application: Application, event_name: str) -> str | None:
