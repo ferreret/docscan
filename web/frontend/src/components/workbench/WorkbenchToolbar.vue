@@ -16,6 +16,7 @@ const emit = defineEmits<{
   (e: 'transfer'): void
   (e: 'download-zip'): void
   (e: 'delete-batch'): void
+  (e: 'help'): void
 }>()
 
 const router = useRouter()
@@ -71,6 +72,12 @@ function onUpload(event: Event): void {
         :disabled="busy"
         @click="emit('delete-batch')"
       >Eliminar</button>
+      <button
+        type="button"
+        class="bg-base text-subtext text-xs px-2.5 py-1.5 rounded border border-surface-1 hover:bg-crust hover:text-text font-semibold"
+        title="Ayuda (? o H)"
+        @click="emit('help')"
+      >?</button>
     </div>
   </header>
 </template>

@@ -22,6 +22,8 @@ import { useOverlayToggles } from '@/composables/useOverlayToggles'
 import { useWorkbenchLog } from '@/composables/useWorkbenchLog'
 import { usePageActions } from '@/composables/usePageActions'
 import { useWorkbenchEvents } from '@/composables/useWorkbenchEvents'
+import { useWorkbenchShortcuts } from '@/composables/useWorkbenchShortcuts'
+import ShortcutsHelpDialog from '@/components/workbench/ShortcutsHelpDialog.vue'
 import type { PageListItem, PageResponse } from '@/api/types'
 
 const route = useRoute()
@@ -62,6 +64,9 @@ const savingMetadata = ref(false)
 
 // Cache-bust tick: incrementa al rotar para forzar recarga del blob de imagen.
 const imageCacheTick = ref(0)
+
+// Modal de ayuda de shortcuts
+const helpDialogOpen = ref(false)
 
 // Context menu state
 const contextMenuVisible = ref(false)
@@ -179,27 +184,14 @@ onMounted(async () => {
     router.push('/batches')
     return
   }
-  window.addEventListener('keydown', onKeydown)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown)
   // Cierra cualquier WebSocket activo para que handlers tardíos no muten estado
   // de otras vistas tras navegar fuera del Workbench.
   activeWs.value?.close()
   activeWs.value = null
 })
-
-function onKeydown(e: KeyboardEvent): void {
-  if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return
-  if (e.key === 'ArrowLeft') {
-    void goPrev()
-    e.preventDefault()
-  } else if (e.key === 'ArrowRight') {
-    void goNext()
-    e.preventDefault()
-  }
-}
 
 function openWs(): WebSocket {
   const token = localStorage.getItem('access_token') ?? ''
@@ -572,6 +564,80 @@ async function goNext(): Promise<void> {
   }
   if (selectedPageIndex.value < sortedPages.value.length - 1) selectedPageIndex.value++
 }
+
+// --- Helpers para shortcuts ---
+
+async function refreshCurrent(): Promise<void> {
+  if (currentPageListItem.value) {
+    await store.fetchPage(batchId.value, currentPageListItem.value.id)
+  }
+}
+
+function goNextReview(): void {
+  const from = selectedPageIndex.value
+  const i = sortedPages.value.findIndex((p, idx) => idx > from && p.needs_review)
+  if (i >= 0) selectedPageIndex.value = i
+}
+
+async function onDeletePage(pageId: number): Promise<void> {
+  if (!confirm('¿Eliminar esta página?')) return
+  try {
+    await pageActions.deletePage(batchId.value, pageId)
+    log.append('info', 'user', `Página ${pageId} eliminada`)
+    selectedPageIndex.value = Math.max(0, selectedPageIndex.value - 1)
+    await store.fetchPages(batchId.value)
+    await store.fetchOne(batchId.value)
+  } catch (e) {
+    handleApiError(e, 'Error al eliminar la página')
+  }
+}
+
+// --- Wiring de shortcuts de teclado ---
+
+useWorkbenchShortcuts({
+  isReadOnly: () => isReadOnly.value,
+  fireKeyEvent: (key) => workbenchEvents.fireAsync('on_key_event', { key }),
+  handlers: {
+    runPipeline: () => onRunPipeline(),
+    transfer: () => onTransfer(),
+    closeBatch: () => router.push('/batches'),
+    openHelp: () => { helpDialogOpen.value = true },
+    rotate: async () => {
+      if (!currentPageListItem.value) return
+      await pageActions.rotatePage(currentPageListItem.value.id, 1)
+      imageCacheTick.value = Date.now()
+      await refreshCurrent()
+    },
+    toggleReview: async () => {
+      if (!currentPageListItem.value || !currentPage.value) return
+      await pageActions.toggleReview(currentPageListItem.value.id, !currentPage.value.needs_review)
+      await refreshCurrent()
+      await store.fetchPages(batchId.value)
+    },
+    toggleExcluded: async () => {
+      if (!currentPageListItem.value || !currentPage.value) return
+      await pageActions.toggleExcluded(currentPageListItem.value.id, !currentPage.value.is_excluded)
+      await refreshCurrent()
+      await store.fetchPages(batchId.value)
+    },
+    reprocessPage: async () => {
+      if (!currentPageListItem.value) return
+      await pageActions.reprocessPage(currentPageListItem.value.id)
+      await refreshCurrent()
+    },
+    insertBarcode: () => { addBarcodeOpen.value = true },
+    deletePage: () => { if (currentPageListItem.value) void onDeletePage(currentPageListItem.value.id) },
+    prevPage: () => goPrev(),
+    nextPage: () => goNext(),
+    nextReviewPage: () => goNextReview(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    navigateScript: () => workbenchEvents.fireAsync('on_navigate_script' as any, { page_id: currentPageListItem.value?.id ?? null }),
+    zoom100: () => viewerRef.value?.zoom100?.(),
+    zoomIn: () => viewerRef.value?.zoomIn?.(),
+    zoomOut: () => viewerRef.value?.zoomOut?.(),
+    fitPage: () => viewerRef.value?.fitPage?.(),
+  },
+})
 </script>
 
 <template>
@@ -587,6 +653,7 @@ async function goNext(): Promise<void> {
       @transfer="onTransfer"
       @download-zip="onDownloadZip"
       @delete-batch="onDeleteBatch"
+      @help="helpDialogOpen = true"
     />
     <div v-if="error" class="bg-danger-soft text-danger text-xs px-4 py-1">{{ error }}</div>
     <div v-if="progress" class="bg-primary-soft text-primary text-xs px-4 py-1">Procesando {{ progress.processed }}/{{ progress.total }}…</div>
@@ -675,6 +742,9 @@ async function goNext(): Promise<void> {
       @confirm="onDeleteBarcodeConfirm"
       @close="deleteBarcodeOpen = false; deleteBarcodeTarget = null"
     />
+
+    <!-- Modal de ayuda de atajos de teclado -->
+    <ShortcutsHelpDialog :is-open="helpDialogOpen" @close="helpDialogOpen = false" />
   </div>
 </template>
 

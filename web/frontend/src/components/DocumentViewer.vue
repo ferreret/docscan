@@ -193,6 +193,8 @@ const fieldOverlays = computed<FieldOverlay[]>(() => {
 defineExpose({
   zoomIn: () => zoomBy(1.25),
   zoomOut: () => zoomBy(1 / 1.25),
+  zoom100: () => { zoom.value = 1 },
+  fitPage: fitToViewport,
   resetView,
   fitToViewport,
   zoomPercent,
