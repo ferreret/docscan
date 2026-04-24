@@ -193,10 +193,10 @@ onUnmounted(() => {
 function onKeydown(e: KeyboardEvent): void {
   if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return
   if (e.key === 'ArrowLeft') {
-    selectedPageIndex.value = Math.max(0, selectedPageIndex.value - 1)
+    void goPrev()
     e.preventDefault()
   } else if (e.key === 'ArrowRight') {
-    selectedPageIndex.value = Math.min(sortedPages.value.length - 1, selectedPageIndex.value + 1)
+    void goNext()
     e.preventDefault()
   }
 }
@@ -543,6 +543,34 @@ async function onDeleteBarcodeConfirm(): Promise<void> {
   } catch (e) {
     handleApiError(e, 'Error al eliminar barcode')
   }
+}
+
+// --- Navegación prev/next con soporte de on_navigate_prev / on_navigate_next ---
+
+async function goPrev(): Promise<void> {
+  const currentId = currentPageListItem.value?.id
+  if (!currentId) return
+  const res = await workbenchEvents.fireSync('on_navigate_prev', { page_id: currentId })
+  if (res.cancel) return
+  if (res.target_page_id != null) {
+    const idx = sortedPages.value.findIndex((p) => p.id === res.target_page_id)
+    if (idx >= 0) selectedPageIndex.value = idx
+    return
+  }
+  if (selectedPageIndex.value > 0) selectedPageIndex.value--
+}
+
+async function goNext(): Promise<void> {
+  const currentId = currentPageListItem.value?.id
+  if (!currentId) return
+  const res = await workbenchEvents.fireSync('on_navigate_next', { page_id: currentId })
+  if (res.cancel) return
+  if (res.target_page_id != null) {
+    const idx = sortedPages.value.findIndex((p) => p.id === res.target_page_id)
+    if (idx >= 0) selectedPageIndex.value = idx
+    return
+  }
+  if (selectedPageIndex.value < sortedPages.value.length - 1) selectedPageIndex.value++
 }
 </script>
 
