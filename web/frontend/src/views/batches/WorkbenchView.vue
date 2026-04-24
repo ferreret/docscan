@@ -21,6 +21,7 @@ import { useWorkbenchLayout } from '@/composables/useWorkbenchLayout'
 import { useOverlayToggles } from '@/composables/useOverlayToggles'
 import { useWorkbenchLog } from '@/composables/useWorkbenchLog'
 import { usePageActions } from '@/composables/usePageActions'
+import { useWorkbenchEvents } from '@/composables/useWorkbenchEvents'
 import type { PageListItem, PageResponse } from '@/api/types'
 
 const route = useRoute()
@@ -34,6 +35,20 @@ const log = useWorkbenchLog()
 const pageActions = usePageActions()
 
 const batchId = computed(() => Number(route.params.id))
+const workbenchEvents = useWorkbenchEvents(batchId.value, {
+  onApplyPageFields: (pageId, _fields) => {
+    void store.fetchPage(batchId.value, pageId)
+  },
+  onApplyBatchFields: () => {
+    void store.fetchOne(batchId.value)
+  },
+  onLogs: (logs) => {
+    logs.forEach((l) => {
+      const level = l.level === 'warning' ? 'warn' : (l.level as 'debug' | 'info' | 'warn' | 'error')
+      log.append(level, 'script', l.message)
+    })
+  },
+})
 const selectedPageIndex = ref(0)
 const uploading = ref(false)
 const running = ref(false)
@@ -123,8 +138,11 @@ const counters = computed(() => {
 
 watch(
   () => currentPageListItem.value?.id,
-  async (id) => {
+  async (id, oldId) => {
     if (id) await store.fetchPage(batchId.value, id)
+    if (id && id !== oldId) {
+      workbenchEvents.fireAsync('on_page_changed', { page_id: id })
+    }
   },
 )
 
@@ -154,6 +172,12 @@ onMounted(async () => {
   if (store.current?.application_id) await appStore.fetchOne(store.current.application_id)
   if (sortedPages.value.length > 0) {
     await store.fetchPage(batchId.value, sortedPages.value[0].id)
+  }
+  const loaded = await workbenchEvents.fireSync('on_batch_loaded')
+  if (loaded.cancel) {
+    toast.error('Carga del lote cancelada por script')
+    router.push('/batches')
+    return
   }
   window.addEventListener('keydown', onKeydown)
 })
