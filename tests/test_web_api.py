@@ -700,9 +700,33 @@ def _make_pdf_bytes(num_pages: int = 2) -> bytes:
     return data
 
 
-def _create_batch(client, headers) -> int:
-    """Crea una aplicación y un lote vacío. Devuelve batch_id."""
-    app_id = _create_app_and_get_id(client, headers)
+def _create_application(client, h, name: str = "TestApp") -> int:
+    """Crea una aplicación vacía y devuelve su id."""
+    resp = client.post(
+        "/api/applications",
+        headers=h,
+        json={"name": name, "description": "Test app"},
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["id"]
+
+
+def _upload_page(client, h, batch_id: int) -> int:
+    """Sube un PNG dummy al lote y devuelve el page_id."""
+    files = [("files", ("a.png", _make_png_bytes(), "image/png"))]
+    resp = client.post(
+        f"/api/batches/{batch_id}/pages",
+        headers=h,
+        files=files,
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["created"][0]["id"]
+
+
+def _create_batch(client, headers, app_id: int | None = None) -> int:
+    """Crea un lote vacío. Si app_id es None, crea también una aplicación."""
+    if app_id is None:
+        app_id = _create_app_and_get_id(client, headers)
     resp = client.post(
         "/api/batches",
         headers=headers,
@@ -710,6 +734,7 @@ def _create_batch(client, headers) -> int:
             "application_id": app_id,
         },
     )
+    assert resp.status_code == 201, resp.text
     return resp.json()["id"]
 
 
