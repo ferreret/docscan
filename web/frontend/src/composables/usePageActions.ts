@@ -31,5 +31,8 @@ export function usePageActions() {
 
     deleteBarcode: (pageId: number, barcodeId: number) =>
       api.delete(`/pages/${pageId}/barcodes/${barcodeId}`),
+
+    reprocessPage: (pageId: number) =>
+      api.post(`/pages/${pageId}/reprocess`, {}),
   }
 }

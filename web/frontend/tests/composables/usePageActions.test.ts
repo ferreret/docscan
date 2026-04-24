@@ -91,4 +91,10 @@ describe('usePageActions', () => {
     const res = await actions.toggleExcluded(1, true)
     expect((res as { data: { is_excluded: boolean } }).data.is_excluded).toBe(true)
   })
+
+  it('reprocessPage llama POST /pages/:id/reprocess', async () => {
+    const actions = usePageActions()
+    await actions.reprocessPage(42)
+    expect(api.post).toHaveBeenCalledWith('/pages/42/reprocess', {})
+  })
 })
