@@ -39,6 +39,14 @@ const TRANSFER_BASE_VARS = [...BASE_VARS, TRANSFER_RESULT_VAR]
 
 const PAGE_VAR: ContextVariable = CONTEXT_VARIABLES.find((v) => v.name === 'page')!
 
+const BASE_WITH_PAGE_VARS: ContextVariable[] = [...BASE_VARS, PAGE_VAR]
+
+const KEY_VAR: ContextVariable = {
+  name: 'key',
+  summary: 'str — Tecla pulsada en formato "Ctrl+Alt+L" o similar.',
+  members: [],
+}
+
 export const EVENT_DEFINITIONS: EventDefinition[] = [
   {
     name: 'on_scan_complete',
@@ -100,5 +108,55 @@ export const EVENT_DEFINITIONS: EventDefinition[] = [
     pass
 `,
     contextVariables: [...BASE_VARS, PAGE_VAR, TRANSFER_PAGE_RESULT_VAR],
+  },
+  {
+    name: 'on_batch_loaded',
+    description: 'Se dispara al abrir el lote en el workbench. Retornar {cancel: true} impide la carga.',
+    signature: 'def on_batch_loaded(app, batch)',
+    template:
+      'def on_batch_loaded(app, batch):\n' +
+      '    """Se ejecuta al abrir el lote."""\n' +
+      '    pass\n',
+    contextVariables: BASE_VARS,
+  },
+  {
+    name: 'on_navigate_prev',
+    description: 'Antes de navegar a la página anterior. Retornar {cancel: true} o {target_page_id: N}.',
+    signature: 'def on_navigate_prev(app, batch, page)',
+    template:
+      'def on_navigate_prev(app, batch, page):\n' +
+      '    """Controla la navegación previa."""\n' +
+      '    return None\n',
+    contextVariables: BASE_WITH_PAGE_VARS,
+  },
+  {
+    name: 'on_navigate_next',
+    description: 'Antes de navegar a la página siguiente. Retornar {cancel: true} o {target_page_id: N}.',
+    signature: 'def on_navigate_next(app, batch, page)',
+    template:
+      'def on_navigate_next(app, batch, page):\n' +
+      '    """Controla la navegación siguiente."""\n' +
+      '    return None\n',
+    contextVariables: BASE_WITH_PAGE_VARS,
+  },
+  {
+    name: 'on_page_changed',
+    description: 'Tras cambiar a una página. Fire-and-forget. Puede mutar page.fields para actualizar la UI.',
+    signature: 'def on_page_changed(app, batch, page)',
+    template:
+      'def on_page_changed(app, batch, page):\n' +
+      '    """Al navegar a otra página."""\n' +
+      '    pass\n',
+    contextVariables: BASE_WITH_PAGE_VARS,
+  },
+  {
+    name: 'on_key_event',
+    description: 'Tecla pulsada no mapeada por defecto. Fire-and-forget.',
+    signature: 'def on_key_event(app, batch, key)',
+    template:
+      'def on_key_event(app, batch, key):\n' +
+      '    """Maneja teclas custom."""\n' +
+      '    pass\n',
+    contextVariables: [...BASE_VARS, KEY_VAR],
   },
 ]
