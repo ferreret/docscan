@@ -132,7 +132,7 @@ def _execute_pipeline(
         return
 
     try:
-        executor, pipeline_engine = _build_executor(application)
+        executor, pipeline_engine = build_executor(application)
     except Exception as e:
         log.exception("Error preparando executor: %s", e)
         batch.state = "error_read"
@@ -158,7 +158,7 @@ def _execute_pipeline(
         any_error = False
         for idx, page in enumerate(pages, start=1):
             try:
-                _process_page(page, executor, app_ctx, batch_ctx, storage, session)
+                process_page(page, executor, app_ctx, batch_ctx, storage, session)
                 emit(
                     "page_processed",
                     page_id=page.id,
@@ -210,7 +210,7 @@ def _execute_pipeline(
 # ----------------------------------------------------------------------
 
 
-def _build_executor(
+def build_executor(
     application: Application,
 ) -> tuple[PipelineExecutor, ScriptEngine]:
     """Construye un PipelineExecutor y devuelve su ScriptEngine asociado.
@@ -238,7 +238,7 @@ def _build_executor(
     return executor, script_engine
 
 
-def _process_page(
+def process_page(
     page: Page,
     executor: PipelineExecutor,
     app_ctx: Any,

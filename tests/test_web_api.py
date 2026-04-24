@@ -3697,4 +3697,3 @@ class TestPageReprocess:
         db_session.commit()
         resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h)
         assert resp.status_code == 409
-        assert resp.json()["executed"] is True

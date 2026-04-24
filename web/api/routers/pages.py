@@ -375,6 +375,42 @@ def rotate_page(
     return page
 
 
+@router.post("/pages/{page_id}/reprocess", response_model=PageResponse)
+def reprocess_page(
+    page_id: int,
+    user: CurrentUser,
+    db: SessionDep,
+    storage: StorageDep,
+) -> PageResponse:
+    """Re-ejecuta el pipeline solo en esta página (síncrono).
+
+    Útil para iterar sobre scripts durante desarrollo. Bloquea durante la
+    ejecución y devuelve el PageResponse actualizado.
+
+    - 404 si la página no existe o no pertenece al tenant.
+    - 409 si el lote está en estado running/transferring.
+    """
+    from web.api.services.context_builders import build_app_context, build_batch_context
+    from web.api.tasks.pipeline_runner import build_executor, process_page
+
+    page = _get_page_for_user(page_id, user.tenant_id, db)
+    batch = page.batch
+    ensure_batch_mutable(batch, action="reprocesar página")
+
+    executor, script_engine = build_executor(batch.application)
+    try:
+        app_ctx = build_app_context(batch.application)
+        batch_ctx = build_batch_context(batch)
+        process_page(page, executor, app_ctx, batch_ctx, storage, db)
+        page.pipeline_processed = True
+        db.commit()
+        db.refresh(page)
+    finally:
+        script_engine.shutdown()
+
+    return PageResponse.model_validate(page)
+
+
 @router.delete(
     "/batches/{batch_id}/pages/{page_id}",
     status_code=204,
