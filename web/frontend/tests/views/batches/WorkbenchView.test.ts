@@ -12,6 +12,7 @@ import ViewerToolbar from '@/components/workbench/ViewerToolbar.vue'
 import ThumbnailContextMenu from '@/components/workbench/ThumbnailContextMenu.vue'
 import AddBarcodeDialog from '@/components/workbench/AddBarcodeDialog.vue'
 import DeleteBarcodeDialog from '@/components/workbench/DeleteBarcodeDialog.vue'
+import * as client from '@/api/client'
 
 function makeRouter(initial = '/batches/1') {
   const router = createRouter({
@@ -376,6 +377,152 @@ describe('WorkbenchView', () => {
     await flushPromises()
     const stored = JSON.parse(localStorage.getItem('workbench.layout')!)
     expect(stored.columns).toEqual([20, 50, 30])
+    wrapper.unmount()
+  })
+
+  // --- Fase 4: eventos lifecycle y shortcuts ---
+
+  it('on_batch_loaded se dispara en mount', async () => {
+    const spy = vi.spyOn(client, 'fireEvent').mockResolvedValue({
+      executed: false, result: null, cancel: false, target_page_id: null,
+      fields_updated: {}, batch_fields_updated: {}, logs: [], error: null,
+    })
+    const batches = useBatchesStore()
+    const apps = useApplicationsStore()
+    batches.fetchOne = vi.fn(async () => {
+      batches.current = {
+        id: 1, application_id: 5, state: 'read', page_count: 0,
+        created_at: '', updated_at: '', fields_json: '{}', folder_path: '', hostname: '',
+      }
+    })
+    batches.fetchPages = vi.fn(async () => { batches.pages = [] })
+    apps.fetchOne = vi.fn(async () => {})
+    const router = makeRouter('/batches/1'); await router.isReady()
+    const wrapper = mount(WorkbenchView, { global: { plugins: [router] } })
+    await flushPromises()
+    const calls = spy.mock.calls.filter((c) => c[1] === 'on_batch_loaded')
+    expect(calls.length).toBeGreaterThan(0)
+    spy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('on_batch_loaded con cancel redirecciona a /batches', async () => {
+    vi.spyOn(client, 'fireEvent').mockResolvedValue({
+      executed: true, result: null, cancel: true, target_page_id: null,
+      fields_updated: {}, batch_fields_updated: {}, logs: [], error: null,
+    })
+    const batches = useBatchesStore()
+    const apps = useApplicationsStore()
+    batches.fetchOne = vi.fn(async () => {
+      batches.current = {
+        id: 1, application_id: 5, state: 'read', page_count: 0,
+        created_at: '', updated_at: '', fields_json: '{}', folder_path: '', hostname: '',
+      }
+    })
+    batches.fetchPages = vi.fn(async () => { batches.pages = [] })
+    apps.fetchOne = vi.fn(async () => {})
+    const router = makeRouter('/batches/1'); await router.isReady()
+    const pushSpy = vi.spyOn(router, 'push')
+    mount(WorkbenchView, { global: { plugins: [router] } })
+    await flushPromises()
+    expect(pushSpy).toHaveBeenCalledWith('/batches')
+    vi.restoreAllMocks()
+  })
+
+  it('on_page_changed se dispara al cambiar de página cuando hay ≥2 páginas', async () => {
+    const spy = vi.spyOn(client, 'fireEvent').mockResolvedValue({
+      executed: false, result: null, cancel: false, target_page_id: null,
+      fields_updated: {}, batch_fields_updated: {}, logs: [], error: null,
+    })
+    const batches = useBatchesStore()
+    const apps = useApplicationsStore()
+    batches.fetchOne = vi.fn(async () => {
+      batches.current = {
+        id: 1, application_id: 5, state: 'read', page_count: 2,
+        created_at: '', updated_at: '', fields_json: '{}', folder_path: '', hostname: '',
+      }
+    })
+    batches.fetchPages = vi.fn(async () => {
+      batches.pages = [
+        { id: 10, batch_id: 1, page_index: 0, needs_review: false, is_blank: false, pipeline_processed: false, created_at: '' },
+        { id: 11, batch_id: 1, page_index: 1, needs_review: false, is_blank: false, pipeline_processed: false, created_at: '' },
+      ]
+    })
+    batches.fetchPage = vi.fn(async () => {})
+    apps.fetchOne = vi.fn(async () => {})
+    const router = makeRouter('/batches/1'); await router.isReady()
+    const wrapper = mount(WorkbenchView, { global: { plugins: [router] }, attachTo: document.body })
+    await flushPromises()
+    // Seleccionar la segunda página emitiendo el evento select desde ThumbnailPanel
+    wrapper.findComponent(ThumbnailPanel).vm.$emit('select', 1)
+    await flushPromises()
+    const calls = spy.mock.calls.filter((c) => c[1] === 'on_page_changed')
+    expect(calls.length).toBeGreaterThan(0)
+    spy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('F5 dispara store.runPipeline', async () => {
+    const batches = useBatchesStore()
+    const apps = useApplicationsStore()
+    batches.fetchOne = vi.fn(async () => {
+      batches.current = {
+        id: 1, application_id: 5, state: 'read', page_count: 0,
+        created_at: '', updated_at: '', fields_json: '{}', folder_path: '', hostname: '',
+      }
+    })
+    batches.fetchPages = vi.fn(async () => { batches.pages = [] })
+    apps.fetchOne = vi.fn(async () => {})
+    // Mock WebSocket: dispara onopen en el siguiente tick para resolver la promesa
+    // de openWs() que guarda onRunPipeline antes de llamar a store.runPipeline.
+    class WsMock {
+      onmessage: ((ev: MessageEvent) => void) | null = null
+      onerror: ((ev: Event) => void) | null = null
+      close = vi.fn()
+      send = vi.fn()
+      addEventListener = vi.fn()
+      set onopen(cb: ((ev: Event) => void) | null) {
+        if (cb) Promise.resolve().then(() => cb(new Event('open')))
+      }
+      get onopen() { return null }
+    }
+    vi.stubGlobal('WebSocket', WsMock)
+    const router = makeRouter('/batches/1'); await router.isReady()
+    const wrapper = mount(WorkbenchView, { global: { plugins: [router] }, attachTo: document.body })
+    await flushPromises()
+    const runSpy = vi.spyOn(batches, 'runPipeline').mockResolvedValue(undefined as never)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F5', bubbles: true }))
+    await flushPromises()
+    expect(runSpy).toHaveBeenCalled()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    wrapper.unmount()
+  })
+
+  it('tecla ? abre el modal de ayuda de atajos', async () => {
+    const batches = useBatchesStore()
+    const apps = useApplicationsStore()
+    batches.fetchOne = vi.fn(async () => {
+      batches.current = {
+        id: 1, application_id: 5, state: 'read', page_count: 0,
+        created_at: '', updated_at: '', fields_json: '{}', folder_path: '', hostname: '',
+      }
+    })
+    batches.fetchPages = vi.fn(async () => { batches.pages = [] })
+    apps.fetchOne = vi.fn(async () => {})
+    vi.spyOn(client, 'fireEvent').mockResolvedValue({
+      executed: false, result: null, cancel: false, target_page_id: null,
+      fields_updated: {}, batch_fields_updated: {}, logs: [], error: null,
+    })
+    const router = makeRouter('/batches/1'); await router.isReady()
+    const wrapper = mount(WorkbenchView, { global: { plugins: [router] }, attachTo: document.body })
+    await flushPromises()
+    // El modal de ayuda está cerrado inicialmente
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+    vi.restoreAllMocks()
     wrapper.unmount()
   })
 })
