@@ -27,8 +27,6 @@ from app.models.batch import Batch
 from app.models.page import Page
 from app.pipeline.executor import PipelineExecutor
 from app.pipeline.page_context import (
-    AppContext,
-    BatchContext,
     PageContext,
 )
 from app.pipeline.serializer import deserialize
@@ -36,8 +34,10 @@ from app.services.barcode_service import BarcodeService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptCompilationError, ScriptEngine
+
 from web.api.database import get_session_factory
 from web.api.events import PipelineEvent, PipelineEventBus, get_event_bus
+from web.api.services.context_builders import build_app_context, build_batch_context
 from web.api.storage import BaseStorage
 
 log = logging.getLogger(__name__)
@@ -141,8 +141,8 @@ def _execute_pipeline(
         return
 
     try:
-        app_ctx = _build_app_context(application)
-        batch_ctx = _build_batch_context(batch)
+        app_ctx = build_app_context(application)
+        batch_ctx = build_batch_context(batch)
 
         pages = (
             session.execute(
@@ -192,7 +192,7 @@ def _execute_pipeline(
         )
 
         # on_scan_complete se dispara tras commit y antes de notificar al WebSocket.
-        final_batch_ctx = _build_batch_context(batch)
+        final_batch_ctx = build_batch_context(batch)
         _fire_scan_complete(application, app_ctx, final_batch_ctx)
 
         emit(
@@ -238,38 +238,11 @@ def _build_executor(
     return executor, script_engine
 
 
-def _build_app_context(application: Application) -> AppContext:
-    """Mapea Application ORM → AppContext del pipeline."""
-    return AppContext(
-        id=application.id,
-        name=application.name,
-        description=application.description,
-        output_format=application.output_format,
-        auto_transfer=application.auto_transfer,
-    )
-
-
-def _build_batch_context(batch: Batch) -> BatchContext:
-    """Mapea Batch ORM → BatchContext del pipeline."""
-    try:
-        fields = json.loads(batch.fields_json) if batch.fields_json else {}
-    except json.JSONDecodeError:
-        fields = {}
-    return BatchContext(
-        id=batch.id,
-        fields=fields,
-        state=batch.state,
-        page_count=batch.page_count,
-        folder_path=batch.folder_path,
-        hostname=batch.hostname,
-    )
-
-
 def _process_page(
     page: Page,
     executor: PipelineExecutor,
-    app_ctx: AppContext,
-    batch_ctx: BatchContext,
+    app_ctx: Any,
+    batch_ctx: Any,
     storage: BaseStorage,
     session: Session,
 ) -> None:
@@ -337,8 +310,8 @@ def _persist_page_results(
 
 def _fire_scan_complete(
     application: Application,
-    app_ctx: AppContext,
-    batch_ctx: BatchContext,
+    app_ctx: Any,
+    batch_ctx: Any,
 ) -> None:
     """Ejecuta on_scan_complete si está definido. Errores logueados como warning.
 

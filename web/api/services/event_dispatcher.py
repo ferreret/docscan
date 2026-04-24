@@ -16,10 +16,11 @@ from sqlalchemy.orm import Session
 from app.models.application import Application
 from app.models.batch import Batch
 from app.models.page import Page
-from app.pipeline.page_context import AppContext, BatchContext, PageContext
+from app.pipeline.page_context import PageContext
 from app.services.script_engine import ScriptEngine
 
 from web.api.schemas.event import EventResult
+from web.api.services.context_builders import build_app_context, build_batch_context
 
 log = logging.getLogger(__name__)
 
@@ -77,47 +78,52 @@ def dispatch_event(
 
     engine = ScriptEngine()
     try:
-        engine.compile_script(event_name, script_source, event_name)
-    except Exception as e:
-        log.warning("Error compilando %s (app %d): %s", event_name, application.id, e)
-        return EventResult(executed=True, error=f"compile error: {e}")
+        try:
+            engine.compile_script(event_name, script_source, event_name)
+        except Exception as e:
+            log.warning(
+                "Error compilando %s (app %d): %s", event_name, application.id, e
+            )
+            return EventResult(executed=True, error=f"compile error: {e}")
 
-    app_ctx = _build_app_context(application)
-    batch_ctx = _build_batch_context(batch)
-    page_ctx = _build_page_context(page) if page else None
+        app_ctx = build_app_context(application)
+        batch_ctx = build_batch_context(batch)
+        page_ctx = _build_page_context(page) if page else None
 
-    kwargs: dict[str, Any] = {"app": app_ctx, "batch": batch_ctx}
-    if page_ctx is not None:
-        kwargs["page"] = page_ctx
-    if key is not None:
-        kwargs["key"] = key
-    if extra:
-        kwargs["extra"] = extra
+        kwargs: dict[str, Any] = {"app": app_ctx, "batch": batch_ctx}
+        if page_ctx is not None:
+            kwargs["page"] = page_ctx
+        if key is not None:
+            kwargs["key"] = key
+        if extra:
+            kwargs["extra"] = extra
 
-    # Usamos run_event_raw (no traga excepciones) + ThreadPoolExecutor propio
-    # para enforzar el timeout de 5s.  Si el script se cuelga o lanza,
-    # devolvemos EventResult(executed=True, error=...) en lugar de None opaco.
-    raw = _run_with_timeout(engine, event_name, kwargs)
-    if isinstance(raw, EventResult):
-        # _run_with_timeout devuelve EventResult solo en caso de error/timeout
-        return raw
+        # Usamos run_event_raw (no traga excepciones) + ThreadPoolExecutor propio
+        # para enforzar el timeout de 5s.  Si el script se cuelga o lanza,
+        # devolvemos EventResult(executed=True, error=...) en lugar de None opaco.
+        raw = _run_with_timeout(engine, event_name, kwargs)
+        if isinstance(raw, EventResult):
+            # _run_with_timeout devuelve EventResult solo en caso de error/timeout
+            return raw
 
-    result = _map_return_to_event_result(raw)
+        result = _map_return_to_event_result(raw)
 
-    if page is not None and page_ctx is not None and page_ctx.fields:
-        result.fields_updated = page_ctx.fields.copy()
-        page.index_fields_json = json.dumps(page_ctx.fields, ensure_ascii=False)
-        session.add(page)
+        if page is not None and page_ctx is not None and page_ctx.fields:
+            result.fields_updated = page_ctx.fields.copy()
+            page.index_fields_json = json.dumps(page_ctx.fields, ensure_ascii=False)
+            session.add(page)
 
-    if batch_ctx.fields:
-        result.batch_fields_updated = batch_ctx.fields.copy()
-        batch.fields_json = json.dumps(batch_ctx.fields, ensure_ascii=False)
-        session.add(batch)
+        if batch_ctx.fields:
+            result.batch_fields_updated = batch_ctx.fields.copy()
+            batch.fields_json = json.dumps(batch_ctx.fields, ensure_ascii=False)
+            session.add(batch)
 
-    if result.fields_updated or result.batch_fields_updated:
-        session.commit()
+        if result.fields_updated or result.batch_fields_updated:
+            session.commit()
 
-    return result
+        return result
+    finally:
+        engine.shutdown()
 
 
 def _run_with_timeout(
@@ -167,31 +173,6 @@ def _load_event_script(application: Application, event_name: str) -> str | None:
     if not script or not script.strip():
         return None
     return script
-
-
-def _build_app_context(application: Application) -> AppContext:
-    return AppContext(
-        id=application.id,
-        name=application.name,
-        description=application.description,
-        output_format=application.output_format,
-        auto_transfer=application.auto_transfer,
-    )
-
-
-def _build_batch_context(batch: Batch) -> BatchContext:
-    try:
-        fields = json.loads(batch.fields_json) if batch.fields_json else {}
-    except json.JSONDecodeError:
-        fields = {}
-    return BatchContext(
-        id=batch.id,
-        fields=fields,
-        state=batch.state,
-        page_count=batch.page_count,
-        folder_path=batch.folder_path,
-        hostname=batch.hostname,
-    )
 
 
 def _build_page_context(page: Page) -> PageContext:
