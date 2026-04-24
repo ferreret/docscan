@@ -184,3 +184,22 @@ export interface Invitation {
   accepted_at: string | null
   created_at: string
 }
+
+// --- Events ---
+
+export interface EventFireIn {
+  page_id?: number | null
+  key?: string | null
+  extra?: Record<string, unknown>
+}
+
+export interface EventResult {
+  executed: boolean
+  result: unknown
+  cancel: boolean
+  target_page_id: number | null
+  fields_updated: Record<string, unknown>
+  batch_fields_updated: Record<string, unknown>
+  logs: { level: string; message: string }[]
+  error: string | null
+}

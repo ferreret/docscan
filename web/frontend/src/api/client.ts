@@ -1,5 +1,7 @@
 // Cliente HTTP centralizado para la API REST.
 
+import type { EventFireIn, EventResult } from './types'
+
 const BASE_URL = '/api'
 
 class ApiError extends Error {
@@ -105,6 +107,14 @@ export const api = {
     files.forEach((f) => form.append('files', f))
     return request<T>(path, { method: 'POST', body: form })
   },
+}
+
+export async function fireEvent(
+  batchId: number,
+  eventName: string,
+  payload: EventFireIn = {},
+): Promise<EventResult> {
+  return api.post<EventResult>(`/batches/${batchId}/events/${eventName}`, payload)
 }
 
 export { ApiError }
