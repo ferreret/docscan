@@ -55,7 +55,9 @@ class PageListItem(BaseModel):
     batch_id: int
     page_index: int
     needs_review: bool
+    review_reason: str
     is_blank: bool
+    is_excluded: bool
     pipeline_processed: bool
     created_at: datetime
 

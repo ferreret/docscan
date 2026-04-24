@@ -840,6 +840,29 @@ class TestPagesRead:
         assert len(items) == 2
         assert [p["page_index"] for p in items] == [0, 1]
 
+    def test_listar_paginas_incluye_flags_excluded_y_review(self, client):
+        """PageListItem debe incluir is_excluded y review_reason para que los
+        badges de exclusión/revisión se rendericen en las miniaturas."""
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        resp = client.post(
+            f"/api/batches/{batch_id}/pages",
+            headers=h,
+            files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
+        )
+        page_id = resp.json()["created"][0]["id"]
+
+        client.patch(
+            f"/api/pages/{page_id}",
+            headers=h,
+            json={"is_excluded": True, "needs_review": True, "review_reason": "QA"},
+        )
+
+        items = client.get(f"/api/batches/{batch_id}/pages", headers=h).json()
+        assert items[0]["is_excluded"] is True
+        assert items[0]["needs_review"] is True
+        assert items[0]["review_reason"] == "QA"
+
     def test_obtener_metadatos_pagina(self, client):
         h = _auth_header(client)
         batch_id = _create_batch(client, h)

@@ -210,6 +210,7 @@ async function onRunPipeline(): Promise<void> {
     log.appendFromEvent(event)
     if (event.type === 'pipeline_started') {
       progress.value = { processed: 0, total: event.total_pages }
+      await store.fetchOne(batchId.value)
     } else if (event.type === 'page_processed') {
       progress.value = { processed: event.processed, total: event.total }
     } else if (event.type === 'pipeline_completed') {
@@ -271,6 +272,7 @@ async function onTransfer(): Promise<void> {
     log.appendFromEvent(event)
     if (event.type === 'transfer_started') {
       transferProgress.value = { page_index: 0, total: event.total_pages }
+      await store.fetchOne(batchId.value)
     } else if (event.type === 'transfer_page' && transferProgress.value) {
       transferProgress.value = { page_index: event.page_index + 1, total: transferProgress.value.total }
     } else if (event.type === 'transfer_completed') {
