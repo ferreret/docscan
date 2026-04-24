@@ -3329,3 +3329,21 @@ class TestWsPageUpdated:
             assert ev["page_id"] == 0
             assert set(ev.get("deleted_ids", [])) == {first_page, second_page}
             assert ev.get("batch_page_count") == 0
+
+
+class TestEventsFire:
+    """Endpoint POST /api/batches/{id}/events/{name}."""
+
+    def test_fire_script_no_definido_devuelve_executed_false(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["executed"] is False
+        assert data["cancel"] is False
+        assert data["error"] is None
