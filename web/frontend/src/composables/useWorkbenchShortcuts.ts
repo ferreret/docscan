@@ -59,8 +59,16 @@ export function useWorkbenchShortcuts(options: ShortcutsOptions) {
       return;
     }
 
-    // No mapeada: si tiene modificador y hay fireKeyEvent, enviar como on_key_event
+    // No mapeada: si tiene modificador y hay fireKeyEvent, enviar como on_key_event.
+    // Ignoramos si solo se pulsa el modificador (Alt, Control, Meta, Shift) para
+    // evitar ruido — el evento se dispara al combinarlo con otra tecla.
+    const isModifierAlone =
+      event.key === "Alt" ||
+      event.key === "Control" ||
+      event.key === "Meta" ||
+      event.key === "Shift";
     if (
+      !isModifierAlone &&
       (event.ctrlKey || event.altKey || event.metaKey) &&
       options.fireKeyEvent
     ) {
