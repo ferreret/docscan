@@ -3624,4 +3624,77 @@ class TestEventsFire:
             json={"page_id": page_id},
         )
         assert resp.status_code == 200
+
+
+class TestPageReprocess:
+    """Endpoint POST /api/pages/{id}/reprocess — re-ejecuta pipeline en 1 página."""
+
+    def test_reprocess_pagina_devuelve_200_y_page_response(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["id"] == page_id
+        assert data["pipeline_processed"] is True
+
+    def test_reprocess_reaplica_pipeline_fields(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        import json as _json
+
+        pipeline = _json.dumps(
+            [
+                {
+                    "id": "s1",
+                    "type": "script",
+                    "name": "Set",
+                    "enabled": True,
+                    "label": "S",
+                    "entry_point": "main",
+                    "script": "def main(page, batch, app, pipeline):\n    page.fields['reproc'] = 'ok'\n",
+                }
+            ]
+        )
+        client.patch(
+            f"/api/applications/{app_id}",
+            headers=h,
+            json={"pipeline_json": pipeline},
+        )
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h)
+        assert resp.status_code == 200
+        fields = _json.loads(resp.json()["index_fields_json"])
+        assert fields["reproc"] == "ok"
+
+    def test_reprocess_page_no_existe_404(self, client):
+        h = _auth_header(client)
+        resp = client.post("/api/pages/9999999/reprocess", headers=h)
+        assert resp.status_code == 404
+
+    def test_reprocess_page_otro_tenant_404(self, client):
+        h1 = _auth_header(client)
+        batch_id = _create_batch(client, h1)
+        page_id = _upload_page(client, h1, batch_id)
+        h2 = _auth_header(
+            client, email="otro@docscan.example.com", tenant_name="OtraCorp"
+        )
+        resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h2)
+        assert resp.status_code == 404
+
+    def test_reprocess_bloqueado_durante_running_409(self, client, db_session):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+        resp = client.post(f"/api/pages/{page_id}/reprocess", headers=h)
+        assert resp.status_code == 409
         assert resp.json()["executed"] is True
