@@ -1,15 +1,15 @@
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted } from "vue";
 import {
   SHORTCUTS,
   matchShortcut,
   eventToKeyString,
   type ShortcutAction,
-} from '@/constants/shortcuts'
+} from "@/constants/shortcuts";
 
 interface ShortcutsOptions {
-  handlers: Partial<Record<ShortcutAction, () => void | Promise<void>>>
-  isReadOnly: () => boolean
-  fireKeyEvent?: (key: string) => void
+  handlers: Partial<Record<ShortcutAction, () => void | Promise<void>>>;
+  isReadOnly: () => boolean;
+  fireKeyEvent?: (key: string) => void;
 }
 
 /**
@@ -23,52 +23,59 @@ interface ShortcutsOptions {
  */
 export function useWorkbenchShortcuts(options: ShortcutsOptions) {
   function isEditableTarget(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false
-    const tag = target.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
-    if (target.isContentEditable || target.getAttribute('contenteditable') === 'true') return true
-    if (target.closest('[role="dialog"]')) return true
-    return false
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+    if (
+      target.isContentEditable ||
+      target.getAttribute("contenteditable") === "true"
+    )
+      return true;
+    if (target.closest('[role="dialog"]')) return true;
+    return false;
   }
 
   function buildFallbackKeyString(event: KeyboardEvent): string {
-    const k = event.key
-    const letter = k.length === 1 ? k.toLowerCase() : k
-    if (event.ctrlKey) return `Ctrl+${letter}`
-    if (event.altKey) return `Alt+${letter}`
-    if (event.metaKey) return `Meta+${letter}`
-    return eventToKeyString(event)
+    const k = event.key;
+    const letter = k.length === 1 ? k.toLowerCase() : k;
+    if (event.ctrlKey) return `Ctrl+${letter}`;
+    if (event.altKey) return `Alt+${letter}`;
+    if (event.metaKey) return `Meta+${letter}`;
+    return eventToKeyString(event);
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (isEditableTarget(event.target)) return
+    if (isEditableTarget(event.target)) return;
 
-    const shortcut = matchShortcut(event)
+    const shortcut = matchShortcut(event);
     if (shortcut) {
       if (shortcut.editOnly && options.isReadOnly()) {
-        event.preventDefault()
-        return
+        event.preventDefault();
+        return;
       }
-      event.preventDefault()
-      const handler = options.handlers[shortcut.action]
-      handler?.()
-      return
+      event.preventDefault();
+      const handler = options.handlers[shortcut.action];
+      handler?.();
+      return;
     }
 
     // No mapeada: si tiene modificador y hay fireKeyEvent, enviar como on_key_event
-    if ((event.ctrlKey || event.altKey || event.metaKey) && options.fireKeyEvent) {
-      const keyStr = buildFallbackKeyString(event)
-      options.fireKeyEvent(keyStr)
+    if (
+      (event.ctrlKey || event.altKey || event.metaKey) &&
+      options.fireKeyEvent
+    ) {
+      const keyStr = buildFallbackKeyString(event);
+      options.fireKeyEvent(keyStr);
     }
   }
 
   onMounted(() => {
-    document.addEventListener('keydown', onKeyDown, { capture: true })
-  })
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+  });
 
   onUnmounted(() => {
-    document.removeEventListener('keydown', onKeyDown, { capture: true })
-  })
+    document.removeEventListener("keydown", onKeyDown, { capture: true });
+  });
 
-  return { SHORTCUTS }
+  return { SHORTCUTS };
 }

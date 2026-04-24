@@ -1,14 +1,14 @@
 // Composable que centraliza las mutaciones HTTP del Workbench.
 // Cada método es un wrapper fino sobre api.*; el rollback optimista se
 // gestiona en el componente consumidor (WorkbenchView).
-import { api } from '@/api/client'
+import { api } from "@/api/client";
 
 export function usePageActions() {
   return {
     toggleExcluded: (pageId: number, value: boolean) =>
       api.patch(`/pages/${pageId}`, { is_excluded: value }),
 
-    toggleReview: (pageId: number, value: boolean, reason = '') =>
+    toggleReview: (pageId: number, value: boolean, reason = "") =>
       api.patch(`/pages/${pageId}`, {
         needs_review: value,
         review_reason: reason,
@@ -34,5 +34,5 @@ export function usePageActions() {
 
     reprocessPage: (pageId: number) =>
       api.post(`/pages/${pageId}/reprocess`, {}),
-  }
+  };
 }
