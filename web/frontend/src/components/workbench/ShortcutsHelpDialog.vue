@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, useTemplateRef, watch } from "vue";
 import {
   SHORTCUTS,
   CATEGORY_LABELS,
   type ShortcutCategory,
 } from "@/constants/shortcuts";
 
-defineProps<{ isOpen: boolean }>();
+const props = defineProps<{ isOpen: boolean }>();
 const emit = defineEmits<{ (e: "close"): void }>();
+
+const dialogRef = useTemplateRef<HTMLElement>("dialogRef");
 
 const grouped = computed(() => {
   const map: Record<ShortcutCategory, typeof SHORTCUTS> = {
@@ -20,8 +22,20 @@ const grouped = computed(() => {
   return map;
 });
 
+// Auto-focus al abrir para que el filtro [role=dialog] de useWorkbenchShortcuts
+// aborte las teclas — impide que Escape cierre el lote mientras el modal está abierto.
+watch(
+  () => props.isOpen,
+  (open) => {
+    if (open) nextTick(() => dialogRef.value?.focus());
+  },
+);
+
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") emit("close");
+  if (event.key === "Escape") {
+    event.stopPropagation();
+    emit("close");
+  }
 }
 </script>
 
@@ -32,6 +46,7 @@ function onKeydown(event: KeyboardEvent) {
     @click.self="emit('close')"
   >
     <div
+      ref="dialogRef"
       role="dialog"
       aria-modal="true"
       aria-label="Atajos de teclado"
