@@ -3456,3 +3456,172 @@ class TestEventsFire:
         )
         assert resp.status_code == 200
         assert resp.json()["target_page_id"] == 999
+
+    def test_fire_on_page_changed_aplica_fields_updated(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_page_changed",
+            "def on_page_changed(app, batch, page):\n"
+            "    page.fields['cliente'] = 'Acme'\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_page_changed",
+            headers=h,
+            json={"page_id": page_id},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["fields_updated"] == {"cliente": "Acme"}
+
+    def test_fire_on_key_event_recibe_key(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_key_event",
+            "def on_key_event(app, batch, key):\n    return {'result': key}\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_key_event",
+            headers=h,
+            json={"key": "Ctrl+Alt+L"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["result"] == "Ctrl+Alt+L"
+
+    def test_fire_script_lanza_devuelve_error(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_batch_loaded",
+            "def on_batch_loaded(app, batch):\n    raise RuntimeError('boom')\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["executed"] is True
+        assert "boom" in (data["error"] or "")
+
+    def test_fire_event_name_no_valido_400(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_evento_raro",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 400
+
+    def test_fire_batch_otro_tenant_404(self, client):
+        h1 = _auth_header(client)
+        batch_id = _create_batch(client, h1)
+        h2 = _auth_header(
+            client,
+            email="otro@docscan.example.com",
+            tenant_name="OtraCorp",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h2,
+            json={},
+        )
+        assert resp.status_code == 404
+
+    def test_fire_on_navigate_prev_sin_page_id_422(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_navigate_prev",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 422
+
+    def test_fire_on_key_event_sin_key_422(self, client):
+        h = _auth_header(client)
+        batch_id = _create_batch(client, h)
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_key_event",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 422
+
+    def test_fire_on_page_changed_page_de_otro_lote_404(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_a = _create_batch(client, h, app_id=app_id)
+        batch_b = _create_batch(client, h, app_id=app_id)
+        page_id_b = _upload_page(client, h, batch_b)
+        resp = client.post(
+            f"/api/batches/{batch_a}/events/on_page_changed",
+            headers=h,
+            json={"page_id": page_id_b},
+        )
+        assert resp.status_code == 404
+
+    def test_fire_on_batch_loaded_permitido_durante_running(self, client, db_session):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_batch_loaded",
+            "def on_batch_loaded(app, batch):\n    return {'result': batch.state}\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["result"] == "running"
+
+    def test_fire_on_page_changed_permitido_durante_running(self, client, db_session):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        from app.models.batch import Batch
+
+        batch = db_session.query(Batch).filter_by(id=batch_id).first()
+        batch.state = "running"
+        db_session.commit()
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_page_changed",
+            "def on_page_changed(app, batch, page):\n    return True\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_page_changed",
+            headers=h,
+            json={"page_id": page_id},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["executed"] is True
