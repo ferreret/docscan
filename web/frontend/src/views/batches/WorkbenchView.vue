@@ -11,7 +11,7 @@ import { useRoute, useRouter } from "vue-router";
 import { Splitpanes, Pane } from "splitpanes";
 import "splitpanes/dist/splitpanes.css";
 
-import { ApiError } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import DocumentViewer from "@/components/DocumentViewer.vue";
 import ThumbnailPanel from "@/components/workbench/ThumbnailPanel.vue";
 import BarcodePanel from "@/components/workbench/BarcodePanel.vue";
@@ -428,13 +428,8 @@ async function onSaveMetadata(fields: Record<string, unknown>): Promise<void> {
   if (!store.current) return;
   savingMetadata.value = true;
   try {
-    await fetch(`/api/batches/${batchId.value}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("access_token") ?? ""}`,
-      },
-      body: JSON.stringify({ fields_json: JSON.stringify(fields) }),
+    await api.patch(`/batches/${batchId.value}`, {
+      fields_json: JSON.stringify(fields),
     });
     await store.fetchOne(batchId.value);
     toast.success("Lote guardado");

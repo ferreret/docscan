@@ -13,6 +13,8 @@ import ThumbnailContextMenu from "@/components/workbench/ThumbnailContextMenu.vu
 import AddBarcodeDialog from "@/components/workbench/AddBarcodeDialog.vue";
 import DeleteBarcodeDialog from "@/components/workbench/DeleteBarcodeDialog.vue";
 import * as client from "@/api/client";
+import MetadataPanel from "@/components/workbench/MetadataPanel.vue";
+import { useToast } from "@/composables/useToast";
 
 function makeRouter(initial = "/batches/1") {
   const router = createRouter({
@@ -858,6 +860,82 @@ describe("WorkbenchView", () => {
     );
     await wrapper.vm.$nextTick();
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true);
+    vi.restoreAllMocks();
+    wrapper.unmount();
+  });
+
+  // --- onSaveMetadata: migración de raw fetch a api.patch ---
+
+  it("onSaveMetadata llama a api.patch con path y body correctos", async () => {
+    const patchSpy = vi.spyOn(client.api, "patch").mockResolvedValue({});
+    const batches = useBatchesStore();
+    const apps = useApplicationsStore();
+    batches.fetchOne = vi.fn(async () => {
+      batches.current = {
+        id: 1,
+        application_id: 5,
+        state: "read",
+        page_count: 0,
+        created_at: "",
+        updated_at: "",
+        fields_json: "{}",
+        folder_path: "",
+        hostname: "",
+      };
+    });
+    batches.fetchPages = vi.fn(async () => {
+      batches.pages = [];
+    });
+    apps.fetchOne = vi.fn(async () => {});
+    const router = makeRouter("/batches/1");
+    await router.isReady();
+    const wrapper = mount(WorkbenchView, { global: { plugins: [router] } });
+    await flushPromises();
+    const panel = wrapper.findComponent(MetadataPanel);
+    await panel.vm.$emit("save", { ref: "ABC" });
+    await flushPromises();
+    expect(patchSpy).toHaveBeenCalledWith("/batches/1", {
+      fields_json: JSON.stringify({ ref: "ABC" }),
+    });
+    vi.restoreAllMocks();
+    wrapper.unmount();
+  });
+
+  it("onSaveMetadata muestra toast.error cuando api.patch falla", async () => {
+    vi.spyOn(client.api, "patch").mockRejectedValue(
+      new client.ApiError(500, "boom"),
+    );
+    const batches = useBatchesStore();
+    const apps = useApplicationsStore();
+    batches.fetchOne = vi.fn(async () => {
+      batches.current = {
+        id: 1,
+        application_id: 5,
+        state: "read",
+        page_count: 0,
+        created_at: "",
+        updated_at: "",
+        fields_json: "{}",
+        folder_path: "",
+        hostname: "",
+      };
+    });
+    batches.fetchPages = vi.fn(async () => {
+      batches.pages = [];
+    });
+    apps.fetchOne = vi.fn(async () => {});
+    const toast = useToast();
+    toast.toasts.value = [];
+    const router = makeRouter("/batches/1");
+    await router.isReady();
+    const wrapper = mount(WorkbenchView, { global: { plugins: [router] } });
+    await flushPromises();
+    const panel = wrapper.findComponent(MetadataPanel);
+    await panel.vm.$emit("save", { ref: "X" });
+    await flushPromises();
+    const errors = toast.toasts.value.filter((t) => t.kind === "error");
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((t) => t.message.includes("boom"))).toBe(true);
     vi.restoreAllMocks();
     wrapper.unmount();
   });
