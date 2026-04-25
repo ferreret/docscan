@@ -728,6 +728,7 @@ class WorkbenchWindow(QMainWindow):
         )
 
         self._call_verification_hook("on_batch_loaded")
+        self._fire_event("on_batch_loaded")
 
         # Reanudar pipeline para páginas no procesadas
         self._resume_pending_pipeline()
@@ -1276,6 +1277,7 @@ class WorkbenchWindow(QMainWindow):
         self._update_page_info()
 
         self._call_verification_hook("on_page_changed", page_index)
+        self._fire_event("on_page_changed", page_index=page_index)
 
     def _on_zoom_100(self) -> None:
         self._viewer.zoom_reset()
@@ -1566,6 +1568,7 @@ class WorkbenchWindow(QMainWindow):
         self._metadata_panel.set_batch_fields(saved_fields)
 
         self._call_verification_hook("on_batch_loaded")
+        self._fire_event("on_batch_loaded")
 
         # Persistir los campos en el nuevo lote
         if self._batch_id:

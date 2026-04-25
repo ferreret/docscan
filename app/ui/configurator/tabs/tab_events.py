@@ -39,6 +39,8 @@ EVENT_NAMES = [
     "on_navigate_next",
     "on_navigate_script",
     "on_key_event",
+    "on_batch_loaded",
+    "on_page_changed",
     "init_global",
     "verification_panel",
 ]
@@ -55,6 +57,8 @@ _EVENT_DESCRIPTIONS_SRC = {
     "on_navigate_next": QT_TRANSLATE_NOOP("EventsTab", "Navegación siguiente programable"),
     "on_navigate_script": QT_TRANSLATE_NOOP("EventsTab", "Botón de navegación programable del visor"),
     "on_key_event": QT_TRANSLATE_NOOP("EventsTab", "Tecla personalizada"),
+    "on_batch_loaded": QT_TRANSLATE_NOOP("EventsTab", "Al abrir un lote en el Workbench"),
+    "on_page_changed": QT_TRANSLATE_NOOP("EventsTab", "Tras navegar a otra página del lote"),
     "init_global": QT_TRANSLATE_NOOP("EventsTab", "Al iniciar el programa (script global del launcher)"),
     "verification_panel": QT_TRANSLATE_NOOP("EventsTab", "Panel de verificación (clase VerificationPanel)"),
 }

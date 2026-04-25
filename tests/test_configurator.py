@@ -213,6 +213,16 @@ class TestEventsTab:
         events = json.loads(sample_app.events_json)
         assert "on_app_start" not in events
 
+    def test_event_names_includes_on_batch_loaded_and_on_page_changed(self):
+        """v0.1.1: ambos eventos deben aparecer en el catálogo."""
+        from app.ui.configurator.tabs.tab_events import EVENT_NAMES, EVENT_DESCRIPTIONS
+
+        assert "on_batch_loaded" in EVENT_NAMES
+        assert "on_page_changed" in EVENT_NAMES
+        descriptions = EVENT_DESCRIPTIONS()
+        assert descriptions.get("on_batch_loaded")
+        assert descriptions.get("on_page_changed")
+
 
 # ------------------------------------------------------------------
 # Tab Transfer
