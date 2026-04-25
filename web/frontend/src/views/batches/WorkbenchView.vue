@@ -30,6 +30,7 @@ import { useWorkbenchLog } from "@/composables/useWorkbenchLog";
 import { usePageActions } from "@/composables/usePageActions";
 import { useWorkbenchEvents } from "@/composables/useWorkbenchEvents";
 import { useWorkbenchShortcuts } from "@/composables/useWorkbenchShortcuts";
+import { useWorkbenchWebSocket } from "@/composables/useWorkbenchWebSocket";
 import ShortcutsHelpDialog from "@/components/workbench/ShortcutsHelpDialog.vue";
 import type { PageListItem, PageResponse } from "@/api/types";
 
@@ -96,9 +97,6 @@ const deleteBarcodeTarget = ref<{ id: number; value: string } | null>(null);
 const viewerRef =
   useTemplateRef<InstanceType<typeof DocumentViewer>>("viewerRef");
 
-// WebSocket activo (pipeline o transferencia). Se cierra en onUnmounted para
-// evitar que handlers tardíos corrompan el estado de otras vistas.
-const activeWs = ref<WebSocket | null>(null);
 
 const sortedPages = computed(() =>
   [...(store.pages ?? [])].sort((a, b) => a.page_index - b.page_index),
@@ -216,20 +214,28 @@ onMounted(async () => {
   }
 });
 
+const ws = useWorkbenchWebSocket(batchId, {
+  store,
+  appStore,
+  toast,
+  log,
+  currentPageListItem,
+  running,
+  error,
+  progress,
+  transferring,
+  transferStatus,
+  transferMessage,
+  transferProgress,
+});
+const onRunPipeline = ws.runPipeline;
+const onTransfer = ws.transfer;
+
 onUnmounted(() => {
   // Cierra cualquier WebSocket activo para que handlers tardíos no muten estado
   // de otras vistas tras navegar fuera del Workbench.
-  activeWs.value?.close();
-  activeWs.value = null;
+  ws.close();
 });
-
-function openWs(): WebSocket {
-  const token = localStorage.getItem("access_token") ?? "";
-  const proto = window.location.protocol === "https:" ? "wss" : "ws";
-  return new WebSocket(
-    `${proto}://${window.location.host}/ws/batches/${batchId.value}?token=${encodeURIComponent(token)}`,
-  );
-}
 
 async function onUpload(files: File[]): Promise<void> {
   uploading.value = true;
@@ -242,160 +248,6 @@ async function onUpload(files: File[]): Promise<void> {
     toast.error(error.value!);
   } finally {
     uploading.value = false;
-  }
-}
-
-async function onRunPipeline(): Promise<void> {
-  running.value = true;
-  error.value = null;
-  progress.value = null;
-  const ws = openWs();
-  activeWs.value = ws;
-  ws.onmessage = async (msg) => {
-    // Early-return si el componente se desmontó o se abrió otra WS.
-    if (activeWs.value !== ws) return;
-    const event = JSON.parse(msg.data);
-    log.appendFromEvent(event);
-    if (event.type === "pipeline_started") {
-      progress.value = { processed: 0, total: event.total_pages };
-      await store.fetchOne(batchId.value);
-    } else if (event.type === "page_processed") {
-      progress.value = { processed: event.processed, total: event.total };
-    } else if (event.type === "pipeline_completed") {
-      await Promise.all([
-        store.fetchOne(batchId.value),
-        store.fetchPages(batchId.value),
-      ]);
-      if (currentPageListItem.value)
-        await store.fetchPage(batchId.value, currentPageListItem.value.id);
-      running.value = false;
-      progress.value = null;
-      ws.close();
-      if (activeWs.value === ws) activeWs.value = null;
-      toast[event.any_error ? "error" : "success"](
-        event.any_error ? "Pipeline con errores" : "Pipeline completado",
-      );
-      if (appStore.current?.auto_transfer && store.current?.state === "read") {
-        await onTransfer();
-      }
-    } else if (event.type === "pipeline_error") {
-      error.value = `Error pipeline: ${event.error}`;
-      running.value = false;
-      progress.value = null;
-      ws.close();
-      if (activeWs.value === ws) activeWs.value = null;
-      toast.error(error.value);
-    } else if (event.type === "page_updated") {
-      // Refrescar datos del lote y de la página afectada
-      await store.fetchOne(batchId.value);
-      await store.fetchPages(batchId.value);
-      if (currentPageListItem.value?.id === event.page_id) {
-        await store.fetchPage(batchId.value, event.page_id);
-      }
-    }
-  };
-  ws.onerror = () => {
-    error.value = "Error de conexión";
-    running.value = false;
-  };
-  try {
-    await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.addEventListener("error", () => reject(new Error("ws")), {
-        once: true,
-      });
-    });
-    await store.runPipeline(batchId.value);
-  } catch (e) {
-    error.value =
-      e instanceof ApiError ? e.detail : "Error al ejecutar pipeline";
-    running.value = false;
-    ws.close();
-    if (activeWs.value === ws) activeWs.value = null;
-  }
-}
-
-async function onTransfer(): Promise<void> {
-  if (transferring.value) return;
-  transferring.value = true;
-  transferStatus.value = "running";
-  transferMessage.value = null;
-  transferProgress.value = null;
-  const ws = openWs();
-  activeWs.value = ws;
-  ws.onmessage = async (msg) => {
-    // Early-return si el componente se desmontó o se abrió otra WS.
-    if (activeWs.value !== ws) return;
-    const event = JSON.parse(msg.data);
-    log.appendFromEvent(event);
-    if (event.type === "transfer_started") {
-      transferProgress.value = { page_index: 0, total: event.total_pages };
-      await store.fetchOne(batchId.value);
-    } else if (event.type === "transfer_page" && transferProgress.value) {
-      transferProgress.value = {
-        page_index: event.page_index + 1,
-        total: transferProgress.value.total,
-      };
-    } else if (event.type === "transfer_completed") {
-      transferring.value = false;
-      ws.close();
-      if (activeWs.value === ws) activeWs.value = null;
-      transferStatus.value = event.success ? "completed" : "error";
-      transferMessage.value = event.success
-        ? event.output_path
-          ? `Transferencia → ${event.output_path}`
-          : "Transferencia completada"
-        : event.errors?.join("; ") || "Error en transferencia";
-      toast[event.success ? "success" : "error"](transferMessage.value!);
-      transferProgress.value = null;
-      await store.fetchOne(batchId.value);
-    } else if (event.type === "transfer_error") {
-      transferring.value = false;
-      transferStatus.value = "error";
-      transferMessage.value = `Error: ${event.error}`;
-      transferProgress.value = null;
-      ws.close();
-      if (activeWs.value === ws) activeWs.value = null;
-      toast.error(transferMessage.value);
-    } else if (event.type === "transfer_aborted") {
-      transferring.value = false;
-      transferStatus.value = "aborted";
-      transferMessage.value = `Transferencia abortada: ${event.reason}`;
-      transferProgress.value = null;
-      ws.close();
-      if (activeWs.value === ws) activeWs.value = null;
-      toast.error(transferMessage.value);
-    }
-  };
-  ws.onerror = () => {
-    transferring.value = false;
-    transferStatus.value = "error";
-    transferMessage.value = "Error de conexión durante la transferencia";
-  };
-  try {
-    await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.addEventListener("error", () => reject(new Error("ws transfer")), {
-        once: true,
-      });
-    });
-    const token = localStorage.getItem("access_token") ?? "";
-    const res = await fetch(`/api/batches/${batchId.value}/transfer`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(body.detail || `Error ${res.status}`);
-    }
-  } catch (e) {
-    transferring.value = false;
-    transferStatus.value = "error";
-    transferMessage.value =
-      e instanceof Error ? e.message : "Error al iniciar transferencia";
-    ws.close();
-    if (activeWs.value === ws) activeWs.value = null;
-    toast.error(transferMessage.value!);
   }
 }
 
