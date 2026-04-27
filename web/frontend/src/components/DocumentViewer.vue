@@ -82,19 +82,60 @@ watch(
   { immediate: true },
 );
 
-onUnmounted(revoke);
+// Refit automático cuando el viewport cambia de tamaño (resize de ventana o
+// drag de splitpanes). Solo refit si el zoom actual es ≤ el último fit
+// calculado (estamos en modo "auto-fit"); si el usuario hizo zoom manual,
+// respetamos su elección.
+let resizeObserver: ResizeObserver | null = null;
+let lastFitZoom = 0;
+
+function maybeRefit() {
+  if (naturalWidth.value === 0) return;
+  if (lastFitZoom === 0 || Math.abs(zoom.value - lastFitZoom) < 0.001) {
+    fitToViewport();
+  }
+}
+
+watch(
+  viewport,
+  (el) => {
+    resizeObserver?.disconnect();
+    if (!el) return;
+    resizeObserver = new ResizeObserver(() => maybeRefit());
+    resizeObserver.observe(el);
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  resizeObserver?.disconnect();
+  revoke();
+});
 
 function fitToViewport() {
   const vp = viewport.value;
   if (!vp || naturalWidth.value === 0) return;
-  const PADDING = 32;
+  const PADDING = 16;
   const scale = Math.min(
     (vp.clientWidth - PADDING * 2) / naturalWidth.value,
     (vp.clientHeight - PADDING * 2) / naturalHeight.value,
   );
-  zoom.value = scale > 1 ? 1 : scale;
+  zoom.value = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, scale));
   offsetX.value = (vp.clientWidth - naturalWidth.value * zoom.value) / 2;
   offsetY.value = (vp.clientHeight - naturalHeight.value * zoom.value) / 2;
+  lastFitZoom = zoom.value;
+}
+
+function fitToWidth() {
+  const vp = viewport.value;
+  if (!vp || naturalWidth.value === 0) return;
+  const PADDING = 16;
+  const scale = (vp.clientWidth - PADDING * 2) / naturalWidth.value;
+  zoom.value = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, scale));
+  offsetX.value = (vp.clientWidth - naturalWidth.value * zoom.value) / 2;
+  // Pegar arriba para que el usuario empiece a leer desde el principio
+  offsetY.value = PADDING;
+  lastFitZoom = zoom.value;
 }
 
 function zoomBy(factor: number, anchorX?: number, anchorY?: number) {
@@ -216,8 +257,10 @@ defineExpose({
     zoom.value = 1;
   },
   fitPage: fitToViewport,
+  fitWidth: fitToWidth,
   resetView,
   fitToViewport,
+  fitToWidth,
   zoomPercent,
 });
 </script>
@@ -301,12 +344,18 @@ defineExpose({
       </template>
     </div>
 
-    <!-- Loader -->
+    <!-- Loader / placeholder -->
     <div
-      v-if="!src"
+      v-if="imageUrl && !src"
       class="absolute inset-0 flex items-center justify-center text-subtext text-sm"
     >
       Cargando…
+    </div>
+    <div
+      v-else-if="!imageUrl"
+      class="absolute inset-0 flex items-center justify-center text-subtext text-sm"
+    >
+      Sin página seleccionada
     </div>
   </div>
 </template>

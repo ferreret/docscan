@@ -2,16 +2,16 @@
 import { ref, watch, onUnmounted } from 'vue'
 
 const props = defineProps<{
-  url: string
+  src: string
   alt?: string
 }>()
 
-const src = ref<string | null>(null)
+const objectUrl = ref<string | null>(null)
 
 function revoke() {
-  if (src.value) {
-    URL.revokeObjectURL(src.value)
-    src.value = null
+  if (objectUrl.value) {
+    URL.revokeObjectURL(objectUrl.value)
+    objectUrl.value = null
   }
 }
 
@@ -24,13 +24,13 @@ async function load(url: string) {
     })
     if (!res.ok) return
     const blob = await res.blob()
-    src.value = URL.createObjectURL(blob)
+    objectUrl.value = URL.createObjectURL(blob)
   } catch {
     // silently fail
   }
 }
 
-watch(() => props.url, (url) => {
+watch(() => props.src, (url) => {
   if (url) load(url)
   else revoke()
 }, { immediate: true })
@@ -39,6 +39,6 @@ onUnmounted(revoke)
 </script>
 
 <template>
-  <img v-if="src" :src="src" :alt="alt" v-bind="$attrs" />
+  <img v-if="objectUrl" :src="objectUrl" :alt="alt" v-bind="$attrs" />
   <div v-else class="animate-pulse bg-surface-0" v-bind="$attrs" />
 </template>

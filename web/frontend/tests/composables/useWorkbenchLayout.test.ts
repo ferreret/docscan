@@ -9,7 +9,7 @@ describe('useWorkbenchLayout', () => {
 
   it('returns default sizes when localStorage is empty', () => {
     const { sizes } = useWorkbenchLayout()
-    expect(sizes.value).toEqual({ columns: [15, 55, 30], rightVertical: [50, 50] })
+    expect(sizes.value).toEqual({ columns: [10, 65, 25], rightVertical: [50, 50] })
   })
 
   it('loads valid sizes from localStorage', () => {
@@ -24,14 +24,14 @@ describe('useWorkbenchLayout', () => {
     localStorage.setItem('workbench.layout', '{not json')
     _resetLayoutForTests()
     const { sizes } = useWorkbenchLayout()
-    expect(sizes.value).toEqual({ columns: [15, 55, 30], rightVertical: [50, 50] })
+    expect(sizes.value).toEqual({ columns: [10, 65, 25], rightVertical: [50, 50] })
   })
 
   it('falls back to defaults when shape is wrong', () => {
     localStorage.setItem('workbench.layout', JSON.stringify({ columns: [50, 50] })) // only 2 cols
     _resetLayoutForTests()
     const { sizes } = useWorkbenchLayout()
-    expect(sizes.value).toEqual({ columns: [15, 55, 30], rightVertical: [50, 50] })
+    expect(sizes.value).toEqual({ columns: [10, 65, 25], rightVertical: [50, 50] })
   })
 
   it('setSizes updates ref and persists to localStorage', () => {

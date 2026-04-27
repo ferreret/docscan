@@ -5,13 +5,19 @@ const props = withDefaults(
   defineProps<{
     zoomPercent: number
     canRotate?: boolean
-    showBarcodes?: boolean
-    showFields?: boolean
+    canDelete?: boolean
+    currentPageNumber?: number
+    totalPages?: number
+    canPrev?: boolean
+    canNext?: boolean
   }>(),
   {
     canRotate: true,
-    showBarcodes: true,
-    showFields: true,
+    canDelete: true,
+    currentPageNumber: 0,
+    totalPages: 0,
+    canPrev: false,
+    canNext: false,
   },
 )
 
@@ -20,9 +26,13 @@ const emit = defineEmits<{
   (e: 'zoom-out'): void
   (e: 'reset'): void
   (e: 'fit'): void
+  (e: 'fit-width'): void
   (e: 'rotate', turns: number): void
-  (e: 'toggle-barcodes'): void
-  (e: 'toggle-fields'): void
+  (e: 'delete-page'): void
+  (e: 'nav-first'): void
+  (e: 'nav-prev'): void
+  (e: 'nav-next'): void
+  (e: 'nav-last'): void
 }>()
 
 const rotateOpen = ref(false)
@@ -50,60 +60,126 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 </script>
 
 <template>
-  <div class="absolute top-2 right-2 z-10 inline-flex items-center bg-mantle border border-surface-1 rounded shadow-sm">
+  <div
+    class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 inline-flex items-center bg-mantle/95 backdrop-blur-sm border border-surface-1 rounded-full shadow-lg overflow-hidden"
+    role="toolbar"
+    aria-label="Herramientas del visor"
+  >
+    <!-- Navegación: primera, anterior -->
     <button
       type="button"
-      data-test="vt-zoom-in"
-      title="Acercar"
-      aria-label="Acercar"
-      class="px-2 py-1 text-text hover:bg-crust transition-colors"
-      @click="emit('zoom-in')"
-    >+</button>
+      data-test="vt-nav-first"
+      :disabled="!canPrev"
+      title="Primera página"
+      aria-label="Primera página"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      @click="emit('nav-first')"
+    >⏮</button>
+    <button
+      type="button"
+      data-test="vt-nav-prev"
+      :disabled="!canPrev"
+      title="Página anterior (←)"
+      aria-label="Página anterior"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors disabled:opacity-30 disabled:cursor-not-allowed border-l border-surface-1"
+      @click="emit('nav-prev')"
+    >◀</button>
+
+    <!-- Indicador de página -->
+    <span
+      class="px-3 py-2 text-xs text-subtext border-l border-surface-1 min-w-[4.5rem] text-center font-mono tabular-nums"
+      data-test="vt-page-indicator"
+    >
+      {{ currentPageNumber || '–' }} / {{ totalPages || '–' }}
+    </span>
+
+    <!-- Navegación: siguiente, última -->
+    <button
+      type="button"
+      data-test="vt-nav-next"
+      :disabled="!canNext"
+      title="Página siguiente (→)"
+      aria-label="Página siguiente"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors disabled:opacity-30 disabled:cursor-not-allowed border-l border-surface-1"
+      @click="emit('nav-next')"
+    >▶</button>
+    <button
+      type="button"
+      data-test="vt-nav-last"
+      :disabled="!canNext"
+      title="Última página"
+      aria-label="Última página"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors disabled:opacity-30 disabled:cursor-not-allowed border-l border-surface-1"
+      @click="emit('nav-last')"
+    >⏭</button>
+
+    <!-- Separador visual entre navegación y zoom -->
+    <span class="w-px h-6 bg-surface-1 mx-1" aria-hidden="true"></span>
+
+    <!-- Zoom -->
     <button
       type="button"
       data-test="vt-zoom-out"
       title="Alejar"
       aria-label="Alejar"
-      class="px-2 py-1 text-text hover:bg-crust transition-colors border-l border-surface-1"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors"
       @click="emit('zoom-out')"
     >−</button>
+    <button
+      type="button"
+      data-test="vt-zoom-in"
+      title="Acercar"
+      aria-label="Acercar"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors border-l border-surface-1"
+      @click="emit('zoom-in')"
+    >+</button>
+    <span
+      class="px-3 py-2 text-xs text-subtext border-l border-surface-1 min-w-[3.5rem] text-center font-mono tabular-nums"
+      data-test="vt-percent"
+    >
+      {{ zoomPercent }}%
+    </span>
     <button
       type="button"
       data-test="vt-reset"
       title="Tamaño 100%"
       aria-label="Tamaño 100%"
-      class="px-2 py-1 text-text hover:bg-crust transition-colors border-l border-surface-1 text-xs"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors border-l border-surface-1 text-xs"
       @click="emit('reset')"
     >1:1</button>
     <button
       type="button"
       data-test="vt-fit"
-      title="Ajustar a la vista"
-      aria-label="Ajustar a la vista"
-      class="px-2 py-1 text-text hover:bg-crust transition-colors border-l border-surface-1"
+      title="Ajustar a la página"
+      aria-label="Ajustar a la página"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors border-l border-surface-1"
       @click="emit('fit')"
     >⛶</button>
-    <span
-      class="px-2 py-1 text-xs text-subtext border-l border-surface-1 min-w-[3.5rem] text-right"
-      data-test="vt-percent"
-    >
-      {{ zoomPercent }}%
-    </span>
+    <button
+      type="button"
+      data-test="vt-fit-width"
+      title="Ajustar al ancho"
+      aria-label="Ajustar al ancho"
+      class="px-3 py-2 text-text hover:bg-crust transition-colors border-l border-surface-1 text-xs"
+      @click="emit('fit-width')"
+    >↔</button>
+
+    <span class="w-px h-6 bg-surface-1 mx-1" aria-hidden="true"></span>
 
     <!-- Rotate dropdown -->
-    <div data-rotate-dropdown class="relative border-l border-surface-1">
+    <div data-rotate-dropdown class="relative">
       <button
         type="button"
         data-testid="btn-rotate"
         :disabled="!canRotate"
         :title="canRotate ? 'Rotar página' : 'Rotación deshabilitada'"
         aria-label="Rotar página"
-        class="px-2 py-1 text-text hover:bg-crust transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        class="px-3 py-2 text-text hover:bg-crust transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         @click="toggleRotate"
       >↻</button>
       <div
         v-if="rotateOpen"
-        class="absolute top-full right-0 mt-1 bg-mantle border border-surface-1 rounded shadow-lg py-1 min-w-[140px] z-20"
+        class="absolute bottom-full right-0 mb-1 bg-mantle border border-surface-1 rounded shadow-lg py-1 min-w-[140px] z-20"
       >
         <button
           type="button"
@@ -126,26 +202,15 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
       </div>
     </div>
 
-    <!-- Overlay toggles -->
+    <!-- Eliminar página actual -->
     <button
       type="button"
-      data-testid="btn-toggle-barcodes"
-      :aria-pressed="showBarcodes ? 'true' : 'false'"
-      :title="showBarcodes ? 'Ocultar barcodes' : 'Mostrar barcodes'"
-      aria-label="Alternar overlay de barcodes"
-      class="px-2 py-1 text-xs border-l border-surface-1 transition-colors"
-      :class="showBarcodes ? 'bg-blue text-base' : 'text-subtext hover:bg-crust'"
-      @click="emit('toggle-barcodes')"
-    >▮▮</button>
-    <button
-      type="button"
-      data-testid="btn-toggle-fields"
-      :aria-pressed="showFields ? 'true' : 'false'"
-      :title="showFields ? 'Ocultar campos' : 'Mostrar campos'"
-      aria-label="Alternar overlay de campos"
-      class="px-2 py-1 text-xs border-l border-surface-1 transition-colors"
-      :class="showFields ? 'bg-blue text-base' : 'text-subtext hover:bg-crust'"
-      @click="emit('toggle-fields')"
-    >ABC</button>
+      data-test="vt-delete-page"
+      :disabled="!canDelete"
+      title="Eliminar esta página (Supr)"
+      aria-label="Eliminar esta página"
+      class="px-3 py-2 text-danger hover:bg-danger/10 transition-colors border-l border-surface-1 disabled:opacity-30 disabled:cursor-not-allowed"
+      @click="emit('delete-page')"
+    >🗑</button>
   </div>
 </template>

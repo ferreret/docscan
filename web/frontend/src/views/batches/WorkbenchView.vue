@@ -156,10 +156,13 @@ const contextMenuNeedsReview = computed(
 
 const counters = computed(() => {
   const total = sortedPages.value.length;
+  const totalBarcodes = sortedPages.value.reduce(
+    (acc, p) => acc + (p.barcodes_count ?? 0),
+    0,
+  );
   const needsReview = sortedPages.value.filter((p) => p.needs_review).length;
-  // withBarcode y separators requieren datos de barcodes de todas las páginas
-  // que hoy no están cargados; se quedan en 0 hasta que el backend lo sirva.
-  return { total, withBarcode: 0, separators: 0, needsReview };
+  const excluded = sortedPages.value.filter((p) => p.is_excluded).length;
+  return { total, totalBarcodes, needsReview, excluded };
 });
 
 watch(
@@ -292,17 +295,21 @@ async function onSaveMetadata(fields: Record<string, unknown>): Promise<void> {
   }
 }
 
-function onColumnsResize(panes: Array<{ size: number }>): void {
+interface SplitpanesResizeEvent {
+  panes: Array<{ size: number; min: number; max: number }>;
+}
+
+function onColumnsResize(payload: SplitpanesResizeEvent): void {
   setSizes({
-    columns: panes.map((p) => p.size) as [number, number, number],
+    columns: payload.panes.map((p) => p.size) as [number, number, number],
     rightVertical: sizes.value.rightVertical,
   });
 }
 
-function onRightResize(panes: Array<{ size: number }>): void {
+function onRightResize(payload: SplitpanesResizeEvent): void {
   setSizes({
     columns: sizes.value.columns,
-    rightVertical: panes.map((p) => p.size) as [number, number],
+    rightVertical: payload.panes.map((p) => p.size) as [number, number],
   });
 }
 
@@ -505,6 +512,15 @@ async function goNext(): Promise<void> {
     selectedPageIndex.value++;
 }
 
+function goFirst(): void {
+  if (sortedPages.value.length > 0) selectedPageIndex.value = 0;
+}
+
+function goLast(): void {
+  if (sortedPages.value.length > 0)
+    selectedPageIndex.value = sortedPages.value.length - 1;
+}
+
 // --- Helpers para shortcuts ---
 
 async function refreshCurrent(): Promise<void> {
@@ -599,7 +615,7 @@ useWorkbenchShortcuts({
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-base text-text">
+  <div class="h-screen flex flex-col overflow-hidden bg-base text-text">
     <WorkbenchToolbar
       v-if="store.current"
       :batch="store.current"
@@ -616,6 +632,13 @@ useWorkbenchShortcuts({
     <div v-if="error" class="bg-danger-soft text-danger text-xs px-4 py-1">
       {{ error }}
     </div>
+    <div v-if="uploading" class="bg-primary-soft text-primary px-4 py-3 flex items-center gap-3 border-b-2 border-primary">
+      <span class="inline-block w-6 h-6 border-[3px] border-primary border-t-transparent rounded-full animate-spin shrink-0"></span>
+      <div class="flex flex-col">
+        <span class="font-semibold text-sm">Subiendo ficheros…</span>
+        <span class="text-xs opacity-80">PDF y TIFF multi-página se convierten en el servidor — puede tardar varios segundos</span>
+      </div>
+    </div>
     <div v-if="progress" class="bg-primary-soft text-primary text-xs px-4 py-1">
       Procesando {{ progress.processed }}/{{ progress.total }}…
     </div>
@@ -628,13 +651,14 @@ useWorkbenchShortcuts({
       }}…
     </div>
 
-    <Splitpanes class="flex-1" @resized="onColumnsResize">
+    <Splitpanes class="flex-1 min-h-0" @resized="onColumnsResize">
       <Pane :size="sizes.columns[0]" :min-size="8">
         <ThumbnailPanel
           :pages="sortedPages"
           :batchId="batchId"
           :currentIndex="selectedPageIndex"
           :readOnly="isReadOnly"
+          :cacheTick="imageCacheTick"
           @select="(i) => (selectedPageIndex = i)"
           @fit="viewerRef?.fitToViewport()"
           @reorder="onReorder"
@@ -643,6 +667,17 @@ useWorkbenchShortcuts({
       </Pane>
       <Pane :size="sizes.columns[1]" :min-size="20">
         <div class="relative h-full">
+          <!-- Overlay de estado (revisión / excluida) sobre el visor -->
+          <div
+            v-if="currentPage?.is_excluded"
+            class="absolute inset-0 z-20 pointer-events-none border-4 border-danger"
+            data-test="viewer-status-excluded"
+          ></div>
+          <div
+            v-else-if="currentPage?.needs_review"
+            class="absolute inset-0 z-20 pointer-events-none border-4 border-warning"
+            data-test="viewer-status-review"
+          ></div>
           <DocumentViewer
             ref="viewerRef"
             :imageUrl="currentImageUrl"
@@ -655,15 +690,22 @@ useWorkbenchShortcuts({
             v-if="viewerRef"
             :zoom-percent="viewerRef.zoomPercent ?? 100"
             :canRotate="!isReadOnly"
-            :showBarcodes="showBarcodes"
-            :showFields="showFields"
+            :canDelete="!isReadOnly && currentPageListItem != null"
+            :current-page-number="selectedPageIndex + 1"
+            :total-pages="sortedPages.length"
+            :can-prev="selectedPageIndex > 0"
+            :can-next="selectedPageIndex < sortedPages.length - 1"
             @zoom-in="viewerRef.zoomIn()"
             @zoom-out="viewerRef.zoomOut()"
             @reset="viewerRef.resetView()"
             @fit="viewerRef.fitToViewport()"
+            @fit-width="viewerRef.fitToWidth()"
             @rotate="onRotate"
-            @toggle-barcodes="onToggleBarcodes"
-            @toggle-fields="onToggleFields"
+            @delete-page="currentPageListItem && onDeletePage(currentPageListItem.id)"
+            @nav-first="goFirst"
+            @nav-prev="goPrev"
+            @nav-next="goNext"
+            @nav-last="goLast"
           />
         </div>
       </Pane>

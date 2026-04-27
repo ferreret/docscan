@@ -21,12 +21,14 @@ describe('PageThumbnail', () => {
     setActivePinia(createPinia())
   })
 
-  it('renders the page index in the footer', () => {
+  it('renders the display index (1-based) in the footer', () => {
+    // displayIndex es la posición visual en la lista, no page_index (que es
+    // el índice persistido y puede tener huecos tras borrar).
     const wrapper = mount(PageThumbnail, {
-      props: { page: makePage({ page_index: 4 }), batchId: 1, selected: false },
+      props: { page: makePage({ page_index: 4 }), batchId: 1, selected: false, displayIndex: 2 },
       global: { stubs: { AuthImage: true } },
     })
-    expect(wrapper.text()).toContain('#5')
+    expect(wrapper.text()).toContain('#3')
   })
 
   it('applies danger border when page is_excluded', () => {

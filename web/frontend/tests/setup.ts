@@ -52,3 +52,18 @@ if (typeof window !== 'undefined' && !hasStorageApi(window.localStorage)) {
     configurable: true,
   })
 }
+
+// jsdom no implementa ResizeObserver. Mock no-op para que los componentes
+// que lo usan (DocumentViewer) no exploten en runtime de tests.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  class MockResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    value: MockResizeObserver,
+    writable: true,
+    configurable: true,
+  })
+}

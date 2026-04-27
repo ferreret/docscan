@@ -1,12 +1,22 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ThemeSelector from '@/components/ThemeSelector.vue'
 
 const auth = useAuthStore()
+const route = useRoute()
+
+// Vistas a pantalla completa (sin padding ni max-width). El Workbench
+// necesita controlar su propia altura porque usa Splitpanes y h-screen.
+const fullScreenRoutes = new Set(['batch-detail'])
+const isFullScreen = computed(() =>
+  fullScreenRoutes.has(route.name as string),
+)
 </script>
 
 <template>
-  <div class="min-h-screen bg-base flex">
+  <div class="h-screen bg-base flex">
     <!-- Sidebar -->
     <aside class="w-64 bg-mantle border-r border-surface-1 flex flex-col">
       <div class="px-5 py-5 border-b border-surface-0">
@@ -100,10 +110,11 @@ const auth = useAuthStore()
     </aside>
 
     <!-- Main content -->
-    <main class="flex-1 overflow-auto bg-base">
-      <div class="px-8 py-6 max-w-[1400px] mx-auto">
+    <main :class="isFullScreen ? 'flex-1 overflow-hidden bg-base' : 'flex-1 overflow-auto bg-base'">
+      <div v-if="!isFullScreen" class="px-8 py-6 max-w-[1400px] mx-auto">
         <router-view />
       </div>
+      <router-view v-else />
     </main>
   </div>
 </template>

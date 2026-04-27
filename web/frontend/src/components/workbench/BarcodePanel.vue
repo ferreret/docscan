@@ -3,7 +3,7 @@ import type { BarcodeResponse } from '@/api/types'
 
 withDefaults(defineProps<{
   barcodes: BarcodeResponse[]
-  pageCounters: { total: number; withBarcode: number; separators: number; needsReview: number }
+  pageCounters: { total: number; totalBarcodes: number; needsReview: number; excluded: number }
   readOnly?: boolean
 }>(), {
   readOnly: false,
@@ -23,22 +23,34 @@ function colorFor(idx: number): string {
 
 <template>
   <section class="h-full flex flex-col bg-mantle border-l border-surface-0">
-    <header class="px-3 py-2 border-b border-surface-0 flex items-center justify-between text-xs">
-      <div class="flex items-center gap-2">
+    <header class="border-b border-surface-0">
+      <div class="px-3 py-2 flex items-center justify-between text-xs">
         <h2 class="font-semibold text-text uppercase tracking-wide">Barcodes</h2>
         <button
           v-if="!readOnly"
           data-testid="btn-add-barcode"
           type="button"
-          class="ml-2 px-2 py-0.5 bg-primary text-base rounded text-xs hover:opacity-90"
+          class="px-2 py-0.5 bg-primary text-base rounded text-xs hover:opacity-90"
           @click="emit('add-barcode')"
         >+ Añadir</button>
       </div>
-      <div class="flex gap-3 text-subtext">
-        <span data-test="counter-total">Páginas: {{ pageCounters.total }}</span>
-        <span data-test="counter-with-barcode">Con barcode: {{ pageCounters.withBarcode }}</span>
-        <span data-test="counter-separators">Separadores: {{ pageCounters.separators }}</span>
-        <span data-test="counter-needs-review">Revisión: {{ pageCounters.needsReview }}</span>
+      <div class="px-3 pb-2 grid grid-cols-2 gap-2">
+        <div data-test="counter-total" class="bg-crust rounded px-3 py-2 text-center">
+          <div class="text-[10px] text-subtext uppercase tracking-wide leading-tight">Páginas</div>
+          <div class="text-base font-semibold text-text leading-tight tabular-nums">{{ pageCounters.total }}</div>
+        </div>
+        <div data-test="counter-total-barcodes" class="bg-crust rounded px-3 py-2 text-center">
+          <div class="text-[10px] text-subtext uppercase tracking-wide leading-tight">Barcodes</div>
+          <div class="text-base font-semibold text-text leading-tight tabular-nums">{{ pageCounters.totalBarcodes }}</div>
+        </div>
+        <div data-test="counter-needs-review" class="bg-crust rounded px-3 py-2 text-center">
+          <div class="text-[10px] text-warning uppercase tracking-wide leading-tight">⚐ Revisión</div>
+          <div class="text-base font-semibold text-text leading-tight tabular-nums">{{ pageCounters.needsReview }}</div>
+        </div>
+        <div data-test="counter-excluded" class="bg-crust rounded px-3 py-2 text-center">
+          <div class="text-[10px] text-danger uppercase tracking-wide leading-tight">⊘ Ignorar</div>
+          <div class="text-base font-semibold text-text leading-tight tabular-nums">{{ pageCounters.excluded }}</div>
+        </div>
       </div>
     </header>
 

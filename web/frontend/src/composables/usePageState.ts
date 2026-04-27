@@ -10,8 +10,8 @@ export type PageState =
 
 export const PAGE_STATE_BORDER_CLASS: Record<PageState, string> = {
   excluded: 'border-danger',
-  needs_review: 'border-danger',
-  separator_barcode: 'border-warning',
+  needs_review: 'border-warning',
+  separator_barcode: 'border-primary',
   has_fields: 'border-primary',
   barcode_no_role: 'border-success',
   no_recognition: 'border-overlay-0',

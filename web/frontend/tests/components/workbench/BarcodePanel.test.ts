@@ -11,7 +11,7 @@ function makeBarcode(overrides: Partial<BarcodeResponse> = {}): BarcodeResponse 
   }
 }
 
-const emptyCounters = { total: 0, withBarcode: 0, separators: 0, needsReview: 0 }
+const emptyCounters = { total: 0, totalBarcodes: 0, needsReview: 0, excluded: 0 }
 
 describe('BarcodePanel', () => {
   it('renders empty state when no barcodes', () => {
@@ -23,7 +23,7 @@ describe('BarcodePanel', () => {
     const wrapper = mount(BarcodePanel, {
       props: {
         barcodes: [makeBarcode({ id: 1, value: 'A' }), makeBarcode({ id: 2, value: 'B', role: 'separator' })],
-        pageCounters: { total: 1, withBarcode: 1, separators: 1, needsReview: 0 },
+        pageCounters: { total: 1, totalBarcodes: 2, needsReview: 0, excluded: 0 },
       },
     })
     const rows = wrapper.findAll('tbody tr')
@@ -48,13 +48,13 @@ describe('BarcodePanel', () => {
     const wrapper = mount(BarcodePanel, {
       props: {
         barcodes: [],
-        pageCounters: { total: 12, withBarcode: 8, separators: 3, needsReview: 1 },
+        pageCounters: { total: 12, totalBarcodes: 24, needsReview: 3, excluded: 1 },
       },
     })
     expect(wrapper.find('[data-test="counter-total"]').text()).toContain('12')
-    expect(wrapper.find('[data-test="counter-with-barcode"]').text()).toContain('8')
-    expect(wrapper.find('[data-test="counter-separators"]').text()).toContain('3')
-    expect(wrapper.find('[data-test="counter-needs-review"]').text()).toContain('1')
+    expect(wrapper.find('[data-test="counter-total-barcodes"]').text()).toContain('24')
+    expect(wrapper.find('[data-test="counter-needs-review"]').text()).toContain('3')
+    expect(wrapper.find('[data-test="counter-excluded"]').text()).toContain('1')
   })
 
   it('shows em-dash when role is empty', () => {
@@ -67,7 +67,7 @@ describe('BarcodePanel', () => {
   it('cycles colors when more barcodes than palette', () => {
     const many = Array.from({ length: 9 }, (_, i) => makeBarcode({ id: i + 1, value: `V${i}` }))
     const wrapper = mount(BarcodePanel, {
-      props: { barcodes: many, pageCounters: { total: 1, withBarcode: 1, separators: 0, needsReview: 0 } },
+      props: { barcodes: many, pageCounters: { total: 1, totalBarcodes: 9, needsReview: 0, excluded: 0 } },
     })
     const dots = wrapper.findAll('tbody tr td:first-child span')
     expect(dots[0].attributes('style')).toBe(dots[8].attributes('style'))

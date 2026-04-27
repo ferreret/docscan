@@ -10,8 +10,9 @@ const props = withDefaults(
     batchId: number
     currentIndex: number
     readOnly?: boolean
+    cacheTick?: number
   }>(),
-  { readOnly: false },
+  { readOnly: false, cacheTick: 0 },
 )
 
 const emit = defineEmits<{
@@ -80,6 +81,8 @@ defineExpose({ list, onDragEnd })
           :page="page"
           :batchId="batchId"
           :selected="idx === currentIndex"
+          :cacheTick="cacheTick"
+          :displayIndex="idx"
           @select="emit('select', idx)"
           @fit="emit('fit')"
         />

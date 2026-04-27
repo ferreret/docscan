@@ -5,11 +5,18 @@ import { determinePageState, PAGE_STATE_BORDER_CLASS } from '@/composables/usePa
 import { useBatchesStore } from '@/stores/batches'
 import type { PageResponse } from '@/api/types'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   page: PageResponse
   batchId: number
   selected: boolean
-}>()
+  cacheTick?: number
+  displayIndex?: number
+}>(), { cacheTick: 0, displayIndex: 0 })
+
+// Número visual del thumbnail: posición en la lista (1-indexed). Se prefiere
+// sobre `page.page_index` porque éste no se reindexa al borrar páginas
+// intermedias y dejaría huecos en la numeración.
+const displayNumber = computed(() => props.displayIndex + 1)
 
 const emit = defineEmits<{
   (e: 'select'): void
@@ -19,14 +26,17 @@ const emit = defineEmits<{
 const store = useBatchesStore()
 
 const borderClass = computed(() => PAGE_STATE_BORDER_CLASS[determinePageState(props.page)])
-const imageUrl = computed(() => store.pageImageUrl(props.batchId, props.page.id))
+const imageUrl = computed(() => {
+  const base = store.pageImageUrl(props.batchId, props.page.id)
+  return props.cacheTick > 0 ? `${base}?v=${props.cacheTick}` : base
+})
 </script>
 
 <template>
   <button
     type="button"
-    :data-test="`page-thumbnail-${page.page_index}`"
-    :aria-label="`Página ${page.page_index + 1}`"
+    :data-test="`page-thumbnail-${displayIndex}`"
+    :aria-label="`Página ${displayNumber}`"
     :aria-pressed="selected"
     class="relative w-full text-left rounded overflow-hidden border-4 transition-colors"
     :class="[
@@ -38,7 +48,7 @@ const imageUrl = computed(() => store.pageImageUrl(props.batchId, props.page.id)
   >
     <AuthImage
       :src="imageUrl"
-      :alt="`Página ${page.page_index + 1}`"
+      :alt="`Página ${displayNumber}`"
       class="w-full aspect-[3/4] object-cover bg-crust"
     />
     <!-- Badges de estado (sobre la imagen, esquina inferior izquierda) -->
@@ -57,7 +67,7 @@ const imageUrl = computed(() => store.pageImageUrl(props.batchId, props.page.id)
       >⚐</span>
     </div>
     <div class="absolute bottom-0 left-0 right-0 bg-crust/90 text-text text-[11px] px-2 py-1 flex justify-between items-center">
-      <span class="font-semibold">#{{ page.page_index + 1 }}</span>
+      <span class="font-semibold">#{{ displayNumber }}</span>
       <div class="flex gap-1">
         <span v-if="page.needs_review" class="text-warning" title="Requiere revisión">!</span>
         <span v-if="page.pipeline_processed" class="text-success" title="Procesada">✓</span>

@@ -7,7 +7,7 @@ export interface LayoutSizes {
 
 const STORAGE_KEY = 'workbench.layout'
 const DEFAULT_SIZES: LayoutSizes = {
-  columns: [15, 55, 30],
+  columns: [10, 65, 25],
   rightVertical: [50, 50],
 }
 

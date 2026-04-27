@@ -82,26 +82,17 @@ describe('ViewerToolbar — rotate + overlay toggles', () => {
     expect(btn.attributes('disabled')).toBeDefined()
   })
 
-  it('emits toggle-barcodes on click', async () => {
-    const wrapper = mount(ViewerToolbar, { props: defaults })
-    await wrapper.find('[data-testid="btn-toggle-barcodes"]').trigger('click')
-    expect(wrapper.emitted('toggle-barcodes')).toBeTruthy()
+  it('emits delete-page on click', async () => {
+    const wrapper = mount(ViewerToolbar, { props: { ...defaults, canDelete: true } })
+    await wrapper.find('[data-test="vt-delete-page"]').trigger('click')
+    expect(wrapper.emitted('delete-page')).toBeTruthy()
   })
 
-  it('emits toggle-fields on click', async () => {
-    const wrapper = mount(ViewerToolbar, { props: defaults })
-    await wrapper.find('[data-testid="btn-toggle-fields"]').trigger('click')
-    expect(wrapper.emitted('toggle-fields')).toBeTruthy()
-  })
-
-  it('toggle buttons reflect state (ON vs OFF)', () => {
-    const wrapperOn = mount(ViewerToolbar, {
-      props: { ...defaults, showBarcodes: true },
+  it('disables delete button when canDelete=false', () => {
+    const wrapper = mount(ViewerToolbar, {
+      props: { ...defaults, canDelete: false },
     })
-    const wrapperOff = mount(ViewerToolbar, {
-      props: { ...defaults, showBarcodes: false },
-    })
-    expect(wrapperOn.find('[data-testid="btn-toggle-barcodes"]').attributes('aria-pressed')).toBe('true')
-    expect(wrapperOff.find('[data-testid="btn-toggle-barcodes"]').attributes('aria-pressed')).toBe('false')
+    const btn = wrapper.find('[data-test="vt-delete-page"]')
+    expect(btn.attributes('disabled')).toBeDefined()
   })
 })

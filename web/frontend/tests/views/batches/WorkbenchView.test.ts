@@ -532,7 +532,7 @@ describe("WorkbenchView", () => {
     wrapper.unmount();
   });
 
-  it("passes overlay toggles (showBarcodes / showFields) from composable to DocumentViewer and ViewerToolbar", async () => {
+  it("passes overlay toggles (showBarcodes / showFields) from composable to DocumentViewer", async () => {
     localStorage.setItem(
       "workbench.overlays",
       JSON.stringify({ barcodes: true, fields: false }),
@@ -572,10 +572,12 @@ describe("WorkbenchView", () => {
     const wrapper = mount(WorkbenchView, { global: { plugins: [router] } });
     await flushPromises();
 
-    const toolbar = wrapper.findComponent(ViewerToolbar);
-    if (toolbar.exists()) {
-      expect(toolbar.props("showBarcodes")).toBe(true);
-      expect(toolbar.props("showFields")).toBe(false);
+    // showBarcodes/showFields se siguen pasando al DocumentViewer aunque
+    // el toggle ya no esté en el toolbar (ver bitácora #22).
+    const viewer = wrapper.findComponent({ name: "DocumentViewer" });
+    if (viewer.exists()) {
+      expect(viewer.props("showBarcodes")).toBe(true);
+      expect(viewer.props("showFields")).toBe(false);
     }
     wrapper.unmount();
   });
@@ -606,7 +608,7 @@ describe("WorkbenchView", () => {
     await flushPromises();
     // Simulate splitpanes "resized" event on the outer Splitpanes
     const outerSplit = wrapper.findAllComponents({ name: "splitpanes" })[0];
-    outerSplit.vm.$emit("resized", [{ size: 20 }, { size: 50 }, { size: 30 }]);
+    outerSplit.vm.$emit("resized", { panes: [{ size: 20 }, { size: 50 }, { size: 30 }] });
     await flushPromises();
     const stored = JSON.parse(localStorage.getItem("workbench.layout")!);
     expect(stored.columns).toEqual([20, 50, 30]);
