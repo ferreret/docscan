@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from collections.abc import Iterator
 
-import cv2
 import pymupdf
+from PIL import Image
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import func, select
@@ -15,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.models.barcode import Barcode
 from app.models.batch import Batch
 from app.models.page import Page
-from app.services.image_lib import ImageLib
 from web.api.auth.dependencies import CurrentUser
 from web.api.config import get_web_settings
 from web.api.database import SessionDep
@@ -30,22 +30,21 @@ from web.api.schemas.page import (
     PageUploadResponse,
     RotatePageIn,
 )
-from web.api.storage import FilesystemStorage, StorageDep
+from web.api.storage import StorageDep
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_SINGLE_IMAGE_EXTS = frozenset({"jpg", "jpeg", "png", "bmp", "tif", "tiff"})
+_SINGLE_IMAGE_EXTS = frozenset({"jpg", "jpeg", "png", "bmp"})
+_TIFF_EXTS = frozenset({"tif", "tiff"})
 _PDF_EXTS = frozenset({"pdf"})
-_ALL_EXTS = _SINGLE_IMAGE_EXTS | _PDF_EXTS
+_ALL_EXTS = _SINGLE_IMAGE_EXTS | _TIFF_EXTS | _PDF_EXTS
 _MEDIA_TYPES: dict[str, str] = {
     "png": "image/png",
     "jpg": "image/jpeg",
     "jpeg": "image/jpeg",
     "bmp": "image/bmp",
-    "tif": "image/tiff",
-    "tiff": "image/tiff",
 }
 
 
@@ -120,6 +119,26 @@ def _iter_pdf_pages_as_png(content: bytes, dpi: int) -> Iterator[bytes]:
         doc.close()
 
 
+def _iter_tiff_frames_as_png(content: bytes) -> Iterator[bytes]:
+    """Itera cada frame de un TIFF (single o multi-página) como bytes PNG.
+
+    Convertir a PNG es necesario porque los navegadores no renderizan TIFF
+    nativamente. Pillow soporta TIFF multi-página vía ``seek()``.
+    """
+    img = Image.open(io.BytesIO(content))
+    try:
+        while True:
+            buf = io.BytesIO()
+            img.convert("RGB").save(buf, format="PNG")
+            yield buf.getvalue()
+            try:
+                img.seek(img.tell() + 1)
+            except EOFError:
+                break
+    finally:
+        img.close()
+
+
 def _next_page_index(batch_id: int, db: Session) -> int:
     """Devuelve el siguiente page_index libre para un lote."""
     max_idx = db.execute(
@@ -190,6 +209,16 @@ async def upload_pages(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"PDF no válido: {upload.filename}",
                 ) from e
+        elif ext in _TIFF_EXTS:
+            try:
+                for png_bytes in _iter_tiff_frames_as_png(content):
+                    _persist_page(png_bytes, "png")
+            except Exception as e:
+                log.warning("Error procesando TIFF '%s': %s", upload.filename, e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"TIFF no válido: {upload.filename}",
+                ) from e
         else:
             _persist_page(content, ext)
 
@@ -209,16 +238,25 @@ async def upload_pages(
     response_model=list[PageListItem],
 )
 def list_pages(batch_id: int, user: CurrentUser, db: SessionDep):
-    """Lista las páginas de un lote (ordenadas por page_index)."""
+    """Lista las páginas de un lote (ordenadas por page_index).
+
+    Incluye `barcodes_count` por página para que el frontend pueda mostrar
+    contadores agregados sin tener que cargar cada página individualmente.
+    """
     get_batch_for_tenant(batch_id, user.tenant_id, db)
-    pages = (
-        db.execute(
-            select(Page).where(Page.batch_id == batch_id).order_by(Page.page_index)
-        )
-        .scalars()
-        .all()
-    )
-    return pages
+    rows = db.execute(
+        select(Page, func.count(Barcode.id).label("barcodes_count"))
+        .outerjoin(Barcode, Barcode.page_id == Page.id)
+        .where(Page.batch_id == batch_id)
+        .group_by(Page.id)
+        .order_by(Page.page_index)
+    ).all()
+    items: list[PageListItem] = []
+    for page, barcodes_count in rows:
+        item = PageListItem.model_validate(page)
+        item.barcodes_count = int(barcodes_count or 0)
+        items.append(item)
+    return items
 
 
 @router.get(
@@ -316,25 +354,37 @@ def rotate_page(
     page = _get_page_for_user(page_id, user.tenant_id, db)
     ensure_batch_mutable(page.batch, action="rotar")
 
-    # Sólo backend filesystem soporta rotación actualmente.
-    if not isinstance(storage, FilesystemStorage):
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Rotación sólo soportada en backend filesystem",
-        )
-
-    abs_path = str(storage.absolute_path(page.image_path))
-    img = cv2.imread(abs_path, cv2.IMREAD_UNCHANGED)
-    if img is None:
+    # Leer imagen del storage (genérico: filesystem o MinIO)
+    try:
+        original_bytes = storage.read(page.image_path)
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No se pudo leer la imagen",
-        )
-    h, w = img.shape[:2]
+            detail="No se pudo leer la imagen del storage",
+        ) from e
 
-    # Rotar en memoria.
-    for _ in range(payload.turns):
-        img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+    # Rotar con Pillow (preserva DPI y formato; soporta PNG/JPEG/TIFF/BMP)
+    ext = page.image_path.rsplit(".", 1)[-1].lower() if "." in page.image_path else "png"
+    try:
+        with Image.open(io.BytesIO(original_bytes)) as pil_img:
+            pil_img.load()
+            w, h = pil_img.size
+            dpi = pil_img.info.get("dpi")
+            # PIL.Image.ROTATE_270 = 90° CW (sentido horario en convención PIL)
+            rotated = pil_img
+            for _ in range(payload.turns):
+                rotated = rotated.transpose(Image.Transpose.ROTATE_270)
+            buf = io.BytesIO()
+            save_kwargs: dict = {"format": rotated.format or pil_img.format or "PNG"}
+            if dpi:
+                save_kwargs["dpi"] = dpi
+            rotated.save(buf, **save_kwargs)
+            new_bytes = buf.getvalue()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo rotar la imagen",
+        ) from e
 
     # 1. Calcular y aplicar coords barcodes (en memoria — pendiente flush).
     cur_h, cur_w = h, w
@@ -358,14 +408,26 @@ def rotate_page(
             detail="Error persistiendo coords de barcodes",
         ) from e
 
-    # 3. Escribir imagen rotada usando ImageLib (preserva DPI y calidad).
+    # 3. Subir imagen rotada como nuevo objeto y borrar el viejo (atomicidad
+    # eventual: si la subida falla, la imagen original sigue en su sitio).
     try:
-        ImageLib.save(img, abs_path)
+        old_path = page.image_path
+        new_path = storage.save(
+            tenant_id=user.tenant_id,
+            batch_id=page.batch_id,
+            content=new_bytes,
+            extension=ext,
+        )
+        page.image_path = new_path
+        try:
+            storage.delete(old_path)
+        except Exception:
+            log.warning("No se pudo borrar la imagen vieja %s", old_path)
     except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No se pudo escribir la imagen",
+            detail="No se pudo escribir la imagen rotada",
         ) from e
 
     # 4. Commit final.

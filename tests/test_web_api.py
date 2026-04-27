@@ -2618,7 +2618,12 @@ class TestPagesRotate:
         )
         assert r.status_code == 200
 
-        img_after = cv2.imread(str(full_path))
+        # Tras la rotación, image_path puede haber cambiado (storage genera
+        # un nuevo objeto y borra el viejo) — re-leer la ruta actual.
+        db_session.expire_all()
+        page = db_session.query(Page).filter_by(id=page_id).first()
+        full_path_after = Path(storage_dir) / page.image_path
+        img_after = cv2.imread(str(full_path_after))
         h_after, w_after = img_after.shape[:2]
         assert h_after == w_before
         assert w_after == h_before
@@ -2644,7 +2649,10 @@ class TestPagesRotate:
         )
         assert r.status_code == 200
 
-        img_after = cv2.imread(str(full_path))
+        db_session.expire_all()
+        page = db_session.query(Page).filter_by(id=page_id).first()
+        full_path_after = Path(storage_dir) / page.image_path
+        img_after = cv2.imread(str(full_path_after))
         assert img_after.shape[:2] == (h_before, w_before)
 
     def test_rotate_adjusts_barcode_coords(self, client, db_session, storage_dir):
@@ -2775,10 +2783,12 @@ class TestPagesRotate:
         )
         assert r.status_code == 200
 
-        img_after = cv2.imread(str(full_path))
+        db_session.expire_all()
+        page = db_session.query(Page).filter_by(id=page_id).first()
+        full_path_after = Path(storage_dir) / page.image_path
+        img_after = cv2.imread(str(full_path_after))
         assert img_after.shape[:2] == (w_before, h_before)  # dimensiones intercambiadas
 
-        db_session.expire_all()
         bc_after = db_session.query(Barcode).filter_by(id=bc_id).first()
         # Verifica que las coords se movieron (no nos importa la fórmula exacta,
         # pero no deben coincidir con 1 turn)

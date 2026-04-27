@@ -129,6 +129,7 @@ export interface PageListItem {
   is_blank: boolean;
   is_excluded: boolean;
   pipeline_processed: boolean;
+  barcodes_count: number;
   created_at: string;
 }
 

@@ -59,6 +59,7 @@ class PageListItem(BaseModel):
     is_blank: bool
     is_excluded: bool
     pipeline_processed: bool
+    barcodes_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}
