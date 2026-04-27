@@ -92,15 +92,15 @@ function defaultConfig(type: FieldType): FieldConfig {
 
 function listValuesString(field: BatchField): string {
   const cfg = field.config as ListaConfig
-  return (cfg.values ?? []).join(', ')
+  return (cfg.values ?? []).join('\n')
 }
 
 function setListValues(field: BatchField, raw: string): void {
-  const values = raw
-    .split(',')
-    .map((v) => v.trim())
-    .filter((v) => v.length > 0)
-  ;(field.config as ListaConfig).values = values
+  // Conservamos líneas vacías intermedias mientras el usuario edita
+  // (si filtramos aquí, el \n recién insertado tras Enter se pierde en
+  // el round-trip y el cursor se queda en la misma línea). El trim/filter
+  // se aplica solo al guardar (función `save`).
+  ;(field.config as ListaConfig).values = raw.split('\n')
 }
 
 function numCfg(field: BatchField): NumericoConfig {
@@ -156,10 +156,22 @@ async function save(): Promise<void> {
   saving.value = true
   saveError.value = null
   try {
-    await appStore.update(appId.value, {
-      batch_fields_json: JSON.stringify(fields.value),
+    // Limpieza de listas: trim de cada valor + descartar líneas vacías
+    // (los `\n` intermedios se conservaron durante la edición; aquí los
+    // colapsamos para serialización).
+    const cleanFields = fields.value.map((f) => {
+      if (f.type !== 'lista') return f
+      const cfg = f.config as ListaConfig
+      const cleaned = (cfg.values ?? [])
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0)
+      return { ...f, config: { ...cfg, values: cleaned } }
     })
-    original.value = deepClone(fields.value)
+    await appStore.update(appId.value, {
+      batch_fields_json: JSON.stringify(cleanFields),
+    })
+    fields.value = cleanFields
+    original.value = deepClone(cleanFields)
   } catch (err) {
     saveError.value = (err as Error).message
   } finally {
@@ -317,60 +329,64 @@ watch(
                 class="text-subtext italic"
               >Sin configuración adicional</span>
 
-              <!-- Fecha: selector de formato -->
-              <div v-else-if="field.type === 'fecha'" class="flex items-center gap-2">
-                <label class="text-subtext whitespace-nowrap">Formato:</label>
-                <select
-                  v-model="(fechaCfg(field)).format"
-                  data-test="field-date-format"
-                  aria-label="Formato de fecha"
-                  class="rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary bg-base"
-                >
-                  <option v-for="fmt in DATE_FORMATS" :key="fmt" :value="fmt">{{ fmt }}</option>
-                </select>
+              <!-- Fecha: el navegador muestra la fecha según locale del sistema (no se puede personalizar) -->
+              <span
+                v-else-if="field.type === 'fecha'"
+                class="text-subtext italic"
+              >Formato según idioma del navegador (en español: dd/mm/aaaa)</span>
+
+              <!-- Lista: un valor por línea (permite comas dentro del valor) -->
+              <div v-else-if="field.type === 'lista'" class="flex items-start gap-2">
+                <label class="text-subtext whitespace-nowrap pt-1">Valores:</label>
+                <div class="flex-1">
+                  <textarea
+                    data-test="field-list-values"
+                    :value="listValuesString(field)"
+                    placeholder="Un valor por línea&#10;Ej:&#10;Alta&#10;Media&#10;Baja"
+                    aria-label="Valores de la lista, uno por línea"
+                    rows="3"
+                    class="w-full rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary font-mono resize-y"
+                    @input="setListValues(field, ($event.target as HTMLTextAreaElement).value)"
+                  />
+                  <p class="text-[11px] text-subtext mt-0.5">
+                    Pulsa Enter después de cada valor. Las comas se conservan dentro del valor.
+                  </p>
+                </div>
               </div>
 
-              <!-- Lista: valores separados por coma -->
-              <div v-else-if="field.type === 'lista'" class="flex items-center gap-2">
-                <label class="text-subtext whitespace-nowrap">Valores:</label>
-                <input
-                  type="text"
-                  data-test="field-list-values"
-                  :value="listValuesString(field)"
-                  placeholder="valor1, valor2, valor3..."
-                  aria-label="Valores de la lista separados por coma"
-                  class="flex-1 rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary"
-                  @input="setListValues(field, ($event.target as HTMLInputElement).value)"
-                />
-              </div>
-
-              <!-- Numérico: min, max, step -->
-              <div v-else-if="field.type === 'numerico'" class="flex items-center gap-2 flex-wrap">
-                <label class="text-subtext">Mín:</label>
-                <input
-                  v-model.number="(numCfg(field)).min"
-                  type="number"
-                  data-test="field-num-min"
-                  aria-label="Valor mínimo"
-                  class="w-16 rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary"
-                />
-                <label class="text-subtext">Máx:</label>
-                <input
-                  v-model.number="(numCfg(field)).max"
-                  type="number"
-                  data-test="field-num-max"
-                  aria-label="Valor máximo"
-                  class="w-16 rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary"
-                />
-                <label class="text-subtext">Paso:</label>
-                <input
-                  v-model.number="(numCfg(field)).step"
-                  type="number"
-                  data-test="field-num-step"
-                  min="1"
-                  aria-label="Paso"
-                  class="w-14 rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary"
-                />
+              <!-- Numérico: min, max, step en grid 3 columnas (no se desordena con valores grandes) -->
+              <div v-else-if="field.type === 'numerico'" class="grid grid-cols-3 gap-3 max-w-lg">
+                <label class="text-subtext text-xs">
+                  Mín
+                  <input
+                    v-model.number="(numCfg(field)).min"
+                    type="number"
+                    data-test="field-num-min"
+                    aria-label="Valor mínimo"
+                    class="block w-full mt-0.5 rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary"
+                  />
+                </label>
+                <label class="text-subtext text-xs">
+                  Máx
+                  <input
+                    v-model.number="(numCfg(field)).max"
+                    type="number"
+                    data-test="field-num-max"
+                    aria-label="Valor máximo"
+                    class="block w-full mt-0.5 rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary"
+                  />
+                </label>
+                <label class="text-subtext text-xs">
+                  Paso
+                  <input
+                    v-model.number="(numCfg(field)).step"
+                    type="number"
+                    data-test="field-num-step"
+                    min="1"
+                    aria-label="Paso"
+                    class="block w-full mt-0.5 rounded border border-surface-0 px-2 py-1 text-[13px] text-text focus:outline-none focus:border-primary"
+                  />
+                </label>
               </div>
             </td>
 
