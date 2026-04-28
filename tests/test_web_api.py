@@ -2111,6 +2111,60 @@ class TestTransferEndpoint:
         files = list(out_dir.iterdir())
         assert len(files) == 1
 
+    def test_transfer_exitoso_marca_lote_como_transferred(self, client, tmp_path):
+        # Regresión: tras transfer exitoso el state pasaba a "read" en
+        # lugar de "transferred", lo que confundía al operador (no veía
+        # diferencia entre "listo para transferir" y "ya transferido").
+        import json as _json
+
+        h = _auth_header(client)
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(tmp_path / "out"),
+                "create_subdirs": True,
+            }
+        )
+        app_id = _create_app_for_transfer(client, h, transfer)
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        resp = client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+        assert resp.status_code == 202
+        # Tras el BackgroundTask, el GET refleja el nuevo estado.
+        check = client.get(f"/api/batches/{batch_id}", headers=h).json()
+        assert check["state"] == "transferred"
+
+    def test_transfer_permitido_desde_transferred_para_reenvio(self, client, tmp_path):
+        # Regresión: el operador puede querer reenviar un lote
+        # transferido si el destino externo perdió ficheros. El guard
+        # ahora permite "read" o "transferred".
+        import json as _json
+
+        h = _auth_header(client)
+        dest = tmp_path / "out"
+        transfer = _json.dumps(
+            {
+                "standard_enabled": True,
+                "mode": "folder",
+                "destination": str(dest),
+                "create_subdirs": True,
+            }
+        )
+        app_id = _create_app_for_transfer(client, h, transfer)
+        batch_id, _ = _prepare_batch_in_read(client, h, app_id)
+
+        # Primer envío deja el lote en transferred.
+        client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+        assert (
+            client.get(f"/api/batches/{batch_id}", headers=h).json()["state"]
+            == "transferred"
+        )
+
+        # Segundo envío permitido (no 409).
+        resp2 = client.post(f"/api/batches/{batch_id}/transfer", headers=h)
+        assert resp2.status_code == 202
+
     def test_transfer_409_si_estado_no_es_read(self, client, tmp_path):
         h = _auth_header(client)
         app_id = _create_app_for_transfer(client, h, "{}")

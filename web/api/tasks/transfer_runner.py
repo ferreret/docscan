@@ -261,10 +261,11 @@ def _execute_transfer(
         result,
     )
 
-    # 7. Estado terminal en éxito: el lote vuelve a "read" (el comportamiento
-    # previo no cambiaba el estado, pero ahora estaba en "transferring" así
-    # que hay que devolverlo a "read").
-    batch.state = "read"
+    # 7. Estado terminal en éxito: pasa a "transferred" para que el operador
+    # vea claramente que el lote ya está enviado al destino. El endpoint de
+    # transferir permite re-disparar desde "read" o "transferred" (el
+    # operador puede querer reenviar si el destino externo perdió ficheros).
+    batch.state = "transferred"
     session.commit()
 
     # 8. Notificar éxito final

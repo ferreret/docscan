@@ -24,8 +24,13 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+// Permitido tanto en "read" (primer envío) como en "transferred"
+// (re-envío manual). Coherente con el guard del endpoint backend.
 const canTransfer = computed(
-  () => props.batch.state === "read" && !props.transferring && !props.running,
+  () =>
+    (props.batch.state === "read" || props.batch.state === "transferred") &&
+    !props.transferring &&
+    !props.running,
 );
 const busy = computed(
   () =>

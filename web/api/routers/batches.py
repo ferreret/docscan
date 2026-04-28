@@ -192,7 +192,10 @@ def transfer_batch(
     batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
     ensure_batch_mutable(batch, action="transferir")
 
-    if batch.state != "read":
+    # Permitido desde "read" (primer envío) y desde "transferred"
+    # (re-envío manual: el operador puede querer reenviar si el destino
+    # externo perdió ficheros).
+    if batch.state not in ("read", "transferred"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="El lote no está listo para transferir",
