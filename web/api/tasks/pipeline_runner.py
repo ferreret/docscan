@@ -248,7 +248,7 @@ def process_page(
 ) -> None:
     """Carga la imagen, ejecuta el pipeline y persiste los resultados."""
     image = _load_image(page, storage)
-    page_ctx = PageContext(page_index=page.page_index, image=image)
+    page_ctx = PageContext(page_index=page.page_index, id=page.id, image=image)
 
     executor.execute(page=page_ctx, batch=batch_ctx, app=app_ctx)
 

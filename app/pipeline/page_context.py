@@ -48,6 +48,7 @@ class PageContext:
     """
 
     page_index: int
+    id: int = 0
     image: np.ndarray | None = None
     image_replaced: bool = False
     barcodes: list[BarcodeResult] = field(default_factory=list)

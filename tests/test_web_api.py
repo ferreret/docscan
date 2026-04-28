@@ -3601,6 +3601,32 @@ class TestEventsFire:
         )
         assert resp.status_code == 400
 
+    def test_page_context_expone_id(self, client):
+        # Regresión #34: el PageContext que el dispatcher pasa al script
+        # incluye `id` con la PK de BD, no solo `page_index`. Antes el
+        # atributo no existía y `page.id` lanzaba AttributeError.
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        page_id = _upload_page(client, h, batch_id)
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_page_changed",
+            "def on_page_changed(app, batch, page):\n    return {'result': page.id}\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_page_changed",
+            headers=h,
+            json={"page_id": page_id},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["executed"] is True
+        assert data["error"] is None
+        assert data["result"] == page_id
+
     def test_fire_batch_otro_tenant_404(self, client):
         h1 = _auth_header(client)
         batch_id = _create_batch(client, h1)

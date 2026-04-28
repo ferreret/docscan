@@ -180,7 +180,7 @@ def _build_page_context(page: Page) -> PageContext:
         fields = json.loads(page.index_fields_json) if page.index_fields_json else {}
     except json.JSONDecodeError:
         fields = {}
-    ctx = PageContext(page_index=page.page_index, image=None)
+    ctx = PageContext(page_index=page.page_index, id=page.id, image=None)
     ctx.fields = fields
     return ctx
 
