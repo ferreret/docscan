@@ -1,4 +1,4 @@
-import { EditorState } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands'
 import {
@@ -23,6 +23,7 @@ export interface CreateEditorArgs {
 
 export interface EditorHandle {
   insertAtCursor: (text: string) => void
+  setTheme: (theme: 'light' | 'dark') => void
   destroy: () => void
 }
 
@@ -182,12 +183,20 @@ function pickTheme() {
   }
 }
 
+function themeFor(name: 'light' | 'dark') {
+  return name === 'dark' ? darkTheme : lightTheme
+}
+
 export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle> {
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.docChanged) {
       args.onChange(update.state.doc.toString())
     }
   })
+
+  // Compartment del tema: permite cambiar light↔dark en caliente sin
+  // recrear el editor ni perder el doc. Lo reconfigura `setTheme()`.
+  const themeCompartment = new Compartment()
 
   const state = EditorState.create({
     doc: args.initialDoc,
@@ -206,7 +215,7 @@ export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle
         ...historyKeymap,
         indentWithTab,
       ]),
-      pickTheme(),
+      themeCompartment.of(pickTheme()),
       syntaxHighlighting(highlightStyle),
       updateListener,
     ],
@@ -223,9 +232,15 @@ export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle
     view.focus()
   }
 
+  function setTheme(name: 'light' | 'dark'): void {
+    view.dispatch({
+      effects: themeCompartment.reconfigure(themeFor(name)),
+    })
+  }
+
   function destroy(): void {
     view.destroy()
   }
 
-  return { insertAtCursor, destroy }
+  return { insertAtCursor, setTheme, destroy }
 }

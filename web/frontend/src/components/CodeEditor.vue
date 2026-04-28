@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, shallowRef } from 'vue'
+import { onMounted, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import type { EditorHandle } from './code-editor/editor'
 import type { ContextVariable, Snippet } from '@/api/script-context-help'
+import { useTheme } from '@/composables/useTheme'
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -20,6 +21,14 @@ const emit = defineEmits<{ 'update:modelValue': [doc: string] }>()
 const editorHost = ref<HTMLDivElement | null>(null)
 const editorHandle = shallowRef<EditorHandle | null>(null)
 const editorError = ref<string | null>(null)
+
+const { current: currentTheme } = useTheme()
+// Reaplica el tema en el editor en caliente cuando el usuario cambia
+// claro↔oscuro mientras tiene el editor abierto. CodeMirror usa un
+// Compartment por debajo, así que no se recrea ni se pierde el doc.
+watch(currentTheme, (theme) => {
+  editorHandle.value?.setTheme(theme)
+})
 
 const snippetsOpen = ref(false)
 
