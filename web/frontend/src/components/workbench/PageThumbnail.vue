@@ -49,7 +49,7 @@ const imageUrl = computed(() => {
     <AuthImage
       :src="imageUrl"
       :alt="`Página ${displayNumber}`"
-      class="w-full aspect-[3/4] object-cover bg-crust"
+      class="w-full aspect-[3/4] object-contain bg-crust"
     />
     <!-- Badges de estado (sobre la imagen, esquina inferior izquierda) -->
     <div class="absolute bottom-7 left-1 flex gap-0.5 pointer-events-none">

@@ -81,6 +81,19 @@ describe('PageThumbnail', () => {
     expect(wrapper.text()).toContain('✓')
   })
 
+  it('image uses object-contain to avoid cropping landscape pages', () => {
+    // Regresión #30: con object-cover una página apaisada (1754×1240) se
+    // recortaba brutalmente en el thumb 3:4 vertical. object-contain la
+    // muestra entera con bandas (más legible).
+    const wrapper = mount(PageThumbnail, {
+      props: { page: makePage(), batchId: 1, selected: false },
+      global: { stubs: { AuthImage: { template: '<img :class="$attrs.class" />' } } },
+    })
+    const img = wrapper.find('img')
+    expect(img.classes()).toContain('object-contain')
+    expect(img.classes()).not.toContain('object-cover')
+  })
+
   it('shows excluded badge when is_excluded=true', () => {
     const wrapper = mount(PageThumbnail, {
       props: { page: makePage({ is_excluded: true }), batchId: 1, selected: false },

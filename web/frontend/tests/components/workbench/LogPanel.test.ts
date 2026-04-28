@@ -68,4 +68,36 @@ describe('LogPanel', () => {
     expect(entry.text()).toContain('script')
     expect(entry.text()).toContain('error en paso X')
   })
+
+  it('singular: 1 entrada', () => {
+    // Regresión #36: pluralización en español.
+    const log = useWorkbenchLog()
+    log.append('info', 'pipeline', 'a')
+    const wrapper = mount(LogPanel)
+    expect(wrapper.find('[data-testid="entries-count"]').text()).toBe('1 entrada')
+  })
+
+  it('plural: N entradas', () => {
+    const log = useWorkbenchLog()
+    log.append('info', 'pipeline', 'a')
+    log.append('info', 'pipeline', 'b')
+    const wrapper = mount(LogPanel)
+    expect(wrapper.find('[data-testid="entries-count"]').text()).toBe('2 entradas')
+  })
+
+  it('cero: 0 entradas (no AM/PM cuando no hay entries)', () => {
+    const wrapper = mount(LogPanel)
+    expect(wrapper.find('[data-testid="entries-count"]').text()).toBe('0 entradas')
+  })
+
+  it('formato hora 24h, sin AM/PM', () => {
+    // Regresión #36: el navegador con locale en-US mostraba "10:11:38 AM";
+    // ahora el componente fuerza es-ES + hour12:false.
+    const log = useWorkbenchLog()
+    log.append('info', 'script', 'msg', '2026-04-28T15:42:09.000Z')
+    const wrapper = mount(LogPanel)
+    const entry = wrapper.find('[data-testid="log-entry"]')
+    // No debe contener "AM" ni "PM" en mayúsculas.
+    expect(entry.text()).not.toMatch(/\b[AP]M\b/)
+  })
 })

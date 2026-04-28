@@ -13,11 +13,16 @@ const LEVEL_COLOR: Record<LogLevel, string> = {
 const formatTime = (iso: string): string => {
   try {
     const d = new Date(iso)
-    return d.toLocaleTimeString()
+    // Forzar 24h y locale es-ES para evitar AM/PM aunque el navegador
+    // tenga otro locale por defecto (issue #36).
+    return d.toLocaleTimeString('es-ES', { hour12: false })
   } catch {
     return iso.slice(11, 19)
   }
 }
+
+const formatEntriesCount = (n: number): string =>
+  n === 1 ? '1 entrada' : `${n} entradas`
 </script>
 
 <template>
@@ -46,7 +51,7 @@ const formatTime = (iso: string): string => {
         Limpiar
       </button>
       <span data-testid="entries-count" class="text-subtext">
-        {{ log.filteredEntries.value.length }} entries
+        {{ formatEntriesCount(log.filteredEntries.value.length) }}
       </span>
     </div>
 

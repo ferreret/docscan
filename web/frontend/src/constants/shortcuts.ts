@@ -125,7 +125,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   {
     key: "b",
     action: "insertBarcode",
-    label: "Insertar barcode",
+    label: "Añadir barcode",
     category: "edit",
     editOnly: true,
     display: "B",

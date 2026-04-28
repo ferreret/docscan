@@ -534,7 +534,14 @@ function goNextReview(): void {
   const i = sortedPages.value.findIndex(
     (p, idx) => idx > from && p.needs_review,
   );
-  if (i >= 0) selectedPageIndex.value = i;
+  if (i >= 0) {
+    selectedPageIndex.value = i;
+  } else {
+    // Sin siguiente página marcada para revisión: feedback al usuario
+    // para que sepa que el atajo se procesó (issue #29 — antes era
+    // silente y el usuario no sabía si funcionaba).
+    toast.info("No hay más páginas marcadas para revisión");
+  }
 }
 
 async function onDeletePage(pageId: number): Promise<void> {
