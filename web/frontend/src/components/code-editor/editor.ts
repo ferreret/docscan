@@ -156,10 +156,9 @@ const darkTheme = EditorView.theme(
   { dark: true },
 )
 
-// HighlightStyle compartido entre tema claro y oscuro: usa colores con
-// suficiente contraste en ambos fondos. Reflejado en CodeMirror One
-// Dark / Solarized Light variants.
-const highlightStyle = HighlightStyle.define([
+// HighlightStyle para tema oscuro: colores saturados claros sobre fondo
+// slate 800. Inspirado en One Dark / Tokyo Night.
+const darkHighlightStyle = HighlightStyle.define([
   { tag: [t.keyword, t.modifier, t.controlKeyword], color: '#c084fc', fontWeight: '600' },
   { tag: [t.string, t.special(t.string)], color: '#86efac' },
   { tag: [t.number, t.bool, t.null, t.atom], color: '#fbbf24' },
@@ -175,16 +174,41 @@ const highlightStyle = HighlightStyle.define([
   { tag: [t.invalid], color: '#f87171', textDecoration: 'underline wavy' },
 ])
 
-function pickTheme() {
-  try {
-    return document.documentElement.dataset.theme === 'dark' ? darkTheme : lightTheme
-  } catch {
-    return lightTheme
-  }
+// HighlightStyle para tema claro: tonos oscuros y saturados para
+// contraste alto sobre fondo casi blanco (#fafafa). Inspirado en
+// Solarized Light / GitHub Light. Las variables usan slate 900 casi
+// negro porque eran ilegibles antes (#e2e8f0 sobre #fafafa).
+const lightHighlightStyle = HighlightStyle.define([
+  { tag: [t.keyword, t.modifier, t.controlKeyword], color: '#7c3aed', fontWeight: '600' },
+  { tag: [t.string, t.special(t.string)], color: '#15803d' },
+  { tag: [t.number, t.bool, t.null, t.atom], color: '#b45309' },
+  { tag: [t.comment, t.lineComment, t.blockComment], color: '#64748b', fontStyle: 'italic' },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#1d4ed8' },
+  { tag: [t.definition(t.variableName), t.definition(t.function(t.variableName))], color: '#1d4ed8' },
+  { tag: [t.className, t.typeName], color: '#0e7490' },
+  { tag: [t.operator, t.derefOperator, t.compareOperator, t.logicOperator], color: '#be123c' },
+  { tag: [t.propertyName], color: '#4338ca' },
+  { tag: [t.variableName], color: '#0f172a' },
+  { tag: [t.bracket, t.paren, t.brace, t.squareBracket], color: '#475569' },
+  { tag: [t.punctuation], color: '#475569' },
+  { tag: [t.invalid], color: '#dc2626', textDecoration: 'underline wavy' },
+])
+
+// El Compartment del tema agrupa la pareja (theme + highlightStyle)
+// porque ambos cambian juntos al alternar claro↔oscuro.
+function bundleFor(name: 'light' | 'dark') {
+  if (name === 'dark') return [darkTheme, syntaxHighlighting(darkHighlightStyle)]
+  return [lightTheme, syntaxHighlighting(lightHighlightStyle)]
 }
 
-function themeFor(name: 'light' | 'dark') {
-  return name === 'dark' ? darkTheme : lightTheme
+function pickBundle() {
+  try {
+    return document.documentElement.dataset.theme === 'dark'
+      ? bundleFor('dark')
+      : bundleFor('light')
+  } catch {
+    return bundleFor('light')
+  }
 }
 
 export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle> {
@@ -215,8 +239,7 @@ export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle
         ...historyKeymap,
         indentWithTab,
       ]),
-      themeCompartment.of(pickTheme()),
-      syntaxHighlighting(highlightStyle),
+      themeCompartment.of(pickBundle()),
       updateListener,
     ],
   })
@@ -234,7 +257,7 @@ export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle
 
   function setTheme(name: 'light' | 'dark'): void {
     view.dispatch({
-      effects: themeCompartment.reconfigure(themeFor(name)),
+      effects: themeCompartment.reconfigure(bundleFor(name)),
     })
   }
 
