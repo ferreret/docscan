@@ -1,11 +1,17 @@
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands'
-import { indentOnInput, bracketMatching } from '@codemirror/language'
+import {
+  indentOnInput,
+  bracketMatching,
+  HighlightStyle,
+  syntaxHighlighting,
+} from '@codemirror/language'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { autocompletion } from '@codemirror/autocomplete'
 import type { CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete'
 import { python } from '@codemirror/lang-python'
+import { tags as t } from '@lezer/highlight'
 import type { ContextVariable } from '@/api/script-context-help'
 
 export interface CreateEditorArgs {
@@ -83,11 +89,24 @@ function buildContextCompletions(vars: ContextVariable[]) {
   }
 }
 
+// ---------------------------------------------------------------------
+// Themes y syntax highlighting
+//
+// El editor se monta dentro del configurador, que respeta el tema activo
+// de la app (claro/oscuro). Antes solo había un lightTheme con fondo
+// blanco aplicado siempre, por lo que sobre tema oscuro el editor se
+// veía como una franja blanca incongruente y, peor, los tokens de syntax
+// (colores oscuros por defecto) quedaban con bajo contraste si algún
+// CSS global cambiaba el fondo. Ahora elegimos el theme según el
+// `data-theme` de <html> al montar.
+// ---------------------------------------------------------------------
+
 const lightTheme = EditorView.theme(
   {
     '&': {
       fontSize: '13px',
       backgroundColor: '#fafafa',
+      color: '#1f2937',
       height: '100%',
     },
     '.cm-content': {
@@ -101,9 +120,67 @@ const lightTheme = EditorView.theme(
     },
     '.cm-activeLine': { backgroundColor: '#f1f5f9' },
     '.cm-activeLineGutter': { backgroundColor: '#e5e7eb' },
+    '.cm-selectionMatch': { backgroundColor: '#dbeafe' },
+    '.cm-matchingBracket': { backgroundColor: '#fde68a', outline: 'none' },
   },
   { dark: false },
 )
+
+const darkTheme = EditorView.theme(
+  {
+    '&': {
+      fontSize: '13px',
+      // Fondo levemente más claro que mantle/base para destacar el bloque
+      // editable dentro del panel (que ya es bg-base oscuro).
+      backgroundColor: '#1e293b',
+      color: '#e2e8f0',
+      height: '100%',
+    },
+    '.cm-content': {
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      caretColor: '#f1f5f9',
+    },
+    '.cm-gutters': {
+      backgroundColor: '#0f172a',
+      color: '#64748b',
+      border: 'none',
+    },
+    '.cm-activeLine': { backgroundColor: '#334155' },
+    '.cm-activeLineGutter': { backgroundColor: '#1e293b', color: '#cbd5e1' },
+    '.cm-selectionBackground, ::selection': { backgroundColor: '#475569 !important' },
+    '.cm-cursor': { borderLeftColor: '#f1f5f9' },
+    '.cm-selectionMatch': { backgroundColor: '#3b82f680' },
+    '.cm-matchingBracket': { backgroundColor: '#475569', outline: 'none', color: '#fde047' },
+  },
+  { dark: true },
+)
+
+// HighlightStyle compartido entre tema claro y oscuro: usa colores con
+// suficiente contraste en ambos fondos. Reflejado en CodeMirror One
+// Dark / Solarized Light variants.
+const highlightStyle = HighlightStyle.define([
+  { tag: [t.keyword, t.modifier, t.controlKeyword], color: '#c084fc', fontWeight: '600' },
+  { tag: [t.string, t.special(t.string)], color: '#86efac' },
+  { tag: [t.number, t.bool, t.null, t.atom], color: '#fbbf24' },
+  { tag: [t.comment, t.lineComment, t.blockComment], color: '#94a3b8', fontStyle: 'italic' },
+  { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#60a5fa' },
+  { tag: [t.definition(t.variableName), t.definition(t.function(t.variableName))], color: '#60a5fa' },
+  { tag: [t.className, t.typeName], color: '#22d3ee' },
+  { tag: [t.operator, t.derefOperator, t.compareOperator, t.logicOperator], color: '#fb7185' },
+  { tag: [t.propertyName], color: '#a5b4fc' },
+  { tag: [t.variableName], color: '#e2e8f0' },
+  { tag: [t.bracket, t.paren, t.brace, t.squareBracket], color: '#cbd5e1' },
+  { tag: [t.punctuation], color: '#94a3b8' },
+  { tag: [t.invalid], color: '#f87171', textDecoration: 'underline wavy' },
+])
+
+function pickTheme() {
+  try {
+    return document.documentElement.dataset.theme === 'dark' ? darkTheme : lightTheme
+  } catch {
+    return lightTheme
+  }
+}
 
 export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle> {
   const updateListener = EditorView.updateListener.of((update) => {
@@ -129,7 +206,8 @@ export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle
         ...historyKeymap,
         indentWithTab,
       ]),
-      lightTheme,
+      pickTheme(),
+      syntaxHighlighting(highlightStyle),
       updateListener,
     ],
   })
