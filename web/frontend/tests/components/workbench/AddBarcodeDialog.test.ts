@@ -68,4 +68,23 @@ describe('AddBarcodeDialog', () => {
     const select = wrapper.find('[data-testid="barcode-symbology"]').element as HTMLSelectElement
     expect(select.value).toBe('MANUAL')
   })
+
+  it('expone role=dialog y aria-modal=true para que el filtro de useWorkbenchShortcuts lo detecte', () => {
+    // Regresión: si faltan estos atributos, los atajos globales (R, Esc, etc.)
+    // siguen activos con el dialog abierto y rotan/cierran lo que no toca.
+    const wrapper = mount(AddBarcodeDialog, { props: { visible: true } })
+    const dlg = wrapper.find('[role="dialog"]')
+    expect(dlg.exists()).toBe(true)
+    expect(dlg.attributes('aria-modal')).toBe('true')
+    expect(dlg.attributes('aria-label')).toBe('Añadir barcode manual')
+  })
+
+  it('Escape cierra el dialog (mediante listener global) sin propagar al lote', async () => {
+    // Regresión #28: Esc con dialog abierto cerraba el lote. El listener
+    // global capture+stopPropagation lo evita y emite close.
+    const wrapper = mount(AddBarcodeDialog, { props: { visible: true }, attachTo: document.body })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(wrapper.emitted('close')).toBeTruthy()
+    wrapper.unmount()
+  })
 })

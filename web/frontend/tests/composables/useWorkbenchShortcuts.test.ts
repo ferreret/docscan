@@ -117,6 +117,36 @@ describe("useWorkbenchShortcuts", () => {
     div.remove();
   });
 
+  it("dialog modal abierto ignora atajos aunque el target sea body", () => {
+    // Regresión: con un AddBarcodeDialog abierto y foco perdido (body), R
+    // no debe rotar la página de fondo.
+    const rotate = vi.fn();
+    const closeBatch = vi.fn();
+    wrapper = mount(makeHost({ rotate, closeBatch }));
+    const dlg = document.createElement("div");
+    dlg.setAttribute("role", "dialog");
+    dlg.setAttribute("aria-modal", "true");
+    document.body.appendChild(dlg);
+    dispatchKey({ key: "r" });
+    dispatchKey({ key: "Escape" });
+    expect(rotate).not.toHaveBeenCalled();
+    expect(closeBatch).not.toHaveBeenCalled();
+    dlg.remove();
+  });
+
+  it("dialog sin aria-modal NO bloquea (regresión-safe)", () => {
+    // role=dialog sin aria-modal=true podría usarse en componentes no-modal;
+    // el filtro debe seguir requiriendo aria-modal=true.
+    const rotate = vi.fn();
+    wrapper = mount(makeHost({ rotate }));
+    const dlg = document.createElement("div");
+    dlg.setAttribute("role", "dialog");
+    document.body.appendChild(dlg);
+    dispatchKey({ key: "r" });
+    expect(rotate).toHaveBeenCalled();
+    dlg.remove();
+  });
+
   it("isReadOnly oculta acciones de edición pero permite navegación", () => {
     const rotate = vi.fn();
     const nextPage = vi.fn();

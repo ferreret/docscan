@@ -23,6 +23,12 @@ interface ShortcutsOptions {
  */
 export function useWorkbenchShortcuts(options: ShortcutsOptions) {
   function isEditableTarget(target: EventTarget | null): boolean {
+    // Cualquier diálogo modal abierto desactiva los atajos globales,
+    // incluso si el foco se pierde y target queda en <body>. Esto evita
+    // que con un dialog abierto (p.ej. AddBarcodeDialog) pulsar R rote
+    // la página de fondo o Esc cierre el lote en vez del modal.
+    if (document.querySelector('[role="dialog"][aria-modal="true"]'))
+      return true;
     if (!(target instanceof HTMLElement)) return false;
     const tag = target.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;

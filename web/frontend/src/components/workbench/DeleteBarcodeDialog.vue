@@ -1,9 +1,38 @@
 <script setup lang="ts">
-defineProps<{ visible: boolean; barcodeValue: string }>()
+import { nextTick, onBeforeUnmount, useTemplateRef, watch } from 'vue'
+
+const props = defineProps<{ visible: boolean; barcodeValue: string }>()
 const emit = defineEmits<{
   (e: 'confirm'): void
   (e: 'close'): void
 }>()
+
+const dialogRef = useTemplateRef<HTMLElement>('dialogRef')
+
+function onDocEsc(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.stopPropagation()
+    emit('close')
+  }
+}
+
+watch(() => props.visible, (v) => {
+  if (v) {
+    nextTick(() => dialogRef.value?.focus())
+    document.addEventListener('keydown', onDocEsc, true)
+  } else {
+    document.removeEventListener('keydown', onDocEsc, true)
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => document.removeEventListener('keydown', onDocEsc, true))
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    event.stopPropagation()
+    emit('close')
+  }
+}
 </script>
 
 <template>
@@ -12,9 +41,16 @@ const emit = defineEmits<{
     data-testid="overlay"
     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     @click.self="emit('close')"
-    @keydown.esc="emit('close')"
   >
-    <div class="bg-mantle border border-surface-1 rounded-lg p-6 min-w-[360px] shadow-lg">
+    <div
+      ref="dialogRef"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Eliminar barcode"
+      tabindex="-1"
+      class="bg-mantle border border-surface-1 rounded-lg p-6 min-w-[360px] shadow-lg"
+      @keydown="onKeydown"
+    >
       <h3 class="text-lg font-semibold mb-3 text-text">Eliminar barcode</h3>
       <p class="mb-5 text-text">
         ¿Eliminar el barcode <strong>{{ barcodeValue }}</strong>?
