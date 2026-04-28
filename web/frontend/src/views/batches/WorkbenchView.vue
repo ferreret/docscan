@@ -63,6 +63,10 @@ const workbenchEvents = useWorkbenchEvents(batchId.value, {
   },
 });
 const selectedPageIndex = ref(0);
+// Flag para suprimir on_page_changed durante la carga inicial del lote
+// (issue #35: el watcher se disparaba antes de fireSync(on_batch_loaded),
+// dejando los logs en orden invertido). Se activa tras el on_batch_loaded.
+const initialLoadComplete = ref(false);
 const uploading = ref(false);
 const running = ref(false);
 const transferring = ref(false);
@@ -169,7 +173,10 @@ watch(
   () => currentPageListItem.value?.id,
   async (id, oldId) => {
     if (id) await store.fetchPage(batchId.value, id);
-    if (id && id !== oldId) {
+    // Solo disparar on_page_changed DESPUÉS de que on_batch_loaded
+    // haya respondido (issue #35). El primer disparo lo hace el
+    // onMounted manualmente tras secuenciar batch_loaded → page_changed.
+    if (initialLoadComplete.value && id && id !== oldId) {
       workbenchEvents.fireAsync("on_page_changed", { page_id: id });
     }
   },
@@ -209,11 +216,23 @@ onMounted(async () => {
   if (sortedPages.value.length > 0) {
     await store.fetchPage(batchId.value, sortedPages.value[0].id);
   }
+  // Disparar on_batch_loaded ANTES de cualquier on_page_changed para
+  // garantizar el orden temporal en el log (issue #35). Durante este
+  // await, el watcher no emite on_page_changed gracias al flag
+  // `initialLoadComplete=false`.
   const loaded = await workbenchEvents.fireSync("on_batch_loaded");
   if (loaded.cancel) {
     toast.error("Carga del lote cancelada por script");
     router.push("/batches");
     return;
+  }
+  initialLoadComplete.value = true;
+  // Tras batch_loaded, emitir manualmente on_page_changed para la
+  // página inicial (los siguientes cambios los maneja el watcher).
+  if (currentPageListItem.value?.id) {
+    workbenchEvents.fireAsync("on_page_changed", {
+      page_id: currentPageListItem.value.id,
+    });
   }
 });
 
