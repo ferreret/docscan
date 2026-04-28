@@ -1606,6 +1606,68 @@ class TestTeamUsers:
         )
         assert resp.status_code == 404
 
+    def test_admin_no_puede_cambiar_su_propio_rol(self, client):
+        # Regresión #38: el admin podía degradarse a operator y quedarse
+        # atrapado (sin permisos para revertirse) y dejar al tenant sin
+        # company_admins.
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
+        me = client.get("/api/auth/me", headers=h).json()
+        resp = client.patch(
+            f"/api/users/{me['id']}",
+            headers=h,
+            json={"role": "operator"},
+        )
+        assert resp.status_code == 409
+        assert "propio rol" in resp.json()["detail"]
+
+    def test_admin_puede_reasignar_su_propio_role_al_mismo_valor(self, client):
+        # Idempotencia: PATCH con el rol actual no debería romper.
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
+        me = client.get("/api/auth/me", headers=h).json()
+        resp = client.patch(
+            f"/api/users/{me['id']}",
+            headers=h,
+            json={"role": "company_admin"},
+        )
+        assert resp.status_code == 200
+
+    def _crear_admin_secundario(self, client, h_admin):
+        """Helper: invita y promociona un segundo admin del mismo tenant."""
+        inv = client.post(
+            "/api/invitations",
+            headers=h_admin,
+            json={"email": "admin2@a.com", "role": "company_admin"},
+        ).json()
+        u = client.post(
+            "/api/invitations/accept",
+            json={
+                "token": inv["token"],
+                "password": "pass12345",
+                "display_name": "A2",
+            },
+        ).json()
+        return u
+
+    def test_admin_puede_degradar_a_otro_admin_si_hay_mas(self, client):
+        # Regresión #38: el guard last-admin solo debe saltar si quedaríamos
+        # sin ningún company_admin activo. Con dos admins, degradar al otro
+        # debe seguir funcionando.
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
+        b = self._crear_admin_secundario(client, h)
+        resp = client.patch(
+            f"/api/users/{b['id']}", headers=h, json={"role": "operator"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "operator"
+
+    def test_admin_puede_borrar_a_otro_admin_si_hay_mas(self, client):
+        # Regresión #38: el guard last-admin no debe bloquear borrar a un
+        # admin si todavía queda otro.
+        h = _auth_header(client, "admin@a.com", "password123", "Admin", "OrgA")
+        b = self._crear_admin_secundario(client, h)
+        resp = client.delete(f"/api/users/{b['id']}", headers=h)
+        assert resp.status_code == 204
+
 
 class TestInvitations:
     def test_admin_crea_invitacion(self, client):

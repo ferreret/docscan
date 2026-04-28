@@ -78,6 +78,21 @@ def _get_tenant_user_or_404(user_id: int, tenant_id: int, db) -> User:
     return u
 
 
+def _count_other_active_admins(tenant_id: int, exclude_user_id: int, db) -> int:
+    """Cuenta company_admins activos del tenant, excluyendo a ``exclude_user_id``."""
+    return db.execute(
+        select(func.count(User.id)).where(
+            User.tenant_id == tenant_id,
+            User.role == ROLE_COMPANY_ADMIN,
+            User.active.is_(True),
+            User.id != exclude_user_id,
+        )
+    ).scalar_one()
+
+
+_LAST_ADMIN_MSG = "El tenant debe mantener al menos un company_admin activo"
+
+
 @router.patch("/users/{user_id}", response_model=UserListItem)
 def update_user(
     user_id: int,
@@ -94,6 +109,23 @@ def update_user(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 f"Rol inválido. Debe ser uno de: {_ASSIGNABLE_ROLES}",
             )
+        # Bloquear cambio de rol propio: el admin se quedaría atrapado como
+        # operator (no puede revertirse) y, si era el único admin, el tenant
+        # se quedaría sin company_admins.
+        if target.id == user.id and data.role != target.role:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "No puedes cambiar tu propio rol",
+            )
+        # Proteger último admin: si bajamos un admin a operator y no quedan
+        # otros admins activos en el tenant, rechazar.
+        if (
+            target.role == ROLE_COMPANY_ADMIN
+            and data.role != ROLE_COMPANY_ADMIN
+            and target.active
+            and _count_other_active_admins(user.tenant_id, target.id, db) == 0
+        ):
+            raise HTTPException(status.HTTP_409_CONFLICT, _LAST_ADMIN_MSG)
         target.role = data.role
 
     if data.active is not None:
@@ -102,6 +134,15 @@ def update_user(
                 status.HTTP_409_CONFLICT,
                 "No puedes desactivar tu propia cuenta",
             )
+        # Proteger último admin: si desactivamos al único admin activo del
+        # tenant, rechazar.
+        if (
+            not data.active
+            and target.role == ROLE_COMPANY_ADMIN
+            and target.active
+            and _count_other_active_admins(user.tenant_id, target.id, db) == 0
+        ):
+            raise HTTPException(status.HTTP_409_CONFLICT, _LAST_ADMIN_MSG)
         target.active = data.active
 
     if data.display_name is not None:
@@ -125,6 +166,14 @@ def delete_user(
             "No puedes eliminar tu propia cuenta",
         )
     target = _get_tenant_user_or_404(user_id, user.tenant_id, db)
+    # Proteger último admin: si el target es el único admin activo del
+    # tenant, no permitir borrarlo.
+    if (
+        target.role == ROLE_COMPANY_ADMIN
+        and target.active
+        and _count_other_active_admins(user.tenant_id, target.id, db) == 0
+    ):
+        raise HTTPException(status.HTTP_409_CONFLICT, _LAST_ADMIN_MSG)
     db.delete(target)
     db.commit()
 
