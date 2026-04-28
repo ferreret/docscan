@@ -63,4 +63,36 @@ describe('WorkbenchToolbar', () => {
     await pipelineBtn.trigger('click')
     expect(wrapper.emitted('run-pipeline')).toHaveLength(1)
   })
+
+  it('ZIP en estado idle muestra "↓ ZIP" y está habilitado', async () => {
+    const router = makeRouter(); await router.isReady()
+    const wrapper = mount(WorkbenchToolbar, {
+      props: { batch: makeBatch(), running: false, transferring: false, uploading: false },
+      global: { plugins: [router] },
+    })
+    const zipBtn = wrapper.find('[data-testid="btn-zip"]')
+    expect(zipBtn.text()).toContain('↓ ZIP')
+    expect((zipBtn.element as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('ZIP exporting=true muestra "Generando…" con spinner y está deshabilitado', async () => {
+    // Regresión: el export es síncrono y tarda. Antes el botón no
+    // daba feedback visual y el usuario pulsaba dos veces o se
+    // preguntaba si había pasado algo.
+    const router = makeRouter(); await router.isReady()
+    const wrapper = mount(WorkbenchToolbar, {
+      props: {
+        batch: makeBatch(),
+        running: false,
+        transferring: false,
+        uploading: false,
+        exporting: true,
+      },
+      global: { plugins: [router] },
+    })
+    const zipBtn = wrapper.find('[data-testid="btn-zip"]')
+    expect(zipBtn.text()).toContain('Generando')
+    expect((zipBtn.element as HTMLButtonElement).disabled).toBe(true)
+    expect(zipBtn.find('.animate-spin').exists()).toBe(true)
+  })
 })

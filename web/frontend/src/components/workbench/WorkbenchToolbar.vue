@@ -3,12 +3,16 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import type { BatchResponse } from "@/api/types";
 
-const props = defineProps<{
-  batch: BatchResponse;
-  running: boolean;
-  transferring: boolean;
-  uploading: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    batch: BatchResponse;
+    running: boolean;
+    transferring: boolean;
+    uploading: boolean;
+    exporting?: boolean;
+  }>(),
+  { exporting: false },
+);
 
 const emit = defineEmits<{
   (e: "upload", files: File[]): void;
@@ -24,7 +28,8 @@ const canTransfer = computed(
   () => props.batch.state === "read" && !props.transferring && !props.running,
 );
 const busy = computed(
-  () => props.running || props.transferring || props.uploading,
+  () =>
+    props.running || props.transferring || props.uploading || props.exporting,
 );
 
 function onUpload(event: Event): void {
@@ -83,10 +88,16 @@ function onUpload(event: Event): void {
       </button>
       <button
         type="button"
-        class="bg-base text-text text-xs px-3 py-1.5 rounded border border-surface-1 hover:bg-crust"
+        data-testid="btn-zip"
+        class="bg-base text-text text-xs px-3 py-1.5 rounded border border-surface-1 hover:bg-crust disabled:opacity-50 inline-flex items-center gap-1.5"
+        :disabled="exporting"
         @click="emit('download-zip')"
       >
-        ↓ ZIP
+        <span
+          v-if="exporting"
+          class="inline-block w-3 h-3 border-2 border-text border-t-transparent rounded-full animate-spin"
+        ></span>
+        <span>{{ exporting ? "Generando…" : "↓ ZIP" }}</span>
       </button>
       <button
         type="button"

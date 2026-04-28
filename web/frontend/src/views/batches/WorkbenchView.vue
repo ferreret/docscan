@@ -70,6 +70,7 @@ const initialLoadComplete = ref(false);
 const uploading = ref(false);
 const running = ref(false);
 const transferring = ref(false);
+const exporting = ref(false);
 const transferStatus = ref<
   "idle" | "running" | "completed" | "error" | "aborted"
 >("idle");
@@ -274,21 +275,33 @@ async function onUpload(files: File[]): Promise<void> {
 }
 
 async function onDownloadZip(): Promise<void> {
+  // El export es síncrono en el backend: lee todas las páginas de
+  // storage y construye el ZIP en memoria. En lotes con páginas
+  // grandes tarda varios segundos. Damos feedback visual con un
+  // toast inicial y un flag `exporting` que el toolbar usa para
+  // pintar spinner en el botón.
   const token = localStorage.getItem("access_token") ?? "";
-  const res = await fetch(`/api/batches/${batchId.value}/export`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    toast.error("Error al descargar ZIP");
-    return;
+  exporting.value = true;
+  toast.info("Generando ZIP…");
+  try {
+    const res = await fetch(`/api/batches/${batchId.value}/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      toast.error("Error al descargar ZIP");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `batch_${batchId.value}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("ZIP descargado");
+  } finally {
+    exporting.value = false;
   }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `batch_${batchId.value}.zip`;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 async function onDeleteBatch(): Promise<void> {
@@ -648,6 +661,7 @@ useWorkbenchShortcuts({
       :running="running"
       :transferring="transferring"
       :uploading="uploading"
+      :exporting="exporting"
       @upload="onUpload"
       @run-pipeline="onRunPipeline"
       @transfer="onTransfer"
