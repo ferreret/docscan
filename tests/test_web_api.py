@@ -3627,6 +3627,138 @@ class TestEventsFire:
         assert data["error"] is None
         assert data["result"] == page_id
 
+    # ---------------------------------------------------------------
+    # Regresión #33: el dispatcher reportaba todos los batch.fields
+    # como `batch_fields_updated` aunque el script no tocase nada.
+    # Ahora sólo reporta los cambios reales (snapshot + diff).
+    # ---------------------------------------------------------------
+
+    def _set_batch_fields(self, client, h, batch_id: int, fields: dict):
+        import json as _json
+
+        resp = client.patch(
+            f"/api/batches/{batch_id}",
+            headers=h,
+            json={"fields_json": _json.dumps(fields)},
+        )
+        assert resp.status_code == 200, resp.text
+
+    def test_script_que_solo_lee_no_reporta_batch_fields_updated(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        self._set_batch_fields(client, h, batch_id, {"cliente": "ACME", "n": 1})
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_batch_loaded",
+            "def on_batch_loaded(app, batch):\n"
+            "    _ = batch.fields.get('cliente')\n"
+            "    return {'result': 'ok'}\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["executed"] is True
+        assert data["batch_fields_updated"] == {}
+
+    def test_script_que_muta_solo_reporta_clave_modificada(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        self._set_batch_fields(client, h, batch_id, {"cliente": "ACME", "n": 1})
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_batch_loaded",
+            "def on_batch_loaded(app, batch):\n    batch.fields['cliente'] = 'NEW'\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["batch_fields_updated"] == {"cliente": "NEW"}
+        bb = client.get(f"/api/batches/{batch_id}", headers=h).json()
+        import json as _json
+
+        stored = _json.loads(bb["fields_json"])
+        assert stored == {"cliente": "NEW", "n": 1}
+
+    def test_script_return_explicito_se_respeta(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        self._set_batch_fields(client, h, batch_id, {"cliente": "ACME"})
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_batch_loaded",
+            "def on_batch_loaded(app, batch):\n"
+            "    return {'batch_fields_updated': {'extra': 42}}\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["batch_fields_updated"] == {"extra": 42}
+        bb = client.get(f"/api/batches/{batch_id}", headers=h).json()
+        import json as _json
+
+        stored = _json.loads(bb["fields_json"])
+        assert stored == {"cliente": "ACME", "extra": 42}
+
+    def test_script_muta_y_devuelve_se_mergean(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_batch_loaded",
+            "def on_batch_loaded(app, batch):\n"
+            "    batch.fields['a'] = 1\n"
+            "    return {'batch_fields_updated': {'b': 2}}\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["batch_fields_updated"] == {"a": 1, "b": 2}
+
+    def test_script_que_asigna_mismo_valor_no_reporta_cambio(self, client):
+        h = _auth_header(client)
+        app_id = _create_application(client, h)
+        batch_id = _create_batch(client, h, app_id=app_id)
+        self._set_batch_fields(client, h, batch_id, {"cliente": "ACME"})
+        self._set_event_script(
+            client,
+            h,
+            app_id,
+            "on_batch_loaded",
+            "def on_batch_loaded(app, batch):\n    batch.fields['cliente'] = 'ACME'\n",
+        )
+        resp = client.post(
+            f"/api/batches/{batch_id}/events/on_batch_loaded",
+            headers=h,
+            json={},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["batch_fields_updated"] == {}
+
     def test_fire_batch_otro_tenant_404(self, client):
         h1 = _auth_header(client)
         batch_id = _create_batch(client, h1)

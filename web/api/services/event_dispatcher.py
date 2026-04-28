@@ -90,6 +90,14 @@ def dispatch_event(
         batch_ctx = build_batch_context(batch)
         page_ctx = _build_page_context(page) if page else None
 
+        # Snapshot de los fields ANTES de ejecutar el script. Después
+        # comparamos para reportar y persistir SOLO los cambios reales.
+        # Antes de este fix, cualquier evento que se disparase (incluso un
+        # `pass` que solo lee batch.fields) reportaba todo el contenido del
+        # batch como `batch_fields_updated` y forzaba un commit en BD.
+        batch_fields_before = dict(batch_ctx.fields)
+        page_fields_before = dict(page_ctx.fields) if page_ctx is not None else {}
+
         kwargs: dict[str, Any] = {"app": app_ctx, "batch": batch_ctx}
         if page_ctx is not None:
             kwargs["page"] = page_ctx
@@ -108,13 +116,40 @@ def dispatch_event(
 
         result = _map_return_to_event_result(raw)
 
-        if page is not None and page_ctx is not None and page_ctx.fields:
-            result.fields_updated = page_ctx.fields.copy()
+        # Diff de fields: claves añadidas o cuyo valor cambió. Borrar
+        # claves desde el script no se reporta (no hay sentinel y la API
+        # actual no lo necesita).
+        page_diff = (
+            _diff_fields(page_fields_before, page_ctx.fields)
+            if page_ctx is not None
+            else {}
+        )
+        batch_diff = _diff_fields(batch_fields_before, batch_ctx.fields)
+
+        # Mergeamos lo que el script devolvió explícitamente en
+        # `fields_updated` / `batch_fields_updated` por encima de la
+        # mutación directa: si un script muta y además devuelve la misma
+        # clave, gana el valor del return.
+        if page_diff or result.fields_updated:
+            merged = dict(page_diff)
+            merged.update(result.fields_updated)
+            result.fields_updated = merged
+
+        if batch_diff or result.batch_fields_updated:
+            merged = dict(batch_diff)
+            merged.update(result.batch_fields_updated)
+            result.batch_fields_updated = merged
+
+        # Persistir SOLO si hay cambios reales. Aplicamos los updates
+        # finales al ctx antes de serializar para que un return explícito
+        # del script con claves nuevas también quede en BD.
+        if page is not None and page_ctx is not None and result.fields_updated:
+            page_ctx.fields.update(result.fields_updated)
             page.index_fields_json = json.dumps(page_ctx.fields, ensure_ascii=False)
             session.add(page)
 
-        if batch_ctx.fields:
-            result.batch_fields_updated = batch_ctx.fields.copy()
+        if result.batch_fields_updated:
+            batch_ctx.fields.update(result.batch_fields_updated)
             batch.fields_json = json.dumps(batch_ctx.fields, ensure_ascii=False)
             session.add(batch)
 
@@ -173,6 +208,15 @@ def _load_event_script(application: Application, event_name: str) -> str | None:
     if not script or not script.strip():
         return None
     return script
+
+
+def _diff_fields(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """Devuelve las claves de ``after`` cuyo valor cambió o son nuevas.
+
+    No reporta claves borradas (presentes en before pero no en after); el
+    caso de uso actual sólo necesita updates/inserts.
+    """
+    return {k: v for k, v in after.items() if before.get(k) != v}
 
 
 def _build_page_context(page: Page) -> PageContext:
