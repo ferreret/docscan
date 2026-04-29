@@ -529,3 +529,9 @@ def _fire_transfer_advanced(
         )
     finally:
         engine.shutdown()
+
+
+# Registrar para que enqueue_or_run lo encuentre en modo inline.
+from web.api.tasks.queue import register_inline_runner
+
+register_inline_runner("run_transfer_for_batch", run_transfer_for_batch)

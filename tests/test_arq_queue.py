@@ -40,7 +40,7 @@ async def test_enqueue_or_run_inline_calls_function_directly(monkeypatch):
 
     queue_mod.register_inline_runner("my_runner", my_runner)
 
-    settings = type("S", (), {"tasks": type("T", (), {"inline": True})()})() 
+    settings = type("S", (), {"tasks": type("T", (), {"inline": True})()})()
     monkeypatch.setattr(queue_mod, "_settings_for_test", settings)
 
     await queue_mod.enqueue_or_run("my_runner", 42, label="hola")
@@ -58,3 +58,13 @@ async def test_enqueue_or_run_inline_raises_for_unknown_function(monkeypatch):
 
     with pytest.raises(KeyError, match="no_existe"):
         await queue_mod.enqueue_or_run("no_existe")
+
+
+def test_pipeline_and_transfer_runners_are_registered_inline():
+    """Los runners se auto-registran al importar sus módulos."""
+    from web.api.tasks import queue as queue_mod
+    import web.api.tasks.pipeline_runner  # noqa: F401 — fuerza el import
+    import web.api.tasks.transfer_runner  # noqa: F401
+
+    assert "run_pipeline_for_batch" in queue_mod._INLINE_REGISTRY
+    assert "run_transfer_for_batch" in queue_mod._INLINE_REGISTRY
