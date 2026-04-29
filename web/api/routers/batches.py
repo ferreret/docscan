@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -31,8 +31,9 @@ from web.api.schemas.pagination import (
     pagination_params,
 )
 from web.api.storage import StorageDep
-from web.api.tasks.pipeline_runner import run_pipeline_for_batch
-from web.api.tasks.transfer_runner import run_transfer_for_batch
+from web.api.tasks.pipeline_runner import run_pipeline_for_batch  # noqa: F401
+from web.api.tasks.queue import enqueue_or_run
+from web.api.tasks.transfer_runner import run_transfer_for_batch  # noqa: F401
 
 router = APIRouter()
 
@@ -143,18 +144,17 @@ def delete_batch(
 
 
 @router.post("/{batch_id}/run", response_model=BatchResponse, status_code=202)
-def run_batch_pipeline(
+async def run_batch_pipeline(
     batch_id: int,
-    background_tasks: BackgroundTasks,
     user: CurrentUser,
     db: SessionDep,
     storage: StorageDep,
 ):
     """Dispara la ejecución del pipeline sobre todas las páginas del lote.
 
-    Rechaza si el lote no tiene páginas. Delega la ejecución real a un
-    BackgroundTask de FastAPI; el lote queda en su estado actual hasta que
-    el background task lo actualiza a ``read`` o ``error_read``.
+    Rechaza si el lote no tiene páginas. Delega la ejecución a la cola
+    (modo inline en tests, ARQ en producción). El lote queda en su estado
+    actual hasta que el job lo actualiza a ``read`` o ``error_read``.
     """
     batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
     ensure_batch_mutable(batch, action="re-ejecutar el pipeline")
@@ -165,8 +165,8 @@ def run_batch_pipeline(
             detail="El lote no tiene páginas para procesar",
         )
 
-    background_tasks.add_task(
-        run_pipeline_for_batch,
+    await enqueue_or_run(
+        "run_pipeline_for_batch",
         batch_id=batch.id,
         storage=storage,
     )
@@ -174,20 +174,17 @@ def run_batch_pipeline(
 
 
 @router.post("/{batch_id}/transfer", response_model=BatchResponse, status_code=202)
-def transfer_batch(
+async def transfer_batch(
     batch_id: int,
-    background_tasks: BackgroundTasks,
     user: CurrentUser,
     db: SessionDep,
     storage: StorageDep,
 ):
     """Dispara la transferencia del lote en background.
 
-    El lote debe estar en estado ``read`` (pipeline completado). El estado
-    real de la transferencia se notifica vía WebSocket
-    ``/ws/batches/{batch_id}`` con eventos ``transfer_started``,
-    ``transfer_page``, ``transfer_completed``, ``transfer_aborted`` o
-    ``transfer_error``.
+    El lote debe estar en estado ``read`` (pipeline completado) o
+    ``transferred`` (re-envío manual). El estado real se notifica vía
+    WebSocket. La ejecución corre inline en tests y vía ARQ en producción.
     """
     batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
     ensure_batch_mutable(batch, action="transferir")
@@ -201,8 +198,8 @@ def transfer_batch(
             detail="El lote no está listo para transferir",
         )
 
-    background_tasks.add_task(
-        run_transfer_for_batch,
+    await enqueue_or_run(
+        "run_transfer_for_batch",
         batch_id=batch.id,
         storage=storage,
     )
