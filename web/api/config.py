@@ -45,6 +45,21 @@ class RedisSettings(BaseModel):
     url: str = "redis://localhost:6379/0"
 
 
+class TasksSettings(BaseModel):
+    """Cola de tareas en background.
+
+    En producción ``inline=False`` enrola los jobs a ARQ vía Redis y un
+    worker dedicado los procesa. En tests ``inline=True`` (default) ejecuta
+    el job en el mismo proceso del request para mantener el contrato
+    síncrono que asumen los TestClient existentes.
+    """
+
+    inline: bool = True  # default True para tests; producción debe poner False
+    queue_name: str = "arq:queue"
+    job_timeout_seconds: int = 600  # 10 minutos
+    max_tries: int = 1
+
+
 class StorageSettings(BaseModel):
     """Almacenamiento de ficheros de páginas. Configurar via DOCSCAN_WEB_STORAGE__*.
 
@@ -80,6 +95,7 @@ class WebSettings(BaseSettings):
     minio: MinIOSettings = MinIOSettings()
     redis: RedisSettings = RedisSettings()
     storage: StorageSettings = StorageSettings()
+    tasks: TasksSettings = TasksSettings()
 
 
 @lru_cache
