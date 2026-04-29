@@ -89,6 +89,10 @@ services:
       # Redis (listo para ARQ)
       DOCSCAN_WEB_REDIS__URL: redis://redis:6379/0
 
+      # Cola de tareas ARQ — false en producción para que el API enrole jobs
+      # al worker en vez de ejecutarlos inline.
+      DOCSCAN_WEB_TASKS__INLINE: "false"
+
       # General
       DOCSCAN_WEB_DEPLOY_MODE: ${DOCSCAN_WEB_DEPLOY_MODE:-onpremise}
       DOCSCAN_WEB_DEBUG: ${DOCSCAN_WEB_DEBUG:-false}
@@ -102,6 +106,35 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: docscan-web-worker
+    restart: unless-stopped
+    environment:
+      DOCSCAN_WEB_DATABASE__URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DOCSCAN_WEB_JWT__SECRET_KEY: ${DOCSCAN_WEB_JWT__SECRET_KEY:?define DOCSCAN_WEB_JWT__SECRET_KEY en .env}
+      DOCSCAN_WEB_STORAGE__BACKEND: minio
+      DOCSCAN_WEB_MINIO__ENDPOINT: minio:9000
+      DOCSCAN_WEB_MINIO__ACCESS_KEY: ${MINIO_ROOT_USER}
+      DOCSCAN_WEB_MINIO__SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      DOCSCAN_WEB_REDIS__URL: redis://redis:6379/0
+      DOCSCAN_WEB_TASKS__INLINE: "false"
+      DOCSCAN_WEB_DEPLOY_MODE: ${DOCSCAN_WEB_DEPLOY_MODE:-onpremise}
+      DOCSCAN_WEB_DEBUG: ${DOCSCAN_WEB_DEBUG:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    # Sobrescribe el ENTRYPOINT del Dockerfile (que arranca uvicorn) por
+    # el comando del worker ARQ.
+    entrypoint: []
+    command: ["arq", "web.api.tasks.worker.WorkerSettings"]
 
 volumes:
   db_data:
