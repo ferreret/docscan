@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useBatchesStore } from '@/stores/batches'
+import { useBatchesPolling } from '@/composables/useBatchesPolling'
+import { storeToRefs } from 'pinia'
 import BatchStateBadge from '@/components/batches/BatchStateBadge.vue'
 
 const store = useBatchesStore()
+const { items } = storeToRefs(store)
 
 onMounted(() => store.fetchAll())
+
+// Auto-refresh del listado mientras haya lotes en running/transferring.
+// Polling silencioso (no toca store.loading → no parpadea "Cargando...").
+useBatchesPolling(items, () => store.fetchAll(undefined, { silent: true }))
 </script>
 
 <template>

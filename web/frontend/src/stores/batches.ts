@@ -19,15 +19,18 @@ export const useBatchesStore = defineStore('batches', () => {
   const currentPage = ref<PageResponse | null>(null)
   const loading = ref(false)
 
-  async function fetchAll(applicationId?: number) {
-    loading.value = true
+  async function fetchAll(
+    applicationId?: number,
+    opts: { silent?: boolean } = {},
+  ) {
+    if (!opts.silent) loading.value = true
     try {
       const query = applicationId ? `?application_id=${applicationId}` : ''
       const res = await api.get<Paginated<BatchListItem>>(`/batches${query}`)
       items.value = res.items
       total.value = res.total
     } finally {
-      loading.value = false
+      if (!opts.silent) loading.value = false
     }
   }
 
