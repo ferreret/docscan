@@ -12,6 +12,7 @@ import { Splitpanes, Pane } from "splitpanes";
 import "splitpanes/dist/splitpanes.css";
 
 import { api, ApiError } from "@/api/client";
+import { handleNotFound } from "@/utils/handleNotFound";
 import DocumentViewer from "@/components/DocumentViewer.vue";
 import ThumbnailPanel from "@/components/workbench/ThumbnailPanel.vue";
 import BarcodePanel from "@/components/workbench/BarcodePanel.vue";
@@ -210,7 +211,20 @@ watch(
 );
 
 onMounted(async () => {
-  await store.fetchOne(batchId.value);
+  try {
+    await store.fetchOne(batchId.value);
+  } catch (err) {
+    if (
+      handleNotFound(err, {
+        router,
+        toast,
+        fallback: "/batches",
+        message: "El lote no existe o no tienes acceso",
+      })
+    )
+      return;
+    throw err;
+  }
   await store.fetchPages(batchId.value);
   if (store.current?.application_id)
     await appStore.fetchOne(store.current.application_id);

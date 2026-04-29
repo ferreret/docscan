@@ -3,6 +3,8 @@ import { onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore } from '@/stores/applications'
 import { useBatchesStore } from '@/stores/batches'
+import { useToast } from '@/composables/useToast'
+import { handleNotFound } from '@/utils/handleNotFound'
 import AppHeader from '@/components/AppHeader.vue'
 import BatchStateBadge from '@/components/batches/BatchStateBadge.vue'
 
@@ -10,11 +12,25 @@ const route = useRoute()
 const router = useRouter()
 const appStore = useApplicationsStore()
 const batchStore = useBatchesStore()
+const toast = useToast()
 
 const appId = computed(() => Number(route.params.id))
 
 onMounted(async () => {
-  await appStore.fetchOne(appId.value)
+  try {
+    await appStore.fetchOne(appId.value)
+  } catch (err) {
+    if (
+      handleNotFound(err, {
+        router,
+        toast,
+        fallback: '/applications',
+        message: 'La aplicación no existe o no tienes acceso',
+      })
+    )
+      return
+    throw err
+  }
   await batchStore.fetchAll(appId.value)
 })
 
