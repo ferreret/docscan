@@ -372,6 +372,6 @@ def _record_processing_error(page: Page, message: str) -> None:
 
 
 # Registrar para que enqueue_or_run lo encuentre en modo inline.
-from web.api.tasks.queue import register_inline_runner
+from web.api.tasks.queue import register_inline_runner  # noqa: E402
 
 register_inline_runner("run_pipeline_for_batch", run_pipeline_for_batch)

@@ -14,7 +14,7 @@ from tests.test_web_api import (  # noqa: F401  — fixtures
 )
 
 
-def test_recovery_marks_running_batches_as_error_read(client, db_session):
+def test_recovery_marks_running_batches_as_error_read(client, db_session):  # noqa: F811
     """Lotes en estado 'running' al arrancar el worker se marcan error_read."""
     from app.models.batch import Batch
     from web.api.tasks.recovery import recover_stuck_batches
@@ -36,7 +36,7 @@ def test_recovery_marks_running_batches_as_error_read(client, db_session):
     assert batch.state == "error_read"
 
 
-def test_recovery_marks_transferring_batches_as_error_read(client, db_session):
+def test_recovery_marks_transferring_batches_as_error_read(client, db_session):  # noqa: F811
     """Lotes en 'transferring' se recuperan a error_read."""
     from app.models.batch import Batch
     from web.api.tasks.recovery import recover_stuck_batches
@@ -57,7 +57,7 @@ def test_recovery_marks_transferring_batches_as_error_read(client, db_session):
     assert batch.state == "error_read"
 
 
-def test_recovery_no_op_when_no_stuck_batches(client, db_session):
+def test_recovery_no_op_when_no_stuck_batches(client, db_session):  # noqa: F811
     """Si no hay batches huérfanos, devuelve 0 y no toca nada."""
     from app.models.batch import Batch
     from web.api.tasks.recovery import recover_stuck_batches
