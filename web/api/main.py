@@ -13,6 +13,7 @@ from sqlalchemy import text
 from web.api.config import get_web_settings
 from web.api.database import get_engine, reset_engine
 from web.api.events import get_event_bus
+from web.api.tasks.queue import close_arq_pool, enqueue_or_run, get_arq_pool
 
 # Importar modelos para que SQLAlchemy registre las relaciones
 from app.models.application import Application  # noqa: F401
@@ -23,6 +24,10 @@ from app.models.template import Template  # noqa: F401
 from app.models.operation_history import OperationHistory  # noqa: F401
 from web.api.models import Tenant, User  # noqa: F401
 
+# Registrar runners inline (side-effect: poblan _INLINE_REGISTRY de queue.py)
+from web.api.tasks import pipeline_runner  # noqa: F401
+from web.api.tasks import transfer_runner  # noqa: F401
+
 log = logging.getLogger(__name__)
 
 
@@ -31,9 +36,10 @@ async def lifespan(app: FastAPI):
     """Lifecycle: inicialización y limpieza."""
     settings = get_web_settings()
     log.info(
-        "DocScan Web API arrancando (mode=%s, debug=%s)",
+        "DocScan Web API arrancando (mode=%s, debug=%s, tasks_inline=%s)",
         settings.deploy_mode,
         settings.debug,
+        settings.tasks.inline,
     )
 
     engine = get_engine()
@@ -43,8 +49,21 @@ async def lifespan(app: FastAPI):
 
     get_event_bus().attach_loop(asyncio.get_running_loop())
 
+    # Abrir pool ARQ y disparar recovery solo si NO estamos en modo inline.
+    # En tests no hay Redis y el recovery se invoca manualmente.
+    if not settings.tasks.inline:
+        await get_arq_pool()  # Inicializa el singleton.
+        try:
+            await enqueue_or_run("recovery_job")
+            log.info("recovery_job enrolado al arrancar")
+        except Exception as e:
+            # No bloquear el arranque del API si Redis está caído.
+            log.warning("No se pudo enrolar recovery_job: %s", e)
+
     yield
 
+    if not settings.tasks.inline:
+        await close_arq_pool()
     reset_engine()
     log.info("DocScan Web API detenida")
 
