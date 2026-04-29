@@ -18,5 +18,8 @@ psycopg[binary]==3.3.3
 # Storage S3-compatible (MinIO)
 minio==7.2.15
 
+# Cola de tareas en background
+arq==0.26.3
+
 # Dependencias compartidas con desktop (ya en requirements.txt):
 # SQLAlchemy, pydantic-settings, httpx, anthropic, openai, etc.

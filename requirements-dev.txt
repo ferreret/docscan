@@ -10,3 +10,6 @@ ruff==0.15.5
 
 # Documentación
 python-docx==1.1.2
+
+# Mock de Redis para tests de la cola ARQ
+fakeredis==2.26.2
