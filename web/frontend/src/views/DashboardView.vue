@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { useApplicationsStore } from '@/stores/applications'
 import { useBatchesStore } from '@/stores/batches'
+import BatchStateBadge from '@/components/batches/BatchStateBadge.vue'
 
 const apps = useApplicationsStore()
 const batches = useBatchesStore()
@@ -90,16 +91,7 @@ onMounted(() => {
               <p class="text-[13px] font-medium text-text">Lote #{{ batch.id }}</p>
               <p class="text-xs text-subtext">{{ batch.page_count }} páginas</p>
             </div>
-            <span
-              class="text-[11px] px-2 py-0.5 rounded-full font-medium border"
-              :class="{
-                'bg-warning-soft text-warning border-warning/30': batch.state === 'created',
-                'bg-primary-soft text-primary border-primary/30': batch.state === 'read',
-                'bg-danger-soft text-danger border-danger/30': batch.state.startsWith('error'),
-              }"
-            >
-              {{ batch.state }}
-            </span>
+            <BatchStateBadge :state="batch.state" />
           </router-link>
         </div>
       </div>

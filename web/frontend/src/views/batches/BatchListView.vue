@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useBatchesStore } from '@/stores/batches'
+import BatchStateBadge from '@/components/batches/BatchStateBadge.vue'
 
 const store = useBatchesStore()
 
@@ -32,16 +33,7 @@ onMounted(() => store.fetchAll())
             {{ new Date(batch.created_at).toLocaleDateString('es-ES') }}
           </p>
         </div>
-        <span
-          class="text-[11px] px-2 py-0.5 rounded-full font-medium border"
-          :class="{
-            'bg-warning-soft text-warning border-warning/30': batch.state === 'created',
-            'bg-primary-soft text-primary border-primary/30': batch.state === 'read',
-            'bg-danger-soft text-danger border-danger/30': batch.state.startsWith('error'),
-          }"
-        >
-          {{ batch.state }}
-        </span>
+        <BatchStateBadge :state="batch.state" />
       </router-link>
     </div>
   </div>
