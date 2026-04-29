@@ -19,7 +19,7 @@ psycopg[binary]==3.3.3
 minio==7.2.15
 
 # Cola de tareas en background
-arq==0.26.3
+arq==0.28.0
 
 # Dependencias compartidas con desktop (ya en requirements.txt):
 # SQLAlchemy, pydantic-settings, httpx, anthropic, openai, etc.

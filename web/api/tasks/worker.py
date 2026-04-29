@@ -16,6 +16,7 @@ from typing import Any
 
 from arq.connections import RedisSettings
 
+from web.api import _register_models  # noqa: F401 — registra modelos SQLAlchemy
 from web.api.config import get_web_settings
 from web.api.storage import get_storage
 from web.api.tasks.pipeline_runner import run_pipeline_for_batch

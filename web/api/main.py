@@ -15,16 +15,8 @@ from web.api.database import get_engine, reset_engine
 from web.api.events import get_event_bus
 from web.api.tasks.queue import close_arq_pool, enqueue_or_run, get_arq_pool
 
-# Importar modelos para que SQLAlchemy registre las relaciones
-from app.models.application import Application  # noqa: F401
-from app.models.batch import Batch  # noqa: F401
-from app.models.page import Page  # noqa: F401
-from app.models.barcode import Barcode  # noqa: F401
-from app.models.template import Template  # noqa: F401
-from app.models.operation_history import OperationHistory  # noqa: F401
-from web.api.models import Tenant, User  # noqa: F401
-
-# Registrar runners inline (side-effect: poblan _INLINE_REGISTRY de queue.py)
+# Side-effect imports: registran modelos SQLAlchemy y runners inline.
+from web.api import _register_models  # noqa: F401
 from web.api.tasks import pipeline_runner  # noqa: F401
 from web.api.tasks import transfer_runner  # noqa: F401
 
