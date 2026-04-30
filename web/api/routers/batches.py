@@ -166,7 +166,7 @@ async def run_batch_pipeline(
     await enqueue_or_run(
         "run_pipeline_for_batch",
         batch_id=batch.id,
-        storage=storage,
+        inline_kwargs={"storage": storage},
     )
     return batch
 
@@ -199,7 +199,7 @@ async def transfer_batch(
     await enqueue_or_run(
         "run_transfer_for_batch",
         batch_id=batch.id,
-        storage=storage,
+        inline_kwargs={"storage": storage},
     )
     return batch
 

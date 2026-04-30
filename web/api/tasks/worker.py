@@ -15,13 +15,14 @@ import logging
 from typing import Any
 
 from arq.connections import RedisSettings
+from arq.worker import func
 
 from web.api import _register_models  # noqa: F401 — registra modelos SQLAlchemy
 from web.api.config import get_web_settings
 from web.api.storage import get_storage
-from web.api.tasks.pipeline_runner import run_pipeline_for_batch
+from web.api.tasks.pipeline_runner import run_pipeline_for_batch as _pipeline_runner
 from web.api.tasks.recovery import recover_stuck_batches
-from web.api.tasks.transfer_runner import run_transfer_for_batch
+from web.api.tasks.transfer_runner import run_transfer_for_batch as _transfer_runner
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +54,11 @@ async def on_shutdown(ctx: dict[str, Any]) -> None:
 
 # ----------------------------------------------------------------------
 # Handlers
+#
+# Cada handler async se registra en ARQ con el mismo nombre que enrola el
+# router (``run_pipeline_for_batch`` / ``run_transfer_for_batch``) usando
+# ``arq.worker.func(name=...)``. Esto permite que el `_INLINE_REGISTRY` y
+# el worker ARQ compartan el mismo nombre lógico.
 # ----------------------------------------------------------------------
 
 
@@ -60,14 +66,14 @@ async def pipeline_job(ctx: dict[str, Any], batch_id: int) -> None:
     """Ejecuta el pipeline de un lote (handler ARQ)."""
     storage = ctx["storage"]
     log.info("Worker recibió pipeline_job para batch %d", batch_id)
-    await asyncio.to_thread(run_pipeline_for_batch, batch_id=batch_id, storage=storage)
+    await asyncio.to_thread(_pipeline_runner, batch_id=batch_id, storage=storage)
 
 
 async def transfer_job(ctx: dict[str, Any], batch_id: int) -> None:
     """Ejecuta la transferencia de un lote (handler ARQ)."""
     storage = ctx["storage"]
     log.info("Worker recibió transfer_job para batch %d", batch_id)
-    await asyncio.to_thread(run_transfer_for_batch, batch_id=batch_id, storage=storage)
+    await asyncio.to_thread(_transfer_runner, batch_id=batch_id, storage=storage)
 
 
 async def recovery_job(ctx: dict[str, Any]) -> None:
@@ -93,7 +99,11 @@ def _redis_settings() -> RedisSettings:
 class WorkerSettings:
     """Configuración del worker ARQ."""
 
-    functions = [pipeline_job, transfer_job, recovery_job]
+    functions = [
+        func(pipeline_job, name="run_pipeline_for_batch"),
+        func(transfer_job, name="run_transfer_for_batch"),
+        recovery_job,
+    ]
     on_startup = on_startup
     on_shutdown = on_shutdown
     redis_settings = _redis_settings()

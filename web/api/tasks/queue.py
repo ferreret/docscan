@@ -64,16 +64,25 @@ async def close_arq_pool() -> None:
         log.info("Pool ARQ cerrado")
 
 
-async def enqueue_or_run(function_name: str, *args: Any, **kwargs: Any) -> None:
+async def enqueue_or_run(
+    function_name: str,
+    *args: Any,
+    inline_kwargs: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> None:
     """Enrola un job a ARQ (producción) o lo ejecuta inline (tests).
 
     En modo inline:
     - Busca ``function_name`` en ``_INLINE_REGISTRY``.
     - Lo ejecuta con ``asyncio.to_thread`` para no bloquear el event loop
       (los runners son síncronos y pueden tardar minutos).
+    - Inyecta ``inline_kwargs`` además de ``kwargs``.
 
     En modo ARQ:
     - Llama ``pool.enqueue_job(function_name, *args, **kwargs)``.
+    - ``inline_kwargs`` se descarta: contiene objetos no serializables
+      (p. ej. el ``BaseStorage`` que viene de DI). El handler ARQ del
+      worker los reconstruye de su ``ctx`` (ver ``worker.py::pipeline_job``).
 
     Raises:
         KeyError: si ``inline=True`` y la función no está registrada.
@@ -83,7 +92,8 @@ async def enqueue_or_run(function_name: str, *args: Any, **kwargs: Any) -> None:
         if function_name not in _INLINE_REGISTRY:
             raise KeyError(f"Runner inline no registrado: {function_name!r}")
         func = _INLINE_REGISTRY[function_name]
-        await asyncio.to_thread(func, *args, **kwargs)
+        merged = {**kwargs, **(inline_kwargs or {})}
+        await asyncio.to_thread(func, *args, **merged)
         return
 
     pool = await get_arq_pool()
