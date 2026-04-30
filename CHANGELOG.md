@@ -6,6 +6,19 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [0.1.2] — 2026-04-30
+
+### 🐛 Corregido
+
+- **Editor de Eventos del configurador**: el placeholder del editor de código estaba hardcoded a la firma de `on_app_start` y nunca cambiaba al seleccionar otro evento del combo. Ahora se actualiza dinámicamente con la firma correcta del evento elegido (`on_page_changed(app, batch, page)`, `on_key_event(app, batch, key)`, etc.) usando el catálogo `EVENT_SIGNATURES`.
+- **`page.id` accesible desde `on_page_changed` en el escritorio**: el dispatcher pasaba sólo `page_index` (un entero) y un script con la firma documentada `def on_page_changed(app, batch, page)` fallaba con `missing 1 required positional argument: 'page'`. Ahora el workbench construye un `PageContext` con `id`, `page_index`, `barcodes`, `ocr_text`, `fields` y `flags`, igualando el contrato con la versión web. Los scripts antiguos con `(app, batch)` o `(app, batch, page_index)` siguen funcionando — el `ScriptEngine` filtra los kwargs por la firma de la función.
+
+### 📝 Notas
+
+- Sin cambios en BD ni en el formato de pipeline. Actualización in-place desde 0.1.1.
+
+---
+
 ## [0.1.1] — 2026-04-30
 
 ### ✨ Eventos lifecycle ampliados
