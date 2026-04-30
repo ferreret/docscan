@@ -51,14 +51,14 @@ const appendFromEvent = (ev: any) => {
       append(
         'info',
         'pipeline',
-        `Pipeline iniciado (${ev.page_count ?? '?'} páginas)`,
+        `Pipeline iniciado (${ev.total_pages ?? '?'} páginas)`,
       )
       break
     case 'page_processed':
       append(
         'debug',
         'pipeline',
-        `Página ${(ev.page_index ?? 0) + 1}/${ev.page_count ?? '?'} procesada`,
+        `Página ${(ev.page_index ?? 0) + 1}/${ev.total ?? '?'} procesada`,
       )
       break
     case 'page_error':

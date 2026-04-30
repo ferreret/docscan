@@ -22,17 +22,18 @@ describe('useWorkbenchLog', () => {
     expect(log.entries.value[0].message).toContain('Rotada')
   })
 
-  it('appendFromEvent pipeline_started → info with page_count', () => {
-    log.appendFromEvent({ type: 'pipeline_started', page_count: 5 })
+  it('appendFromEvent pipeline_started → info con total_pages', () => {
+    log.appendFromEvent({ type: 'pipeline_started', total_pages: 5 })
     expect(log.entries.value).toHaveLength(1)
     const e = log.entries.value[0]
     expect(e.level).toBe('info')
     expect(e.source).toBe('pipeline')
     expect(e.message).toContain('5')
+    expect(e.message).not.toContain('?')
   })
 
-  it('appendFromEvent page_processed → debug', () => {
-    log.appendFromEvent({ type: 'page_processed', page_index: 1, page_count: 3 })
+  it('appendFromEvent page_processed → debug usa total', () => {
+    log.appendFromEvent({ type: 'page_processed', page_index: 1, total: 3 })
     expect(log.entries.value[0].level).toBe('debug')
     expect(log.entries.value[0].message).toContain('2/3')
   })
