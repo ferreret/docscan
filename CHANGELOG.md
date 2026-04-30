@@ -6,6 +6,20 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [0.1.1] — 2026-04-30
+
+### ✨ Eventos lifecycle ampliados
+- **`on_batch_loaded`** y **`on_page_changed`** promocionados al catálogo del configurador (pestaña Eventos) con descripciones traducibles. Hasta ahora estos dos hooks sólo existían en la versión web; ahora también pueden definirse como scripts lifecycle convencionales en la app de escritorio, manteniendo el hook del VerificationPanel para retrocompatibilidad.
+- **`page.id`** ahora accesible desde scripts lifecycle (`on_navigate_*`, `on_page_changed`, etc.). Antes el contexto sólo exponía `page_index` y `page.id` lanzaba `AttributeError`.
+
+### 🐛 Corregido
+- Warning de Qt al cerrar el launcher: `QPropertyAnimation` sobre `fixedWidth` provocaba un mensaje en consola sin efecto funcional. Limpiado.
+
+### 📝 Notas
+- Sin cambios en BD ni en el formato de pipeline. Actualización in-place desde 0.1.0.
+
+---
+
 ## [0.1.0] — 2026-03-26
 
 ### 🚀 Distribución e instaladores
