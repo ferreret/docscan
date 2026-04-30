@@ -54,30 +54,42 @@ const appendFromEvent = (ev: any) => {
         `Pipeline iniciado (${ev.total_pages ?? '?'} páginas)`,
       )
       break
-    case 'page_processed':
+    case 'page_processed': {
+      const idx = (ev.page_index ?? 0) + 1
+      const total = ev.total ?? '?'
+      if (ev.ok === false) {
+        append(
+          'error',
+          'pipeline',
+          `Página ${idx}/${total}: ${ev.error ?? 'error desconocido'}`,
+        )
+      } else {
+        append('debug', 'pipeline', `Página ${idx}/${total} procesada`)
+      }
+      break
+    }
+    case 'pipeline_completed':
       append(
-        'debug',
+        ev.any_error ? 'warn' : 'info',
         'pipeline',
-        `Página ${(ev.page_index ?? 0) + 1}/${ev.total ?? '?'} procesada`,
+        ev.any_error
+          ? 'Pipeline completado con errores'
+          : 'Pipeline completado',
       )
       break
-    case 'page_error':
+    case 'pipeline_error':
       append(
         'error',
         'pipeline',
-        `Página ${(ev.page_index ?? 0) + 1}: ${ev.error ?? ''}`,
+        `Pipeline abortado: ${ev.error ?? 'error desconocido'}`,
       )
       break
-    case 'pipeline_completed':
-      append(
-        'info',
-        'pipeline',
-        `Pipeline completado${ev.elapsed ? ` en ${ev.elapsed}s` : ''}`,
-      )
+    case 'transfer_started': {
+      const total = ev.total_pages ?? '?'
+      const mode = ev.mode ? ` (${ev.mode})` : ''
+      append('info', 'transfer', `Transferencia iniciada — ${total} páginas${mode}`)
       break
-    case 'transfer_started':
-      append('info', 'transfer', 'Transferencia iniciada')
-      break
+    }
     case 'transfer_page':
       append(
         'debug',
@@ -85,14 +97,29 @@ const appendFromEvent = (ev: any) => {
         `Transferida página ${(ev.page_index ?? 0) + 1}`,
       )
       break
-    case 'transfer_completed':
-      append('info', 'transfer', 'Transferencia completada')
+    case 'transfer_completed': {
+      const files = ev.files_transferred
+      const detail = typeof files === 'number' ? ` (${files} ficheros)` : ''
+      append(
+        ev.success === false ? 'error' : 'info',
+        'transfer',
+        ev.success === false
+          ? `Transferencia con errores${detail}`
+          : `Transferencia completada${detail}`,
+      )
       break
+    }
     case 'transfer_error':
       append('error', 'transfer', ev.error ?? 'Error en transferencia')
       break
     case 'transfer_aborted':
-      append('warn', 'transfer', 'Transferencia abortada')
+      append(
+        'warn',
+        'transfer',
+        ev.reason
+          ? `Transferencia abortada: ${ev.reason}`
+          : 'Transferencia abortada',
+      )
       break
     case 'page_updated':
       append('debug', 'editor', `Página ${ev.page_id}: ${ev.action}`)
