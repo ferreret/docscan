@@ -131,26 +131,28 @@ def process(app, batch, page, pipeline):
 # ---------------------------------------------------------------
 
 EVENT_SIGNATURES: dict[str, str] = {
-    "on_app_start": "def on_app_start(app, batch):\n    \"\"\"Runs when the application opens in the Workbench.\"\"\"",
-    "on_app_end": "def on_app_end(app, batch):\n    \"\"\"Runs when the application closes.\"\"\"",
-    "on_import": "def on_import(app, batch):\n    \"\"\"Replaces standard import logic when defined. Called on 'Process' button with file/PDF source.\"\"\"",
-    "on_scan_complete": "def on_scan_complete(app, batch):\n    \"\"\"Runs ONCE after the pipeline finishes for ALL pages in the batch.\"\"\"",
-    "on_transfer_validate": "def on_transfer_validate(app, batch) -> bool:\n    \"\"\"Runs before transfer. Return False to cancel transfer.\"\"\"",
-    "on_transfer_advanced": "def on_transfer_advanced(app, batch, result):\n    \"\"\"Replaces simple transfer when defined. Full batch access for custom transfer logic.\"\"\"",
-    "on_transfer_page": "def on_transfer_page(app, batch, page, result):\n    \"\"\"Runs after copying each page during simple transfer.\"\"\"",
-    "on_navigate_prev": "def on_navigate_prev(app, batch):\n    \"\"\"Custom previous navigation handler.\"\"\"",
-    "on_navigate_next": "def on_navigate_next(app, batch):\n    \"\"\"Custom next navigation handler.\"\"\"",
-    "on_navigate_script": "def on_navigate_script(app, batch):\n    \"\"\"Custom viewer navigation button handler.\"\"\"",
-    "on_key_event": "def on_key_event(app, batch, key):\n    \"\"\"Custom key event handler. 'key' is a string with the key name.\"\"\"",
-    "init_global": "def init_global(app, batch):\n    \"\"\"Runs at program startup (launcher-level global script).\"\"\"",
+    "on_app_start": 'def on_app_start(app, batch):\n    """Runs when the application opens in the Workbench."""',
+    "on_app_end": 'def on_app_end(app, batch):\n    """Runs when the application closes."""',
+    "on_import": 'def on_import(app, batch):\n    """Replaces standard import logic when defined. Called on \'Process\' button with file/PDF source."""',
+    "on_scan_complete": 'def on_scan_complete(app, batch):\n    """Runs ONCE after the pipeline finishes for ALL pages in the batch."""',
+    "on_transfer_validate": 'def on_transfer_validate(app, batch) -> bool:\n    """Runs before transfer. Return False to cancel transfer."""',
+    "on_transfer_advanced": 'def on_transfer_advanced(app, batch, result):\n    """Replaces simple transfer when defined. Full batch access for custom transfer logic."""',
+    "on_transfer_page": 'def on_transfer_page(app, batch, page, result):\n    """Runs after copying each page during simple transfer."""',
+    "on_navigate_prev": 'def on_navigate_prev(app, batch):\n    """Custom previous navigation handler."""',
+    "on_navigate_next": 'def on_navigate_next(app, batch):\n    """Custom next navigation handler."""',
+    "on_navigate_script": 'def on_navigate_script(app, batch):\n    """Custom viewer navigation button handler."""',
+    "on_key_event": 'def on_key_event(app, batch, key):\n    """Custom key event handler. \'key\' is a string with the key name."""',
+    "on_batch_loaded": 'def on_batch_loaded(app, batch):\n    """Runs when a batch is opened in the Workbench (after the pipeline has finished)."""',
+    "on_page_changed": 'def on_page_changed(app, batch, page):\n    """Runs each time the active page changes. \'page\' has id, page_index, fields, barcodes, ocr_text."""',
+    "init_global": 'def init_global(app, batch):\n    """Runs at program startup (launcher-level global script)."""',
     "verification_panel": (
         "class MyVerificationPanel(VerificationPanel):\n"
-        "    \"\"\"Custom verification panel plugin.\n"
+        '    """Custom verification panel plugin.\n'
         "    Available methods to override: setup_ui(), on_page_changed(page_index),\n"
         "    on_pipeline_completed(page_index), on_batch_loaded(),\n"
         "    validate_page(page_index) -> (bool, str), validate() -> (bool, str), cleanup().\n"
         "    Available via self.api: get_page_image(), get_page_barcodes(), get_page_ocr_text(),\n"
         "    get_page_fields(), set_page_field(name, value), get_batch_fields(),\n"
-        "    set_batch_field(name, value), navigate_to(index), log(msg).\"\"\""
+        '    set_batch_field(name, value), navigate_to(index), log(msg)."""'
     ),
 }
