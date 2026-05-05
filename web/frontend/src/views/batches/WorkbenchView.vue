@@ -322,9 +322,9 @@ function onDragOver(e: DragEvent): void {
 }
 
 function onDragLeave(e: DragEvent): void {
-  if (!isDragging.value) return;
+  if (dragCounter === 0) return;
   e.preventDefault();
-  dragCounter = Math.max(0, dragCounter - 1);
+  dragCounter--;
   if (dragCounter === 0) isDragging.value = false;
 }
 

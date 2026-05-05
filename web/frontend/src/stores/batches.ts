@@ -21,25 +21,15 @@ export const useBatchesStore = defineStore('batches', () => {
   const currentPage = ref<PageResponse | null>(null)
   const loading = ref(false)
 
-  async function fetchAll(
-    applicationIdOrParams?:
-      | number
-      | {
-          applicationId?: number | null
-          state?: string | null
-          limit?: number
-          offset?: number
-          silent?: boolean
-        },
-    opts: { silent?: boolean } = {},
-  ) {
-    // Compat: el polling existente llama fetchAll(undefined, {silent:true})
-    // y el resto fetchAll(appId). Si el primer argumento es un objeto se
-    // toma como bag de parámetros (incluye silent).
-    const params =
-      typeof applicationIdOrParams === 'object' && applicationIdOrParams !== null
-        ? applicationIdOrParams
-        : { applicationId: applicationIdOrParams ?? null, ...opts }
+  interface FetchAllParams {
+    applicationId?: number | null
+    state?: string | null
+    limit?: number
+    offset?: number
+    silent?: boolean
+  }
+
+  async function fetchAll(params: FetchAllParams = {}) {
     const silent = params.silent ?? false
     if (!silent) loading.value = true
     try {

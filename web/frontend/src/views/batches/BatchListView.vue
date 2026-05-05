@@ -6,23 +6,12 @@ import { useBatchesPolling } from '@/composables/useBatchesPolling'
 import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import BatchStateBadge from '@/components/batches/BatchStateBadge.vue'
+import { BATCH_STATES } from '@/components/batches/batchStates'
 
 const store = useBatchesStore()
 const auth = useAuthStore()
 const apps = useApplicationsStore()
-const { items, total, limit, offset } = storeToRefs(store)
-
-// Estados disponibles para el filtro. ""=todos. Mantengo los nombres
-// internos del backend para que el query param vaya literal.
-const STATE_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: 'Todos los estados' },
-  { value: 'created', label: 'Creado' },
-  { value: 'running', label: 'Procesando' },
-  { value: 'read', label: 'Procesado' },
-  { value: 'transferring', label: 'Transfiriendo' },
-  { value: 'transferred', label: 'Transferido' },
-  { value: 'error_read', label: 'Error' },
-]
+const { items, total } = storeToRefs(store)
 
 const filterAppId = ref<number | null>(null)
 const filterState = ref<string>('')
@@ -68,9 +57,7 @@ function goNext(): void {
 watch([filterAppId, filterState], onFiltersChanged)
 
 onMounted(async () => {
-  // Cargar la lista de aplicaciones del tenant para el dropdown.
-  await apps.fetchAll()
-  await load()
+  await Promise.all([apps.fetchAll(), load()])
 })
 
 // Auto-refresh: respeta los filtros activos para no descartar lo que
@@ -105,8 +92,9 @@ useBatchesPolling(items, () => load(true))
           data-testid="filter-state"
           class="text-xs border border-surface-1 rounded px-2 py-1 bg-base text-text min-w-[140px]"
         >
-          <option v-for="opt in STATE_OPTIONS" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
+          <option value="">Todos los estados</option>
+          <option v-for="s in BATCH_STATES" :key="s.value" :value="s.value">
+            {{ s.filterLabel }}
           </option>
         </select>
       </label>

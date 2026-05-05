@@ -31,7 +31,7 @@ onMounted(async () => {
       return
     throw err
   }
-  await batchStore.fetchAll(appId.value)
+  await batchStore.fetchAll({ applicationId: appId.value })
 })
 
 async function onDelete() {
