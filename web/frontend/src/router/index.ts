@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { enforceRoleAccess } from './roleGuard'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -95,18 +97,57 @@ const router = createRouter({
           name: 'team',
           component: () => import('@/views/team/TeamView.vue'),
         },
+        {
+          path: 'admin/tenants',
+          name: 'admin-tenants',
+          component: () => import('@/views/admin/TenantListView.vue'),
+          meta: { superadmin: true },
+        },
+        {
+          path: 'admin/tenants/new',
+          name: 'admin-tenant-new',
+          component: () => import('@/views/admin/CreateTenantView.vue'),
+          meta: { superadmin: true },
+        },
+        {
+          path: 'admin/tenants/:id',
+          name: 'admin-tenant-detail',
+          component: () => import('@/views/admin/TenantDetailView.vue'),
+          props: true,
+          meta: { superadmin: true },
+        },
       ],
     },
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const token = localStorage.getItem('access_token')
   if (to.meta.auth && !token) {
     return { name: 'login' }
   }
   if (to.meta.guest && token) {
     return { name: 'dashboard' }
+  }
+
+  if (token) {
+    const auth = useAuthStore()
+    if (!auth.user) {
+      await auth.fetchUser()
+    }
+    const redirect = enforceRoleAccess(
+      { path: to.path, meta: to.meta as Record<string, unknown>, name: to.name },
+      auth.user
+        ? {
+            role: auth.user.role,
+            tenant_id: auth.user.tenant_id,
+            email: auth.user.email,
+          }
+        : null,
+    )
+    if (redirect) {
+      return redirect
+    }
   }
 })
 
