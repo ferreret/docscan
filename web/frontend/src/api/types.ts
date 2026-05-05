@@ -17,13 +17,6 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  display_name: string;
-  tenant_name: string;
-}
-
 export interface UserResponse {
   id: number;
   email: string;

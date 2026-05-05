@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from web.api.auth.security import decode_access_token
 from web.api.database import get_db
-from web.api.models import User
+from web.api.models import Tenant, User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
@@ -40,6 +40,13 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario no encontrado o inactivo",
+        )
+
+    tenant = db.get(Tenant, user.tenant_id)
+    if tenant is None or not tenant.active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Tenant suspendido",
         )
 
     return user

@@ -71,11 +71,6 @@ async function onSubmit() {
         >
           {{ auth.loading ? 'Entrando...' : 'Entrar' }}
         </button>
-
-        <p class="text-xs text-center text-subtext">
-          ¿Sin cuenta?
-          <router-link to="/register" class="text-primary hover:text-primary-hover font-medium">Registrarse</router-link>
-        </p>
       </form>
     </div>
   </div>

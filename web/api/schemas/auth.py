@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr
 
 
 class TokenResponse(BaseModel):
@@ -17,15 +17,6 @@ class LoginRequest(BaseModel):
 
     email: EmailStr
     password: str
-
-
-class RegisterRequest(BaseModel):
-    """Datos de registro de usuario y tenant."""
-
-    email: EmailStr
-    password: str = Field(min_length=8)
-    display_name: str = Field(min_length=1)
-    tenant_name: str = Field(min_length=1)
 
 
 class UserResponse(BaseModel):

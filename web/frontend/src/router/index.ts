@@ -10,12 +10,6 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
-      path: '/register',
-      name: 'register',
-      component: () => import('@/views/auth/RegisterView.vue'),
-      meta: { guest: true },
-    },
-    {
       path: '/accept-invitation/:token',
       name: 'accept-invitation',
       component: () => import('@/views/auth/AcceptInvitationView.vue'),
