@@ -941,4 +941,102 @@ describe("WorkbenchView", () => {
     vi.restoreAllMocks();
     wrapper.unmount();
   });
+
+  // ------------------------------------------------------------------
+  // Drag & drop de ficheros (entrada #8 bitácora QA web 2026-04-27)
+  // ------------------------------------------------------------------
+
+  function makeDragEvent(type: string, files: File[] = []): Event {
+    // jsdom expone DragEvent pero no DataTransfer; lo simulamos como objeto
+    // con la API mínima que usa el componente: types, files, dropEffect.
+    const ev = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(ev, "dataTransfer", {
+      value: {
+        types: files.length > 0 ? ["Files"] : [],
+        files,
+        dropEffect: "none",
+      },
+    });
+    return ev;
+  }
+
+  async function mountWithBatch(state = "read") {
+    const batches = useBatchesStore();
+    const apps = useApplicationsStore();
+    batches.fetchOne = vi.fn(async () => {
+      batches.current = {
+        id: 1,
+        application_id: 5,
+        state,
+        page_count: 0,
+        created_at: "",
+        updated_at: "",
+        fields_json: "{}",
+        folder_path: "",
+        hostname: "",
+      };
+    });
+    batches.fetchPages = vi.fn(async () => {
+      batches.pages = [];
+    });
+    batches.uploadFiles = vi.fn(async () => {});
+    apps.fetchOne = vi.fn(async () => {});
+    const router = makeRouter("/batches/1");
+    await router.isReady();
+    const wrapper = mount(WorkbenchView, {
+      global: { plugins: [router] },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    return { wrapper, batches };
+  }
+
+  it("dragenter con ficheros muestra el overlay de drop zone", async () => {
+    const { wrapper } = await mountWithBatch();
+    const root = wrapper.element as HTMLElement;
+    root.dispatchEvent(makeDragEvent("dragenter", [new File(["x"], "a.png")]));
+    await flushPromises();
+    expect(
+      wrapper.find('[data-testid="workbench-drop-overlay"]').exists(),
+    ).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("dragenter sin ficheros (solo texto) NO muestra overlay", async () => {
+    const { wrapper } = await mountWithBatch();
+    const root = wrapper.element as HTMLElement;
+    // types vacío == drag de texto/HTML, no archivos
+    root.dispatchEvent(makeDragEvent("dragenter", []));
+    await flushPromises();
+    expect(
+      wrapper.find('[data-testid="workbench-drop-overlay"]').exists(),
+    ).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("drop con ficheros llama a store.uploadFiles y oculta overlay", async () => {
+    const { wrapper, batches } = await mountWithBatch();
+    const root = wrapper.element as HTMLElement;
+    const f1 = new File(["x"], "a.png", { type: "image/png" });
+    const f2 = new File(["y"], "b.png", { type: "image/png" });
+    root.dispatchEvent(makeDragEvent("dragenter", [f1, f2]));
+    root.dispatchEvent(makeDragEvent("drop", [f1, f2]));
+    await flushPromises();
+    expect(batches.uploadFiles).toHaveBeenCalledWith(1, [f1, f2]);
+    expect(
+      wrapper.find('[data-testid="workbench-drop-overlay"]').exists(),
+    ).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("drag durante state=running NO activa overlay (canUpload=false)", async () => {
+    const { wrapper } = await mountWithBatch("running");
+    const root = wrapper.element as HTMLElement;
+    root.dispatchEvent(makeDragEvent("dragenter", [new File(["x"], "a.png")]));
+    await flushPromises();
+    expect(
+      wrapper.find('[data-testid="workbench-drop-overlay"]').exists(),
+    ).toBe(false);
+    wrapper.unmount();
+  });
 });
