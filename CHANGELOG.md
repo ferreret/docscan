@@ -6,6 +6,66 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [Unreleased]
+
+### 🛡️ Sprint Superadmin (versión web SaaS) — 2026-05-05
+
+Plataforma multi-tenant lista para SaaS con jerarquía de roles `superadmin > company_admin > operator`. Sólo el equipo de TecnoMedia (rol `superadmin`) puede crear tenants y administradores; el registro público está deshabilitado.
+
+#### ✨ Backend (`web/api/`)
+
+- **CLI bootstrap idempotente** del primer superadmin:
+  ```
+  docker compose exec api python -m web.api.bootstrap superadmin \
+      --email admin@tecnomedia.es --password ********** \
+      --display "Admin TecnoMedia"
+  ```
+  Crea (o reutiliza) el tenant especial `TecnoMedia` y un usuario con rol `superadmin`. Volver a ejecutarlo con el mismo email es no-op.
+- **Registro público eliminado**: `POST /api/auth/register` devuelve 404. La aceptación de invitaciones (`/accept-invitation/:token`) sigue siendo el camino para usuarios añadidos por invitación.
+- **Login bloqueado en tenants suspendidos**: `tenant.active=False` rechaza el login con 401 y el `/auth/me` también, aunque el JWT siga vigente.
+- **Modelo `AuditLog`** + helper `web/api/audit.py::audit(...)`: registra cada mutación administrativa (`tenant.created/updated/deleted`, `user.created/updated/deleted`) con actor, target y payload JSON.
+- **Endpoints `/api/admin/tenants`** (5) — superadmin sólo:
+  - `GET /admin/tenants` (paginado, con stats por tenant)
+  - `POST /admin/tenants` (crea tenant + primer company_admin)
+  - `GET /admin/tenants/{id}` (detalle + lista de usuarios)
+  - `PATCH /admin/tenants/{id}` (name | plan | active)
+  - `DELETE /admin/tenants/{id}` (hard-cascade BD + storage; rechaza con 409 si hay batches `running`/`transferring` o si el tenant es TecnoMedia)
+- **Endpoints `/api/admin/users`** (4) — superadmin sólo, cross-tenant:
+  - `GET /admin/users` (filtra por `?tenant_id=`)
+  - `POST /admin/users` (crea directamente en cualquier tenant)
+  - `PATCH /admin/users/{id}` (role | active | display_name)
+  - `DELETE /admin/users/{id}`
+  - Guards: rechaza con 409 al degradar/desactivar/borrar al último superadmin global o al último company_admin activo del tenant. Self-modify desde aquí también devuelve 409 (defense-in-depth).
+
+#### ✨ Frontend (`web/frontend/`)
+
+- **Store Pinia `admin.ts`** + tipos TypeScript que reflejan los schemas (`Tenant`, `TenantStats`, `TenantDetail`, `AdminUserListItem`, etc.).
+- **Rutas `/admin/tenants`, `/admin/tenants/new`, `/admin/tenants/:id`** con `meta.superadmin: true`.
+- **Guard global `enforceRoleAccess`** en el router:
+  - `superadmin` en una ruta no `/admin/*` → redirige a `/admin/tenants`.
+  - cualquier rol distinto de `superadmin` accediendo a `/admin/*` → redirige a `/`.
+- **AppLayout dual**: sidebar reducido a "Tenants" + header "TecnoMedia · Administración" cuando el rol es `superadmin`. Sidebar normal para `company_admin`/`operator`.
+- **Vista de listado**: tabla con stats por tenant, badge coloreado por plan, toggle Activo/Suspendido inline, eliminar con confirmación del nombre exacto.
+- **Vista de creación**: formulario tenant + primer admin con validación local de password (≥8 caracteres) y feedback de errores 409 (email duplicado, plan inválido).
+- **Vista de detalle**: edita name/plan/active del tenant + CRUD completo de sus usuarios (cambio de rol, toggle activo, delete con confirm, modal "Crear usuario").
+
+#### 🧪 Tests añadidos en el sprint
+
+- Backend: 81 tests TDD cubren bootstrap, audit, admin_tenants, admin_users, registro retirado y tenant suspendido. Suite web: **298 passing**.
+- Frontend: 49 tests TDD nuevos para store, guard de rol, AppLayout y las 3 vistas admin. Suite frontend: **460 passing**.
+
+#### 🔍 Smoke e2e
+
+- `scripts/smoke_superadmin.sh` — matriz curl de 21 casos contra `docker compose` (registro 404, login + me, /admin/* con 3 roles, CRUD tenants, CRUD users cross-tenant, guards 409 último-admin / self-modify, suspensión + login bloqueado, cascade delete, protección de TecnoMedia).
+- Smoke visual con Playwright recogido en `docs/screenshots/smoke-superadmin/`: listado, formulario de creación, detalle del tenant y bloqueo del guard cuando un company_admin intenta entrar a `/admin/*`.
+
+#### 📝 Notas de migración
+
+- **Nueva tabla `audit_logs`**: aplicar `alembic upgrade head` (la migración `a3b8d4e2f7c9_add_audit_logs.py` se ejecuta automáticamente en el `docker-bootstrap-db.py`).
+- **Sin cambios** en la app de escritorio. Esta release sólo afecta a la versión web SaaS.
+
+---
+
 ## [0.1.2] — 2026-04-30
 
 ### 🐛 Corregido

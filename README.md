@@ -187,6 +187,51 @@ python3.14 -m docscan_worker --batch-path /ruta/a/documentos
 
 ---
 
+## 🌐 Versión web SaaS
+
+DocScan Studio incluye una API REST + frontend SPA para entornos multi-tenant. La pila completa (PostgreSQL, MinIO, Redis, API FastAPI, worker ARQ) se levanta con Docker Compose.
+
+```bash
+# 1. Configurar .env (a partir de la plantilla)
+cp web/.env.example .env
+
+# 2. Levantar el stack completo
+docker compose up -d --build
+
+# 3. Bootstrap del superadmin (idempotente)
+docker compose exec api python -m web.api.bootstrap superadmin \
+    --email admin@tecnomedia.es \
+    --password "una_contraseña_segura" \
+    --display "Admin TecnoMedia"
+
+# 4. Frontend Vite (modo dev)
+cd web/frontend && npm install && npm run dev
+# → http://localhost:5173
+```
+
+### Jerarquía de roles
+
+```
+superadmin  (TecnoMedia, cross-tenant)
+   └── company_admin  (por tenant)
+          └── operator  (por tenant)
+```
+
+- **superadmin** se crea SOLO con el comando `bootstrap` desde la línea de comandos. El registro público está deshabilitado.
+- El comando es **idempotente**: ejecutarlo dos veces con el mismo email no crea duplicados ni modifica al superadmin existente.
+- Tras el bootstrap, el superadmin entra en `/admin/tenants` para crear empresas y sus primeros administradores.
+- Los `company_admin` invitan a sus `operator` desde la pestaña Equipo.
+
+### Smoke test e2e
+
+`scripts/smoke_superadmin.sh` ejecuta una matriz curl de 19 casos contra el stack docker (registro cerrado, login + me, CRUD de tenants y usuarios cross-tenant, guards 409 último-admin / self-modify, login bloqueado en tenant suspendido, cascade delete, protección de TecnoMedia). Tras el bootstrap:
+
+```bash
+bash scripts/smoke_superadmin.sh
+```
+
+---
+
 ## 🏗️ Arquitectura
 
 ```
