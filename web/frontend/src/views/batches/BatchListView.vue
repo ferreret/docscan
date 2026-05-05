@@ -2,10 +2,12 @@
 import { onMounted } from 'vue'
 import { useBatchesStore } from '@/stores/batches'
 import { useBatchesPolling } from '@/composables/useBatchesPolling'
+import { useAuthStore } from '@/stores/auth'
 import { storeToRefs } from 'pinia'
 import BatchStateBadge from '@/components/batches/BatchStateBadge.vue'
 
 const store = useBatchesStore()
+const auth = useAuthStore()
 const { items } = storeToRefs(store)
 
 onMounted(() => store.fetchAll())
@@ -19,7 +21,7 @@ useBatchesPolling(items, () => store.fetchAll(undefined, { silent: true }))
   <div>
     <div class="mb-6">
       <h1 class="text-2xl font-bold text-text">Lotes</h1>
-      <p class="text-xs text-subtext mt-1">Todos los lotes del inquilino</p>
+      <p class="text-xs text-subtext mt-1">Todos los lotes de {{ auth.user?.tenant_name }}</p>
     </div>
 
     <div v-if="store.loading" class="text-sm text-subtext">Cargando...</div>
