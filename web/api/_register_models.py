@@ -18,4 +18,4 @@ from app.models.batch import Batch  # noqa: F401
 from app.models.operation_history import OperationHistory  # noqa: F401
 from app.models.page import Page  # noqa: F401
 from app.models.template import Template  # noqa: F401
-from web.api.models import Tenant, User  # noqa: F401
+from web.api.models import AuditLog, Invitation, Tenant, User  # noqa: F401

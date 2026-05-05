@@ -96,3 +96,36 @@ class Invitation(Base):
 
     def __repr__(self) -> str:
         return f"<Invitation(id={self.id}, email='{self.email}', tenant_id={self.tenant_id})>"
+
+
+class AuditLog(Base):
+    """Registro de acciones administrativas para forensics y compliance.
+
+    Lo escribe el helper :func:`web.api.audit.audit` desde los routers
+    administrativos (``/api/admin/...``) y desde tareas internas. El
+    ``actor_user_id`` es ``NULL`` para acciones de sistema (cron,
+    recovery, etc.).
+    """
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    tenant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id"), nullable=True, index=True
+    )
+    action: Mapped[str] = mapped_column(String(100), index=True)
+    target_type: Mapped[str] = mapped_column(String(50), index=True)
+    target_id: Mapped[int | None] = mapped_column(nullable=True)
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), index=True
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<AuditLog(id={self.id}, action='{self.action}', "
+            f"target={self.target_type}:{self.target_id})>"
+        )
