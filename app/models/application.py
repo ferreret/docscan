@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import String, Text, Boolean, DateTime, func
+from sqlalchemy import Integer, String, Text, Boolean, DateTime, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -18,9 +18,13 @@ class Application(Base):
     """
 
     __tablename__ = "applications"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_applications_tenant_name"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(200), unique=True)
+    tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -52,9 +56,7 @@ class Application(Base):
     ai_config_json: Mapped[str] = mapped_column(Text, default="{}")
 
     # Auditoría
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

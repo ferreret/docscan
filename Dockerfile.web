@@ -1,0 +1,61 @@
+# Imagen para la API web de DocScan Studio.
+#
+# NO incluye PySide6 ni python-sane (dependencias desktop Linux) — se filtran
+# de requirements.txt al momento del pip install. El pipeline que el runner
+# ejecuta usa opencv, pyzbar, zxing-cpp, rapidocr-onnxruntime y pymupdf, todos
+# compatibles con el entorno headless.
+
+FROM python:3.14-slim-bookworm AS base
+
+# Dependencias de sistema mínimas para las librerías Python nativas:
+#   libzbar0    — pyzbar (lectura de códigos de barras motor 1)
+#   libgl1      — opencv-python (libGL para cargar la librería)
+#   libglib2.0-0— dependencia indirecta de opencv
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libzbar0 \
+        libgl1 \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=5
+
+WORKDIR /app
+
+# Dependencias Python (capa cacheable): copiar solo los requirements primero.
+COPY requirements.txt requirements-web.txt ./
+
+# Filtrar PySide6 y python-sane de requirements.txt antes de instalar.
+# PySide6 es desktop-only y pesa ~500MB; python-sane necesita libsane1
+# del host y no aporta nada al contenedor web.
+RUN grep -v '^PySide6' requirements.txt \
+        | grep -v '^python-sane' \
+        > /tmp/requirements-container.txt && \
+    pip install -r /tmp/requirements-container.txt && \
+    pip install -r requirements-web.txt && \
+    rm /tmp/requirements-container.txt
+
+# Copiar el código del proyecto (el .dockerignore excluye .venv, tests,
+# docs, .claude, etc.)
+COPY app /app/app
+COPY web /app/web
+COPY config /app/config
+COPY alembic /app/alembic
+COPY alembic.ini /app/alembic.ini
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+COPY docker-bootstrap-db.py /app/docker-bootstrap-db.py
+
+# Usuario no-root para ejecución. El directorio /data/storage se crea aquí
+# para que el mount point del volumen herede los permisos del usuario no-root.
+RUN useradd --create-home --uid 1000 --user-group docscan && \
+    mkdir -p /data/storage && \
+    chown -R 1000:1000 /app /data
+USER 1000:1000
+
+EXPOSE 8001
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

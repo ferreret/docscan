@@ -144,7 +144,10 @@ class ScriptEngine:
             return None
 
         namespace = self._build_namespace(
-            page=page, batch=batch, app=app, pipeline=pipeline,
+            page=page,
+            batch=batch,
+            app=app,
+            pipeline=pipeline,
         )
 
         try:
@@ -217,19 +220,69 @@ class ScriptEngine:
                 ):
                     filtered = kwargs
                 else:
-                    filtered = {
-                        k: v for k, v in kwargs.items()
-                        if k in sig.parameters
-                    }
+                    filtered = {k: v for k, v in kwargs.items() if k in sig.parameters}
             except (ValueError, TypeError):
                 filtered = kwargs
             return func(**filtered)
         except Exception as e:
             log.error(
                 "Error ejecutando evento '%s.%s': %s",
-                script_id, entry_point, e,
+                script_id,
+                entry_point,
+                e,
             )
             return None
+
+    def run_event_raw(
+        self,
+        script_id: str,
+        entry_point: str,
+        **kwargs: Any,
+    ) -> Any:
+        """Ejecuta un entry point de ciclo de vida SIN capturar excepciones.
+
+        Variante de ``run_event`` pensada para callers que necesitan distinguir
+        "script devolvió None" de "script lanzó excepción" (p.ej. el
+        event_dispatcher web, que gestiona timeout+error por su cuenta).
+
+        Args:
+            script_id: ID del script compilado.
+            entry_point: Nombre de la función a llamar.
+            **kwargs: Argumentos para la función (app, batch, page, etc.).
+
+        Returns:
+            El valor retornado por la función del script.
+
+        Raises:
+            KeyError: Si el script no está compilado.
+            AttributeError: Si el entry point no existe o no es callable.
+            Exception: Cualquier excepción lanzada por el script del usuario.
+        """
+        code = self._compiled_cache.get(script_id)
+        if not code:
+            raise KeyError(f"Script '{script_id}' no está compilado en cache")
+
+        namespace = self._build_namespace(**kwargs)
+        exec(code, namespace)  # noqa: S102 — script de usuario aislado en namespace
+
+        func = namespace.get(entry_point)
+        if func is None or not callable(func):
+            raise AttributeError(
+                f"Entry point '{entry_point}' no encontrado en script '{script_id}'"
+            )
+
+        try:
+            sig = inspect.signature(func)
+            if any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+            ):
+                filtered = kwargs
+            else:
+                filtered = {k: v for k, v in kwargs.items() if k in sig.parameters}
+        except (ValueError, TypeError):
+            filtered = kwargs
+
+        return func(**filtered)
 
     # ------------------------------------------------------------------
     # Internos
@@ -276,8 +329,7 @@ class ScriptEngine:
             "ImageLib": ImageLib,
         }
         # Añadir los contextos que se hayan pasado
-        for key in ("app", "batch", "page", "pages", "pipeline",
-                     "fields", "result"):
+        for key in ("app", "batch", "page", "pages", "pipeline", "fields", "result"):
             if key in kwargs:
                 ns[key] = kwargs[key]
         return ns
@@ -298,7 +350,9 @@ class ScriptEngine:
         }
         log.error(
             "Error ejecutando '%s' (paso %s): %s",
-            entry_point, step_id, error,
+            entry_point,
+            step_id,
+            error,
         )
         # Intentar registrar en page si tiene la interfaz esperada
         if hasattr(page, "script_errors"):

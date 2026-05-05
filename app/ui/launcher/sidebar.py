@@ -8,12 +8,10 @@ Panel lateral izquierdo con dos estados:
 from __future__ import annotations
 
 import math
-from typing import Any
 
-from PySide6.QtCore import QPoint, QPropertyAnimation, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QPoint, QPropertyAnimation, QSize, Qt, Signal
 from PySide6.QtGui import (
     QColor,
-    QFont,
     QIcon,
     QPainter,
     QPen,
@@ -35,6 +33,7 @@ _BTN_H = 40
 # ---------------------------------------------------------------
 # Fabrica de iconos para el sidebar
 # ---------------------------------------------------------------
+
 
 def _pm(size: int = _ICON_SIZE) -> QPixmap:
     pm = QPixmap(size, size)
@@ -260,6 +259,7 @@ def _icon_ai(color: str, size: int = _ICON_SIZE) -> QIcon:
     # Estrella de 4 puntas
     from PySide6.QtGui import QPolygonF
     from PySide6.QtCore import QPointF
+
     pts = []
     for i in range(8):
         angle = math.radians(i * 45 - 90)
@@ -314,6 +314,7 @@ def _icon_hamburger(color: str, size: int = _ICON_SIZE) -> QIcon:
 # SidebarButton
 # ---------------------------------------------------------------
 
+
 class _SidebarButton(QPushButton):
     """Boton del sidebar con icono y texto opcional."""
 
@@ -351,6 +352,7 @@ class _SidebarButton(QPushButton):
 # Sidebar widget
 # ---------------------------------------------------------------
 
+
 class Sidebar(QWidget):
     """Panel lateral colapsable con iconos/texto.
 
@@ -382,7 +384,9 @@ class Sidebar(QWidget):
 
         # Toggle
         self._btn_toggle = _SidebarButton(
-            _icon_hamburger(color), "Menu", self,
+            _icon_hamburger(color),
+            "Menu",
+            self,
         )
         self._btn_toggle.setObjectName("sidebarToggle")
         self._btn_toggle.clicked.connect(self._toggle)
@@ -444,8 +448,7 @@ class Sidebar(QWidget):
         self._expanded = not self._expanded
         target_w = _EXPANDED_W if self._expanded else _COLLAPSED_W
 
-        anim = QPropertyAnimation(self, b"fixedWidth")
-        # fixedWidth no es una propiedad directa, usamos minimumWidth/maximumWidth
+        # fixedWidth no es una propiedad animable; animamos minimumWidth/maximumWidth en paralelo
         self._anim = QPropertyAnimation(self, b"minimumWidth")
         self._anim.setDuration(150)
         self._anim.setStartValue(self.width())

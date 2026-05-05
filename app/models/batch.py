@@ -34,6 +34,7 @@ class Batch(Base):
     __tablename__ = "batches"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     application_id: Mapped[int] = mapped_column(
         ForeignKey("applications.id", ondelete="CASCADE"),
         index=True,

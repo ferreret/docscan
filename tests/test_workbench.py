@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import json
-from contextlib import contextmanager
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -18,6 +14,7 @@ from app.db.database import Base
 from app.models.application import Application
 from app.models.barcode import Barcode  # noqa: F401
 from app.models.batch import Batch  # noqa: F401
+from app.models.operation_history import OperationHistory  # noqa: F401
 from app.models.page import Page  # noqa: F401
 from app.models.template import Template  # noqa: F401
 from app.workers.recognition_worker import (
@@ -95,8 +92,8 @@ def sample_app(db_session) -> Application:
 def color_image() -> np.ndarray:
     """Imagen BGR de prueba (100x80, 3 canales)."""
     img = np.zeros((100, 80, 3), dtype=np.uint8)
-    img[0:50, :] = [255, 0, 0]   # azul en BGR
-    img[50:, :] = [0, 255, 0]    # verde en BGR
+    img[0:50, :] = [255, 0, 0]  # azul en BGR
+    img[50:, :] = [0, 255, 0]  # verde en BGR
     return img
 
 
@@ -365,6 +362,101 @@ class TestPageContext:
         assert p2.barcodes == []
 
 
+class TestBuildPageContextDesktop:
+    """Regresión v0.1.1: el dispatcher desktop pasaba sólo ``page_index`` a
+    ``on_page_changed`` y un script con firma ``def on_page_changed(app,
+    batch, page)`` fallaba con ``missing 1 required positional argument:
+    'page'``. ``_build_page_context`` debe construir un ``PageContext``
+    con ``id``, ``page_index``, ``barcodes`` y ``fields`` desde la BD.
+    """
+
+    def _build_window_with(self, session_factory, batch_id):
+        # Construye una WorkbenchWindow sin pasar por __init__ para
+        # evitar el setup completo de UI/Qt. Sólo necesitamos los dos
+        # atributos que usa _build_page_context.
+        win = WorkbenchWindow.__new__(WorkbenchWindow)
+        win._batch_id = batch_id
+        win._session_factory = session_factory
+        return win
+
+    def test_returns_page_with_id_and_fields(
+        self, session_factory, db_session, sample_app
+    ):
+
+        batch = Batch(application_id=sample_app.id, state="read", page_count=2)
+        db_session.add(batch)
+        db_session.commit()
+        page = Page(
+            batch_id=batch.id,
+            page_index=0,
+            image_path="/tmp/p0.png",
+            ocr_text="hola",
+            index_fields_json='{"referencia": "X-1"}',
+        )
+        db_session.add(page)
+        db_session.commit()
+        page_id = page.id
+
+        win = self._build_window_with(session_factory, batch.id)
+        ctx = win._build_page_context(0)
+
+        assert ctx.id == page_id
+        assert ctx.page_index == 0
+        assert ctx.fields == {"referencia": "X-1"}
+        assert ctx.ocr_text == "hola"
+        assert ctx.barcodes == []
+
+    def test_includes_barcodes(self, session_factory, db_session, sample_app):
+        from app.models.batch import Batch
+
+        batch = Batch(application_id=sample_app.id, state="read", page_count=1)
+        db_session.add(batch)
+        db_session.commit()
+        page = Page(batch_id=batch.id, page_index=0, image_path="/tmp/x.png")
+        db_session.add(page)
+        db_session.commit()
+        bc = Barcode(
+            page_id=page.id,
+            value="CODE-1",
+            symbology="CODE128",
+            engine="motor1",
+            step_id="s1",
+            quality=0.9,
+            role="separator",
+        )
+        db_session.add(bc)
+        db_session.commit()
+
+        win = self._build_window_with(session_factory, batch.id)
+        ctx = win._build_page_context(0)
+
+        assert len(ctx.barcodes) == 1
+        assert ctx.barcodes[0].value == "CODE-1"
+        assert ctx.barcodes[0].role == "separator"
+        assert ctx.barcodes[0].symbology == "CODE128"
+
+    def test_no_batch_returns_empty_context(self, session_factory):
+        win = self._build_window_with(session_factory, None)
+        ctx = win._build_page_context(0)
+        assert ctx.id == 0
+        assert ctx.page_index == 0
+        assert ctx.fields == {}
+        assert ctx.barcodes == []
+
+    def test_unknown_page_index_returns_fallback(
+        self, session_factory, db_session, sample_app
+    ):
+
+        batch = Batch(application_id=sample_app.id, state="read", page_count=0)
+        db_session.add(batch)
+        db_session.commit()
+
+        win = self._build_window_with(session_factory, batch.id)
+        ctx = win._build_page_context(99)
+        assert ctx.id == 0
+        assert ctx.page_index == 99
+
+
 class TestBatchContext:
     def test_defaults(self):
         ctx = BatchContext()
@@ -382,8 +474,12 @@ class TestBatchContext:
 
     def test_enriched_fields(self):
         ctx = BatchContext(
-            id=10, state="read", fields={"ref": "X"},
-            page_count=5, folder_path="/tmp/batch", hostname="host1",
+            id=10,
+            state="read",
+            fields={"ref": "X"},
+            page_count=5,
+            folder_path="/tmp/batch",
+            hostname="host1",
         )
         assert ctx.page_count == 5
         assert ctx.folder_path == "/tmp/batch"
@@ -409,7 +505,8 @@ class TestAppContext:
 
     def test_enriched_fields(self):
         ctx = AppContext(
-            id=1, name="App",
+            id=1,
+            name="App",
             batch_fields_def=[{"name": "ref", "type": "text"}],
             transfer_config={"mode": "folder", "destination": "/tmp"},
             auto_transfer=True,
@@ -1075,11 +1172,15 @@ class TestDocumentViewer:
         qtbot.addWidget(viewer)
 
         viewer.set_image(color_image, PageState.NO_RECOGNITION)
-        viewer.set_overlays(barcodes=[BarcodeResult(pos_x=0, pos_y=0, pos_w=20, pos_h=10)])
-        viewer.set_overlays(barcodes=[
-            BarcodeResult(pos_x=0, pos_y=0, pos_w=20, pos_h=10),
-            BarcodeResult(pos_x=30, pos_y=30, pos_w=20, pos_h=10),
-        ])
+        viewer.set_overlays(
+            barcodes=[BarcodeResult(pos_x=0, pos_y=0, pos_w=20, pos_h=10)]
+        )
+        viewer.set_overlays(
+            barcodes=[
+                BarcodeResult(pos_x=0, pos_y=0, pos_w=20, pos_h=10),
+                BarcodeResult(pos_x=30, pos_y=30, pos_w=20, pos_h=10),
+            ]
+        )
         assert len(viewer._overlay_items) == 2
 
     def test_zoom_in_increases_zoom(self, qtbot, color_image):
@@ -1168,8 +1269,12 @@ class TestBarcodePanel:
         qtbot.addWidget(panel)
 
         barcodes = [
-            BarcodeResult(value="ABC-123", symbology="CODE128", engine="pyzbar", role=""),
-            BarcodeResult(value="SEP-001", symbology="QR", engine="zxing", role="separator"),
+            BarcodeResult(
+                value="ABC-123", symbology="CODE128", engine="pyzbar", role=""
+            ),
+            BarcodeResult(
+                value="SEP-001", symbology="QR", engine="zxing", role="separator"
+            ),
         ]
         panel.set_page_barcodes(barcodes)
 
@@ -1186,11 +1291,13 @@ class TestBarcodePanel:
         qtbot.addWidget(panel)
 
         panel.set_page_barcodes([BarcodeResult(value="OLD")])
-        panel.set_page_barcodes([
-            BarcodeResult(value="NEW-1"),
-            BarcodeResult(value="NEW-2"),
-            BarcodeResult(value="NEW-3"),
-        ])
+        panel.set_page_barcodes(
+            [
+                BarcodeResult(value="NEW-1"),
+                BarcodeResult(value="NEW-2"),
+                BarcodeResult(value="NEW-3"),
+            ]
+        )
 
         assert panel._table.rowCount() == 3
         assert panel._table.item(0, 1).text() == "NEW-1"
@@ -1208,12 +1315,14 @@ class TestBarcodePanel:
         panel = BarcodePanel()
         qtbot.addWidget(panel)
 
-        panel.set_lot_counters({
-            "total_pages": 42,
-            "with_barcode": 15,
-            "separators": 3,
-            "needs_review": 7,
-        })
+        panel.set_lot_counters(
+            {
+                "total_pages": 42,
+                "with_barcode": 15,
+                "separators": 3,
+                "needs_review": 7,
+            }
+        )
 
         assert "42" in panel._lbl_total.text()
         assert "15" in panel._lbl_with_barcode.text()
@@ -1235,12 +1344,14 @@ class TestBarcodePanel:
         qtbot.addWidget(panel)
 
         panel.set_page_barcodes([BarcodeResult(value="X"), BarcodeResult(value="Y")])
-        panel.set_lot_counters({
-            "total_pages": 10,
-            "with_barcode": 5,
-            "separators": 1,
-            "needs_review": 2,
-        })
+        panel.set_lot_counters(
+            {
+                "total_pages": 10,
+                "with_barcode": 5,
+                "separators": 1,
+                "needs_review": 2,
+            }
+        )
         panel.clear()
 
         assert panel._table.rowCount() == 0
@@ -1277,7 +1388,12 @@ class TestMetadataPanel:
     def batch_fields_def(self):
         return [
             {"name": "cliente", "type": "Texto", "required": True},
-            {"name": "tipo", "type": "Lista", "required": False, "choices": ["A", "B", "C"]},
+            {
+                "name": "tipo",
+                "type": "Lista",
+                "required": False,
+                "choices": ["A", "B", "C"],
+            },
             {"name": "activo", "type": "Booleano", "required": False},
             {"name": "cantidad", "type": "Número", "required": False},
         ]
@@ -1297,14 +1413,18 @@ class TestMetadataPanel:
         assert panel._tabs.tabText(0) == "Lote"
         assert panel._tabs.tabText(1) == "Log"
 
-    def test_configure_creates_batch_widgets(self, panel, batch_fields_def, index_fields_def):
+    def test_configure_creates_batch_widgets(
+        self, panel, batch_fields_def, index_fields_def
+    ):
         panel.configure(batch_fields_def, index_fields_def)
         assert "cliente" in panel._batch_widgets
         assert "tipo" in panel._batch_widgets
         assert "activo" in panel._batch_widgets
         assert "cantidad" in panel._batch_widgets
 
-    def test_configure_creates_correct_widget_types(self, panel, batch_fields_def, index_fields_def):
+    def test_configure_creates_correct_widget_types(
+        self, panel, batch_fields_def, index_fields_def
+    ):
         from PySide6.QtWidgets import QLineEdit, QComboBox, QCheckBox, QSpinBox
 
         panel.configure(batch_fields_def, index_fields_def)
@@ -1313,7 +1433,9 @@ class TestMetadataPanel:
         assert isinstance(panel._batch_widgets["activo"], QCheckBox)
         assert isinstance(panel._batch_widgets["cantidad"], QSpinBox)
 
-    def test_configure_combo_has_choices(self, panel, batch_fields_def, index_fields_def):
+    def test_configure_combo_has_choices(
+        self, panel, batch_fields_def, index_fields_def
+    ):
         from PySide6.QtWidgets import QComboBox
 
         panel.configure(batch_fields_def, index_fields_def)
@@ -1348,11 +1470,11 @@ class TestMetadataPanel:
         """get_index_fields retorna dict vacío (pestaña desactivada)."""
         assert panel.get_index_fields() == {}
 
-    def test_set_batch_fields_missing_key_uses_empty(self, panel, batch_fields_def, index_fields_def):
+    def test_set_batch_fields_missing_key_uses_empty(
+        self, panel, batch_fields_def, index_fields_def
+    ):
         panel.configure(batch_fields_def, index_fields_def)
         panel.set_batch_fields({})  # ningún campo especificado
-
-        from PySide6.QtWidgets import QLineEdit
 
         assert panel._batch_widgets["cliente"].text() == ""
 
@@ -1373,8 +1495,6 @@ class TestMetadataPanel:
         panel.set_batch_fields({"cliente": "ACME"})
         panel.clear()
 
-        from PySide6.QtWidgets import QLineEdit
-
         assert panel._batch_widgets["cliente"].text() == ""
 
     def test_clear_no_crash(self, panel, batch_fields_def, index_fields_def):
@@ -1384,7 +1504,9 @@ class TestMetadataPanel:
         panel.clear()
         assert panel._batch_widgets["cliente"].text() == ""
 
-    def test_batch_field_changed_signal(self, panel, batch_fields_def, index_fields_def, qtbot):
+    def test_batch_field_changed_signal(
+        self, panel, batch_fields_def, index_fields_def, qtbot
+    ):
         panel.configure(batch_fields_def, index_fields_def)
 
         from PySide6.QtWidgets import QLineEdit
@@ -1399,7 +1521,9 @@ class TestMetadataPanel:
         assert sig.args[0] == "cliente"
         assert sig.args[1] == "NuevoValor"
 
-    def test_configure_clears_previous_widgets(self, panel, batch_fields_def, index_fields_def):
+    def test_configure_clears_previous_widgets(
+        self, panel, batch_fields_def, index_fields_def
+    ):
         panel.configure(batch_fields_def, index_fields_def)
         assert len(panel._batch_widgets) == 4
 
@@ -1423,7 +1547,9 @@ class TestMetadataPanel:
         assert isinstance(widget, QSpinBox)
         assert widget.value() == 42
 
-    def test_spinbox_invalid_value_defaults_to_zero(self, panel, batch_fields_def, index_fields_def):
+    def test_spinbox_invalid_value_defaults_to_zero(
+        self, panel, batch_fields_def, index_fields_def
+    ):
         from PySide6.QtWidgets import QSpinBox
 
         panel.configure(batch_fields_def, index_fields_def)
@@ -1578,7 +1704,12 @@ class TestWorkbenchWindow:
             window.close()
 
     def test_page_info_label_updates_when_pages_added(
-        self, qtbot, workbench, session_factory, tmp_path, color_image,
+        self,
+        qtbot,
+        workbench,
+        session_factory,
+        tmp_path,
+        color_image,
     ):
         """El indicador de página se actualiza al añadir páginas manualmente."""
         from app.services.batch_service import BatchService

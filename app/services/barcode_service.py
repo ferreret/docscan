@@ -11,33 +11,14 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
 from typing import Any
 
 import cv2
 import numpy as np
 
+from app.pipeline.page_context import BarcodeResult  # noqa: F401 — re-export
+
 log = logging.getLogger(__name__)
-
-# ------------------------------------------------------------------
-# Resultado unificado
-# ------------------------------------------------------------------
-
-
-@dataclass
-class BarcodeResult:
-    """Resultado de lectura de un código de barras."""
-
-    value: str
-    symbology: str
-    engine: str  # "motor1" o "motor2"
-    step_id: str
-    quality: float
-    pos_x: int
-    pos_y: int
-    pos_w: int
-    pos_h: int
-    role: str = ""  # Asignado por scripts, no por el motor
 
 
 # ------------------------------------------------------------------

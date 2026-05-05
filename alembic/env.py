@@ -1,5 +1,6 @@
 """Alembic environment — conecta modelos ORM con las migraciones."""
 
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -15,16 +16,31 @@ from app.models.barcode import Barcode  # noqa: F401
 from app.models.template import Template  # noqa: F401
 from app.models.operation_history import OperationHistory  # noqa: F401
 
-from config.settings import get_settings
+# Modelos exclusivos del web (require deps de web instaladas).
+# Se importan opcionalmente para no romper el alembic del desktop si
+# solo están las deps del desktop.
+try:
+    from web.api.models import Tenant, User  # noqa: F401
+except ImportError:
+    pass
+
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Configurar URL de la BD dinámicamente desde settings
-settings = get_settings()
-config.set_main_option("sqlalchemy.url", f"sqlite:///{settings.database.path}")
+# Resolver URL de la BD:
+# - Si DOCSCAN_WEB_DATABASE__URL está en el entorno, usarla (modo web/contenedor).
+# - En caso contrario, caer al settings del desktop (modo local dev).
+_web_url = os.environ.get("DOCSCAN_WEB_DATABASE__URL")
+if _web_url:
+    config.set_main_option("sqlalchemy.url", _web_url)
+else:
+    from config.settings import get_settings
+
+    settings = get_settings()
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{settings.database.path}")
 
 target_metadata = Base.metadata
 

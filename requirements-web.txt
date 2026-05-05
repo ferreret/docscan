@@ -1,0 +1,25 @@
+# Dependencias exclusivas de la API web
+# Instalar con: pip install -r requirements-web.txt
+
+# API
+fastapi==0.115.13
+uvicorn[standard]==0.34.2
+websockets==16.0
+python-multipart==0.0.24
+
+# Auth
+python-jose[cryptography]==3.4.0
+bcrypt==4.3.0
+pydantic[email]==2.12.5
+
+# Base de datos PostgreSQL
+psycopg[binary]==3.3.3
+
+# Storage S3-compatible (MinIO)
+minio==7.2.15
+
+# Cola de tareas en background
+arq==0.28.0
+
+# Dependencias compartidas con desktop (ya en requirements.txt):
+# SQLAlchemy, pydantic-settings, httpx, anthropic, openai, etc.

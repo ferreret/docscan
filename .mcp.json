@@ -2,11 +2,35 @@
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/media/nicolas/DATA/Tecnomedia/FlexiPy"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/media/nicolas/DATA/Tecnomedia/DocScan"
+      ]
     },
     "sqlite": {
       "command": "npx",
-      "args": ["-y", "mcp-sqlite", "--db-path", "/home/nicolas/.local/share/docscan/docscan.db"]
+      "args": [
+        "-y",
+        "mcp-sqlite",
+        "--db-path",
+        "/home/nicolas/.local/share/docscan/docscan.db"
+      ]
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": ".claude/scripts/mcp-postgres.sh",
+      "args": [],
+      "env": {}
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "env": {}
     }
   }
 }

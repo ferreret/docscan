@@ -23,7 +23,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from config.settings import get_settings, APP_DATA_DIR, APP_IMAGES_DIR
+from config.settings import get_settings, APP_IMAGES_DIR
+from config.settings import APP_DATA_DIR  # noqa: F401  # parcheado por tests
 
 # Importar modelos para que SQLAlchemy registre las relaciones
 from app.models.application import Application  # noqa: F401
@@ -75,30 +76,38 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="DocScan Worker — proceso desatendido de lotes",
     )
     parser.add_argument(
-        "--app-name", required=True,
+        "--app-name",
+        required=True,
         help="Nombre de la aplicación a ejecutar",
     )
 
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(
-        "--watch", type=Path, metavar="FOLDER",
+        "--watch",
+        type=Path,
+        metavar="FOLDER",
         help="Vigilar carpeta de entrada (folder-watch mode)",
     )
     mode.add_argument(
-        "--process-pending", action="store_true",
+        "--process-pending",
+        action="store_true",
         help="Procesar lotes pendientes en BD y salir",
     )
 
     parser.add_argument(
-        "--debounce", type=int, default=3,
+        "--debounce",
+        type=int,
+        default=3,
         help="Segundos de inactividad antes de crear lote (default: 3)",
     )
     parser.add_argument(
-        "--sentinel", default="",
+        "--sentinel",
+        default="",
         help="Nombre de fichero centinela (ej: GO.txt). Activa modo centinela",
     )
     parser.add_argument(
-        "--log-level", default="INFO",
+        "--log-level",
+        default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
     )
     return parser.parse_args(argv)
@@ -107,6 +116,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 # ------------------------------------------------------------------
 # Carga de la aplicación y construcción de servicios
 # ------------------------------------------------------------------
+
 
 def _load_application(session_factory, app_name: str) -> Application:
     """Carga y valida la aplicación desde BD."""
@@ -138,7 +148,8 @@ def _build_executor(
             except Exception as exc:
                 log.error(
                     "Error compilando script '%s': %s",
-                    step.label or step.id, exc,
+                    step.label or step.id,
+                    exc,
                 )
 
     settings = get_settings()
@@ -192,6 +203,7 @@ def _compile_lifecycle_events(
 # Procesamiento de un lote de ficheros
 # ------------------------------------------------------------------
 
+
 def _process_files(
     file_paths: list[Path],
     app_record: Application,
@@ -225,7 +237,9 @@ def _process_files(
         batch_id = batch.id
         log.info(
             "Lote %d creado (%d fichero(s)) para app '%s'",
-            batch_id, len(file_paths), app_record.name,
+            batch_id,
+            len(file_paths),
+            app_record.name,
         )
 
         # Contextos para el pipeline
@@ -241,7 +255,8 @@ def _process_files(
             script_engine.run_event(
                 "on_app_start",
                 lifecycle_events["on_app_start"],
-                app=app_ctx, batch=batch_ctx,
+                app=app_ctx,
+                batch=batch_ctx,
             )
 
         # 2-3. Importar ficheros y crear páginas
@@ -265,7 +280,9 @@ def _process_files(
             return
 
         pages_db = batch_svc.add_pages(
-            batch_id, all_images, app_record.output_format,
+            batch_id,
+            all_images,
+            app_record.output_format,
         )
         batch_svc.transition_state(batch_id, "read")
         session.commit()
@@ -281,14 +298,17 @@ def _process_files(
                 log.info("Shutdown solicitado, abortando pipeline")
                 break
 
-            page_ctx = PageContext(page_index=page_db.page_index, image=image)
+            page_ctx = PageContext(
+                page_index=page_db.page_index, id=page_db.id, image=image
+            )
             try:
                 executor.execute(page=page_ctx, batch=batch_ctx, app=app_ctx)
                 processed_count += 1
             except Exception as exc:
                 log.error(
                     "Error en pipeline, página %d: %s",
-                    page_db.page_index, exc,
+                    page_db.page_index,
+                    exc,
                 )
                 error_count += 1
 
@@ -313,12 +333,11 @@ def _process_files(
             "total_pages": len(all_images),
             "processed": processed_count,
             "errors": error_count,
-            "needs_review": sum(
-                1 for _, pc in page_contexts if pc.flags.needs_review
-            ),
+            "needs_review": sum(1 for _, pc in page_contexts if pc.flags.needs_review),
             "duration_seconds": round(duration, 2),
             "avg_seconds_per_page": round(
-                duration / max(len(all_images), 1), 2,
+                duration / max(len(all_images), 1),
+                2,
             ),
         }
         batch = batch_svc.get_batch(batch_id)
@@ -329,7 +348,8 @@ def _process_files(
             script_engine.run_event(
                 "on_scan_complete",
                 lifecycle_events["on_scan_complete"],
-                app=app_ctx, batch=batch_ctx,
+                app=app_ctx,
+                batch=batch_ctx,
             )
 
         # Transición de estado
@@ -342,16 +362,25 @@ def _process_files(
 
         log.info(
             "Lote %d procesado: %d páginas en %.1fs (%.1f p/s)",
-            batch_id, processed_count, duration,
+            batch_id,
+            processed_count,
+            duration,
             processed_count / max(duration, 0.001),
         )
 
         # 6. Auto-transfer si configurado
         if app_record.auto_transfer:
             _transfer_batch(
-                batch_id, app_record, batch_svc, transfer_svc,
-                notification_svc, script_engine, lifecycle_events,
-                session, app_ctx, batch_ctx,
+                batch_id,
+                app_record,
+                batch_svc,
+                transfer_svc,
+                notification_svc,
+                script_engine,
+                lifecycle_events,
+                session,
+                app_ctx,
+                batch_ctx,
             )
 
 
@@ -381,7 +410,8 @@ def _transfer_batch(
         result = script_engine.run_event(
             "on_transfer_validate",
             lifecycle_events["on_transfer_validate"],
-            app=app_ctx, batch=batch_ctx,
+            app=app_ctx,
+            batch=batch_ctx,
         )
         if result is False:
             log.info("Lote %d: transferencia rechazada por validación", batch_id)
@@ -393,23 +423,29 @@ def _transfer_batch(
     for p in pages_db:
         if p.is_excluded:
             continue
-        pages_data.append({
-            "image_path": p.image_path,
-            "page_index": p.page_index,
-            "fields": json.loads(p.index_fields_json),
-            "ocr_text": p.ocr_text,
-        })
+        pages_data.append(
+            {
+                "image_path": p.image_path,
+                "page_index": p.page_index,
+                "fields": json.loads(p.index_fields_json),
+                "ocr_text": p.ocr_text,
+            }
+        )
 
     batch_fields = batch_svc.get_fields(batch_id)
     transfer_result = transfer_svc.transfer(
-        pages_data, config, batch_fields, batch_id,
+        pages_data,
+        config,
+        batch_fields,
+        batch_id,
     )
 
     if transfer_result.success:
         batch_svc.transition_state(batch_id, "exported")
         log.info(
             "Lote %d transferido: %d ficheros → %s",
-            batch_id, transfer_result.files_transferred,
+            batch_id,
+            transfer_result.files_transferred,
             transfer_result.output_path,
         )
 
@@ -418,7 +454,8 @@ def _transfer_batch(
             script_engine.run_event(
                 "on_transfer_advanced",
                 lifecycle_events["on_transfer_advanced"],
-                app=app_ctx, batch=batch_ctx,
+                app=app_ctx,
+                batch=batch_ctx,
                 result=transfer_result,
             )
 
@@ -435,7 +472,8 @@ def _transfer_batch(
         batch_svc.transition_state(batch_id, "error_export")
         log.error(
             "Lote %d: error de transferencia: %s",
-            batch_id, transfer_result.errors,
+            batch_id,
+            transfer_result.errors,
         )
         notification_svc.notify_error(
             webhook=None,
@@ -451,6 +489,7 @@ def _transfer_batch(
 # ------------------------------------------------------------------
 # Procesamiento de lotes pendientes en BD
 # ------------------------------------------------------------------
+
 
 def _process_pending_batches(
     app_record: Application,
@@ -496,16 +535,22 @@ def _process_pending_batches(
                 if image is None:
                     continue
                 page_ctx = PageContext(
-                    page_index=page_db.page_index, image=image,
+                    page_index=page_db.page_index,
+                    id=page_db.id,
+                    image=image,
                 )
                 try:
                     executor.execute(
-                        page=page_ctx, batch=batch_ctx, app=app_ctx,
+                        page=page_ctx,
+                        batch=batch_ctx,
+                        app=app_ctx,
                     )
                 except Exception as exc:
                     log.error(
                         "Error pipeline lote %d página %d: %s",
-                        batch.id, page_db.page_index, exc,
+                        batch.id,
+                        page_db.page_index,
+                        exc,
                     )
                     continue
 
@@ -534,9 +579,16 @@ def _process_pending_batches(
             log.info("Transfiriendo lote %d", batch.id)
             batch_ctx = BatchContext(id=batch.id, state=batch.state)
             _transfer_batch(
-                batch.id, app_record, batch_svc, transfer_svc,
-                notification_svc, script_engine, lifecycle_events,
-                session, app_ctx, batch_ctx,
+                batch.id,
+                app_record,
+                batch_svc,
+                transfer_svc,
+                notification_svc,
+                script_engine,
+                lifecycle_events,
+                session,
+                app_ctx,
+                batch_ctx,
             )
             processed += 1
 
@@ -546,6 +598,7 @@ def _process_pending_batches(
 # ------------------------------------------------------------------
 # Tareas periódicas para folder-watch
 # ------------------------------------------------------------------
+
 
 def _cleanup_temp_files(watch_folder: Path) -> None:
     """Limpia ficheros temporales antiguos (> 1 hora)."""
@@ -575,7 +628,8 @@ def _retry_error_batches(
         notification_svc = NotificationService()
 
         app_ctx = AppContext(
-            id=app_record.id, name=app_record.name,
+            id=app_record.id,
+            name=app_record.name,
             description=app_record.description,
         )
 
@@ -589,9 +643,16 @@ def _retry_error_batches(
 
                 if state == "error_export":
                     _transfer_batch(
-                        batch.id, app_record, batch_svc, transfer_svc,
-                        notification_svc, script_engine, lifecycle_events,
-                        session, app_ctx, batch_ctx,
+                        batch.id,
+                        app_record,
+                        batch_svc,
+                        transfer_svc,
+                        notification_svc,
+                        script_engine,
+                        lifecycle_events,
+                        session,
+                        app_ctx,
+                        batch_ctx,
                     )
                 # error_read: se reintentará en el próximo ciclo
                 # de process_pending si se corrige el problema
@@ -600,6 +661,7 @@ def _retry_error_batches(
 # ------------------------------------------------------------------
 # Punto de entrada principal
 # ------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     """Punto de entrada del worker desatendido."""
@@ -638,9 +700,13 @@ def main(argv: list[str] | None = None) -> int:
     # ------------------------------------------------------------------
     if args.process_pending:
         count = _process_pending_batches(
-            app_record, executor, import_service,
-            script_engine, lifecycle_events,
-            session_factory, images_dir,
+            app_record,
+            executor,
+            import_service,
+            script_engine,
+            lifecycle_events,
+            session_factory,
+            images_dir,
         )
         log.info("Procesados %d lote(s) pendiente(s)", count)
         return 0
@@ -658,8 +724,14 @@ def main(argv: list[str] | None = None) -> int:
     def on_batch(file_paths: list[Path]) -> None:
         """Callback del FolderWatcher cuando hay ficheros listos."""
         _process_files(
-            file_paths, app_record, executor, import_service,
-            script_engine, lifecycle_events, session_factory, images_dir,
+            file_paths,
+            app_record,
+            executor,
+            import_service,
+            script_engine,
+            lifecycle_events,
+            session_factory,
+            images_dir,
         )
 
     watcher = FolderWatcher(
@@ -669,15 +741,20 @@ def main(argv: list[str] | None = None) -> int:
         sentinel_filename=args.sentinel,
         cleanup_callback=lambda: _cleanup_temp_files(watch_folder),
         error_retry_callback=lambda: _retry_error_batches(
-            app_record, executor, script_engine, lifecycle_events,
-            session_factory, images_dir,
+            app_record,
+            executor,
+            script_engine,
+            lifecycle_events,
+            session_factory,
+            images_dir,
         ),
     )
 
     watcher.start()
     log.info(
         "Worker listo. Vigilando: %s (app='%s')",
-        watch_folder, app_record.name,
+        watch_folder,
+        app_record.name,
     )
 
     try:

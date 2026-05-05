@@ -27,6 +27,9 @@ secrets.enc
 .DS_Store
 Thumbs.db
 
+# Node.js
+node_modules/
+
 # Build / dist
 dist/
 build/*
@@ -38,3 +41,9 @@ site/
 
 # Batch data (user-generated)
 /batch_*/
+
+.superpowers/
+
+# Playwright MCP traces/screenshots
+.playwright-mcp/
+qa-*.png
