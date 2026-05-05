@@ -178,6 +178,76 @@ export interface Invitation {
   created_at: string;
 }
 
+// --- Admin (superadmin cross-tenant) ---
+
+export interface TenantStats {
+  n_users: number;
+  n_applications: number;
+  n_batches: number;
+}
+
+export interface TenantListItem {
+  id: number;
+  name: string;
+  slug: string;
+  plan: string;
+  active: boolean;
+  created_at: string;
+  stats: TenantStats;
+}
+
+export interface TenantUserItem {
+  id: number;
+  email: string;
+  display_name: string;
+  role: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface TenantDetail extends TenantListItem {
+  users: TenantUserItem[];
+}
+
+export interface TenantCreateRequest {
+  tenant_name: string;
+  plan: string;
+  admin_email: string;
+  admin_password: string;
+  admin_display_name: string;
+}
+
+export interface TenantUpdateRequest {
+  name?: string;
+  plan?: string;
+  active?: boolean;
+}
+
+export interface AdminUserListItem {
+  id: number;
+  email: string;
+  display_name: string;
+  role: string;
+  active: boolean;
+  created_at: string;
+  tenant_id: number;
+  tenant_name: string;
+}
+
+export interface AdminUserCreateRequest {
+  tenant_id: number;
+  email: string;
+  password: string;
+  display_name: string;
+  role: string;
+}
+
+export interface AdminUserUpdateRequest {
+  role?: string;
+  active?: boolean;
+  display_name?: string;
+}
+
 // --- Events ---
 
 export interface EventFireIn {
