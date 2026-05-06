@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from docscan_local_agent import __version__
 from docscan_local_agent.routers import pair as pair_router
+from docscan_local_agent.routers import scanners as scanners_router
 from docscan_local_agent.routers import status as status_router
 
 
@@ -27,5 +28,6 @@ def create_app() -> FastAPI:
 
     app.include_router(status_router.router)
     app.include_router(pair_router.router)
+    app.include_router(scanners_router.router)
 
     return app
