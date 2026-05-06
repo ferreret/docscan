@@ -98,6 +98,58 @@ class Invitation(Base):
         return f"<Invitation(id={self.id}, email='{self.email}', tenant_id={self.tenant_id})>"
 
 
+class AgentDevice(Base):
+    """Dispositivo agente local vinculado a un usuario y tenant.
+
+    El operario instala el agente local (``docscan_local_agent``) en su PC
+    y lo empareja con su cuenta. Tras el pairing exitoso, el agente
+    almacena un ``agent_token`` long-lived que usa para subir páginas
+    escaneadas y recibir transferencias locales.
+
+    Flujo de pairing:
+
+    1. Usuario autenticado llama ``POST /api/agent/pair-init``: se crea
+       un ``AgentDevice`` con ``pairing_code`` (8 chars) y
+       ``code_expires_at`` (now + 5 min). ``token_hash`` y ``paired_at``
+       quedan ``NULL`` hasta que se complete.
+    2. El usuario pega el código en el agente local; el agente llama
+       ``POST /api/agent/pair-claim`` (público) con el código y un
+       nombre de dispositivo.
+    3. El backend valida vigencia, genera ``agent_token`` (32 chars hex),
+       guarda ``bcrypt(token)`` en ``token_hash``, marca ``paired_at``
+       y nullea ``pairing_code``. Devuelve el token al agente.
+    4. El agente persiste el token en ``~/.docscan/agent.json`` y lo
+       envía como Bearer en peticiones posteriores.
+    """
+
+    __tablename__ = "agent_devices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+
+    # Código corto para pairing inicial (NULL tras claim).
+    pairing_code: Mapped[str | None] = mapped_column(
+        String(16), unique=True, nullable=True, index=True
+    )
+    code_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Hash bcrypt del agent_token (NULL antes del claim).
+    token_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    paired_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    def __repr__(self) -> str:
+        return (
+            f"<AgentDevice(id={self.id}, name='{self.name}', "
+            f"user_id={self.user_id}, paired={self.paired_at is not None})>"
+        )
+
+
 class AuditLog(Base):
     """Registro de acciones administrativas para forensics y compliance.
 
