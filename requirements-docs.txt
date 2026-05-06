@@ -1,0 +1,6 @@
+# Dependencias para construir el manual MkDocs.
+# Se usa desde .github/workflows/docs.yml y localmente con
+# pip install -r requirements-docs.txt && mkdocs serve
+mkdocs==1.6.1
+mkdocs-material==9.7.6
+mkdocs-material-extensions==1.3.1

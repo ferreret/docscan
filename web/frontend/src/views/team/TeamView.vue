@@ -189,7 +189,7 @@ function closeInvite() {
           :key="u.id"
           class="flex items-center justify-between px-5 py-3 border-b border-surface-0 last:border-b-0"
         >
-          <div class="flex items-center gap-3 min-w-0">
+          <div class="flex items-center gap-3 min-w-0" :class="{ 'opacity-50': !u.active }">
             <div class="w-9 h-9 rounded-full bg-primary-soft border border-primary/30 flex items-center justify-center text-primary font-semibold text-xs shrink-0">
               {{ u.display_name?.charAt(0)?.toUpperCase() || u.email.charAt(0).toUpperCase() }}
             </div>

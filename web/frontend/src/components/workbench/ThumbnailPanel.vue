@@ -59,34 +59,39 @@ defineExpose({ list, onDragEnd })
       Sin páginas
       <p class="text-overlay-0 mt-1">Usa «Subir ficheros» en la barra superior</p>
     </div>
-    <VueDraggable
-      v-else
-      v-model="list"
-      :disabled="readOnly"
-      :animation="150"
-      handle=".thumb-handle"
-      ghost-class="opacity-40"
-      class="space-y-2"
-      :on-end="onDragEnd"
-    >
-      <div
-        v-for="(page, idx) in list"
-        :key="page.id"
-        :data-testid="`thumb-${idx}`"
-        class="thumb-handle"
-        @contextmenu="onContextMenu($event, page)"
-        @click="emit('select', idx)"
+    <template v-else>
+      <p class="text-[10px] text-overlay-0 px-1 pb-2 leading-snug">
+        Botón derecho en una página para más opciones (excluir, marcar revisión, eliminar...).
+      </p>
+      <VueDraggable
+        v-model="list"
+        :disabled="readOnly"
+        :animation="150"
+        handle=".thumb-handle"
+        ghost-class="opacity-40"
+        class="space-y-2"
+        :on-end="onDragEnd"
       >
-        <PageThumbnail
-          :page="page"
-          :batchId="batchId"
-          :selected="idx === currentIndex"
-          :cacheTick="cacheTick"
-          :displayIndex="idx"
-          @select="emit('select', idx)"
-          @fit="emit('fit')"
-        />
-      </div>
-    </VueDraggable>
+        <div
+          v-for="(page, idx) in list"
+          :key="page.id"
+          :data-testid="`thumb-${idx}`"
+          class="thumb-handle cursor-context-menu"
+          title="Botón derecho para más opciones"
+          @contextmenu="onContextMenu($event, page)"
+          @click="emit('select', idx)"
+        >
+          <PageThumbnail
+            :page="page"
+            :batchId="batchId"
+            :selected="idx === currentIndex"
+            :cacheTick="cacheTick"
+            :displayIndex="idx"
+            @select="emit('select', idx)"
+            @fit="emit('fit')"
+          />
+        </div>
+      </VueDraggable>
+    </template>
   </aside>
 </template>

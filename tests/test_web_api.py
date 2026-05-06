@@ -87,8 +87,51 @@ def client(_test_engine, storage_dir):
 
     app.dependency_overrides[get_db] = _override_get_db
     app.dependency_overrides[get_storage] = _override_get_storage
+    # Expone la factory a helpers de test (substituto del antiguo
+    # endpoint público /api/auth/register, ya eliminado).
+    app.state.test_db_factory = factory
     with TestClient(app) as c:
         yield c
+
+
+def _create_tenant_and_admin(
+    factory,
+    *,
+    email: str,
+    password: str,
+    tenant_name: str,
+    display_name: str = "User",
+    role: str = "company_admin",
+):
+    """Inserta un Tenant + User vía BD (sustituye al antiguo POST /api/auth/register).
+
+    Devuelve dict con ``id``, ``email``, ``tenant_id``, ``tenant_name``.
+    """
+    import re as _re
+
+    from web.api.auth.security import hash_password
+    from web.api.models import Tenant
+
+    slug = _re.sub(r"[^a-z0-9]+", "-", tenant_name.lower()).strip("-") or "tenant"
+    with factory() as db:
+        tenant = Tenant(name=tenant_name, slug=slug)
+        db.add(tenant)
+        db.flush()
+        user = User(
+            tenant_id=tenant.id,
+            email=email,
+            hashed_password=hash_password(password),
+            display_name=display_name,
+            role=role,
+        )
+        db.add(user)
+        db.commit()
+        return {
+            "id": user.id,
+            "email": email,
+            "tenant_id": tenant.id,
+            "tenant_name": tenant_name,
+        }
 
 
 # ------------------------------------------------------------------
@@ -104,75 +147,23 @@ class TestHealth:
 
 
 # ------------------------------------------------------------------
-# Registro
+# Registro público — eliminado en hito 2 superadmin
 # ------------------------------------------------------------------
 
 
-class TestRegister:
-    def test_registro_exitoso(self, client):
+class TestRegisterRemoved:
+    def test_endpoint_register_devuelve_404(self, client):
+        """El registro público fue eliminado: solo el superadmin crea tenants."""
         resp = client.post(
             "/api/auth/register",
             json={
                 "email": "admin@acme.com",
                 "password": "secreto123",
-                "display_name": "Admin ACME",
-                "tenant_name": "ACME Corp",
-            },
-        )
-        assert resp.status_code == 201
-        data = resp.json()
-        assert data["email"] == "admin@acme.com"
-        assert data["role"] == "company_admin"
-        assert data["tenant_name"] == "ACME Corp"
-        assert data["tenant_id"] > 0
-
-    def test_registro_email_duplicado(self, client):
-        payload = {
-            "email": "admin@acme.com",
-            "password": "secreto123",
-            "display_name": "Admin",
-            "tenant_name": "ACME",
-        }
-        client.post("/api/auth/register", json=payload)
-        resp = client.post(
-            "/api/auth/register",
-            json={
-                **payload,
-                "tenant_name": "Otro",
-            },
-        )
-        assert resp.status_code == 409
-
-    def test_registro_password_corta_422(self, client):
-        resp = client.post(
-            "/api/auth/register",
-            json={
-                "email": "admin@acme.com",
-                "password": "1234567",
                 "display_name": "Admin",
                 "tenant_name": "ACME",
             },
         )
-        assert resp.status_code == 422
-
-    def test_registro_tenant_duplicado(self, client):
-        payload = {
-            "email": "admin@acme.com",
-            "password": "secreto123",
-            "display_name": "Admin",
-            "tenant_name": "ACME",
-        }
-        client.post("/api/auth/register", json=payload)
-        resp = client.post(
-            "/api/auth/register",
-            json={
-                "email": "otro@otro.com",
-                "password": "secreto123",
-                "display_name": "Otro",
-                "tenant_name": "ACME",
-            },
-        )
-        assert resp.status_code == 409
+        assert resp.status_code == 404
 
 
 # ------------------------------------------------------------------
@@ -182,14 +173,12 @@ class TestRegister:
 
 class TestLogin:
     def _register(self, client):
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "user@test.com",
-                "password": "password123",
-                "display_name": "Test User",
-                "tenant_name": "TestCo",
-            },
+        _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="user@test.com",
+            password="password123",
+            display_name="Test User",
+            tenant_name="TestCo",
         )
 
     def test_login_exitoso(self, client):
@@ -224,6 +213,80 @@ class TestLogin:
                 "email": "noexiste@test.com",
                 "password": "password123",
             },
+        )
+        assert resp.status_code == 401
+
+
+# ------------------------------------------------------------------
+# Tenant suspendido — bloqueo de login y de tokens existentes
+# ------------------------------------------------------------------
+
+
+def _set_tenant_active(factory, tenant_id: int, active: bool) -> None:
+    """Helper: marca un tenant como activo/suspendido."""
+    from web.api.models import Tenant
+
+    with factory() as db:
+        t = db.get(Tenant, tenant_id)
+        t.active = active
+        db.commit()
+
+
+class TestTenantSuspended:
+    def test_login_falla_si_tenant_suspendido(self, client):
+        info = _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="user@suspended.com",
+            password="password123",
+            display_name="U",
+            tenant_name="SuspendedCo",
+        )
+        _set_tenant_active(
+            client.app.state.test_db_factory, info["tenant_id"], False
+        )
+        resp = client.post(
+            "/api/auth/login",
+            json={"email": "user@suspended.com", "password": "password123"},
+        )
+        assert resp.status_code == 401
+        assert "suspendido" in resp.json()["detail"].lower()
+
+    def test_token_existente_falla_si_tenant_suspendido(self, client):
+        h = _auth_header(
+            client,
+            email="active@corp.com",
+            password="password123",
+            display_name="A",
+            tenant_name="ActiveCorp",
+        )
+        # Login OK; ahora suspendemos al tenant.
+        from web.api.models import Tenant
+        from sqlalchemy import select
+
+        factory = client.app.state.test_db_factory
+        with factory() as db:
+            t = db.execute(select(Tenant).where(Tenant.slug == "activecorp")).scalar_one()
+            t.active = False
+            db.commit()
+
+        # Endpoint protegido debe rechazar el token con 401.
+        resp = client.get("/api/auth/me", headers=h)
+        assert resp.status_code == 401
+
+    def test_token_form_login_tambien_falla_si_tenant_suspendido(self, client):
+        info = _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="form@suspended.com",
+            password="password123",
+            display_name="F",
+            tenant_name="FormSuspended",
+        )
+        _set_tenant_active(
+            client.app.state.test_db_factory, info["tenant_id"], False
+        )
+        resp = client.post(
+            "/api/auth/token",
+            data={"username": "form@suspended.com", "password": "password123"},
         )
         assert resp.status_code == 401
 
@@ -308,15 +371,13 @@ def _auth_header(
     display_name: str = "Dev",
     tenant_name: str = "ACME",
 ) -> dict:
-    """Registra usuario y devuelve headers con JWT."""
-    client.post(
-        "/api/auth/register",
-        json={
-            "email": email,
-            "password": password,
-            "display_name": display_name,
-            "tenant_name": tenant_name,
-        },
+    """Crea tenant+admin vía BD y devuelve headers con JWT."""
+    _create_tenant_and_admin(
+        client.app.state.test_db_factory,
+        email=email,
+        password=password,
+        display_name=display_name,
+        tenant_name=tenant_name,
     )
     resp = client.post(
         "/api/auth/login",
@@ -427,14 +488,12 @@ class TestApplicationsCRUD:
         ).json()
 
         # Registrar segundo tenant
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "otro@otro.com",
-                "password": "password123",
-                "display_name": "Otro",
-                "tenant_name": "OtraCorp",
-            },
+        _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="otro@otro.com",
+            password="password123",
+            display_name="Otro",
+            tenant_name="OtraCorp",
         )
         resp2 = client.post(
             "/api/auth/login",
@@ -613,14 +672,12 @@ class TestBatchesCRUD:
         ).json()
 
         # Segundo tenant
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "otro@otro.com",
-                "password": "password123",
-                "display_name": "Otro",
-                "tenant_name": "OtraCorp",
-            },
+        _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="otro@otro.com",
+            password="password123",
+            display_name="Otro",
+            tenant_name="OtraCorp",
         )
         resp2 = client.post(
             "/api/auth/login",
@@ -641,14 +698,12 @@ class TestBatchesCRUD:
         h1 = _auth_header(client)
         app_id = _create_app_and_get_id(client, h1)
 
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "otro@otro.com",
-                "password": "password123",
-                "display_name": "Otro",
-                "tenant_name": "OtraCorp",
-            },
+        _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="otro@otro.com",
+            password="password123",
+            display_name="Otro",
+            tenant_name="OtraCorp",
         )
         resp2 = client.post(
             "/api/auth/login",
@@ -827,14 +882,12 @@ class TestPagesUpload:
         h1 = _auth_header(client)
         batch_id = _create_batch(client, h1)
 
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "otro@otro.com",
-                "password": "password123",
-                "display_name": "Otro",
-                "tenant_name": "OtraCorp",
-            },
+        _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="otro@otro.com",
+            password="password123",
+            display_name="Otro",
+            tenant_name="OtraCorp",
         )
         resp2 = client.post(
             "/api/auth/login",
@@ -959,14 +1012,12 @@ class TestPagesRead:
             files=[("files", ("a.png", _make_png_bytes(), "image/png"))],
         )
 
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "otro@otro.com",
-                "password": "password123",
-                "display_name": "Otro",
-                "tenant_name": "OtraCorp",
-            },
+        _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="otro@otro.com",
+            password="password123",
+            display_name="Otro",
+            tenant_name="OtraCorp",
         )
         resp2 = client.post(
             "/api/auth/login",
@@ -1172,14 +1223,12 @@ class TestPipelineRun:
         app_id = _create_app_with_pipeline(client, h1, "[]")
         batch_id, _ = _create_batch_with_page(client, h1, app_id)
 
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "intruso@x.com",
-                "password": "password123",
-                "display_name": "I",
-                "tenant_name": "OtraCorpRun",
-            },
+        _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="intruso@x.com",
+            password="password123",
+            display_name="I",
+            tenant_name="OtraCorpRun",
         )
         token = client.post(
             "/api/auth/login",
@@ -2193,14 +2242,12 @@ class TestTransferEndpoint:
         app_id = _create_app_for_transfer(client, h1, transfer)
         batch_id, _ = _prepare_batch_in_read(client, h1, app_id)
 
-        client.post(
-            "/api/auth/register",
-            json={
-                "email": "intruso2@x.com",
-                "password": "password123",
-                "display_name": "I",
-                "tenant_name": "OtraOrgXfer",
-            },
+        _create_tenant_and_admin(
+            client.app.state.test_db_factory,
+            email="intruso2@x.com",
+            password="password123",
+            display_name="I",
+            tenant_name="OtraOrgXfer",
         )
         token2 = client.post(
             "/api/auth/login",

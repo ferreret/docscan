@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, ApiError } from '@/api/client'
-import type { LoginRequest, RegisterRequest, TokenResponse, UserResponse } from '@/api/types'
+import type { LoginRequest, TokenResponse, UserResponse } from '@/api/types'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserResponse | null>(null)
@@ -27,19 +27,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(data: RegisterRequest) {
-    loading.value = true
-    error.value = null
-    try {
-      await api.post<UserResponse>('/auth/register', data)
-    } catch (e) {
-      error.value = e instanceof ApiError ? e.detail : 'Error de conexión'
-      throw e
-    } finally {
-      loading.value = false
-    }
-  }
-
   async function fetchUser() {
     if (!token.value) return
     try {
@@ -56,5 +43,5 @@ export const useAuthStore = defineStore('auth', () => {
     window.location.href = '/login'
   }
 
-  return { user, token, loading, error, isAuthenticated, login, register, fetchUser, logout }
+  return { user, token, loading, error, isAuthenticated, login, fetchUser, logout }
 })

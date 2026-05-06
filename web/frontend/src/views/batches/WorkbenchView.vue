@@ -288,6 +288,56 @@ async function onUpload(files: File[]): Promise<void> {
   }
 }
 
+// Drag & drop de ficheros desde el explorador. Replica la condición de
+// disabled del botón "↑ Subir" del WorkbenchToolbar para que al arrastrar
+// durante run/transfer/upload no aparezca el overlay (sería engañoso).
+const isDragging = ref(false);
+let dragCounter = 0;
+
+const canUpload = computed(
+  () =>
+    !!store.current &&
+    !uploading.value &&
+    !running.value &&
+    !transferring.value &&
+    !exporting.value &&
+    !isReadOnly.value,
+);
+
+function dragHasFiles(e: DragEvent): boolean {
+  return Array.from(e.dataTransfer?.types ?? []).includes("Files");
+}
+
+function onDragEnter(e: DragEvent): void {
+  if (!canUpload.value || !dragHasFiles(e)) return;
+  e.preventDefault();
+  dragCounter++;
+  isDragging.value = true;
+}
+
+function onDragOver(e: DragEvent): void {
+  if (!canUpload.value || !dragHasFiles(e)) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+}
+
+function onDragLeave(e: DragEvent): void {
+  if (dragCounter === 0) return;
+  e.preventDefault();
+  dragCounter--;
+  if (dragCounter === 0) isDragging.value = false;
+}
+
+async function onDropFiles(e: DragEvent): Promise<void> {
+  if (!canUpload.value) return;
+  e.preventDefault();
+  dragCounter = 0;
+  isDragging.value = false;
+  const files = Array.from(e.dataTransfer?.files ?? []);
+  if (files.length === 0) return;
+  await onUpload(files);
+}
+
 async function onDownloadZip(): Promise<void> {
   // El export es síncrono en el backend: lee todas las páginas de
   // storage y construye el ZIP en memoria. En lotes con páginas
@@ -668,7 +718,25 @@ useWorkbenchShortcuts({
 </script>
 
 <template>
-  <div class="h-screen flex flex-col overflow-hidden bg-base text-text">
+  <div
+    class="h-screen flex flex-col overflow-hidden bg-base text-text relative"
+    @dragenter="onDragEnter"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDropFiles"
+  >
+    <!-- Overlay de drop zone: solo visible al arrastrar ficheros encima
+         con el lote en estado válido para subir. -->
+    <div
+      v-if="isDragging"
+      data-testid="workbench-drop-overlay"
+      class="absolute inset-0 z-50 bg-primary-soft/90 backdrop-blur-sm flex items-center justify-center pointer-events-none border-4 border-dashed border-primary"
+    >
+      <div class="text-center">
+        <p class="text-2xl font-semibold text-primary">↥ Suelta los ficheros para subirlos</p>
+        <p class="text-sm text-primary/80 mt-2">PDF, TIFF y imágenes (PNG, JPG)</p>
+      </div>
+    </div>
     <WorkbenchToolbar
       v-if="store.current"
       :batch="store.current"
