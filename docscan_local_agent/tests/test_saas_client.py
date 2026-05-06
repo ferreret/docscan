@@ -175,3 +175,122 @@ def test_whoami_401_raises_whoami_error() -> None:
             client.whoami("bad-token")
 
     assert exc.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# upload_page
+# ---------------------------------------------------------------------------
+
+
+def test_upload_page_success_returns_saas_response() -> None:
+    """201 + body típico de /api/batches/X/pages → devuelve el dict tal cual."""
+    captured: dict[str, object] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        assert req.method == "POST"
+        assert req.url.path == "/api/batches/42/pages"
+        assert req.headers["authorization"] == "Bearer 7.deadbeef"
+        # multipart con el fichero adjunto.
+        ct = req.headers["content-type"]
+        assert ct.startswith("multipart/form-data"), ct
+        captured["body_size"] = len(req.content)
+        return httpx.Response(
+            201,
+            json={
+                "created": [
+                    {
+                        "id": 1,
+                        "batch_id": 42,
+                        "page_index": 0,
+                        "image_path": "1/42/abc.png",
+                        "is_excluded": False,
+                        "review_reason": None,
+                        "fields": {},
+                        "flags": {},
+                    }
+                ],
+                "batch_page_count": 1,
+            },
+        )
+
+    with _mock_client(handler) as http:
+        client = SaasClient("https://saas.example.com", http_client=http)
+        result = client.upload_page(
+            batch_id=42,
+            agent_token="7.deadbeef",
+            png_bytes=b"\x89PNG\r\n\x1a\n" + b"x" * 100,
+        )
+
+    assert result["batch_page_count"] == 1
+    assert result["created"][0]["page_index"] == 0
+    # El cuerpo multipart contenía el PNG (no fue 0).
+    assert captured["body_size"] > 100
+
+
+def test_upload_page_uses_filename_when_provided() -> None:
+    """El argumento ``filename`` viaja en el header Content-Disposition del part."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = req.content.decode("latin-1", errors="ignore")
+        assert 'filename="custom.png"' in body
+        return httpx.Response(201, json={"created": [], "batch_page_count": 0})
+
+    with _mock_client(handler) as http:
+        client = SaasClient("https://saas.example.com", http_client=http)
+        client.upload_page(
+            batch_id=1,
+            agent_token="1.x",
+            png_bytes=b"\x89PNG",
+            filename="custom.png",
+        )
+
+
+def test_upload_page_404_raises_upload_error() -> None:
+    """SaaS responde 404 (batch ajeno o inexistente) → UploadError(404)."""
+    from docscan_local_agent.saas_client import UploadError
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"detail": "Lote no encontrado"})
+
+    with _mock_client(handler) as http:
+        client = SaasClient("https://saas.example.com", http_client=http)
+        with pytest.raises(UploadError) as exc:
+            client.upload_page(
+                batch_id=999, agent_token="1.x", png_bytes=b"\x89PNG"
+            )
+
+    assert exc.value.status_code == 404
+    assert "lote" in exc.value.detail.lower()
+
+
+def test_upload_page_401_raises_upload_error() -> None:
+    """SaaS responde 401 (token revocado o device desactivado)."""
+    from docscan_local_agent.saas_client import UploadError
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            401, json={"detail": "Agente no encontrado o no vinculado"}
+        )
+
+    with _mock_client(handler) as http:
+        client = SaasClient("https://saas.example.com", http_client=http)
+        with pytest.raises(UploadError) as exc:
+            client.upload_page(
+                batch_id=1, agent_token="1.x", png_bytes=b"\x89PNG"
+            )
+
+    assert exc.value.status_code == 401
+
+
+def test_upload_page_network_error_raises_saas_unavailable() -> None:
+    """Si la red falla, SaasUnavailable (no httpx.*)."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused")
+
+    with _mock_client(handler) as http:
+        client = SaasClient("https://saas.example.com", http_client=http)
+        with pytest.raises(SaasUnavailable):
+            client.upload_page(
+                batch_id=1, agent_token="1.x", png_bytes=b"\x89PNG"
+            )

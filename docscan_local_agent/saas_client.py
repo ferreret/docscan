@@ -55,6 +55,10 @@ class WhoamiError(_SaasHttpError):
     """El SaaS rechazó el whoami (401 token inválido, ...)."""
 
 
+class UploadError(_SaasHttpError):
+    """El SaaS rechazó la subida (404 lote ajeno, 401 token revocado, ...)."""
+
+
 def _extract_detail(resp: httpx.Response) -> str:
     """Saca ``detail`` del body JSON; si no es JSON, devuelve el reason phrase."""
     try:
@@ -141,3 +145,44 @@ class SaasClient:
             raise WhoamiError(resp.status_code, _extract_detail(resp))
 
         return AgentInfo.model_validate(resp.json())
+
+    # ------------------------------------------------------------------
+    # upload_page (Bearer agent_token, multipart)
+    # ------------------------------------------------------------------
+
+    def upload_page(
+        self,
+        batch_id: int,
+        agent_token: str,
+        png_bytes: bytes,
+        filename: str = "scan.png",
+    ) -> dict:
+        """Sube un PNG como nueva página del ``batch_id``.
+
+        El SaaS valida con la dependency híbrida del hito 7: el
+        ``agent_token`` lleva implícito el tenant del dueño del
+        device, y ``get_batch_for_tenant`` hace 404 si el lote no es
+        suyo.
+
+        Returns:
+            El dict crudo devuelto por el SaaS (``PageUploadResponse``):
+            ``{"created": [...], "batch_page_count": int}``.
+
+        Raises:
+            UploadError: Si el SaaS responde 4xx/5xx.
+            SaasUnavailable: Si la red al SaaS falla.
+        """
+        url = f"{self._base_url}/api/batches/{batch_id}/pages"
+        headers = {"Authorization": f"Bearer {agent_token}"}
+        files = {"files": (filename, png_bytes, "image/png")}
+
+        try:
+            resp = self._http.post(url, headers=headers, files=files)
+        except httpx.HTTPError as exc:
+            log.warning("upload_page: SaaS inalcanzable (%s): %s", url, exc)
+            raise SaasUnavailable(str(exc)) from exc
+
+        if resp.status_code != 201:
+            raise UploadError(resp.status_code, _extract_detail(resp))
+
+        return resp.json()

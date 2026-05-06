@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.models.barcode import Barcode
 from app.models.batch import Batch
 from app.models.page import Page
-from web.api.auth.dependencies import CurrentUser
+from web.api.auth.dependencies import CurrentUser, CurrentUserOrAgent
 from web.api.config import get_web_settings
 from web.api.database import SessionDep
 from web.api.routers._helpers import ensure_batch_mutable, get_batch_for_tenant
@@ -154,17 +154,22 @@ def _next_page_index(batch_id: int, db: Session) -> int:
 )
 async def upload_pages(
     batch_id: int,
-    user: CurrentUser,
+    principal: CurrentUserOrAgent,
     db: SessionDep,
     storage: StorageDep,
     files: list[UploadFile] = File(...),
 ):
     """Sube uno o más ficheros a un lote, creando las páginas correspondientes.
 
+    Acepta JWT de usuario o ``agent_token`` (sprint cliente local web,
+    hito 7). El aislamiento multi-tenant se mantiene vía
+    ``get_batch_for_tenant`` con ``principal.tenant_id``: un agente
+    sólo puede subir a lotes del tenant de su dueño.
+
     Las imágenes individuales crean una página cada una. Los PDFs se separan
     en tantas páginas como tenga el documento (a DPI configurable).
     """
-    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+    batch = get_batch_for_tenant(batch_id, principal.tenant_id, db)
     settings = get_web_settings()
 
     next_idx = _next_page_index(batch_id, db)
@@ -173,7 +178,7 @@ async def upload_pages(
     def _persist_page(payload: bytes, payload_ext: str) -> None:
         nonlocal next_idx
         relative = storage.save(
-            tenant_id=user.tenant_id,
+            tenant_id=principal.tenant_id,
             batch_id=batch_id,
             content=payload,
             extension=payload_ext,
