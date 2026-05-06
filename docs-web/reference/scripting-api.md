@@ -22,6 +22,8 @@ Referencia completa de los objetos disponibles en scripts.
 
 | Atributo | Tipo | Descripción |
 |----------|------|-------------|
+| `id` | int | ID de la página en BD (disponible desde v0.1.1 / v0.1.2 desktop) |
+| `page_index` | int | Índice 0-based dentro del lote |
 | `image` | ndarray | Imagen actual (OpenCV) |
 | `barcodes` | list[BarcodeResult] | Barcodes detectados |
 | `ocr_text` | str | Texto OCR |

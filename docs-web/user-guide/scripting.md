@@ -22,6 +22,8 @@ DocScan Studio incluye un motor de scripting Python completo.
 | `on_app_end` | Al cerrar la aplicación |
 | `on_import` | Al pulsar Procesar |
 | `on_scan_complete` | Tras completar el pipeline |
+| `on_batch_loaded` | Al abrir un lote (desktop v0.1.1+) |
+| `on_page_changed` | Al cambiar de página activa (desktop v0.1.1+) |
 | `on_transfer_validate` | Antes de transferir (False cancela) |
 | `on_transfer_advanced` | Transferencia scripteada |
 | `on_transfer_page` | Post-copia por página |
@@ -29,6 +31,11 @@ DocScan Studio incluye un motor de scripting Python completo.
 | `on_key_event` | Tecla personalizada |
 | `init_global` | Al iniciar el programa |
 | `verification_panel` | Panel de verificación |
+
+!!! info "Identificador de página"
+    Desde la v0.1.1 (web) y v0.1.2 (desktop), `page.id` está disponible
+    dentro del pipeline y de los eventos lifecycle. Útil para correlacionar
+    con la BD o llamar a APIs externas con un identificador estable.
 
 ## Recetas
 

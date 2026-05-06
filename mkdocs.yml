@@ -60,18 +60,25 @@ markdown_extensions:
 
 nav:
   - Inicio: index.md
-  - Guía de usuario:
-    - Inicio rápido: user-guide/getting-started.md
-    - Launcher: user-guide/launcher.md
-    - Configurador: user-guide/configurator.md
-    - Pipeline: user-guide/pipeline.md
-    - Scripting: user-guide/scripting.md
-    - Workbench: user-guide/workbench.md
-    - Gestión de lotes: user-guide/batch-manager.md
-    - Transferencia: user-guide/transfer.md
-    - AI Mode: user-guide/ai-mode.md
-  - Referencia:
-    - Atajos de teclado: reference/shortcuts.md
-    - Patrones de nombre: reference/naming-patterns.md
-    - API de scripting: reference/scripting-api.md
-    - Glosario: reference/glossary.md
+  - Versión Desktop:
+    - Guía de usuario:
+      - Inicio rápido: user-guide/getting-started.md
+      - Launcher: user-guide/launcher.md
+      - Configurador: user-guide/configurator.md
+      - Pipeline: user-guide/pipeline.md
+      - Scripting: user-guide/scripting.md
+      - Workbench: user-guide/workbench.md
+      - Gestión de lotes: user-guide/batch-manager.md
+      - Transferencia: user-guide/transfer.md
+      - AI Mode: user-guide/ai-mode.md
+    - Referencia:
+      - Atajos de teclado: reference/shortcuts.md
+      - Patrones de nombre: reference/naming-patterns.md
+      - API de scripting: reference/scripting-api.md
+      - Glosario: reference/glossary.md
+  - Versión Web:
+    - Visión general: web/index.md
+    - Inicio rápido: web/getting-started.md
+    - Workbench web: web/workbench.md
+    - Administración: web/admin.md
+    - Despliegue: web/deploy.md

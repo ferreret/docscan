@@ -1,0 +1,55 @@
+# Build & Deploy del manual MkDocs a GitHub Pages.
+#
+# Trigger: push a main que toque docs-web/, mkdocs.yml o requirements-docs.txt,
+# o ejecución manual desde la pestaña Actions.
+#
+# El job hace mkdocs build --strict (falla si hay enlaces rotos o warnings)
+# y despliega a la rama gh-pages, que es lo que sirve GitHub Pages.
+
+name: Docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs-web/**'
+      - 'mkdocs.yml'
+      - 'requirements-docs.txt'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # mkdocs gh-deploy necesita historial completo
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install MkDocs
+        run: pip install -r requirements-docs.txt
+
+      - name: Build site (strict)
+        run: mkdocs build --strict
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy to gh-pages
+        run: mkdocs gh-deploy --force --no-history
