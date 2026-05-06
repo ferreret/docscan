@@ -1,0 +1,18 @@
+# Dependencias mínimas para el agente local DocScan.
+#
+# El agente es un paquete autocontenido pensado para empaquetarse con
+# PyInstaller. NO debe arrastrar las dependencias pesadas del desktop
+# (PySide6, anthropic, openai, rapidocr, pymupdf, etc.). Solo lo
+# imprescindible para servir HTTP local + escanear + subir al SaaS.
+#
+# scanner_service.py del desktop necesita una de estas según plataforma:
+#   - Linux: python-sane (ya en requirements.txt principal)
+#   - Windows: pytwain + pywin32 (idem)
+# El packaging final del agente las incluirá según el target.
+
+fastapi>=0.115
+uvicorn[standard]>=0.32
+httpx>=0.27
+pydantic-settings>=2.6
+numpy>=1.26
+opencv-python-headless>=4.10
