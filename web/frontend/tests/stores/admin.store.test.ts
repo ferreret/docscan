@@ -136,16 +136,21 @@ describe('useAdminStore — tenants', () => {
     expect(api.get).toHaveBeenCalledWith('/admin/tenants?limit=50&offset=0')
   })
 
-  it('updateTenant PATCH y actualiza current si coincide id', async () => {
+  it('updateTenant PATCH y refresca currentTenant si coincide id', async () => {
+    // Backend PATCH /admin/tenants/:id devuelve TenantListItem (sin users[]).
+    // El store debe refrescar con fetchTenant para conservar el detalle completo.
     vi.mocked(api.patch).mockResolvedValue({
-      ...tenantDetailStub,
+      ...tenantStub,
       plan: 'enterprise',
     })
-    vi.mocked(api.get).mockResolvedValue({
-      items: [],
-      total: 0,
-      limit: 50,
-      offset: 0,
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === '/admin/tenants/1') {
+        return Promise.resolve({
+          ...tenantDetailStub,
+          plan: 'enterprise',
+        })
+      }
+      return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 })
     })
     const store = useAdminStore()
     store.currentTenant = tenantDetailStub
@@ -157,6 +162,28 @@ describe('useAdminStore — tenants', () => {
     })
     expect(updated.plan).toBe('enterprise')
     expect(store.currentTenant?.plan).toBe('enterprise')
+    // Regresión: el PATCH del backend no devuelve users, pero el store
+    // debe refrescar con fetchTenant para que la vista no crashee.
+    expect(store.currentTenant?.users).toBeDefined()
+    expect(store.currentTenant?.users.length).toBe(1)
+    expect(api.get).toHaveBeenCalledWith('/admin/tenants/1')
+  })
+
+  it('updateTenant no refresca currentTenant si el id no coincide', async () => {
+    vi.mocked(api.patch).mockResolvedValue({ ...tenantStub, id: 99 })
+    vi.mocked(api.get).mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    })
+    const store = useAdminStore()
+    store.currentTenant = tenantDetailStub  // id=1
+
+    await store.updateTenant(99, { plan: 'enterprise' })
+
+    // Sólo se llamó al endpoint de listado, no al detalle de id=99.
+    expect(api.get).not.toHaveBeenCalledWith('/admin/tenants/99')
   })
 
   it('deleteTenant DELETE y limpia current si coincide', async () => {

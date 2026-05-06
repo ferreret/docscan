@@ -64,9 +64,9 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   async function updateTenant(id: number, data: TenantUpdateRequest) {
-    const tenant = await api.patch<TenantDetail>(`/admin/tenants/${id}`, data)
+    const tenant = await api.patch<TenantListItem>(`/admin/tenants/${id}`, data)
     if (currentTenant.value?.id === id) {
-      currentTenant.value = tenant
+      await fetchTenant(id)
     }
     await fetchTenants()
     return tenant
