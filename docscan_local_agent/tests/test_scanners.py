@@ -19,7 +19,10 @@ from docscan_local_agent.deps import (
     get_settings,
 )
 from docscan_local_agent.main import create_app
-from docscan_local_agent.routers.scanners import _invalidate_cache
+from docscan_local_agent.routers.scanners import (
+    _invalidate_cache,
+    _invalidate_options_cache,
+)
 from docscan_local_agent.settings import AgentSettings
 
 
@@ -27,13 +30,15 @@ from docscan_local_agent.settings import AgentSettings
 def _reset_cache():
     """Cada test arranca con cache limpio.
 
-    El endpoint cachea la lista entre llamadas (workaround del bug
-    FD_SETSIZE de libsane-pixma). Sin este reset, el primer test
-    poluciona los siguientes.
+    Tanto el cache de ``GET /scanners`` (workaround FD_SETSIZE de
+    libsane-pixma) como el de ``GET /scanners/{name}/options`` se
+    resetean para no polucionar tests siguientes.
     """
     _invalidate_cache()
+    _invalidate_options_cache()
     yield
     _invalidate_cache()
+    _invalidate_options_cache()
 
 
 # ---------------------------------------------------------------------------
@@ -49,10 +54,14 @@ class FakeScanner:
         sources: list[str],
         backend: str = "sane",
         raise_on_list: Exception | None = None,
+        device_options: dict[str, list] | None = None,
+        raise_on_options: Exception | None = None,
     ) -> None:
         self.sources = sources
         self._backend = backend
         self._raise = raise_on_list
+        self._device_options = device_options or {}
+        self._raise_on_options = raise_on_options
         self.closed = False
 
     @property
@@ -63,6 +72,11 @@ class FakeScanner:
         if self._raise is not None:
             raise self._raise
         return list(self.sources)
+
+    def get_device_options(self, source: str) -> list:
+        if self._raise_on_options is not None:
+            raise self._raise_on_options
+        return list(self._device_options.get(source, []))
 
     def close(self) -> None:
         self.closed = True
@@ -283,3 +297,227 @@ def test_scanners_cache_not_populated_on_error(tmp_path: Path) -> None:
     r2 = client.get("/scanners")
     assert r2.status_code == 200
     assert r2.json()["scanners"] == [{"name": "s2", "backend": "sane"}]
+
+
+# ===========================================================================
+# GET /scanners/{name}/options — opciones dinámicas del dispositivo
+# ===========================================================================
+#
+# El endpoint delega en ``scanner.get_device_options(source)`` (mismo método
+# que el desktop usa para el ScannerConfigDialog) y serializa la lista para
+# el frontend. Cache TTL análogo al de /scanners porque abrir el dispositivo
+# SANE para query es caro y libsane-pixma sigue acumulando fds.
+# ---------------------------------------------------------------------------
+
+
+def _sample_options() -> dict[str, list[dict]]:
+    """Estructura de opciones realista del Canon DR-M160 (subset).
+
+    Replica lo que ``SaneScanner.get_device_options`` devuelve, ya
+    serializado a list[dict] (el endpoint del agente lo recibe como
+    list[DeviceOption] del desktop pero el FakeScanner ahorra esa capa
+    devolviendo dicts directamente — el endpoint los pasa a
+    ``DeviceOptionInfo.model_validate`` que acepta tanto el dataclass del
+    desktop como un dict equivalente).
+    """
+    return {
+        "canon_dr:libusb:001:010": [
+            {
+                "name": "resolution",
+                "title": "Scan resolution",
+                "description": "Sets the resolution of the scanned image.",
+                "type": "int",
+                "unit": "dpi",
+                "constraint": [100, 150, 200, 300, 400, 600],
+                "value": 600,
+                "is_active": True,
+                "is_settable": True,
+            },
+            {
+                "name": "mode",
+                "title": "Scan mode",
+                "description": "Selects the scan mode (Color/Gray/Lineart).",
+                "type": "string",
+                "unit": "none",
+                "constraint": ["Lineart", "Gray", "Color"],
+                "value": "Gray",
+                "is_active": True,
+                "is_settable": True,
+            },
+            {
+                "name": "source",
+                "title": "Scan source",
+                "description": "Selects the scan source (such as a document-feeder).",
+                "type": "string",
+                "unit": "none",
+                "constraint": ["ADF Front", "ADF Duplex"],
+                "value": "ADF Front",
+                "is_active": True,
+                "is_settable": True,
+            },
+        ],
+    }
+
+
+def test_scanner_options_returns_list(tmp_path: Path) -> None:
+    """200 con el array de opciones serializado del Canon DR-M160."""
+    scanner = FakeScanner(
+        sources=["canon_dr:libusb:001:010"],
+        device_options=_sample_options(),
+    )
+    client = _client_with_scanner(tmp_path, scanner)
+
+    resp = client.get("/scanners/canon_dr:libusb:001:010/options")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["scanner"] == "canon_dr:libusb:001:010"
+    assert isinstance(body["options"], list)
+    assert len(body["options"]) == 3
+    names = [o["name"] for o in body["options"]]
+    assert names == ["resolution", "mode", "source"]
+    # Tipos serializan como string sin tocar el constraint.
+    res = body["options"][0]
+    assert res["type"] == "int"
+    assert res["unit"] == "dpi"
+    assert res["constraint"] == [100, 150, 200, 300, 400, 600]
+    assert res["value"] == 600
+
+
+def test_scanner_options_unpaired_returns_401(tmp_path: Path) -> None:
+    """Sin emparejar el agente NO debe ofrecer opciones (mismo guard)."""
+    client = _client_with_scanner(
+        tmp_path,
+        FakeScanner(sources=["s1"], device_options={"s1": []}),
+        paired=False,
+    )
+
+    resp = client.get("/scanners/s1/options")
+    assert resp.status_code == 401
+
+
+def test_scanner_options_unknown_scanner_returns_404(tmp_path: Path) -> None:
+    """Si el scanner_name no aparece en list_sources(), 404 limpio."""
+    scanner = FakeScanner(
+        sources=["canon_dr:libusb:001:010"],
+        device_options=_sample_options(),
+    )
+    client = _client_with_scanner(tmp_path, scanner)
+
+    resp = client.get("/scanners/epson:fake:999/options")
+    assert resp.status_code == 404
+    assert "no existe" in resp.json()["detail"].lower()
+
+
+def test_scanner_options_no_backend_returns_503(tmp_path: Path) -> None:
+    """Sistema sin backends de escáner instalados → 503."""
+    client = _client_with_scanner(
+        tmp_path,
+        scanner=None,
+        factory_raises=RuntimeError("No hay backends de escáner disponibles"),
+    )
+
+    resp = client.get("/scanners/anyname/options")
+    assert resp.status_code == 503
+
+
+def test_scanner_options_get_device_options_raises_returns_500(
+    tmp_path: Path,
+) -> None:
+    """Si get_device_options revienta, 500 con mensaje claro."""
+    scanner = FakeScanner(
+        sources=["s1"],
+        raise_on_options=RuntimeError("USB I/O error"),
+    )
+    client = _client_with_scanner(tmp_path, scanner)
+
+    resp = client.get("/scanners/s1/options")
+    assert resp.status_code == 500
+    assert "usb i/o" in resp.json()["detail"].lower()
+
+
+def test_scanner_options_caches_between_calls(tmp_path: Path) -> None:
+    """Dos GET seguidos al mismo scanner sólo invocan get_device_options 1x."""
+    calls: list[str] = []
+
+    class CountingScanner(FakeScanner):
+        def get_device_options(self, source):  # type: ignore[override]
+            calls.append(source)
+            return super().get_device_options(source)
+
+    scanner = CountingScanner(
+        sources=["s1"],
+        device_options={
+            "s1": [
+                {
+                    "name": "x",
+                    "title": "X",
+                    "description": "",
+                    "type": "int",
+                    "unit": "none",
+                    "constraint": None,
+                    "value": 0,
+                    "is_active": True,
+                    "is_settable": True,
+                }
+            ]
+        },
+    )
+    client = _client_with_scanner(tmp_path, scanner)
+
+    client.get("/scanners/s1/options")
+    client.get("/scanners/s1/options")
+    assert calls == ["s1"]
+
+
+def test_scanner_options_refresh_true_bypasses_cache(tmp_path: Path) -> None:
+    """?refresh=true fuerza re-enumeración aunque el cache esté caliente."""
+    calls: list[str] = []
+
+    class CountingScanner(FakeScanner):
+        def get_device_options(self, source):  # type: ignore[override]
+            calls.append(source)
+            return super().get_device_options(source)
+
+    scanner = CountingScanner(
+        sources=["s1"],
+        device_options={"s1": []},
+    )
+    client = _client_with_scanner(tmp_path, scanner)
+
+    client.get("/scanners/s1/options")
+    client.get("/scanners/s1/options?refresh=true")
+    assert calls == ["s1", "s1"]
+
+
+def test_scanner_options_cache_per_scanner(tmp_path: Path) -> None:
+    """El cache se indexa por scanner_name — dos scanners se cachean por separado."""
+    calls: list[str] = []
+
+    class CountingScanner(FakeScanner):
+        def get_device_options(self, source):  # type: ignore[override]
+            calls.append(source)
+            return super().get_device_options(source)
+
+    scanner = CountingScanner(
+        sources=["s1", "s2"],
+        device_options={"s1": [], "s2": []},
+    )
+    client = _client_with_scanner(tmp_path, scanner)
+
+    client.get("/scanners/s1/options")
+    client.get("/scanners/s2/options")
+    client.get("/scanners/s1/options")  # cacheado
+    client.get("/scanners/s2/options")  # cacheado
+    assert calls == ["s1", "s2"]
+
+
+def test_scanner_options_close_called_on_success(tmp_path: Path) -> None:
+    """Tras un get_device_options OK, scanner.close() se llama."""
+    scanner = FakeScanner(
+        sources=["s1"],
+        device_options={"s1": []},
+    )
+    client = _client_with_scanner(tmp_path, scanner)
+
+    client.get("/scanners/s1/options")
+    assert scanner.closed is True
