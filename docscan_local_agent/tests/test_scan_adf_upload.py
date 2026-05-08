@@ -62,10 +62,12 @@ class FakeAdfScanner:
         sources: list[str],
         pages: list[np.ndarray] | None = None,
         raise_at_index: tuple[int, Exception] | None = None,
+        device_options: dict[str, list[dict]] | None = None,
     ) -> None:
         self.sources = sources
         self._pages = pages if pages is not None else [_synthetic_image()]
         self._raise_at_index = raise_at_index
+        self._device_options = device_options or {}
         self.closed = False
         self.acquire_iter_calls: list[tuple[str, ScanConfig]] = []
 
@@ -75,6 +77,9 @@ class FakeAdfScanner:
 
     def list_sources(self) -> list[str]:
         return list(self.sources)
+
+    def get_device_options(self, source: str) -> list[dict]:
+        return list(self._device_options.get(source, []))
 
     def acquire(self, source: str, config: ScanConfig) -> list[np.ndarray]:
         return list(self.acquire_iter(source, config))
@@ -88,6 +93,37 @@ class FakeAdfScanner:
 
     def close(self) -> None:
         self.closed = True
+
+
+def _adf_scanner_with_options(sources: list[str]) -> "FakeAdfScanner":
+    """FakeAdfScanner con whitelist típica para tests de override."""
+
+    def _opt(name: str) -> dict:
+        return {
+            "name": name,
+            "title": name,
+            "description": "",
+            "type": "string",
+            "unit": "none",
+            "constraint": None,
+            "value": None,
+            "is_active": True,
+            "is_settable": True,
+        }
+
+    return FakeAdfScanner(
+        sources=sources,
+        pages=[_synthetic_image(s) for s in (1, 2)],
+        device_options={
+            src: [
+                _opt("resolution"),
+                _opt("mode"),
+                _opt("source"),
+                _opt("brightness"),
+            ]
+            for src in sources
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -432,3 +468,68 @@ def test_scan_adf_empty_adf_returns_completed_total_zero(tmp_path: Path) -> None
     events = _parse_ndjson(resp.text)
     assert [e["event"] for e in events] == ["started", "completed"]
     assert events[-1]["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# overrides dinámicos (hito 13)
+# ---------------------------------------------------------------------------
+
+
+def test_scan_adf_options_default_empty(tmp_path: Path) -> None:
+    """Sin ``options`` el flujo sigue como en hito 8 (extra_options vacío)."""
+    scanner = FakeAdfScanner(sources=["dev:001"], pages=[_synthetic_image(1)])
+    client = _client(tmp_path, scanner, _saas_paginated_handler())
+
+    resp = client.post(
+        "/scan-adf-and-upload",
+        json={"scanner_name": "dev:001", "batch_id": 42},
+    )
+    assert resp.status_code == 200
+    _src, config = scanner.acquire_iter_calls[0]
+    assert config.extra_options == {}
+
+
+def test_scan_adf_options_override_passed_to_config(tmp_path: Path) -> None:
+    """Las opciones del body se inyectan en ScanConfig.extra_options."""
+    scanner = _adf_scanner_with_options(["dev:001"])
+    client = _client(tmp_path, scanner, _saas_paginated_handler())
+
+    resp = client.post(
+        "/scan-adf-and-upload",
+        json={
+            "scanner_name": "dev:001",
+            "batch_id": 42,
+            "options": {
+                "resolution": 200,
+                "mode": "Gray",
+                "source": "ADF Duplex",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    _src, config = scanner.acquire_iter_calls[0]
+    assert config.extra_options == {
+        "resolution": 200,
+        "mode": "Gray",
+        "source": "ADF Duplex",
+    }
+
+
+def test_scan_adf_options_unknown_key_returns_422(tmp_path: Path) -> None:
+    """Clave fuera de la whitelist → 422 ANTES de iniciar el stream."""
+    scanner = _adf_scanner_with_options(["dev:001"])
+    client = _client(tmp_path, scanner, _saas_paginated_handler())
+
+    resp = client.post(
+        "/scan-adf-and-upload",
+        json={
+            "scanner_name": "dev:001",
+            "batch_id": 42,
+            "options": {"resolution": 200, "evil": "rm -rf"},
+        },
+    )
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert "evil" in detail.lower()
+    # Si se rechaza con 422, NO debe haberse iniciado el acquire_iter.
+    assert scanner.acquire_iter_calls == []

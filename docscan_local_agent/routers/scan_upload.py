@@ -25,7 +25,7 @@ Errores:
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 import cv2
 import numpy as np
@@ -57,6 +57,54 @@ class ScanAndUploadRequest(BaseModel):
     batch_id: int = Field(..., gt=0)
     resolution: int = Field(default=300, ge=72, le=1200)
     mode: ScanMode = Field(default="Color")
+    options: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Overrides dinámicos de opciones del dispositivo (resolution, "
+            "mode, source, brightness, contrast, ...). Las claves se "
+            "validan contra ``get_device_options(scanner_name)`` — sólo se "
+            "aceptan opciones is_settable=True. Si está presente, los "
+            "valores top-level (resolution/mode) son ignorados."
+        ),
+    )
+
+
+def _validate_options_whitelist(
+    scanner, scanner_name: str, options: dict[str, Any]
+) -> None:
+    """Valida que cada clave de ``options`` sea settable según el dispositivo.
+
+    Llama a ``scanner.get_device_options(scanner_name)`` y compara las
+    claves recibidas contra las que el driver expone como
+    ``is_settable=True``. Cualquier clave fuera de esa whitelist
+    dispara 422 — el agente no permite setear "cualquier cosa" aunque
+    la api del scanner lo aceptase, para no abrir un vector de
+    abuso desde una pestaña web maliciosa.
+    """
+    if not options:
+        return
+
+    raw = scanner.get_device_options(scanner_name)
+    allowed: set[str] = set()
+    for o in raw:
+        # ``o`` puede ser dataclass DeviceOption (desktop) o dict (FakeScanner).
+        get = (
+            (lambda key: o.get(key))
+            if isinstance(o, dict)
+            else (lambda key: getattr(o, key, None))
+        )
+        if get("is_settable"):
+            allowed.add(get("name"))
+
+    invalid = sorted(set(options.keys()) - allowed)
+    if invalid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"Opciones desconocidas o no modificables para "
+                f"{scanner_name!r}: {invalid}"
+            ),
+        )
 
 
 @router.post("/scan-and-upload", status_code=status.HTTP_201_CREATED)
@@ -85,10 +133,15 @@ def scan_and_upload(
                 detail=f"Escáner no existe: {body.scanner_name!r}",
             )
 
+        # Validar overrides contra la whitelist dinámica del dispositivo.
+        # Un dict vacío o None salta la validación.
+        _validate_options_whitelist(scanner, body.scanner_name, body.options or {})
+
         config = ScanConfig(
             resolution=body.resolution,
             mode=body.mode,
             source_type="flatbed",
+            extra_options=dict(body.options) if body.options else {},
         )
         try:
             images = scanner.acquire(body.scanner_name, config)

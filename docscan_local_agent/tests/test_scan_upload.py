@@ -43,11 +43,13 @@ class FakeScanner:
         backend: str = "sane",
         images_per_acquire: list[np.ndarray] | None = None,
         raise_on_acquire: Exception | None = None,
+        device_options: dict[str, list[dict]] | None = None,
     ) -> None:
         self.sources = sources
         self._backend = backend
         self._images = images_per_acquire or [_synthetic_image()]
         self._raise = raise_on_acquire
+        self._device_options = device_options or {}
         self.closed = False
         self.acquire_calls: list[tuple[str, ScanConfig]] = []
 
@@ -58,6 +60,9 @@ class FakeScanner:
     def list_sources(self) -> list[str]:
         return list(self.sources)
 
+    def get_device_options(self, source: str) -> list[dict]:
+        return list(self._device_options.get(source, []))
+
     def acquire(self, source: str, config: ScanConfig) -> list[np.ndarray]:
         self.acquire_calls.append((source, config))
         if self._raise is not None:
@@ -66,6 +71,42 @@ class FakeScanner:
 
     def close(self) -> None:
         self.closed = True
+
+
+def _scanner_with_typical_options(sources: list[str]) -> "FakeScanner":
+    """Crea un FakeScanner con una whitelist realista (Canon DR-M160).
+
+    Helper para los tests del override — los endpoints /scan-* validan
+    que las claves del dict ``options`` aparezcan en
+    ``get_device_options(scanner)``.
+    """
+
+    def _opt(name: str) -> dict:
+        return {
+            "name": name,
+            "title": name,
+            "description": "",
+            "type": "string",
+            "unit": "none",
+            "constraint": None,
+            "value": None,
+            "is_active": True,
+            "is_settable": True,
+        }
+
+    return FakeScanner(
+        sources=sources,
+        device_options={
+            src: [
+                _opt("resolution"),
+                _opt("mode"),
+                _opt("source"),
+                _opt("brightness"),
+                _opt("contrast"),
+            ]
+            for src in sources
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -314,3 +355,138 @@ def test_scan_and_upload_acquire_raises_returns_500(tmp_path: Path) -> None:
     )
     assert resp.status_code == 500
     assert scanner.closed is True
+
+
+# ---------------------------------------------------------------------------
+# overrides dinámicos (hito 13 — diálogo de opciones de escaneo)
+# ---------------------------------------------------------------------------
+
+
+def test_scan_and_upload_options_default_empty(tmp_path: Path) -> None:
+    """Sin ``options`` el flujo sigue funcionando como antes.
+
+    El config NO debe traer extra_options con basura, sólo lo que el
+    operario indique explícitamente.
+    """
+    scanner = FakeScanner(sources=["dev:001"])
+    client = _client(tmp_path, scanner, _saas_happy_handler())
+
+    resp = client.post(
+        "/scan-and-upload",
+        json={"scanner_name": "dev:001", "batch_id": 42},
+    )
+    assert resp.status_code == 201
+    _src, config = scanner.acquire_calls[0]
+    assert config.extra_options == {}
+
+
+def test_scan_and_upload_options_override_passed_to_config(tmp_path: Path) -> None:
+    """``options`` del body se inyecta en ``ScanConfig.extra_options``."""
+    scanner = _scanner_with_typical_options(["dev:001"])
+    client = _client(tmp_path, scanner, _saas_happy_handler())
+
+    resp = client.post(
+        "/scan-and-upload",
+        json={
+            "scanner_name": "dev:001",
+            "batch_id": 42,
+            "options": {
+                "resolution": 200,
+                "mode": "Gray",
+                "brightness": 10,
+            },
+        },
+    )
+    assert resp.status_code == 201
+    _src, config = scanner.acquire_calls[0]
+    assert config.extra_options == {
+        "resolution": 200,
+        "mode": "Gray",
+        "brightness": 10,
+    }
+
+
+def test_scan_and_upload_options_unknown_key_returns_422(tmp_path: Path) -> None:
+    """Clave fuera de la whitelist dinámica → 422 con mensaje claro."""
+    scanner = _scanner_with_typical_options(["dev:001"])
+    client = _client(tmp_path, scanner, _saas_happy_handler())
+
+    resp = client.post(
+        "/scan-and-upload",
+        json={
+            "scanner_name": "dev:001",
+            "batch_id": 42,
+            "options": {"resolution": 200, "evil_option": "rm -rf /"},
+        },
+    )
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert "evil_option" in detail.lower()
+    # No se debió disparar acquire si la whitelist falló.
+    assert scanner.acquire_calls == []
+
+
+def test_scan_and_upload_options_inactive_or_unsettable_blocked(
+    tmp_path: Path,
+) -> None:
+    """Opciones is_settable=False NO se aceptan aunque existan."""
+    readonly_opt = {
+        "name": "page_count",
+        "title": "Pages scanned this session",
+        "description": "Read-only counter",
+        "type": "int",
+        "unit": "none",
+        "constraint": None,
+        "value": 0,
+        "is_active": True,
+        "is_settable": False,
+    }
+    scanner = FakeScanner(
+        sources=["dev:001"],
+        device_options={"dev:001": [readonly_opt]},
+    )
+    client = _client(tmp_path, scanner, _saas_happy_handler())
+
+    resp = client.post(
+        "/scan-and-upload",
+        json={
+            "scanner_name": "dev:001",
+            "batch_id": 42,
+            "options": {"page_count": 999},
+        },
+    )
+    assert resp.status_code == 422
+    assert "page_count" in resp.json()["detail"].lower()
+
+
+def test_scan_and_upload_legacy_resolution_mode_still_work(tmp_path: Path) -> None:
+    """``resolution``/``mode`` top-level siguen funcionando (compat hito 7).
+
+    Si el frontend nunca abre el dialog y manda los campos viejos, el
+    agente debe aceptarlos. El override por ``options`` toma prioridad
+    si ambos vienen en el mismo body.
+    """
+    scanner = _scanner_with_typical_options(["dev:001"])
+    client = _client(tmp_path, scanner, _saas_happy_handler())
+
+    # Caso A: sólo top-level (compatibilidad).
+    client.post(
+        "/scan-and-upload",
+        json={"scanner_name": "dev:001", "batch_id": 42, "resolution": 600},
+    )
+    _src, cfg_a = scanner.acquire_calls[-1]
+    assert cfg_a.resolution == 600
+    assert cfg_a.extra_options == {}
+
+    # Caso B: top-level + options. El override gana.
+    client.post(
+        "/scan-and-upload",
+        json={
+            "scanner_name": "dev:001",
+            "batch_id": 42,
+            "resolution": 600,
+            "options": {"resolution": 200},
+        },
+    )
+    _src, cfg_b = scanner.acquire_calls[-1]
+    assert cfg_b.extra_options == {"resolution": 200}

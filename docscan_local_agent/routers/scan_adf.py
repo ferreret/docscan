@@ -51,6 +51,7 @@ from docscan_local_agent.deps import (
     get_scanner_factory,
     require_paired,
 )
+from docscan_local_agent.routers.scan_upload import _validate_options_whitelist
 from docscan_local_agent.saas_client import SaasUnavailable, UploadError
 
 log = logging.getLogger(__name__)
@@ -67,6 +68,15 @@ class ScanAdfRequest(BaseModel):
     batch_id: int = Field(..., gt=0)
     resolution: int = Field(default=300, ge=72, le=1200)
     mode: ScanMode = Field(default="Color")
+    options: dict | None = Field(
+        default=None,
+        description=(
+            "Overrides dinámicos del dispositivo (resolution, mode, "
+            "source, brightness, ...). Validados contra "
+            "``get_device_options(scanner_name)`` con la misma whitelist "
+            "que /scan-and-upload."
+        ),
+    )
 
 
 def _ndjson(event: dict) -> bytes:
@@ -126,10 +136,23 @@ def scan_adf_and_upload(
             detail=f"Escáner no existe: {body.scanner_name!r}",
         )
 
+    # Validar overrides contra la whitelist dinámica ANTES del stream:
+    # un 422 sin NDJSON es mucho más fácil de manejar para el frontend
+    # que parsear el primer evento del stream para descubrir el rechazo.
+    try:
+        _validate_options_whitelist(scanner, body.scanner_name, body.options or {})
+    except HTTPException:
+        try:
+            scanner.close()
+        except Exception:
+            pass
+        raise
+
     config = ScanConfig(
         resolution=body.resolution,
         mode=body.mode,
         source_type="adf",
+        extra_options=dict(body.options) if body.options else {},
     )
 
     saas = saas_factory(creds.saas_url)
