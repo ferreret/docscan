@@ -98,7 +98,15 @@ describe('MiEstacionView', () => {
     // Mount: detect → STATUS_PAIRED, después loadScanners → 2 escáneres.
     mockFetchSequence(
       { payload: STATUS_PAIRED },
-      { payload: ['dev:001', 'epson:fake'] },
+      {
+        payload: {
+          backend: 'sane',
+          scanners: [
+            { name: 'dev:001', backend: 'sane' },
+            { name: 'epson:fake', backend: 'sane' },
+          ],
+        },
+      },
     )
 
     const wrapper = mount(MiEstacionView)
@@ -118,7 +126,7 @@ describe('MiEstacionView', () => {
   it('estado 3: si no hay escáneres muestra el mensaje "no se ha detectado"', async () => {
     mockFetchSequence(
       { payload: STATUS_PAIRED },
-      { payload: [] },
+      { payload: { backend: 'sane', scanners: [] } },
     )
 
     const wrapper = mount(MiEstacionView)

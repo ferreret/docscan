@@ -34,7 +34,7 @@ onMounted(async () => {
 async function onRefresh() {
   await store.detect()
   if (store.paired) {
-    await store.loadScanners()
+    await store.loadScanners(true)
   }
 }
 

@@ -100,11 +100,16 @@ export const useAgentStore = defineStore('agent', () => {
     }
   }
 
-  async function loadScanners(): Promise<void> {
+  async function loadScanners(refresh = false): Promise<void> {
     loading.value = true
     error.value = null
     try {
-      scanners.value = await agentFetch<string[]>('/scanners')
+      const path = refresh ? '/scanners?refresh=true' : '/scanners'
+      const data = await agentFetch<{
+        backend: string
+        scanners: { name: string; backend: string }[]
+      }>(path)
+      scanners.value = data.scanners.map((s) => s.name)
     } catch (e) {
       scanners.value = []
       error.value = e instanceof Error ? e.message : 'Error al listar escáneres'

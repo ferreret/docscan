@@ -195,7 +195,13 @@ describe('useAgentStore — loadScanners()', () => {
   })
 
   it('loadScanners: GET /scanners y popula la lista', async () => {
-    mockFetchOnce(['dev:001', 'epson:fake'])
+    mockFetchOnce({
+      backend: 'sane',
+      scanners: [
+        { name: 'dev:001', backend: 'sane' },
+        { name: 'epson:fake', backend: 'sane' },
+      ],
+    })
     const store = useAgentStore()
 
     await store.loadScanners()
