@@ -45,6 +45,16 @@ class ScannerInfo(BaseModel):
 
     name: str
     backend: str  # "sane" | "twain" | "wia"
+    supports_native_ui: bool = False
+    """True si el driver tiene diálogo nativo (típico TWAIN/WIA en Windows).
+
+    El frontend lo usa para elegir UX:
+    - True → manda ``show_ui=True`` al endpoint /scan-* y el driver
+      pinta su propio dialog en la sesión de escritorio del operario.
+    - False → renderiza el ScannerOptionsDialog dinámico construido a
+      partir de ``GET /scanners/{name}/options`` (caso típico SANE en
+      Linux: SANE es API C, no tiene dialog propio).
+    """
 
 
 class ScannersResponse(BaseModel):
@@ -135,9 +145,17 @@ def _enumerate(factory: ScannerFactory) -> ScannersResponse:
             log.warning("close() del scanner falló (best-effort)", exc_info=True)
 
     backend_name = scanner.backend_name
+    supports_native_ui = bool(getattr(scanner, "supports_native_ui", False))
     return ScannersResponse(
         backend=backend_name,
-        scanners=[ScannerInfo(name=src, backend=backend_name) for src in sources],
+        scanners=[
+            ScannerInfo(
+                name=src,
+                backend=backend_name,
+                supports_native_ui=supports_native_ui,
+            )
+            for src in sources
+        ],
     )
 
 

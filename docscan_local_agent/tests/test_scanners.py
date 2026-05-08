@@ -141,9 +141,37 @@ def test_scanners_returns_list(tmp_path: Path) -> None:
     body = resp.json()
     assert body["backend"] == "sane"
     assert body["scanners"] == [
-        {"name": "epson:libusb:001:002", "backend": "sane"},
-        {"name": "fujitsu:fi-7160", "backend": "sane"},
+        {
+            "name": "epson:libusb:001:002",
+            "backend": "sane",
+            "supports_native_ui": False,
+        },
+        {
+            "name": "fujitsu:fi-7160",
+            "backend": "sane",
+            "supports_native_ui": False,
+        },
     ]
+
+
+def test_scanners_supports_native_ui_true_for_twain_like_backends(
+    tmp_path: Path,
+) -> None:
+    """Backends con diálogo nativo (TWAIN/WIA) reportan supports_native_ui=True."""
+
+    class TwainLikeScanner(FakeScanner):
+        @property
+        def supports_native_ui(self) -> bool:  # type: ignore[override]
+            return True
+
+    scanner = TwainLikeScanner(sources=["TWAIN: Canon DR-M160"], backend="twain")
+    client = _client_with_scanner(tmp_path, scanner)
+
+    resp = client.get("/scanners")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["scanners"][0]["supports_native_ui"] is True
+    assert body["scanners"][0]["backend"] == "twain"
 
 
 def test_scanners_returns_empty_list(tmp_path: Path) -> None:
@@ -154,6 +182,14 @@ def test_scanners_returns_empty_list(tmp_path: Path) -> None:
     resp = client.get("/scanners")
     assert resp.status_code == 200
     assert resp.json() == {"backend": "sane", "scanners": []}
+
+
+def test_scanners_default_supports_native_ui_is_false(tmp_path: Path) -> None:
+    """Si scanner no expone supports_native_ui (legacy), default False."""
+    scanner = FakeScanner(sources=["s1"], backend="sane")
+    client = _client_with_scanner(tmp_path, scanner)
+    resp = client.get("/scanners")
+    assert resp.json()["scanners"][0]["supports_native_ui"] is False
 
 
 def test_scanners_closes_scanner_on_success(tmp_path: Path) -> None:
@@ -296,7 +332,9 @@ def test_scanners_cache_not_populated_on_error(tmp_path: Path) -> None:
     client.app.dependency_overrides[get_scanner_factory] = lambda: lambda: healthy
     r2 = client.get("/scanners")
     assert r2.status_code == 200
-    assert r2.json()["scanners"] == [{"name": "s2", "backend": "sane"}]
+    assert r2.json()["scanners"] == [
+        {"name": "s2", "backend": "sane", "supports_native_ui": False},
+    ]
 
 
 # ===========================================================================

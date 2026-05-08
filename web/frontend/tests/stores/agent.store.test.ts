@@ -198,15 +198,34 @@ describe('useAgentStore — loadScanners()', () => {
     mockFetchOnce({
       backend: 'sane',
       scanners: [
-        { name: 'dev:001', backend: 'sane' },
-        { name: 'epson:fake', backend: 'sane' },
+        { name: 'dev:001', backend: 'sane', supports_native_ui: false },
+        { name: 'epson:fake', backend: 'sane', supports_native_ui: false },
       ],
     })
     const store = useAgentStore()
 
     await store.loadScanners()
 
-    expect(store.scanners).toEqual(['dev:001', 'epson:fake'])
+    expect(store.scanners).toEqual([
+      { name: 'dev:001', backend: 'sane', supports_native_ui: false },
+      { name: 'epson:fake', backend: 'sane', supports_native_ui: false },
+    ])
+    expect(store.scannerNames).toEqual(['dev:001', 'epson:fake'])
+  })
+
+  it('loadScanners: store expone supports_native_ui via findScanner()', async () => {
+    mockFetchOnce({
+      backend: 'twain',
+      scanners: [
+        { name: 'TWAIN: Canon DR-M160', backend: 'twain', supports_native_ui: true },
+      ],
+    })
+    const store = useAgentStore()
+    await store.loadScanners()
+
+    const found = store.findScanner('TWAIN: Canon DR-M160')
+    expect(found?.supports_native_ui).toBe(true)
+    expect(store.findScanner('inexistente')).toBeUndefined()
   })
 
   it('loadScanners: 503 sin backends → scanners=[] y error poblado', async () => {

@@ -296,3 +296,39 @@ export interface AgentPairResponse {
   paired_at: string;
 }
 
+// Item de la lista de GET http://127.0.0.1:47816/scanners (sprint D hito 13).
+//
+// `supports_native_ui` decide la UX del frontend al pulsar 🖨:
+//   - true  → manda show_ui=true al endpoint /scan-* y el driver
+//             pinta su propio dialog (TWAIN/WIA en Windows).
+//   - false → renderiza el ScannerOptionsDialog dinámico con datos
+//             de GET /scanners/{name}/options (caso típico SANE
+//             en Linux: la API C no tiene dialog propio).
+export interface AgentScanner {
+  name: string;
+  backend: string; // "sane" | "twain" | "wia"
+  supports_native_ui: boolean;
+}
+
+// Respuesta de GET /scanners/{name}/options.
+export interface DeviceOptionInfo {
+  name: string;
+  title: string;
+  description: string;
+  type: 'bool' | 'int' | 'fixed' | 'string';
+  unit: string;
+  constraint:
+    | null
+    | string[]
+    | number[]
+    | [number, number, number]; // (min, max, step)
+  value: unknown;
+  is_active: boolean;
+  is_settable: boolean;
+}
+
+export interface ScannerOptionsResponse {
+  scanner: string;
+  options: DeviceOptionInfo[];
+}
+

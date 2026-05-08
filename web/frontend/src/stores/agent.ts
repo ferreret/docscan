@@ -15,8 +15,9 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '@/api/client'
 import type {
-  AgentStatus,
   AgentPairResponse,
+  AgentScanner,
+  AgentStatus,
   PairInitResponse,
 } from '@/api/types'
 
@@ -47,11 +48,16 @@ export const useAgentStore = defineStore('agent', () => {
   const available = ref(false)
   const paired = ref(false)
   const status = ref<AgentStatus | null>(null)
-  const scanners = ref<string[]>([])
+  const scanners = ref<AgentScanner[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   const displayName = computed(() => status.value?.device_name ?? null)
+  // Vista compatible para consumidores que sólo necesitan los nombres
+  // (el ScanFromAgentMenu trabaja con string para el `scanner_name` que
+  // envía al endpoint /scan-*). El acceso a ``supports_native_ui`` se
+  // hace localizando el AgentScanner por name.
+  const scannerNames = computed(() => scanners.value.map((s) => s.name))
 
   async function detect(): Promise<void> {
     loading.value = true
@@ -107,15 +113,20 @@ export const useAgentStore = defineStore('agent', () => {
       const path = refresh ? '/scanners?refresh=true' : '/scanners'
       const data = await agentFetch<{
         backend: string
-        scanners: { name: string; backend: string }[]
+        scanners: AgentScanner[]
       }>(path)
-      scanners.value = data.scanners.map((s) => s.name)
+      scanners.value = data.scanners
     } catch (e) {
       scanners.value = []
       error.value = e instanceof Error ? e.message : 'Error al listar escáneres'
     } finally {
       loading.value = false
     }
+  }
+
+  /** Devuelve el AgentScanner por nombre o ``undefined``. */
+  function findScanner(name: string): AgentScanner | undefined {
+    return scanners.value.find((s) => s.name === name)
   }
 
   function reset() {
@@ -131,6 +142,8 @@ export const useAgentStore = defineStore('agent', () => {
     paired,
     status,
     scanners,
+    scannerNames,
+    findScanner,
     loading,
     error,
     displayName,

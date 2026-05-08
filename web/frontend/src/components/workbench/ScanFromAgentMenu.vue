@@ -50,15 +50,16 @@ onMounted(async () => {
   }
   // Por defecto, primer escáner.
   if (!selectedScanner.value && agent.scanners.length > 0) {
-    selectedScanner.value = agent.scanners[0]
+    selectedScanner.value = agent.scanners[0].name
   }
 })
 
 watch(
   () => agent.scanners,
   (list) => {
-    if (!selectedScanner.value || !list.includes(selectedScanner.value)) {
-      selectedScanner.value = list[0] ?? ''
+    const names = list.map((s) => s.name)
+    if (!selectedScanner.value || !names.includes(selectedScanner.value)) {
+      selectedScanner.value = names[0] ?? ''
     }
   },
 )
@@ -129,7 +130,9 @@ async function onAdf(): Promise<void> {
       class="bg-base text-text text-xs px-2 py-1.5 rounded border border-surface-1 max-w-[180px] truncate"
       data-testid="scanner-select"
     >
-      <option v-for="s in agent.scanners" :key="s" :value="s">{{ s }}</option>
+      <option v-for="s in agent.scanners" :key="s.name" :value="s.name">
+        {{ s.name }}
+      </option>
     </select>
     <span
       v-else

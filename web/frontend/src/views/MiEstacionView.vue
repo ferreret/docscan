@@ -175,11 +175,11 @@ async function onPair() {
         <ul v-if="scanners.length > 0" class="space-y-2" data-testid="scanner-list">
           <li
             v-for="s in scanners"
-            :key="s"
+            :key="s.name"
             class="flex items-center gap-3 px-3 py-2 rounded-md bg-crust border border-surface-1"
           >
             <span class="text-lg">🖨</span>
-            <span class="text-sm text-text font-mono">{{ s }}</span>
+            <span class="text-sm text-text font-mono">{{ s.name }}</span>
           </li>
         </ul>
         <p

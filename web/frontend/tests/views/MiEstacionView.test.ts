@@ -102,8 +102,8 @@ describe('MiEstacionView', () => {
         payload: {
           backend: 'sane',
           scanners: [
-            { name: 'dev:001', backend: 'sane' },
-            { name: 'epson:fake', backend: 'sane' },
+            { name: 'dev:001', backend: 'sane', supports_native_ui: false },
+            { name: 'epson:fake', backend: 'sane', supports_native_ui: false },
           ],
         },
       },

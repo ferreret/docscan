@@ -25,7 +25,12 @@ function setStore(opts: {
   const store = useAgentStore()
   store.available = opts.available
   store.paired = opts.paired
-  store.scanners = opts.scanners ?? []
+  // Adaptamos string[] simple del test al shape AgentScanner del store.
+  store.scanners = (opts.scanners ?? []).map((name) => ({
+    name,
+    backend: 'sane',
+    supports_native_ui: false,
+  }))
   // Suprime el detect/loadScanners del onMounted en tests.
   vi.spyOn(store, 'detect').mockResolvedValue()
   vi.spyOn(store, 'loadScanners').mockResolvedValue()
