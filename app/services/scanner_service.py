@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import platform
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -73,6 +74,18 @@ class BaseScanner(ABC):
         self, source: str, config: ScanConfig,
     ) -> list[np.ndarray]:
         """Adquiere una o más páginas del escáner."""
+
+    def acquire_iter(
+        self, source: str, config: ScanConfig,
+    ) -> Iterator[np.ndarray]:
+        """Itera páginas a medida que se capturan (streaming).
+
+        Implementación por defecto: materializa ``acquire()`` y emite las
+        páginas una a una. Subclases con ADF nativo pueden sobreescribir
+        este método para emitir cada página en cuanto está disponible (caso
+        del agente local: hito 8 sprint cliente local web).
+        """
+        yield from self.acquire(source, config)
 
     @abstractmethod
     def close(self) -> None:
@@ -214,6 +227,17 @@ class SaneScanner(BaseScanner):
     ) -> list[np.ndarray]:
         """Adquiere páginas usando scanimage (subprocess).
 
+        Implementación simple sobre ``acquire_iter``: materializa todas
+        las páginas. El streaming página-a-página lo usa el agente local
+        para subir al SaaS sin esperar al final del ADF.
+        """
+        return list(self.acquire_iter(source, config))
+
+    def acquire_iter(
+        self, source: str, config: ScanConfig,
+    ) -> Iterator[np.ndarray]:
+        """Yield páginas a medida que ``scanimage`` las captura.
+
         SANE no es thread-safe, así que delegamos la captura al CLI
         ``scanimage`` que se ejecuta en su propio proceso.
         """
@@ -235,8 +259,7 @@ class SaneScanner(BaseScanner):
             source, resolution, mode, sane_source,
         )
 
-        images: list[np.ndarray] = []
-        page_index = 0
+        page_count = 0
 
         while True:
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
@@ -281,11 +304,11 @@ class SaneScanner(BaseScanner):
 
             if result.returncode != 0:
                 stderr = result.stderr.decode(errors="replace").strip()
-                if "out of documents" in stderr.lower() and images:
-                    log.info("ADF agotado tras %d páginas", len(images))
+                if "out of documents" in stderr.lower() and page_count > 0:
+                    log.info("ADF agotado tras %d páginas", page_count)
                     break
-                if images:
-                    log.info("ADF finalizado tras %d páginas: %s", len(images), stderr)
+                if page_count > 0:
+                    log.info("ADF finalizado tras %d páginas: %s", page_count, stderr)
                     break
                 raise RuntimeError(
                     f"Error de escaneo: {stderr or 'código ' + str(result.returncode)}"
@@ -296,14 +319,14 @@ class SaneScanner(BaseScanner):
             tmp_file = Path(tmp_path)
             if tmp_file.exists() and tmp_file.stat().st_size > 0:
                 image = cv2.imread(tmp_path, cv2.IMREAD_COLOR)
-                if image is not None:
-                    images.append(image)
-                    log.debug("Página %d capturada OK (%s)", page_index, image.shape)
-                    page_index += 1
                 tmp_file.unlink(missing_ok=True)
+                if image is not None:
+                    log.debug("Página %d capturada OK (%s)", page_count, image.shape)
+                    page_count += 1
+                    yield image
             else:
                 tmp_file.unlink(missing_ok=True)
-                if images:
+                if page_count > 0:
                     break
                 raise RuntimeError("scanimage no generó imagen de salida")
 
@@ -311,8 +334,7 @@ class SaneScanner(BaseScanner):
             if config.source_type != "adf" and "adf" not in sane_source.lower():
                 break
 
-        log.info("Captura completada: %d páginas", len(images))
-        return images
+        log.info("Captura completada: %d páginas", page_count)
 
     def close(self) -> None:
         if self._initialized:

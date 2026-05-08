@@ -87,3 +87,71 @@ class TestSaneScanner:
                 scanner.acquire("nonexistent_device", ScanConfig())
         finally:
             scanner.close()
+
+
+class _FakeScanner(BaseScanner):
+    """BaseScanner con ``acquire()`` simulado para validar el contrato
+    de ``acquire_iter`` sin requerir SANE/TWAIN/WIA reales."""
+
+    def __init__(self, pages: list[np.ndarray]) -> None:
+        self._pages = pages
+        self.acquire_calls = 0
+
+    @property
+    def backend_name(self) -> str:
+        return "fake"
+
+    def list_sources(self) -> list[str]:
+        return ["fake-source"]
+
+    def acquire(self, source, config):
+        self.acquire_calls += 1
+        return list(self._pages)
+
+    def close(self) -> None:
+        pass
+
+
+class TestAcquireIterContract:
+    """Hito 8 sprint local-agent: contrato de ``BaseScanner.acquire_iter``.
+
+    Las subclases que NO sobreescriban ``acquire_iter`` heredan la
+    implementación por defecto que materializa ``acquire()``. Así los
+    backends Twain/Wia siguen funcionando sin tocar nada.
+    """
+
+    def _pages(self, n: int) -> list[np.ndarray]:
+        return [np.zeros((10, 10, 3), dtype=np.uint8) for _ in range(n)]
+
+    def test_default_iter_yields_same_pages_as_acquire(self):
+        pages = self._pages(3)
+        scanner = _FakeScanner(pages)
+
+        emitted = list(scanner.acquire_iter("fake-source", ScanConfig()))
+
+        assert len(emitted) == 3
+        assert all(arr.shape == (10, 10, 3) for arr in emitted)
+
+    def test_default_iter_delegates_to_acquire(self):
+        scanner = _FakeScanner(self._pages(2))
+
+        list(scanner.acquire_iter("fake-source", ScanConfig()))
+
+        assert scanner.acquire_calls == 1
+
+    def test_default_iter_empty_list(self):
+        scanner = _FakeScanner([])
+
+        emitted = list(scanner.acquire_iter("fake-source", ScanConfig()))
+
+        assert emitted == []
+
+    def test_acquire_still_returns_list(self):
+        """Subclases existentes que usan ``acquire()`` reciben una lista,
+        no un iterador. El contrato externo no cambia con el refactor."""
+        scanner = _FakeScanner(self._pages(2))
+
+        result = scanner.acquire("fake-source", ScanConfig())
+
+        assert isinstance(result, list)
+        assert len(result) == 2
