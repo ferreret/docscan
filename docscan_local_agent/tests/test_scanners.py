@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from docscan_local_agent.credentials import AgentCredentials, save_credentials
@@ -18,7 +19,21 @@ from docscan_local_agent.deps import (
     get_settings,
 )
 from docscan_local_agent.main import create_app
+from docscan_local_agent.routers.scanners import _invalidate_cache
 from docscan_local_agent.settings import AgentSettings
+
+
+@pytest.fixture(autouse=True)
+def _reset_cache():
+    """Cada test arranca con cache limpio.
+
+    El endpoint cachea la lista entre llamadas (workaround del bug
+    FD_SETSIZE de libsane-pixma). Sin este reset, el primer test
+    poluciona los siguientes.
+    """
+    _invalidate_cache()
+    yield
+    _invalidate_cache()
 
 
 # ---------------------------------------------------------------------------
@@ -210,3 +225,61 @@ def test_scanners_close_failure_does_not_mask_response(tmp_path: Path) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert len(body["scanners"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# cache (workaround bug FD_SETSIZE de libsane-pixma)
+# ---------------------------------------------------------------------------
+
+
+def test_scanners_caches_between_calls(tmp_path: Path) -> None:
+    """Dos GET /scanners seguidos sólo invocan list_sources() una vez."""
+    calls: list[int] = []
+
+    class CountingScanner(FakeScanner):
+        def list_sources(self) -> list[str]:  # type: ignore[override]
+            calls.append(1)
+            return super().list_sources()
+
+    scanner = CountingScanner(sources=["s1", "s2"])
+    client = _client_with_scanner(tmp_path, scanner)
+
+    r1 = client.get("/scanners")
+    r2 = client.get("/scanners")
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert r1.json() == r2.json()
+    assert sum(calls) == 1
+
+
+def test_scanners_refresh_true_bypasses_cache(tmp_path: Path) -> None:
+    """?refresh=true fuerza re-enumeración aunque el cache esté caliente."""
+    calls: list[int] = []
+
+    class CountingScanner(FakeScanner):
+        def list_sources(self) -> list[str]:  # type: ignore[override]
+            calls.append(1)
+            return super().list_sources()
+
+    scanner = CountingScanner(sources=["s1"])
+    client = _client_with_scanner(tmp_path, scanner)
+
+    client.get("/scanners")  # 1ª llamada — popula cache
+    client.get("/scanners?refresh=true")  # fuerza re-enumeración
+    assert sum(calls) == 2
+
+
+def test_scanners_cache_not_populated_on_error(tmp_path: Path) -> None:
+    """Si list_sources lanza, no debemos cachear el error."""
+    failing = FakeScanner(sources=[], raise_on_list=RuntimeError("usb gone"))
+    client = _client_with_scanner(tmp_path, failing)
+
+    r1 = client.get("/scanners")
+    assert r1.status_code == 500
+
+    # El siguiente GET debe volver a invocar el factory (no servir error cacheado).
+    # Lo verificamos cambiando el override a un scanner sano y comprobando 200.
+    healthy = FakeScanner(sources=["s2"], backend="sane")
+    client.app.dependency_overrides[get_scanner_factory] = lambda: lambda: healthy
+    r2 = client.get("/scanners")
+    assert r2.status_code == 200
+    assert r2.json()["scanners"] == [{"name": "s2", "backend": "sane"}]

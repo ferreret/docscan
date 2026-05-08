@@ -7,11 +7,20 @@ del backend disponible (sane en Linux, twain/wia en Windows).
 Sólo accesible cuando el agente está emparejado. Razón: si no lo está,
 no hay user/tenant a quien atribuir las páginas escaneadas, así que
 ofrecer la lista de escáneres sería ruido.
+
+**Cache de la lista**: ``sane.get_devices()`` carga todos los backends
+activos en ``dll.conf`` y libsane-pixma (Canon BJNP de red) tiene un
+bug que acumula fds altos y termina en ``FD_SETSIZE on fd_set``
+(SIGABRT) tras 10-15 llamadas en una misma sesión. Cacheamos la lista
+durante ``_CACHE_TTL_SECONDS`` y permitimos forzar refresco con
+``?refresh=true`` (botón "Comprobar de nuevo" del frontend).
 """
 
 from __future__ import annotations
 
 import logging
+import threading
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -26,6 +35,8 @@ from docscan_local_agent.deps import (
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["scanners"])
+
+_CACHE_TTL_SECONDS = 60.0
 
 
 class ScannerInfo(BaseModel):
@@ -42,18 +53,19 @@ class ScannersResponse(BaseModel):
     scanners: list[ScannerInfo]
 
 
-@router.get("/scanners", response_model=ScannersResponse)
-def list_scanners(
-    _creds: AgentCredentials = Depends(require_paired),
-    factory: ScannerFactory = Depends(get_scanner_factory),
-) -> ScannersResponse:
-    """Lista los escáneres conectados al PC del agente.
+_cache_lock = threading.Lock()
+_cache: tuple[float, ScannersResponse] | None = None
 
-    Errores:
-      - 401 si el agente no está emparejado (vía require_paired).
-      - 503 si el sistema no tiene backends de escáner instalados.
-      - 500 si el backend está pero falla al enumerar dispositivos.
-    """
+
+def _invalidate_cache() -> None:
+    """Limpia el cache. Útil para tests."""
+    global _cache
+    with _cache_lock:
+        _cache = None
+
+
+def _enumerate(factory: ScannerFactory) -> ScannersResponse:
+    """Llama a list_sources() y construye la respuesta. Sin cache."""
     try:
         scanner = factory()
     except RuntimeError as exc:
@@ -85,3 +97,33 @@ def list_scanners(
         backend=backend_name,
         scanners=[ScannerInfo(name=src, backend=backend_name) for src in sources],
     )
+
+
+@router.get("/scanners", response_model=ScannersResponse)
+def list_scanners(
+    refresh: bool = False,
+    _creds: AgentCredentials = Depends(require_paired),
+    factory: ScannerFactory = Depends(get_scanner_factory),
+) -> ScannersResponse:
+    """Lista los escáneres conectados al PC del agente.
+
+    Args:
+        refresh: si True, ignora el cache y vuelve a enumerar.
+
+    Errores:
+      - 401 si el agente no está emparejado (vía require_paired).
+      - 503 si el sistema no tiene backends de escáner instalados.
+      - 500 si el backend está pero falla al enumerar dispositivos.
+    """
+    global _cache
+    now = time.monotonic()
+
+    if not refresh:
+        with _cache_lock:
+            if _cache is not None and now - _cache[0] < _CACHE_TTL_SECONDS:
+                return _cache[1]
+
+    response = _enumerate(factory)
+    with _cache_lock:
+        _cache = (now, response)
+    return response
