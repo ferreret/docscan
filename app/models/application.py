@@ -59,6 +59,13 @@ class Application(Base):
     # overrides en cada llamada a /scan-* desde el frontend.
     scan_defaults_json: Mapped[str] = mapped_column(Text, default="{}")
 
+    # Si True, al pulsar 🖨 se muestra el diálogo del escáner antes de
+    # capturar (TWAIN/WIA nativo en Windows, ScannerOptionsDialog en
+    # Linux/SANE). Si False, escanea directo sin overrides — el driver
+    # SANE/TWAIN usa su última configuración. Default True para que el
+    # operario novato vea siempre los parámetros antes de capturar.
+    scan_show_dialog: Mapped[bool] = mapped_column(Boolean, default=True)
+
     # IA / OCR
     ai_config_json: Mapped[str] = mapped_column(Text, default="{}")
 

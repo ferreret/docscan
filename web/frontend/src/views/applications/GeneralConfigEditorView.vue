@@ -19,6 +19,7 @@ interface GeneralConfig {
   auto_transfer: boolean
   close_after_transfer: boolean
   background_color: string
+  scan_show_dialog: boolean
 }
 
 const route = useRoute()
@@ -34,6 +35,7 @@ const original = ref<GeneralConfig>({
   auto_transfer: false,
   close_after_transfer: false,
   background_color: '',
+  scan_show_dialog: true,
 })
 
 const current = ref<GeneralConfig>({
@@ -44,6 +46,7 @@ const current = ref<GeneralConfig>({
   auto_transfer: false,
   close_after_transfer: false,
   background_color: '',
+  scan_show_dialog: true,
 })
 
 const saving = ref(false)
@@ -68,6 +71,7 @@ function configFromApp(): GeneralConfig {
     auto_transfer: app.auto_transfer ?? false,
     close_after_transfer: app.close_after_transfer ?? false,
     background_color: app.background_color ?? '',
+    scan_show_dialog: app.scan_show_dialog ?? true,
   }
 }
 
@@ -263,6 +267,32 @@ onBeforeRouteLeave((_to, _from, next) => {
         <label for="field-close-after-transfer" class="text-sm font-medium text-text cursor-pointer">
           Cerrar tras transferir
         </label>
+      </div>
+
+      <!-- Mostrar diálogo del escáner -->
+      <div>
+        <div class="flex items-center gap-3">
+          <input
+            id="field-scan-show-dialog"
+            v-model="current.scan_show_dialog"
+            type="checkbox"
+            data-test="field-scan-show-dialog"
+            class="h-4 w-4 rounded border-surface-0 text-primary focus:ring-primary"
+            aria-label="Mostrar diálogo del escáner"
+          />
+          <label
+            for="field-scan-show-dialog"
+            class="text-sm font-medium text-text cursor-pointer"
+          >
+            Mostrar diálogo del escáner antes de capturar
+          </label>
+        </div>
+        <p class="mt-1.5 ml-7 text-xs text-subtext">
+          Marcado: en Windows aparece el diálogo nativo del driver TWAIN/WIA;
+          en Linux se muestra un diálogo construido con las opciones del
+          dispositivo SANE. Sin marcar, el escáner usa su última
+          configuración y captura directo al pulsar 🖨.
+        </p>
       </div>
 
       <!-- Color de fondo -->

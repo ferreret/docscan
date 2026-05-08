@@ -484,6 +484,32 @@ class TestApplicationsCRUD:
         got = client.get(f"/api/applications/{created['id']}", headers=h).json()
         assert got["scan_defaults_json"] == payload
 
+    def test_scan_show_dialog_default_true(self, client):
+        """Aplicación nueva → scan_show_dialog=True (sprint D hito 13)."""
+        h = _auth_header(client)
+        created = client.post(
+            "/api/applications", headers=h, json={"name": "AppDialog"}
+        ).json()
+        assert created["scan_show_dialog"] is True
+        got = client.get(f"/api/applications/{created['id']}", headers=h).json()
+        assert got["scan_show_dialog"] is True
+
+    def test_scan_show_dialog_persistido_via_patch(self, client):
+        """PATCH a False persiste."""
+        h = _auth_header(client)
+        created = client.post(
+            "/api/applications", headers=h, json={"name": "AppDialog2"}
+        ).json()
+        resp = client.patch(
+            f"/api/applications/{created['id']}",
+            headers=h,
+            json={"scan_show_dialog": False},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["scan_show_dialog"] is False
+        got = client.get(f"/api/applications/{created['id']}", headers=h).json()
+        assert got["scan_show_dialog"] is False
+
     def test_eliminar(self, client):
         h = _auth_header(client)
         created = client.post(

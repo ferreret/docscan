@@ -43,6 +43,8 @@ function makeApp(overrides: Record<string, unknown> = {}) {
     default_tab: 'lote',
     image_config_json: '{}',
     ai_config_json: '{}',
+    scan_defaults_json: '{}',
+    scan_show_dialog: true,
     tenant_id: 1,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -131,6 +133,28 @@ describe('GeneralConfigEditorView', () => {
     const note = wrapper.find('[data-test="scanner-backend-note"]')
     expect(note.exists()).toBe(true)
     expect(note.text()).toContain('agente local')
+  })
+
+  it('5b. checkbox scan_show_dialog precarga del store y persiste el toggle', async () => {
+    const { wrapper, store } = await mountView({ scan_show_dialog: true })
+    await flushPromises()
+
+    const cb = wrapper.find<HTMLInputElement>('[data-test="field-scan-show-dialog"]')
+    expect(cb.exists()).toBe(true)
+    expect(cb.element.checked).toBe(true)
+
+    // Cambiamos a false y guardamos.
+    await cb.setValue(false)
+    await wrapper.vm.$nextTick()
+
+    ;(store.update as unknown as { mockResolvedValue: (v: unknown) => void }).mockResolvedValue(undefined)
+    await wrapper.find('[data-test="save-general"]').trigger('click')
+    await flushPromises()
+
+    expect(store.update).toHaveBeenCalledWith(
+      5,
+      expect.objectContaining({ scan_show_dialog: false }),
+    )
   })
 
   it('5. cambiar background_color activa hasChanges', async () => {

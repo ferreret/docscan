@@ -51,6 +51,8 @@ export interface ApplicationResponse extends ApplicationListItem {
   scanner_backend: string;
   image_config_json: string;
   ai_config_json: string;
+  scan_defaults_json: string;
+  scan_show_dialog: boolean;
   updated_at: string;
 }
 
@@ -83,6 +85,8 @@ export interface ApplicationUpdate {
   output_format?: string;
   image_config_json?: string;
   ai_config_json?: string;
+  scan_defaults_json?: string;
+  scan_show_dialog?: boolean;
 }
 
 // --- Batches ---
