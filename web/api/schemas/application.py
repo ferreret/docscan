@@ -26,6 +26,7 @@ class _ApplicationBase(BaseModel):
     scanner_backend: str = ""
     image_config_json: str = "{}"
     ai_config_json: str = "{}"
+    scan_defaults_json: str = "{}"
 
 
 class ApplicationCreate(_ApplicationBase):
@@ -53,6 +54,7 @@ class ApplicationUpdate(BaseModel):
     scanner_backend: str | None = None
     image_config_json: str | None = None
     ai_config_json: str | None = None
+    scan_defaults_json: str | None = None
 
 
 class ApplicationResponse(_ApplicationBase):

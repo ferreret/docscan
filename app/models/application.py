@@ -52,6 +52,13 @@ class Application(Base):
     # Configuración de imagen (formato, DPI, compresión)
     image_config_json: Mapped[str] = mapped_column(Text, default="{}")
 
+    # Defaults del diálogo de opciones de escaneo (sprint D — hito 13).
+    # Dict con overrides recordados por el operario (resolution, mode,
+    # source, brightness, ...). El frontend los precarga al abrir el
+    # ScannerOptionsDialog. El agente NO lee este campo — recibe los
+    # overrides en cada llamada a /scan-* desde el frontend.
+    scan_defaults_json: Mapped[str] = mapped_column(Text, default="{}")
+
     # IA / OCR
     ai_config_json: Mapped[str] = mapped_column(Text, default="{}")
 

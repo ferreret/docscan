@@ -241,9 +241,7 @@ class TestTenantSuspended:
             display_name="U",
             tenant_name="SuspendedCo",
         )
-        _set_tenant_active(
-            client.app.state.test_db_factory, info["tenant_id"], False
-        )
+        _set_tenant_active(client.app.state.test_db_factory, info["tenant_id"], False)
         resp = client.post(
             "/api/auth/login",
             json={"email": "user@suspended.com", "password": "password123"},
@@ -265,7 +263,9 @@ class TestTenantSuspended:
 
         factory = client.app.state.test_db_factory
         with factory() as db:
-            t = db.execute(select(Tenant).where(Tenant.slug == "activecorp")).scalar_one()
+            t = db.execute(
+                select(Tenant).where(Tenant.slug == "activecorp")
+            ).scalar_one()
             t.active = False
             db.commit()
 
@@ -281,9 +281,7 @@ class TestTenantSuspended:
             display_name="F",
             tenant_name="FormSuspended",
         )
-        _set_tenant_active(
-            client.app.state.test_db_factory, info["tenant_id"], False
-        )
+        _set_tenant_active(client.app.state.test_db_factory, info["tenant_id"], False)
         resp = client.post(
             "/api/auth/token",
             data={"username": "form@suspended.com", "password": "password123"},
@@ -456,6 +454,35 @@ class TestApplicationsCRUD:
         assert resp.status_code == 200
         assert resp.json()["name"] == "Renombrada"
         assert resp.json()["description"] == "Nueva desc"
+
+    def test_scan_defaults_default_empty_json(self, client):
+        """Aplicación recién creada → scan_defaults_json='{}' (sprint D hito 13)."""
+        h = _auth_header(client)
+        created = client.post(
+            "/api/applications", headers=h, json={"name": "AppScan"}
+        ).json()
+        assert created["scan_defaults_json"] == "{}"
+        # Y al pedirla por GET también.
+        got = client.get(f"/api/applications/{created['id']}", headers=h).json()
+        assert got["scan_defaults_json"] == "{}"
+
+    def test_scan_defaults_persistido_via_patch(self, client):
+        """PATCH guarda scan_defaults_json y se devuelve en siguiente GET."""
+        h = _auth_header(client)
+        created = client.post(
+            "/api/applications", headers=h, json={"name": "AppScan2"}
+        ).json()
+        payload = '{"resolution": 200, "mode": "Gray", "source": "ADF Duplex"}'
+        resp = client.patch(
+            f"/api/applications/{created['id']}",
+            headers=h,
+            json={"scan_defaults_json": payload},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["scan_defaults_json"] == payload
+
+        got = client.get(f"/api/applications/{created['id']}", headers=h).json()
+        assert got["scan_defaults_json"] == payload
 
     def test_eliminar(self, client):
         h = _auth_header(client)
