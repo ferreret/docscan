@@ -59,6 +59,10 @@ class UploadError(_SaasHttpError):
     """El SaaS rechazó la subida (404 lote ajeno, 401 token revocado, ...)."""
 
 
+class ExportError(_SaasHttpError):
+    """El SaaS rechazó la descarga del ZIP del lote (hito 11)."""
+
+
 def _extract_detail(resp: httpx.Response) -> str:
     """Saca ``detail`` del body JSON; si no es JSON, devuelve el reason phrase."""
     try:
@@ -186,3 +190,39 @@ class SaasClient:
             raise UploadError(resp.status_code, _extract_detail(resp))
 
         return resp.json()
+
+    # ------------------------------------------------------------------
+    # download_batch_export (Bearer agent_token, devuelve ZIP)
+    # ------------------------------------------------------------------
+
+    def download_batch_export(self, batch_id: int, agent_token: str) -> bytes:
+        """Descarga el ZIP del lote para escribirlo en disco local.
+
+        Hito 11 sprint cliente local web. Reusa el endpoint
+        ``GET /api/batches/{id}/export`` del SaaS, que el hito 11
+        amplió para aceptar ``agent_token`` además de JWT user. El
+        aislamiento multi-tenant lo aplica el SaaS
+        (``get_batch_for_tenant``).
+
+        Returns:
+            Bytes del ZIP (páginas + manifest.json).
+
+        Raises:
+            ExportError: Si el SaaS responde 4xx/5xx.
+            SaasUnavailable: Si la red al SaaS falla.
+        """
+        url = f"{self._base_url}/api/batches/{batch_id}/export"
+        headers = {"Authorization": f"Bearer {agent_token}"}
+
+        try:
+            resp = self._http.get(url, headers=headers)
+        except httpx.HTTPError as exc:
+            log.warning(
+                "download_batch_export: SaaS inalcanzable (%s): %s", url, exc
+            )
+            raise SaasUnavailable(str(exc)) from exc
+
+        if resp.status_code != 200:
+            raise ExportError(resp.status_code, _extract_detail(resp))
+
+        return resp.content

@@ -33,6 +33,7 @@ import { useWorkbenchEvents } from "@/composables/useWorkbenchEvents";
 import { useWorkbenchShortcuts } from "@/composables/useWorkbenchShortcuts";
 import { useWorkbenchWebSocket } from "@/composables/useWorkbenchWebSocket";
 import ShortcutsHelpDialog from "@/components/workbench/ShortcutsHelpDialog.vue";
+import LocalTransferDialog from "@/components/workbench/LocalTransferDialog.vue";
 import type { PageListItem, PageResponse } from "@/api/types";
 
 const route = useRoute();
@@ -93,6 +94,8 @@ const imageCacheTick = ref(0);
 
 // Modal de ayuda de shortcuts
 const helpDialogOpen = ref(false);
+// Modal de transferencia local (hito 11)
+const localTransferDialogOpen = ref(false);
 
 // Context menu state
 const contextMenuVisible = ref(false);
@@ -321,6 +324,24 @@ function onScanAdfFinished(): void {
 }
 
 function onScanError(message: string): void {
+  error.value = message;
+  toast.error(message);
+}
+
+// --- Transferencia local (sprint cliente local web, hito 11). El
+// dialog hace la llamada al agente; aquí sólo respondemos al
+// resultado.
+function onDownloadLocal(): void {
+  localTransferDialogOpen.value = true;
+}
+
+function onLocalTransferSuccess(payload: { path: string; files_count: number }): void {
+  toast.success(
+    `Lote descargado a ${payload.path} (${payload.files_count} fichero${payload.files_count === 1 ? '' : 's'})`,
+  );
+}
+
+function onLocalTransferError(message: string): void {
   error.value = message;
   toast.error(message);
 }
@@ -793,6 +814,7 @@ useWorkbenchShortcuts({
       @scan-adf-progress="onScanAdfProgress"
       @scan-adf-finished="onScanAdfFinished"
       @scan-error="onScanError"
+      @download-local="onDownloadLocal"
     />
     <div v-if="error" class="bg-danger-soft text-danger text-xs px-4 py-1">
       {{ error }}
@@ -941,6 +963,14 @@ useWorkbenchShortcuts({
     />
 
     <!-- Modal de ayuda de atajos de teclado -->
+    <LocalTransferDialog
+      v-if="store.current"
+      :visible="localTransferDialogOpen"
+      :batch-id="batchId"
+      @close="localTransferDialogOpen = false"
+      @success="onLocalTransferSuccess"
+      @error="onLocalTransferError"
+    />
     <ShortcutsHelpDialog
       :is-open="helpDialogOpen"
       @close="helpDialogOpen = false"

@@ -43,6 +43,22 @@ export type AdfStreamEvent =
 
 export interface ScanAdfRequest extends ScanFlatbedRequest {}
 
+export type TransferLocalMode = 'extracted' | 'zip'
+
+export interface TransferLocalRequest {
+  batch_id: number
+  destination: string
+  mode?: TransferLocalMode
+}
+
+export interface TransferLocalResponse {
+  batch_id: number
+  mode: TransferLocalMode
+  path: string
+  files_count: number
+  bytes: number
+}
+
 async function extractDetail(res: Response): Promise<string> {
   try {
     const body = await res.json()
@@ -123,4 +139,22 @@ export async function* scanAdf(
   } finally {
     reader.releaseLock()
   }
+}
+
+export async function transferBatchToLocal(
+  req: TransferLocalRequest,
+): Promise<TransferLocalResponse> {
+  const res = await fetch(`${AGENT_BASE_URL}/transfer-batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      batch_id: req.batch_id,
+      destination: req.destination,
+      mode: req.mode ?? 'extracted',
+    }),
+  })
+  if (!res.ok) {
+    throw new Error(await extractDetail(res))
+  }
+  return (await res.json()) as TransferLocalResponse
 }

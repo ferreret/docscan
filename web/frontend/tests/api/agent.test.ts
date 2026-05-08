@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   scanFlatbed,
   scanAdf,
+  transferBatchToLocal,
   type AdfStreamEvent,
 } from '@/api/agent'
 
@@ -235,5 +236,80 @@ describe('scanAdf', () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
     expect(body.resolution).toBe(600)
     expect(body.mode).toBe('Gray')
+  })
+})
+
+// ----------------------------------------------------------------------
+// transferBatchToLocal
+// ----------------------------------------------------------------------
+
+describe('transferBatchToLocal', () => {
+  it('POST /transfer-batch con default mode=extracted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        batch_id: 42,
+        mode: 'extracted',
+        path: '/home/ana/out/batch_42',
+        files_count: 3,
+        bytes: 1234,
+      }),
+    })
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch
+
+    const result = await transferBatchToLocal({
+      batch_id: 42,
+      destination: '/home/ana/out',
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toMatch(/127\.0\.0\.1:47816\/transfer-batch$/)
+    expect(init.method).toBe('POST')
+    const body = JSON.parse(init.body as string)
+    expect(body.batch_id).toBe(42)
+    expect(body.destination).toBe('/home/ana/out')
+    expect(body.mode).toBe('extracted')
+    expect(result.path).toBe('/home/ana/out/batch_42')
+    expect(result.files_count).toBe(3)
+  })
+
+  it('respeta mode=zip si se pasa', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        batch_id: 42,
+        mode: 'zip',
+        path: '/tmp/batch_42.zip',
+        files_count: 1,
+        bytes: 4096,
+      }),
+    })
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch
+
+    await transferBatchToLocal({
+      batch_id: 42,
+      destination: '/tmp',
+      mode: 'zip',
+    })
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string)
+    expect(body.mode).toBe('zip')
+  })
+
+  it('lanza error con detail si el agente devuelve 4xx', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        detail: 'La ruta destino apunta a un fichero existente: /tmp/x.txt',
+      }),
+    })
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch
+
+    await expect(
+      transferBatchToLocal({ batch_id: 42, destination: '/tmp/x.txt' }),
+    ).rejects.toThrow(/fichero existente/i)
   })
 })

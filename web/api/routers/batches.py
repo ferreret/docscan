@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 from app.models.application import Application
 from app.models.batch import Batch
 from app.models.page import Page
-from web.api.auth.dependencies import CurrentUser
+from web.api.auth.dependencies import CurrentUser, CurrentUserOrAgent
 from web.api.database import SessionDep
 from web.api.routers._helpers import ensure_batch_mutable, get_batch_for_tenant
 from web.api.routers.ws import broadcast_page_updated
@@ -313,11 +313,17 @@ def _safe_filename(name: str, fallback: str) -> str:
 @router.get("/{batch_id}/export")
 def export_batch(
     batch_id: int,
-    user: CurrentUser,
+    principal: CurrentUserOrAgent,
     db: SessionDep,
     storage: StorageDep,
 ):
-    """Descarga el lote como ZIP con páginas + manifest.json."""
+    """Descarga el lote como ZIP con páginas + manifest.json.
+
+    Acepta JWT de usuario o ``agent_token`` (sprint cliente local web,
+    hito 11). El aislamiento multi-tenant se mantiene vía
+    ``get_batch_for_tenant`` con ``principal.tenant_id``: un agente
+    sólo puede descargar lotes del tenant de su dueño.
+    """
     import io
     import json
     import zipfile
@@ -325,7 +331,7 @@ def export_batch(
 
     from fastapi.responses import StreamingResponse
 
-    batch = get_batch_for_tenant(batch_id, user.tenant_id, db)
+    batch = get_batch_for_tenant(batch_id, principal.tenant_id, db)
 
     pages = sorted(batch.pages, key=lambda p: p.page_index)
 

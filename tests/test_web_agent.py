@@ -672,3 +672,107 @@ class TestUploadPagesAgent:
             files=files,
         )
         assert resp.status_code == 401
+
+
+# --------------------------------------------------------------------
+# GET /api/batches/:id/export
+# --------------------------------------------------------------------
+
+
+class TestExportBatchAgent:
+    """Tests del endpoint GET /api/batches/:id/export aceptando agent_token.
+
+    Hito 11 sprint cliente local web: el agente local descarga el ZIP
+    del lote y lo escribe en una ruta del PC del operario para el caso
+    "servidor remoto sin acceso a la red del cliente".
+    """
+
+    @staticmethod
+    def _png_bytes() -> bytes:
+        import io
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (1, 1), (0, 0, 0)).save(buf, format="PNG")
+        return buf.getvalue()
+
+    def _create_batch_with_page(self, client, jwt_token: str) -> int:
+        h = _user_header(jwt_token)
+        app_id = client.post(
+            "/api/applications",
+            headers=h,
+            json={"name": "App", "description": ""},
+        ).json()["id"]
+        batch_id = client.post(
+            "/api/batches",
+            headers=h,
+            json={"name": "Lote", "application_id": app_id},
+        ).json()["id"]
+        files = [("files", ("a.png", self._png_bytes(), "image/png"))]
+        client.post(f"/api/batches/{batch_id}/pages", headers=h, files=files)
+        return batch_id
+
+    def test_jwt_user_can_still_export(self, client):
+        """Regresión: el flujo histórico con JWT user sigue funcionando."""
+        _, jwt_token = _create_user_and_login(client)
+        batch_id = self._create_batch_with_page(client, jwt_token)
+
+        resp = client.get(
+            f"/api/batches/{batch_id}/export", headers=_user_header(jwt_token)
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/zip"
+
+    def test_agent_token_can_export_own_tenant_batch(self, client):
+        """Un agent_token del tenant T descarga el ZIP de un lote de T."""
+        _, jwt_token = _create_user_and_login(client)
+        batch_id = self._create_batch_with_page(client, jwt_token)
+
+        # Pair: el agente queda asociado al mismo user/tenant.
+        r = client.post(
+            "/api/agent/pair-init",
+            json={"name": "Portátil"},
+            headers=_user_header(jwt_token),
+        )
+        code = r.json()["code"]
+        agent_token = client.post(
+            "/api/agent/pair-claim", json={"code": code}
+        ).json()["agent_token"]
+
+        resp = client.get(
+            f"/api/batches/{batch_id}/export",
+            headers=_agent_header(agent_token),
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/zip"
+        # El ZIP no llega vacío y contiene manifest.
+        import io
+        import zipfile
+
+        zf = zipfile.ZipFile(io.BytesIO(resp.content))
+        assert "manifest.json" in zf.namelist()
+
+    def test_agent_token_cannot_export_other_tenant_batch(self, client):
+        """Aislamiento multi-tenant: agent de TenantA contra lote de TenantB → 404."""
+        # TenantA con su agent_token.
+        _, jwt_a = _create_user_and_login(client, email="a@a.com", tenant_name="Acme")
+        r = client.post(
+            "/api/agent/pair-init",
+            json={"name": "Portátil"},
+            headers=_user_header(jwt_a),
+        )
+        agent_token_a = client.post(
+            "/api/agent/pair-claim", json={"code": r.json()["code"]}
+        ).json()["agent_token"]
+
+        # TenantB con su batch.
+        _, jwt_b = _create_user_and_login(
+            client, email="b@b.com", tenant_name="OtraOrg"
+        )
+        batch_b = self._create_batch_with_page(client, jwt_b)
+
+        resp = client.get(
+            f"/api/batches/{batch_b}/export",
+            headers=_agent_header(agent_token_a),
+        )
+        assert resp.status_code == 404

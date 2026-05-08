@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import type { BatchResponse } from "@/api/types";
 import ScanFromAgentMenu from "@/components/workbench/ScanFromAgentMenu.vue";
+import { useAgentStore } from "@/stores/agent";
 
 const props = withDefaults(
   defineProps<{
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   (e: "run-pipeline"): void;
   (e: "transfer"): void;
   (e: "download-zip"): void;
+  (e: "download-local"): void;
   (e: "delete-batch"): void;
   (e: "help"): void;
   (e: "scan-uploaded"): void;
@@ -45,6 +47,14 @@ const busy = computed(
     props.uploading ||
     props.exporting ||
     props.scanning,
+);
+
+const agent = useAgentStore();
+// Botón "↓ Local" sólo si el agente está detectado y vinculado.
+// El operario sin agente sigue teniendo "↓ ZIP" para descargar al
+// navegador en su lugar.
+const canDownloadLocal = computed(
+  () => agent.available && agent.paired && props.batch.page_count > 0,
 );
 
 function onUpload(event: Event): void {
@@ -121,6 +131,17 @@ function onUpload(event: Event): void {
           class="inline-block w-3 h-3 border-2 border-text border-t-transparent rounded-full animate-spin"
         ></span>
         <span>{{ exporting ? "Generando…" : "↓ ZIP" }}</span>
+      </button>
+      <button
+        v-if="canDownloadLocal"
+        type="button"
+        data-testid="btn-download-local"
+        class="bg-base text-text text-xs px-3 py-1.5 rounded border border-surface-1 hover:bg-crust disabled:opacity-50"
+        :disabled="busy"
+        title="Descarga el lote al PC del operario vía el agente local"
+        @click="emit('download-local')"
+      >
+        ↓ Local
       </button>
       <button
         type="button"
