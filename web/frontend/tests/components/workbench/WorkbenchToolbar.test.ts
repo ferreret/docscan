@@ -1,8 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import WorkbenchToolbar from '@/components/workbench/WorkbenchToolbar.vue'
 import type { BatchResponse } from '@/api/types'
+
+// Hito 10: WorkbenchToolbar incluye ScanFromAgentMenu, que usa el
+// agent store. Sin Pinia, el mount lanza "no active Pinia".
+beforeEach(() => {
+  setActivePinia(createPinia())
+})
 
 function makeBatch(overrides: Partial<BatchResponse> = {}): BatchResponse {
   return {

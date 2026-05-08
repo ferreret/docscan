@@ -80,6 +80,11 @@ const transferProgress = ref<{ page_index: number; total: number } | null>(
   null,
 );
 const progress = ref<{ processed: number; total: number } | null>(null);
+// Hito 10: progreso del ADF cuando el agente local está capturando.
+// El stream NDJSON no conoce el total real (depende del operario
+// alimentando papel), así que mostramos sólo el contador.
+const scanning = ref(false);
+const scanAdfProgress = ref<{ current: number } | null>(null);
 const error = ref<string | null>(null);
 const savingMetadata = ref(false);
 
@@ -288,6 +293,38 @@ async function onUpload(files: File[]): Promise<void> {
   }
 }
 
+// --- Captura desde el agente local (sprint cliente local web, hito 10).
+// El componente ScanFromAgentMenu sube cada página al SaaS antes de
+// emitir 'scan-uploaded'; aquí sólo refrescamos el lote para que la
+// nueva página aparezca en el thumbnail panel.
+
+async function onScanUploaded(): Promise<void> {
+  try {
+    await store.fetchOne(batchId.value);
+  } catch (e) {
+    error.value =
+      e instanceof ApiError ? e.detail : "Error refrescando el lote";
+  }
+}
+
+function onScanAdfProgress(p: { current: number; total: number | null }): void {
+  scanning.value = true;
+  scanAdfProgress.value = { current: p.current };
+  // Refrescamos el lote en cada página nueva para que aparezca en
+  // tiempo real en el ThumbnailPanel mientras el ADF sigue rodando.
+  void store.fetchOne(batchId.value);
+}
+
+function onScanAdfFinished(): void {
+  scanning.value = false;
+  scanAdfProgress.value = null;
+}
+
+function onScanError(message: string): void {
+  error.value = message;
+  toast.error(message);
+}
+
 // Drag & drop de ficheros desde el explorador. Replica la condición de
 // disabled del botón "↑ Subir" del WorkbenchToolbar para que al arrastrar
 // durante run/transfer/upload no aparezca el overlay (sería engañoso).
@@ -301,6 +338,7 @@ const canUpload = computed(
     !running.value &&
     !transferring.value &&
     !exporting.value &&
+    !scanning.value &&
     !isReadOnly.value,
 );
 
@@ -744,12 +782,17 @@ useWorkbenchShortcuts({
       :transferring="transferring"
       :uploading="uploading"
       :exporting="exporting"
+      :scanning="scanning"
       @upload="onUpload"
       @run-pipeline="onRunPipeline"
       @transfer="onTransfer"
       @download-zip="onDownloadZip"
       @delete-batch="onDeleteBatch"
       @help="helpDialogOpen = true"
+      @scan-uploaded="onScanUploaded"
+      @scan-adf-progress="onScanAdfProgress"
+      @scan-adf-finished="onScanAdfFinished"
+      @scan-error="onScanError"
     />
     <div v-if="error" class="bg-danger-soft text-danger text-xs px-4 py-1">
       {{ error }}
@@ -759,6 +802,19 @@ useWorkbenchShortcuts({
       <div class="flex flex-col">
         <span class="font-semibold text-sm">Subiendo ficheros…</span>
         <span class="text-xs opacity-80">PDF y TIFF multi-página se convierten en el servidor — puede tardar varios segundos</span>
+      </div>
+    </div>
+    <div
+      v-if="scanning"
+      class="bg-primary-soft text-primary px-4 py-3 flex items-center gap-3 border-b-2 border-primary"
+      data-testid="scan-progress-banner"
+    >
+      <span class="inline-block w-6 h-6 border-[3px] border-primary border-t-transparent rounded-full animate-spin shrink-0"></span>
+      <div class="flex flex-col">
+        <span class="font-semibold text-sm">
+          Escaneando ADF…{{ scanAdfProgress ? ` ${scanAdfProgress.current} página${scanAdfProgress.current === 1 ? '' : 's'}` : '' }}
+        </span>
+        <span class="text-xs opacity-80">Las páginas aparecen en el panel a medida que se capturan.</span>
       </div>
     </div>
     <div v-if="progress" class="bg-primary-soft text-primary text-xs px-4 py-1">

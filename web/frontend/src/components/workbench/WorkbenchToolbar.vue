@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import type { BatchResponse } from "@/api/types";
+import ScanFromAgentMenu from "@/components/workbench/ScanFromAgentMenu.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -10,8 +11,9 @@ const props = withDefaults(
     transferring: boolean;
     uploading: boolean;
     exporting?: boolean;
+    scanning?: boolean;
   }>(),
-  { exporting: false },
+  { exporting: false, scanning: false },
 );
 
 const emit = defineEmits<{
@@ -21,6 +23,10 @@ const emit = defineEmits<{
   (e: "download-zip"): void;
   (e: "delete-batch"): void;
   (e: "help"): void;
+  (e: "scan-uploaded"): void;
+  (e: "scan-adf-progress", payload: { current: number; total: number | null }): void;
+  (e: "scan-adf-finished"): void;
+  (e: "scan-error", message: string): void;
 }>();
 
 const router = useRouter();
@@ -34,7 +40,11 @@ const canTransfer = computed(
 );
 const busy = computed(
   () =>
-    props.running || props.transferring || props.uploading || props.exporting,
+    props.running ||
+    props.transferring ||
+    props.uploading ||
+    props.exporting ||
+    props.scanning,
 );
 
 function onUpload(event: Event): void {
@@ -75,6 +85,14 @@ function onUpload(event: Event): void {
           @change="onUpload"
         />
       </label>
+      <ScanFromAgentMenu
+        :batchId="batch.id"
+        :disabled="busy"
+        @uploaded="emit('scan-uploaded')"
+        @adf-progress="(p) => emit('scan-adf-progress', p)"
+        @adf-finished="emit('scan-adf-finished')"
+        @error="(m) => emit('scan-error', m)"
+      />
       <button
         type="button"
         class="bg-primary text-base text-xs px-3 py-1.5 rounded font-semibold hover:bg-primary-hover disabled:opacity-50"
