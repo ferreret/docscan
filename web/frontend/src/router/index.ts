@@ -93,6 +93,11 @@ const router = createRouter({
           props: true,
         },
         {
+          path: 'mi-estacion',
+          name: 'mi-estacion',
+          component: () => import('@/views/MiEstacionView.vue'),
+        },
+        {
           path: 'team',
           name: 'team',
           component: () => import('@/views/team/TeamView.vue'),

@@ -93,6 +93,20 @@ const isSuperadmin = computed(() => auth.user?.role === 'superadmin')
           </router-link>
 
           <router-link
+            to="/mi-estacion"
+            class="flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors"
+            :class="$route.path.startsWith('/mi-estacion')
+              ? 'bg-primary-soft text-primary border border-primary/30'
+              : 'text-text hover:bg-crust'"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Mi estación
+          </router-link>
+
+          <router-link
             v-if="auth.user?.role === 'company_admin'"
             to="/team"
             class="flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors"

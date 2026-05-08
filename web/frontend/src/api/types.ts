@@ -266,3 +266,33 @@ export interface EventResult {
   logs: { level: string; message: string }[];
   error: string | null;
 }
+
+// --- Agente local (sprint cliente local web, hito 9) ---
+
+// Estado público devuelto por GET http://127.0.0.1:47816/status.
+export interface AgentStatus {
+  name: string;
+  version: string;
+  paired: boolean;
+  device_name: string | null;
+  user_email: string | null;
+  tenant_name: string | null;
+}
+
+// Respuesta de POST /api/agent/pair-init (Bearer JWT user).
+export interface PairInitResponse {
+  device_id: number;
+  code: string;
+  expires_at: string;
+}
+
+// Respuesta de POST http://127.0.0.1:47816/pair (después del canje).
+export interface AgentPairResponse {
+  paired: boolean;
+  device_id: number;
+  device_name: string;
+  user_email: string;
+  tenant_name: string;
+  paired_at: string;
+}
+
