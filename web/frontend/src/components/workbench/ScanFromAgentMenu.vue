@@ -6,20 +6,28 @@
 // todo). El operario tiene la entrada "Mi estación" en el sidebar para
 // arreglarlo, no contaminamos el toolbar con un botón "vincular".
 //
-// Cuando hay agente y al menos un escáner:
-// - Si solo hay 1 escáner, los botones lo escogen automáticamente.
-// - Si hay >1, un selector compacto permite elegir.
-// - Botón "🖨 Flatbed" → POST /scan-and-upload (hito 7), una página.
-// - Botón "🖨 ADF" → stream NDJSON de /scan-adf-and-upload (hito 8),
-//   emite progreso por página al padre.
+// Sprint D, hito 13. Estrategia de UX según el escáner y la app:
+// - Si scanner.supports_native_ui (TWAIN/WIA en Windows) → manda
+//   show_ui=true y el driver pinta su propio diálogo. Sin dialog dinámico.
+// - Si !native_ui y app.scan_show_dialog → abre ScannerOptionsDialog
+//   construido desde GET /scanners/{name}/options. Al submit, dispara el
+//   /scan-* con `options` como overrides.
+// - Si !native_ui y !app.scan_show_dialog → escanea directo (sin dialog,
+//   sin overrides; el driver SANE/TWAIN usa su última configuración).
+// - Sin app prop (back-compat): comportamiento previo sin dialog.
 
 import { onMounted, ref, computed, watch } from 'vue'
 import { useAgentStore } from '@/stores/agent'
+import { useApplicationsStore } from '@/stores/applications'
+import { useToast } from '@/composables/useToast'
 import { scanFlatbed, scanAdf } from '@/api/agent'
+import ScannerOptionsDialog from '@/components/workbench/ScannerOptionsDialog.vue'
+import type { ApplicationResponse } from '@/api/types'
 
 const props = defineProps<{
   batchId: number
   disabled?: boolean
+  application?: ApplicationResponse | null
 }>()
 
 const emit = defineEmits<{
@@ -30,16 +38,37 @@ const emit = defineEmits<{
 }>()
 
 const agent = useAgentStore()
+const apps = useApplicationsStore()
+const toast = useToast()
 
 const selectedScanner = ref<string>('')
 const scanning = ref(false)
 const adfActive = ref(false)
+
+// Estado del dialog dinámico (hito 13).
+const dialogOpen = ref(false)
+const pendingMode = ref<'flatbed' | 'adf' | null>(null)
 
 const ready = computed(
   () => agent.available && agent.paired && agent.scanners.length > 0,
 )
 
 const busy = computed(() => scanning.value || adfActive.value)
+
+// Defaults parseados de la app — null si no hay app, {} si JSON inválido.
+const parsedDefaults = computed<Record<string, unknown>>(() => {
+  if (!props.application?.scan_defaults_json) return {}
+  try {
+    const parsed = JSON.parse(props.application.scan_defaults_json)
+    return typeof parsed === 'object' && parsed !== null ? parsed : {}
+  } catch {
+    return {}
+  }
+})
+
+const selectedScannerInfo = computed(() =>
+  agent.findScanner(selectedScanner.value),
+)
 
 onMounted(async () => {
   if (!agent.available) {
@@ -48,7 +77,6 @@ onMounted(async () => {
   if (agent.paired && agent.scanners.length === 0) {
     await agent.loadScanners()
   }
-  // Por defecto, primer escáner.
   if (!selectedScanner.value && agent.scanners.length > 0) {
     selectedScanner.value = agent.scanners[0].name
   }
@@ -64,13 +92,23 @@ watch(
   },
 )
 
-async function onFlatbed(): Promise<void> {
-  if (!selectedScanner.value) return
+// Decide qué hacer al pulsar Flatbed/ADF según el escáner y la app.
+type Strategy = 'native' | 'dialog' | 'direct'
+function decideStrategy(): Strategy {
+  if (selectedScannerInfo.value?.supports_native_ui) return 'native'
+  // Sin app prop: comportamiento legacy (sin dialog, sin overrides).
+  if (!props.application) return 'direct'
+  if (props.application.scan_show_dialog) return 'dialog'
+  return 'direct'
+}
+
+async function runFlatbed(extra: { options?: Record<string, unknown>; show_ui?: boolean }): Promise<void> {
   scanning.value = true
   try {
     await scanFlatbed({
       scanner_name: selectedScanner.value,
       batch_id: props.batchId,
+      ...extra,
     })
     emit('uploaded')
   } catch (e) {
@@ -80,8 +118,7 @@ async function onFlatbed(): Promise<void> {
   }
 }
 
-async function onAdf(): Promise<void> {
-  if (!selectedScanner.value) return
+async function runAdf(extra: { options?: Record<string, unknown>; show_ui?: boolean }): Promise<void> {
   adfActive.value = true
   let count = 0
   let hadError = false
@@ -89,18 +126,15 @@ async function onAdf(): Promise<void> {
     for await (const ev of scanAdf({
       scanner_name: selectedScanner.value,
       batch_id: props.batchId,
+      ...extra,
     })) {
       if (ev.event === 'page_uploaded') {
         count++
         emit('adf-progress', { current: count, total: null })
       } else if (ev.event === 'error') {
         hadError = true
-        emit(
-          'error',
-          ev.detail || `Error en el ADF (${ev.code ?? 'desconocido'})`,
-        )
+        emit('error', ev.detail || `Error en el ADF (${ev.code ?? 'desconocido'})`)
       }
-      // started / completed: nada que hacer aquí, el progreso lo lleva count.
     }
   } catch (e) {
     hadError = true
@@ -108,11 +142,59 @@ async function onAdf(): Promise<void> {
   } finally {
     adfActive.value = false
     emit('adf-finished')
-    // Refrescamos el lote aunque haya habido error: las páginas anteriores
-    // al fallo ya están en el SaaS y el operario tiene que verlas.
     if (count > 0 || !hadError) {
       emit('uploaded')
     }
+  }
+}
+
+async function onFlatbed(): Promise<void> {
+  if (!selectedScanner.value) return
+  const strategy = decideStrategy()
+  if (strategy === 'dialog') {
+    pendingMode.value = 'flatbed'
+    dialogOpen.value = true
+    return
+  }
+  await runFlatbed(strategy === 'native' ? { show_ui: true } : {})
+}
+
+async function onAdf(): Promise<void> {
+  if (!selectedScanner.value) return
+  const strategy = decideStrategy()
+  if (strategy === 'dialog') {
+    pendingMode.value = 'adf'
+    dialogOpen.value = true
+    return
+  }
+  await runAdf(strategy === 'native' ? { show_ui: true } : {})
+}
+
+async function onDialogSubmit(overrides: Record<string, unknown>): Promise<void> {
+  const mode = pendingMode.value
+  dialogOpen.value = false
+  pendingMode.value = null
+  if (mode === 'flatbed') {
+    await runFlatbed({ options: overrides })
+  } else if (mode === 'adf') {
+    await runAdf({ options: overrides })
+  }
+}
+
+function onDialogClose(): void {
+  dialogOpen.value = false
+  pendingMode.value = null
+}
+
+async function onSaveDefaults(defaults: Record<string, unknown>): Promise<void> {
+  if (!props.application) return
+  try {
+    await apps.update(props.application.id, {
+      scan_defaults_json: JSON.stringify(defaults),
+    })
+    toast.success('Defaults de escaneo guardados')
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'No se pudieron guardar los defaults')
   }
 }
 </script>
@@ -167,5 +249,15 @@ async function onAdf(): Promise<void> {
       ></span>
       <span>{{ adfActive ? 'Escaneando ADF…' : '🖨 ADF' }}</span>
     </button>
+
+    <ScannerOptionsDialog
+      :visible="dialogOpen"
+      :scannerName="selectedScanner"
+      :initialDefaults="parsedDefaults"
+      :canSaveDefaults="!!application"
+      @submit="onDialogSubmit"
+      @save-defaults="onSaveDefaults"
+      @close="onDialogClose"
+    />
   </div>
 </template>

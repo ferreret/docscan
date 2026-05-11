@@ -12,6 +12,13 @@ export interface ScanFlatbedRequest {
   batch_id: number
   resolution?: number
   mode?: ScanMode
+  // Sprint D, hito 13:
+  // - ``options``: dict de overrides validados contra la whitelist del
+  //   driver (whitelist se construye por el agente con get_device_options).
+  // - ``show_ui``: si true, el agente abre el diálogo nativo del driver
+  //   (TWAIN/WIA en Windows). En SANE/Linux no tiene efecto.
+  options?: Record<string, unknown>
+  show_ui?: boolean
 }
 
 export interface ScanFlatbedResponse {
@@ -71,18 +78,27 @@ async function extractDetail(res: Response): Promise<string> {
   return `HTTP ${res.status}`
 }
 
+function buildScanBody(req: ScanFlatbedRequest): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    scanner_name: req.scanner_name,
+    batch_id: req.batch_id,
+    resolution: req.resolution ?? 300,
+    mode: req.mode ?? 'Color',
+  }
+  // Sólo añadimos ``options`` y ``show_ui`` si vienen — para no enviar
+  // campos a un agente antiguo (pre hito 13) que no los reconoce.
+  if (req.options !== undefined) body.options = req.options
+  if (req.show_ui !== undefined) body.show_ui = req.show_ui
+  return body
+}
+
 export async function scanFlatbed(
   req: ScanFlatbedRequest,
 ): Promise<ScanFlatbedResponse> {
   const res = await fetch(`${AGENT_BASE_URL}/scan-and-upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      scanner_name: req.scanner_name,
-      batch_id: req.batch_id,
-      resolution: req.resolution ?? 300,
-      mode: req.mode ?? 'Color',
-    }),
+    body: JSON.stringify(buildScanBody(req)),
   })
   if (!res.ok) {
     throw new Error(await extractDetail(res))
@@ -96,12 +112,7 @@ export async function* scanAdf(
   const res = await fetch(`${AGENT_BASE_URL}/scan-adf-and-upload`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      scanner_name: req.scanner_name,
-      batch_id: req.batch_id,
-      resolution: req.resolution ?? 300,
-      mode: req.mode ?? 'Color',
-    }),
+    body: JSON.stringify(buildScanBody(req)),
   })
 
   // Errores antes del stream (401, 404, 503): cuerpo JSON con `detail`.

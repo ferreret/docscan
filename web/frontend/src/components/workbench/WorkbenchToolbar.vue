@@ -1,20 +1,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import type { BatchResponse } from "@/api/types";
+import type { ApplicationResponse, BatchResponse } from "@/api/types";
 import ScanFromAgentMenu from "@/components/workbench/ScanFromAgentMenu.vue";
 import { useAgentStore } from "@/stores/agent";
 
 const props = withDefaults(
   defineProps<{
     batch: BatchResponse;
+    application?: ApplicationResponse | null;
     running: boolean;
     transferring: boolean;
     uploading: boolean;
     exporting?: boolean;
     scanning?: boolean;
   }>(),
-  { exporting: false, scanning: false },
+  { exporting: false, scanning: false, application: null },
 );
 
 const emit = defineEmits<{
@@ -98,6 +99,7 @@ function onUpload(event: Event): void {
       <ScanFromAgentMenu
         :batchId="batch.id"
         :disabled="busy"
+        :application="application"
         @uploaded="emit('scan-uploaded')"
         @adf-progress="(p) => emit('scan-adf-progress', p)"
         @adf-finished="emit('scan-adf-finished')"

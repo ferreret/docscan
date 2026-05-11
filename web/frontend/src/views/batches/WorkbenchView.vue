@@ -799,6 +799,7 @@ useWorkbenchShortcuts({
     <WorkbenchToolbar
       v-if="store.current"
       :batch="store.current"
+      :application="appStore.current"
       :running="running"
       :transferring="transferring"
       :uploading="uploading"
