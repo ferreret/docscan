@@ -116,8 +116,8 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
 
     # Escanear usando el backend configurado
     try:
-        from app.services.scanner_service import get_scanner
-        scanner = get_scanner(app_record.scanner_backend)
+        from app.services.scanner_service import create_scanner
+        scanner = create_scanner(app_record.scanner_backend)
         log.info("Escaneando con backend '%s'...", app_record.scanner_backend)
         images = scanner.scan()
     except Exception as exc:
