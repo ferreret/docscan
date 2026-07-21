@@ -8,7 +8,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
-### 🧹 Mantenimiento desktop — 2026-07-21
+## [0.1.3] — 2026-07-21
+
+### 🧹 Mantenimiento y saneamiento del desktop
 
 La versión web SaaS quedó **archivada**; el proyecto se enfoca en DocScan
 Desktop. Auditoría completa en `docs/auditoria_desktop_2026-07-21.md`.
@@ -21,8 +23,12 @@ Desktop. Auditoría completa en `docs/auditoria_desktop_2026-07-21.md`.
 - **Limpieza**: eliminado `app/providers/` (código muerto desde el borrado de
   AiStep). Barrido `ruff check --fix` + `ruff format` sobre todo el código
   desktop; añadido `ruff.toml` (primera config de lint del proyecto).
-- **Tests**: mockeado el modal `QMessageBox.warning` en `test_create_duplicate_app`
-  que colgaba la suite de forma intermitente.
+  `ruff check .` totalmente limpio.
+- **Tests**: mockeado el modal `QMessageBox.warning` que colgaba la suite; y
+  mockeada la capa SANE en `test_scanner_service.py` (antes hacía enumeración
+  real de hardware, ~33s y capaz de colgarse). Suite completa 861/861 en ~22s.
+- **CI**: nuevo workflow `.github/workflows/ci.yml` (lint + tests en push/PR) y
+  `pytest.ini` con `--timeout` por defecto contra cuelgues.
 
 ---
 
