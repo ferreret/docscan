@@ -381,7 +381,6 @@ class TestCollisionPolicy:
         )
         r1 = service.transfer(sample_pages[:1], config, batch_id=1)
         assert r1.success
-        first_size = (tmp_path / "output" / "doc.tiff").stat().st_size
 
         # Transferir otra pagina (imagen distinta) con overwrite
         r2 = service.transfer(sample_pages[1:2], config, batch_id=1)

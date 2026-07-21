@@ -9,6 +9,9 @@ line-length = 88
 # Directorios fuera del alcance del linting del desktop.
 extend-exclude = [
     "web",              # versión web SaaS archivada
+    "tests/test_web_*.py",              # tests de la web archivada
+    "tests/test_arq_*.py",              # tests de la cola ARQ (web archivada)
+    "tests/test_pipeline_runner_events.py",  # test de la web archivada
     "alembic/versions", # migraciones autogeneradas
     "dist",
     "site",

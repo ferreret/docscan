@@ -289,7 +289,7 @@ def generate_document(
     y = H - 50
     _draw_text(draw, margin, y, f"Documento generado automáticamente — {centro}",
                font=font_small, fill="#AAAAAA")
-    _draw_text(draw, W - margin - 200, y, f"Página 1 de 1",
+    _draw_text(draw, W - margin - 200, y, "Página 1 de 1",
                font=font_small, fill="#AAAAAA")
 
     # Guardar

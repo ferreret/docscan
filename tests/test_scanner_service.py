@@ -17,7 +17,7 @@ from app.services.scanner_service import (
 _SYSTEM = platform.system()
 _HAS_SANE = False
 try:
-    import sane
+    import sane  # noqa: F401  # sonda de disponibilidad del backend
 
     _HAS_SANE = True
 except ImportError:
@@ -63,6 +63,27 @@ class TestBackendDiscovery:
 
 @pytest.mark.skipif(not _HAS_SANE, reason="python-sane no disponible")
 class TestSaneScanner:
+    """Tests del wrapper SaneScanner con la capa SANE mockeada.
+
+    `sane.get_devices()` enumera hardware (incluidos escáneres de red) y puede
+    tardar decenas de segundos o colgarse indefinidamente segun el estado del
+    equipo. Se mockea el modulo `sane` para que los tests sean deterministas y
+    rapidos; la integracion con SANE real se valida en smoke tests manuales.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _mock_sane(self, monkeypatch):
+        import sane
+
+        monkeypatch.setattr(sane, "init", lambda: (1, 1, 0, 0), raising=False)
+        monkeypatch.setattr(sane, "exit", lambda: None, raising=False)
+        monkeypatch.setattr(
+            sane,
+            "get_devices",
+            lambda *a, **k: [("mock:dev0", "ACME", "ScanMaster", "scanner")],
+            raising=False,
+        )
+
     def test_backend_name(self):
         scanner = SaneScanner()
         assert scanner.backend_name == "sane"
@@ -72,18 +93,24 @@ class TestSaneScanner:
         scanner = SaneScanner()
         try:
             sources = scanner.list_sources()
-            assert isinstance(sources, list)
-            # Puede estar vacío si no hay escáneres conectados
-            for source in sources:
-                assert isinstance(source, str)
+            assert sources == ["mock:dev0"]
         finally:
             scanner.close()
 
-    def test_acquire_no_device(self):
-        """Intentar escanear un dispositivo inexistente debe fallar."""
+    def test_acquire_no_device(self, monkeypatch):
+        """Un escaneo que falla (returncode != 0) debe lanzar RuntimeError."""
+        import subprocess
+        import types
+
+        def _fake_run(*args, **kwargs):
+            return types.SimpleNamespace(
+                returncode=1, stdout=b"", stderr=b"scanimage: no such device"
+            )
+
+        monkeypatch.setattr(subprocess, "run", _fake_run)
         scanner = SaneScanner()
         try:
-            with pytest.raises(Exception):
+            with pytest.raises(RuntimeError):
                 scanner.acquire("nonexistent_device", ScanConfig())
         finally:
             scanner.close()

@@ -280,7 +280,6 @@ class TestFieldsAndDeletion:
         batch = service.create_batch(app_id)
         pages = service.add_pages(batch.id, sample_images[:1])
         image_path = Path(pages[0].image_path)
-        batch_dir = image_path.parent
 
         service.delete_batch(batch.id)
         assert not image_path.exists()

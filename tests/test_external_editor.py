@@ -114,7 +114,6 @@ class TestEditScript:
             from pathlib import Path
 
             p = Path(path)
-            content = p.read_text(encoding="utf-8")
             # Reemplazar todo con código nuevo (sin stubs)
             p.write_text(
                 f"{STUB_DELIMITER}\n# stubs\n{STUB_DELIMITER}\n{modified}",
