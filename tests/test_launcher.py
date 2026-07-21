@@ -197,13 +197,24 @@ class TestLauncherWindow:
         window._create_app("Nueva App", "Descripción")
         assert window._app_list.count() == 1
 
-    def test_create_duplicate_app(self, qtbot, session_factory, seed_apps):
+    def test_create_duplicate_app(
+        self, qtbot, session_factory, seed_apps, monkeypatch
+    ):
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
+        # El nombre duplicado dispara QMessageBox.warning, un modal que
+        # bloquea el hilo esperando interacción. Se mockea para que el test
+        # no cuelgue en entornos con display real.
+        warned: list[str] = []
+        monkeypatch.setattr(
+            "app.ui.launcher.launcher_window.QMessageBox.warning",
+            lambda *args, **kwargs: warned.append(args) or None,
+        )
         # Intentar crear una app con nombre duplicado
         window._create_app("Facturas", "Duplicada")
-        # No debe haber cambiado el conteo
+        # No debe haber cambiado el conteo y se avisó al usuario
         assert window._app_list.count() == 3
+        assert len(warned) == 1
 
     def test_open_signal(self, qtbot, session_factory, seed_apps):
         window = LauncherWindow(session_factory=session_factory)
