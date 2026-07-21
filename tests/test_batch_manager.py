@@ -30,6 +30,7 @@ from app.services.batch_service import BatchService
 # Fixtures
 # ------------------------------------------------------------------ #
 
+
 @pytest.fixture()
 def engine():
     """Engine SQLite en memoria con WAL mode."""
@@ -84,6 +85,7 @@ def sample_batches(session, app_record) -> list[Batch]:
 # OperationHistory Model
 # ------------------------------------------------------------------ #
 
+
 class TestOperationHistory:
     """Tests del modelo OperationHistory."""
 
@@ -134,6 +136,7 @@ class TestOperationHistory:
 # OperationHistoryRepository
 # ------------------------------------------------------------------ #
 
+
 class TestOperationHistoryRepository:
     """Tests del repositorio de historial."""
 
@@ -179,6 +182,7 @@ class TestOperationHistoryRepository:
 # ------------------------------------------------------------------ #
 # BatchRepository — Filtros
 # ------------------------------------------------------------------ #
+
 
 class TestBatchRepositoryFilters:
     """Tests de los métodos de filtro del BatchRepository."""
@@ -239,6 +243,7 @@ class TestBatchRepositoryFilters:
 # UI Widgets (pytest-qt)
 # ------------------------------------------------------------------ #
 
+
 class TestBatchListWidget:
     """Tests del widget de lista de lotes."""
 
@@ -285,15 +290,19 @@ class TestBatchListWidget:
         widget = BatchListWidget()
         qtbot.addWidget(widget)
 
-        widget.set_batches([{
-            "id": 42,
-            "app_name": "Test",
-            "state": "read",
-            "page_count": 1,
-            "hostname": "pc",
-            "created_at": None,
-            "updated_at": None,
-        }])
+        widget.set_batches(
+            [
+                {
+                    "id": 42,
+                    "app_name": "Test",
+                    "state": "read",
+                    "page_count": 1,
+                    "hostname": "pc",
+                    "created_at": None,
+                    "updated_at": None,
+                }
+            ]
+        )
 
         with qtbot.waitSignal(widget.batch_selected, timeout=1000):
             widget.selectRow(0)
@@ -304,15 +313,19 @@ class TestBatchListWidget:
         widget = BatchListWidget()
         qtbot.addWidget(widget)
 
-        widget.set_batches([{
-            "id": 1,
-            "app_name": "App",
-            "state": "error_read",
-            "page_count": 0,
-            "hostname": "",
-            "created_at": None,
-            "updated_at": None,
-        }])
+        widget.set_batches(
+            [
+                {
+                    "id": 1,
+                    "app_name": "App",
+                    "state": "error_read",
+                    "page_count": 0,
+                    "hostname": "",
+                    "created_at": None,
+                    "updated_at": None,
+                }
+            ]
+        )
 
         # El item debe tener un fondo con color (tinte de estado)
         item = widget.item(0, 0)
@@ -329,17 +342,19 @@ class TestBatchDetailPanel:
         panel = BatchDetailPanel()
         qtbot.addWidget(panel)
 
-        panel.set_general_info({
-            "id": 1,
-            "app_name": "Mi App",
-            "state": "read",
-            "hostname": "pc-01",
-            "username": "admin",
-            "page_count": 10,
-            "created_at": datetime(2026, 3, 1, 12, 0),
-            "updated_at": datetime(2026, 3, 1, 12, 5),
-            "folder_path": "/tmp/batch_1",
-        })
+        panel.set_general_info(
+            {
+                "id": 1,
+                "app_name": "Mi App",
+                "state": "read",
+                "hostname": "pc-01",
+                "username": "admin",
+                "page_count": 10,
+                "created_at": datetime(2026, 3, 1, 12, 0),
+                "updated_at": datetime(2026, 3, 1, 12, 5),
+                "folder_path": "/tmp/batch_1",
+            }
+        )
 
         assert panel._lbl_id.text() == "1"
         assert panel._lbl_app.text() == "Mi App"
@@ -351,13 +366,15 @@ class TestBatchDetailPanel:
         panel = BatchDetailPanel()
         qtbot.addWidget(panel)
 
-        panel.set_stats({
-            "total_pages": 20,
-            "needs_review": 3,
-            "excluded": 1,
-            "blank": 2,
-            "with_errors": 4,
-        })
+        panel.set_stats(
+            {
+                "total_pages": 20,
+                "needs_review": 3,
+                "excluded": 1,
+                "blank": 2,
+                "with_errors": 4,
+            }
+        )
 
         assert panel._lbl_stat_total.text() == "20"
         assert panel._lbl_stat_review.text() == "3"
@@ -368,12 +385,26 @@ class TestBatchDetailPanel:
         panel = BatchDetailPanel()
         qtbot.addWidget(panel)
 
-        panel.set_pages([
-            {"page_index": 0, "needs_review": True, "is_excluded": False,
-             "is_blank": False, "ocr_text": "hello", "error_count": 0},
-            {"page_index": 1, "needs_review": False, "is_excluded": True,
-             "is_blank": False, "ocr_text": "", "error_count": 2},
-        ])
+        panel.set_pages(
+            [
+                {
+                    "page_index": 0,
+                    "needs_review": True,
+                    "is_excluded": False,
+                    "is_blank": False,
+                    "ocr_text": "hello",
+                    "error_count": 0,
+                },
+                {
+                    "page_index": 1,
+                    "needs_review": False,
+                    "is_excluded": True,
+                    "is_blank": False,
+                    "ocr_text": "",
+                    "error_count": 2,
+                },
+            ]
+        )
 
         assert panel._pages_table.rowCount() == 2
 
@@ -383,16 +414,18 @@ class TestBatchDetailPanel:
         panel = BatchDetailPanel()
         qtbot.addWidget(panel)
 
-        panel.set_history([
-            {
-                "timestamp": datetime(2026, 3, 1, 10, 0),
-                "operation": "state_change",
-                "old_state": "created",
-                "new_state": "read",
-                "username": "tester",
-                "message": "Cambio",
-            },
-        ])
+        panel.set_history(
+            [
+                {
+                    "timestamp": datetime(2026, 3, 1, 10, 0),
+                    "operation": "state_change",
+                    "old_state": "created",
+                    "new_state": "read",
+                    "username": "tester",
+                    "message": "Cambio",
+                },
+            ]
+        )
 
         assert panel._history_table.rowCount() == 1
 
@@ -402,11 +435,19 @@ class TestBatchDetailPanel:
         panel = BatchDetailPanel()
         qtbot.addWidget(panel)
 
-        panel.set_general_info({
-            "id": 1, "app_name": "Test", "state": "read",
-            "hostname": "", "username": "", "page_count": 5,
-            "created_at": None, "updated_at": None, "folder_path": "",
-        })
+        panel.set_general_info(
+            {
+                "id": 1,
+                "app_name": "Test",
+                "state": "read",
+                "hostname": "",
+                "username": "",
+                "page_count": 5,
+                "created_at": None,
+                "updated_at": None,
+                "folder_path": "",
+            }
+        )
         panel.clear_all()
 
         assert panel._lbl_id.text() == "-"

@@ -83,9 +83,7 @@ class TransferTab(QWidget):
         gen_form.addRow(self.tr("Destino:"), dest_row)
 
         self._pattern_edit = QLineEdit()
-        self._pattern_edit.setPlaceholderText(
-            "{batch_id}_{page_index:04d}"
-        )
+        self._pattern_edit.setPlaceholderText("{batch_id}_{page_index:04d}")
         self._pattern_edit.setToolTip(
             self.tr(
                 "Plantilla para nombrar los archivos.\n"
@@ -118,13 +116,16 @@ class TransferTab(QWidget):
 
         self._collision_combo = QComboBox()
         self._collision_combo.addItem(
-            self.tr("Sufijo numérico (archivo_1, archivo_2…)"), "suffix",
+            self.tr("Sufijo numérico (archivo_1, archivo_2…)"),
+            "suffix",
         )
         self._collision_combo.addItem(
-            self.tr("Sobrescribir el existente"), "overwrite",
+            self.tr("Sobrescribir el existente"),
+            "overwrite",
         )
         self._collision_combo.addItem(
-            self.tr("Fusionar (multi-página TIFF/PDF)"), "merge",
+            self.tr("Fusionar (multi-página TIFF/PDF)"),
+            "merge",
         )
         self._collision_combo.setToolTip(
             self.tr(
@@ -165,9 +166,7 @@ class TransferTab(QWidget):
                 "Seleccionar otro formato convierte al transferir"
             )
         )
-        self._out_format_combo.currentTextChanged.connect(
-            self._on_out_format_changed
-        )
+        self._out_format_combo.currentTextChanged.connect(self._on_out_format_changed)
         out_form.addRow(self.tr("Formato:"), self._out_format_combo)
 
         self._out_dpi_spin = QSpinBox()
@@ -184,9 +183,7 @@ class TransferTab(QWidget):
         out_form.addRow(self.tr("DPI:"), self._out_dpi_spin)
 
         self._out_color_combo = QComboBox()
-        self._out_color_combo.addItems(
-            [_SENTINEL_ORIGINAL, "grayscale", "bw"]
-        )
+        self._out_color_combo.addItems([_SENTINEL_ORIGINAL, "grayscale", "bw"])
         self._out_color_combo.setToolTip(
             self.tr(
                 "(original) = sin conversión de color\n"
@@ -322,7 +319,9 @@ class TransferTab(QWidget):
         """Abre diálogo para seleccionar carpeta de destino."""
         current = self._dest_edit.text().strip()
         folder = QFileDialog.getExistingDirectory(
-            self, self.tr("Seleccionar carpeta de destino"), current,
+            self,
+            self.tr("Seleccionar carpeta de destino"),
+            current,
         )
         if folder:
             self._dest_edit.setText(folder)
@@ -342,9 +341,7 @@ class TransferTab(QWidget):
         self._subdirs.setChecked(config.get("create_subdirs", True))
         self._pdf_dpi.setValue(config.get("pdf_dpi", 200))
         self._csv_sep.setText(config.get("csv_separator", ";"))
-        self._csv_fields_edit.setText(
-            ", ".join(config.get("csv_fields", []))
-        )
+        self._csv_fields_edit.setText(", ".join(config.get("csv_fields", [])))
         self._metadata.setChecked(config.get("include_metadata", False))
 
         collision = config.get("collision_policy", "suffix")
@@ -372,19 +369,17 @@ class TransferTab(QWidget):
             self._out_color_combo.setCurrentIndex(0)  # (original)
 
         self._out_quality_spin.setValue(config.get("output_jpeg_quality", 85))
-        self._out_tiff_comp.setCurrentText(
-            config.get("output_tiff_compression", "lzw")
-        )
+        self._out_tiff_comp.setCurrentText(config.get("output_tiff_compression", "lzw"))
         self._out_png_comp.setValue(config.get("output_png_compression", 6))
-        self._pdf_jpeg_quality_spin.setValue(
-            config.get("pdf_jpeg_quality", 85)
-        )
+        self._pdf_jpeg_quality_spin.setValue(config.get("pdf_jpeg_quality", 85))
 
     def apply_to(self, app: Application) -> None:
         csv_fields_text = self._csv_fields_edit.text().strip()
-        csv_fields = [
-            f.strip() for f in csv_fields_text.split(",") if f.strip()
-        ] if csv_fields_text else []
+        csv_fields = (
+            [f.strip() for f in csv_fields_text.split(",") if f.strip()]
+            if csv_fields_text
+            else []
+        )
 
         # Formato de salida
         out_fmt = self._out_format_combo.currentText()

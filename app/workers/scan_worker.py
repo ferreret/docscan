@@ -79,7 +79,8 @@ class ScanWorker(QThread):
                     raise RuntimeError("ImportService no disponible")
                 source = str(self._source)
                 images = self._import_service.import_file(
-                    source, dpi=self._dpi,
+                    source,
+                    dpi=self._dpi,
                 )
                 return [(img, source) for img in images]
             case "import_files":
@@ -88,7 +89,8 @@ class ScanWorker(QThread):
                 results: list[tuple[np.ndarray, str]] = []
                 for path in self._source:
                     images = self._import_service.import_file(
-                        path, dpi=self._dpi,
+                        path,
+                        dpi=self._dpi,
                     )
                     results.extend((img, str(path)) for img in images)
                 return results
@@ -96,7 +98,8 @@ class ScanWorker(QThread):
                 if self._import_service is None:
                     raise RuntimeError("ImportService no disponible")
                 images = self._import_service.import_folder(
-                    self._source, dpi=self._dpi,
+                    self._source,
+                    dpi=self._dpi,
                 )
                 folder = str(self._source)
                 return [(img, folder) for img in images]

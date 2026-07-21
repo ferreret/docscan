@@ -33,14 +33,14 @@ MAX_ZOOM = 10.0
 
 # Paleta de colores vivos para distinguir múltiples barcodes
 _BARCODE_PALETTE = [
-    ("#e53935", "#ffcdd2"),   # rojo
-    ("#1e88e5", "#bbdefb"),   # azul
-    ("#43a047", "#c8e6c9"),   # verde
-    ("#fb8c00", "#ffe0b2"),   # naranja
-    ("#8e24aa", "#e1bee7"),   # púrpura
-    ("#00acc1", "#b2ebf2"),   # cian
-    ("#d81b60", "#f8bbd0"),   # rosa
-    ("#6d4c41", "#d7ccc8"),   # marrón
+    ("#e53935", "#ffcdd2"),  # rojo
+    ("#1e88e5", "#bbdefb"),  # azul
+    ("#43a047", "#c8e6c9"),  # verde
+    ("#fb8c00", "#ffe0b2"),  # naranja
+    ("#8e24aa", "#e1bee7"),  # púrpura
+    ("#00acc1", "#b2ebf2"),  # cian
+    ("#d81b60", "#f8bbd0"),  # rosa
+    ("#6d4c41", "#d7ccc8"),  # marrón
 ]
 
 
@@ -105,6 +105,7 @@ class DocumentViewer(QGraphicsView):
             # En la primera carga el layout puede no haberse resuelto aún;
             # diferimos el ajuste al siguiente ciclo del event loop.
             from PySide6.QtCore import QTimer
+
             QTimer.singleShot(0, self.fit_to_page)
         else:
             self.fit_to_page()
@@ -162,8 +163,12 @@ class DocumentViewer(QGraphicsView):
             rh = h + margin * 2
 
             rect = self._scene.addRect(
-                rx, ry, rw, rh,
-                pen, QBrush(fill_color),
+                rx,
+                ry,
+                rw,
+                rh,
+                pen,
+                QBrush(fill_color),
             )
             self._overlay_items.append(rect)
 
@@ -191,9 +196,12 @@ class DocumentViewer(QGraphicsView):
             pen.setStyle(Qt.PenStyle.DashLine)
 
             rect = self._scene.addRect(
-                fx - margin, fy - margin,
-                fw + margin * 2, fh + margin * 2,
-                pen, QBrush(fill_color),
+                fx - margin,
+                fy - margin,
+                fw + margin * 2,
+                fh + margin * 2,
+                pen,
+                QBrush(fill_color),
             )
             self._overlay_items.append(rect)
 
@@ -271,6 +279,4 @@ class DocumentViewer(QGraphicsView):
     def _set_border_color(self, state: PageState) -> None:
         """Establece el borde coloreado de la vista (UI-03)."""
         color = STATE_COLORS[state]
-        self.setStyleSheet(
-            f"QGraphicsView {{ border: 4px solid {color}; }}"
-        )
+        self.setStyleSheet(f"QGraphicsView {{ border: 4px solid {color}; }}")

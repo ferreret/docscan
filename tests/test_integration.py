@@ -344,8 +344,12 @@ def run(app, batch, page, pipeline):
     page.fields['s2_ran'] = True
 """
         steps = [
-            ScriptStep(id="s1", label="Salta s2", entry_point="run", script=script_skip),
-            ScriptStep(id="s2", label="Objetivo", entry_point="run", script=script_target),
+            ScriptStep(
+                id="s1", label="Salta s2", entry_point="run", script=script_skip
+            ),
+            ScriptStep(
+                id="s2", label="Objetivo", entry_point="run", script=script_target
+            ),
         ]
         executor = _make_executor(steps)
         page = _PageCtx(page_index=0, image=_white_image())
@@ -370,8 +374,12 @@ def run(app, batch, page, pipeline):
     page.fields['s3_ran'] = True
 """
         steps = [
-            ScriptStep(id="s1", label="skip_to s3", entry_point="run", script=script_s1),
-            ScriptStep(id="s2", label="Intermedio", entry_point="run", script=script_s2),
+            ScriptStep(
+                id="s1", label="skip_to s3", entry_point="run", script=script_s1
+            ),
+            ScriptStep(
+                id="s2", label="Intermedio", entry_point="run", script=script_s2
+            ),
             ScriptStep(id="s3", label="Destino", entry_point="run", script=script_s3),
         ]
         executor = _make_executor(steps)
@@ -394,7 +402,9 @@ def run(app, batch, page, pipeline):
 """
         steps = [
             ScriptStep(id="s1", label="Aborta", entry_point="run", script=script_abort),
-            ScriptStep(id="s2", label="Nunca llega", entry_point="run", script=script_after),
+            ScriptStep(
+                id="s2", label="Nunca llega", entry_point="run", script=script_after
+            ),
         ]
         executor = _make_executor(steps)
         page = _PageCtx(page_index=0, image=_white_image())
@@ -531,7 +541,9 @@ def run(app, batch, page, pipeline):
 class TestBatchLifecycle:
     """Crear lote, añadir páginas y transicionar todos los estados."""
 
-    def test_create_batch_returns_created_state(self, session, app_record, tmp_path) -> None:
+    def test_create_batch_returns_created_state(
+        self, session, app_record, tmp_path
+    ) -> None:
         svc = BatchService(session=session, images_dir=tmp_path)
 
         batch = svc.create_batch(application_id=app_record.id)
@@ -552,7 +564,9 @@ class TestBatchLifecycle:
         assert fields["cliente"] == "Acme"
         assert fields["año"] == "2026"
 
-    def test_add_pages_saves_images_to_disk(self, session, app_record, tmp_path) -> None:
+    def test_add_pages_saves_images_to_disk(
+        self, session, app_record, tmp_path
+    ) -> None:
         svc = BatchService(session=session, images_dir=tmp_path)
         batch = svc.create_batch(application_id=app_record.id)
 
@@ -563,9 +577,12 @@ class TestBatchLifecycle:
         for p in pages:
             assert p.image_path
             from pathlib import Path
+
             assert Path(p.image_path).exists()
 
-    def test_add_pages_increments_page_count(self, session, app_record, tmp_path) -> None:
+    def test_add_pages_increments_page_count(
+        self, session, app_record, tmp_path
+    ) -> None:
         svc = BatchService(session=session, images_dir=tmp_path)
         batch = svc.create_batch(application_id=app_record.id)
 
@@ -584,7 +601,9 @@ class TestBatchLifecycle:
             updated = svc.transition_state(batch.id, state)
             assert updated.state == state
 
-    def test_transition_to_invalid_state_raises(self, session, app_record, tmp_path) -> None:
+    def test_transition_to_invalid_state_raises(
+        self, session, app_record, tmp_path
+    ) -> None:
         svc = BatchService(session=session, images_dir=tmp_path)
         batch = svc.create_batch(application_id=app_record.id)
 
@@ -605,7 +624,9 @@ class TestBatchLifecycle:
         assert b2.id not in created_ids
         assert any(b.id == b2.id for b in read_batches)
 
-    def test_delete_batch_removes_files_and_record(self, session, app_record, tmp_path) -> None:
+    def test_delete_batch_removes_files_and_record(
+        self, session, app_record, tmp_path
+    ) -> None:
         from pathlib import Path
 
         svc = BatchService(session=session, images_dir=tmp_path)
@@ -641,7 +662,9 @@ class TestBatchLifecycle:
 class TestPipelineWithBatchService:
     """Pipeline real sobre páginas de un lote creado con BatchService."""
 
-    def test_pipeline_processes_batch_pages(self, session, app_record, tmp_path) -> None:
+    def test_pipeline_processes_batch_pages(
+        self, session, app_record, tmp_path
+    ) -> None:
         """Crea un lote, carga sus imágenes y las procesa con el pipeline."""
         svc = BatchService(session=session, images_dir=tmp_path)
         batch = svc.create_batch(application_id=app_record.id)
@@ -654,7 +677,9 @@ def process(app, batch, page, pipeline):
 """
         steps = [
             ImageOpStep(id="op1", op="FxGrayscale"),
-            ScriptStep(id="s1", label="Marca", entry_point="process", script=script_src),
+            ScriptStep(
+                id="s1", label="Marca", entry_point="process", script=script_src
+            ),
         ]
         executor = _make_executor(steps)
 
@@ -691,7 +716,9 @@ def run(app, batch, page, pipeline):
     page.fields['ok'] = True
 """
         steps = [
-            ScriptStep(id="s1", label="Condicional", entry_point="run", script=script_src),
+            ScriptStep(
+                id="s1", label="Condicional", entry_point="run", script=script_src
+            ),
         ]
         executor = _make_executor(steps)
 
@@ -808,7 +835,9 @@ def run(app, batch, page, pipeline):
     page.fields['format'] = app.output_format
 """
         steps = [
-            ScriptStep(id="s1", label="Lee config", entry_point="run", script=script_src),
+            ScriptStep(
+                id="s1", label="Lee config", entry_point="run", script=script_src
+            ),
         ]
         executor = _make_executor(steps)
         page = _PageCtx(page_index=0, image=_white_image())
@@ -832,7 +861,9 @@ def run(app, batch, page, pipeline):
     page.fields['state'] = batch.state
 """
         steps = [
-            ScriptStep(id="s1", label="Lee batch", entry_point="run", script=script_src),
+            ScriptStep(
+                id="s1", label="Lee batch", entry_point="run", script=script_src
+            ),
         ]
         executor = _make_executor(steps)
         page = _PageCtx(page_index=0, image=_white_image())
@@ -857,44 +888,62 @@ class TestEventExecution:
 
     def test_event_returns_value(self) -> None:
         engine = ScriptEngine()
-        engine.compile_script("on_navigate_next", """
+        engine.compile_script(
+            "on_navigate_next",
+            """
 def on_navigate_next(app, batch):
     return 5
-""")
+""",
+        )
         result = engine.run_event(
-            "on_navigate_next", entry_point="on_navigate_next",
-            app=_AppCtx(), batch=_BatchCtx(),
+            "on_navigate_next",
+            entry_point="on_navigate_next",
+            app=_AppCtx(),
+            batch=_BatchCtx(),
         )
         assert result == 5
 
     def test_event_receives_extra_kwargs(self) -> None:
         engine = ScriptEngine()
-        engine.compile_script("on_key_event", """
+        engine.compile_script(
+            "on_key_event",
+            """
 def on_key_event(app, batch, key):
     return f"pressed:{key}"
-""")
+""",
+        )
         result = engine.run_event(
-            "on_key_event", entry_point="on_key_event",
-            app=_AppCtx(), batch=_BatchCtx(), key="F5",
+            "on_key_event",
+            entry_point="on_key_event",
+            app=_AppCtx(),
+            batch=_BatchCtx(),
+            key="F5",
         )
         assert result == "pressed:F5"
 
     def test_uncompiled_event_returns_none(self) -> None:
         engine = ScriptEngine()
         result = engine.run_event(
-            "on_import", entry_point="on_import",
-            app=_AppCtx(), batch=_BatchCtx(),
+            "on_import",
+            entry_point="on_import",
+            app=_AppCtx(),
+            batch=_BatchCtx(),
         )
         assert result is None
 
     def test_event_error_does_not_crash(self) -> None:
         engine = ScriptEngine()
-        engine.compile_script("on_app_start", """
+        engine.compile_script(
+            "on_app_start",
+            """
 def on_app_start(app, batch):
     raise ValueError("boom")
-""")
+""",
+        )
         result = engine.run_event(
-            "on_app_start", entry_point="on_app_start",
-            app=_AppCtx(), batch=_BatchCtx(),
+            "on_app_start",
+            entry_point="on_app_start",
+            app=_AppCtx(),
+            batch=_BatchCtx(),
         )
         assert result is None  # Error capturado, no crash

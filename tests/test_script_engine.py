@@ -141,9 +141,7 @@ class TestCompilation:
 
 class TestRunStep:
     def test_basic_execution(self, engine, page, batch, app_ctx, pipeline):
-        step = MockStep(
-            script="def run(app, batch, page, pipeline): return 'ok'"
-        )
+        step = MockStep(script="def run(app, batch, page, pipeline): return 'ok'")
         engine.compile_step(step)
         result = engine.run_step(step, page, batch, app_ctx, pipeline)
         assert result == "ok"
@@ -258,7 +256,10 @@ class TestRunEvent:
             "def validate(app, batch): return len(batch.fields) > 0",
         )
         result = engine.run_event(
-            "on_transfer_validate", "validate", app=app_ctx, batch=batch,
+            "on_transfer_validate",
+            "validate",
+            app=app_ctx,
+            batch=batch,
         )
         assert result is False  # fields está vacío
 
@@ -266,5 +267,3 @@ class TestRunEvent:
         engine.compile_script("bad_event", "def run(app): raise RuntimeError('x')")
         result = engine.run_event("bad_event", "run", app=app_ctx)
         assert result is None
-
-

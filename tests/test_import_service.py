@@ -21,7 +21,9 @@ def service() -> ImportService:
 def tmp_image(tmp_path: Path) -> Path:
     """Crea una imagen JPEG temporal."""
     img = np.zeros((100, 200, 3), dtype=np.uint8)
-    cv2.putText(img, "Test", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 2)
+    cv2.putText(
+        img, "Test", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 2
+    )
     path = tmp_path / "test.jpg"
     cv2.imwrite(str(path), img)
     return path
@@ -141,15 +143,21 @@ class TestImportFile:
 
 class TestImportFolder:
     def test_import_folder_basic(
-        self, service: ImportService, tmp_path: Path,
-        tmp_image: Path, tmp_png: Path,
+        self,
+        service: ImportService,
+        tmp_path: Path,
+        tmp_image: Path,
+        tmp_png: Path,
     ):
         images = service.import_folder(tmp_path)
         assert len(images) == 2
 
     def test_import_folder_with_pdf(
-        self, service: ImportService, tmp_path: Path,
-        tmp_image: Path, tmp_pdf: Path,
+        self,
+        service: ImportService,
+        tmp_path: Path,
+        tmp_image: Path,
+        tmp_pdf: Path,
     ):
         images = service.import_folder(tmp_path)
         # 1 JPEG + 2 páginas PDF = 3
@@ -169,7 +177,9 @@ class TestImportFolder:
         assert len(recursive) == 2
 
     def test_import_folder_ignores_unsupported(
-        self, service: ImportService, tmp_path: Path,
+        self,
+        service: ImportService,
+        tmp_path: Path,
     ):
         (tmp_path / "readme.txt").write_text("not an image")
         img = np.zeros((50, 50, 3), dtype=np.uint8)
@@ -186,7 +196,9 @@ class TestImportFolder:
             service.import_folder(tmp_image)
 
     def test_import_folder_alphabetical_order(
-        self, service: ImportService, tmp_path: Path,
+        self,
+        service: ImportService,
+        tmp_path: Path,
     ):
         img = np.zeros((50, 50, 3), dtype=np.uint8)
         for name in ["c.jpg", "a.jpg", "b.jpg"]:

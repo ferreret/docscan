@@ -36,6 +36,7 @@ def icon_sun(color: str = "#f9e2af", size: int = 32) -> QIcon:
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     p.setPen(pen)
     import math
+
     ray_inner = r + max(2, size // 10)
     ray_outer = int(size * 0.42)
     for i in range(8):

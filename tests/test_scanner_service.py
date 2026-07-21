@@ -19,6 +19,7 @@ _SYSTEM = platform.system()
 _HAS_SANE = False
 try:
     import sane
+
     _HAS_SANE = True
 except ImportError:
     pass

@@ -76,6 +76,7 @@ class WorkbenchAPI:
         if not path:
             return None
         import cv2
+
         return cv2.imread(path, cv2.IMREAD_UNCHANGED)
 
     def get_page_barcodes(self, page_index: int) -> list[dict[str, Any]]:
@@ -85,6 +86,7 @@ class WorkbenchAPI:
             return []
         page = pages[page_index]
         from app.db.repositories.page_repo import PageRepository
+
         with self._session_factory() as session:
             repo = PageRepository(session)
             db_page = repo.get_by_id(page.id)
@@ -97,8 +99,10 @@ class WorkbenchAPI:
                     "engine": bc.engine,
                     "role": bc.role,
                     "quality": bc.quality,
-                    "x": bc.pos_x, "y": bc.pos_y,
-                    "w": bc.pos_w, "h": bc.pos_h,
+                    "x": bc.pos_x,
+                    "y": bc.pos_y,
+                    "w": bc.pos_w,
+                    "h": bc.pos_h,
                 }
                 for bc in db_page.barcodes
             ]
@@ -117,11 +121,14 @@ class WorkbenchAPI:
             return {}
         try:
             return json.loads(pages[page_index].index_fields_json or "{}")
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return {}
 
     def set_page_field(
-        self, page_index: int, name: str, value: Any,
+        self,
+        page_index: int,
+        name: str,
+        value: Any,
     ) -> None:
         """Establece un campo de indexación en una página (persiste en BD)."""
         pages = self._get_pages()
@@ -129,6 +136,7 @@ class WorkbenchAPI:
             return
         page = pages[page_index]
         from app.db.repositories.page_repo import PageRepository
+
         with self._session_factory() as session:
             repo = PageRepository(session)
             db_page = repo.get_by_id(page.id)
@@ -136,7 +144,7 @@ class WorkbenchAPI:
                 return
             try:
                 fields = json.loads(db_page.index_fields_json or "{}")
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 fields = {}
             fields[name] = value
             merged_json = json.dumps(fields, ensure_ascii=False)

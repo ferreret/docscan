@@ -76,7 +76,8 @@ class TestAppListWidget:
 
         widget.filter_apps("fact")
         visible = [
-            widget.item(i) for i in range(widget.count())
+            widget.item(i)
+            for i in range(widget.count())
             if not widget.item(i).isHidden()
         ]
         assert len(visible) == 1
@@ -95,7 +96,8 @@ class TestAppListWidget:
         widget.filter_apps("fact")
         widget.filter_apps("")
         visible = [
-            widget.item(i) for i in range(widget.count())
+            widget.item(i)
+            for i in range(widget.count())
             if not widget.item(i).isHidden()
         ]
         assert len(visible) == 3
@@ -157,7 +159,10 @@ class TestLauncherWindow:
         assert window._app_list.count() == 3
 
     def test_buttons_disabled_without_selection(
-        self, qtbot, session_factory, seed_apps,
+        self,
+        qtbot,
+        session_factory,
+        seed_apps,
     ):
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
@@ -168,7 +173,10 @@ class TestLauncherWindow:
         assert not sb.get_button("delete").isEnabled()
 
     def test_buttons_enabled_with_selection(
-        self, qtbot, session_factory, seed_apps,
+        self,
+        qtbot,
+        session_factory,
+        seed_apps,
     ):
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
@@ -197,9 +205,7 @@ class TestLauncherWindow:
         window._create_app("Nueva App", "Descripción")
         assert window._app_list.count() == 1
 
-    def test_create_duplicate_app(
-        self, qtbot, session_factory, seed_apps, monkeypatch
-    ):
+    def test_create_duplicate_app(self, qtbot, session_factory, seed_apps, monkeypatch):
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
         # El nombre duplicado dispara QMessageBox.warning, un modal que
@@ -228,5 +234,7 @@ class TestLauncherWindow:
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
         window._app_list.setCurrentRow(0)
-        assert "Facturas" in window._info_label.text() or \
-               "Albaranes" in window._info_label.text()
+        assert (
+            "Facturas" in window._info_label.text()
+            or "Albaranes" in window._info_label.text()
+        )

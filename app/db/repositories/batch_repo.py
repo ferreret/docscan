@@ -28,11 +28,7 @@ class BatchRepository:
         return list(self._session.scalars(stmt))
 
     def get_by_state(self, state: str) -> list[Batch]:
-        stmt = (
-            select(Batch)
-            .where(Batch.state == state)
-            .order_by(Batch.created_at)
-        )
+        stmt = select(Batch).where(Batch.state == state).order_by(Batch.created_at)
         return list(self._session.scalars(stmt))
 
     def get_all(self) -> list[Batch]:

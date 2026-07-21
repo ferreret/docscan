@@ -81,12 +81,8 @@ class BatchFieldsTab(QWidget):
         # Tabla
         self._table = QTableWidget(0, len(_COLUMN_HEADERS_SRC))
         self._table.setHorizontalHeaderLabels(_column_headers())
-        self._table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows
-        )
-        self._table.setSelectionMode(
-            QAbstractItemView.SelectionMode.SingleSelection
-        )
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table.verticalHeader().setVisible(False)
         self._table.verticalHeader().setDefaultSectionSize(48)
         self._table.verticalHeader().setMinimumSectionSize(48)
@@ -112,7 +108,7 @@ class BatchFieldsTab(QWidget):
         """Carga los campos desde batch_fields_json."""
         try:
             fields = json.loads(app.batch_fields_json or "[]")
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             fields = []
 
         for field in fields:
@@ -139,13 +135,17 @@ class BatchFieldsTab(QWidget):
         # Etiqueta
         label_edit = QLineEdit(field.get("label", ""))
         label_edit.setPlaceholderText(self.tr("Nombre del campo..."))
-        label_edit.setToolTip(self.tr("Nombre del campo que aparecerá como etiqueta en el workbench"))
+        label_edit.setToolTip(
+            self.tr("Nombre del campo que aparecerá como etiqueta en el workbench")
+        )
         self._table.setCellWidget(row, _COL_LABEL, self._wrap_centered(label_edit))
 
         # Tipo
         type_combo = QComboBox()
         type_combo.setMinimumWidth(100)
-        type_combo.setToolTip(self.tr("Tipo de dato: texto, fecha, lista desplegable o numérico"))
+        type_combo.setToolTip(
+            self.tr("Tipo de dato: texto, fecha, lista desplegable o numérico")
+        )
         type_combo.addItems(FIELD_TYPES)
         field_type = field.get("type", "texto")
         idx = type_combo.findText(field_type)
@@ -168,7 +168,9 @@ class BatchFieldsTab(QWidget):
         req_layout.setContentsMargins(0, 0, 0, 0)
         req_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         required_check = QCheckBox()
-        required_check.setToolTip(self.tr("Marcar si este campo es obligatorio antes de transferir"))
+        required_check.setToolTip(
+            self.tr("Marcar si este campo es obligatorio antes de transferir")
+        )
         required_check.setChecked(field.get("required", False))
         req_layout.addWidget(required_check)
         self._table.setCellWidget(row, _COL_REQUIRED, required_container)
@@ -294,7 +296,9 @@ class BatchFieldsTab(QWidget):
         """Reemplaza el widget de configuración al cambiar el tipo."""
         old_widget = self._table.cellWidget(row, _COL_CONFIG)
         config = self._extract_config_from_widget(old_widget) if old_widget else {}
-        new_widget = self._make_config_widget(new_type, config if new_type != "texto" else None)
+        new_widget = self._make_config_widget(
+            new_type, config if new_type != "texto" else None
+        )
         self._table.setCellWidget(row, _COL_CONFIG, new_widget)
 
     def _move_row(self, row: int, direction: int) -> None:

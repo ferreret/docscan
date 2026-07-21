@@ -20,17 +20,13 @@ class OperationHistory(Base):
     __tablename__ = "operation_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    batch_id: Mapped[int] = mapped_column(
-        ForeignKey("batches.id", ondelete="CASCADE")
-    )
+    batch_id: Mapped[int] = mapped_column(ForeignKey("batches.id", ondelete="CASCADE"))
     operation: Mapped[str] = mapped_column(String(50))
     old_state: Mapped[str] = mapped_column(String(20), default="")
     new_state: Mapped[str] = mapped_column(String(20), default="")
     username: Mapped[str] = mapped_column(String(100), default="")
     message: Mapped[str] = mapped_column(Text, default="")
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relación
     batch: Mapped["Batch"] = relationship(  # noqa: F821

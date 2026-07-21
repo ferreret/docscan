@@ -23,9 +23,7 @@ class Page(Base):
     __tablename__ = "pages"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    batch_id: Mapped[int] = mapped_column(
-        ForeignKey("batches.id", ondelete="CASCADE")
-    )
+    batch_id: Mapped[int] = mapped_column(ForeignKey("batches.id", ondelete="CASCADE"))
     page_index: Mapped[int] = mapped_column(Integer)
     image_path: Mapped[str] = mapped_column(Text, default="")
 
@@ -47,9 +45,7 @@ class Page(Base):
     script_errors_json: Mapped[str] = mapped_column(Text, default="[]")
 
     # Auditoría
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

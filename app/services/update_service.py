@@ -126,7 +126,9 @@ class UpdateService:
 
                 # Buscar SHA256
                 sha256 = self._fetch_sha256(
-                    release.get("assets", []), asset["name"], client,
+                    release.get("assets", []),
+                    asset["name"],
+                    client,
                 )
 
                 info = ReleaseInfo(
@@ -232,7 +234,8 @@ class UpdateService:
         if actual.lower() != expected_sha256.lower():
             log.error(
                 "Checksum inválido: esperado=%s, actual=%s",
-                expected_sha256[:16], actual[:16],
+                expected_sha256[:16],
+                actual[:16],
             )
             return False
 

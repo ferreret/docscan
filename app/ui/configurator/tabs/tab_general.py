@@ -51,7 +51,9 @@ class GeneralTab(QWidget):
         main_form.addRow("", self._active_check)
 
         self._scanner_combo = QComboBox()
-        self._scanner_combo.addItems(get_available_backends() or ["sane", "twain", "wia"])
+        self._scanner_combo.addItems(
+            get_available_backends() or ["sane", "twain", "wia"]
+        )
         idx = self._scanner_combo.findText(app.scanner_backend)
         if idx >= 0:
             self._scanner_combo.setCurrentIndex(idx)
@@ -86,7 +88,9 @@ class GeneralTab(QWidget):
         bc_form.addRow(self.tr("Validación (regex):"), self._bc_regex_edit)
 
         self._bc_fixed_edit = QLineEdit()
-        self._bc_fixed_edit.setPlaceholderText(self.tr("Vacío = solicitar valor al usuario"))
+        self._bc_fixed_edit.setPlaceholderText(
+            self.tr("Vacío = solicitar valor al usuario")
+        )
         self._bc_fixed_edit.setToolTip(
             self.tr(
                 "Valor fijo que se inserta al pulsar '+ Barcode manual'.\n"
@@ -157,7 +161,7 @@ class GeneralTab(QWidget):
         """Parsea ai_config_json con fallback a dict vacío."""
         try:
             return json.loads(app.ai_config_json or "{}")
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return {}
 
     def _load_barcode_config(self, app: Application) -> None:

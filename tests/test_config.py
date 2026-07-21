@@ -72,6 +72,7 @@ class TestSecrets:
         tmp_secrets.set("x", "y")
         key_file = tmp_path / ".secrets.key"
         import sys
+
         if sys.platform != "win32":
             mode = oct(key_file.stat().st_mode & 0o777)
             assert mode == "0o600"

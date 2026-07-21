@@ -37,6 +37,7 @@ def _pen(color: str = "#cdd6f4", width: float = 2.0) -> QPen:
 
 # -- Iconos de navegación --
 
+
 def _icon_first(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
     p = QPainter(pm)
@@ -101,6 +102,7 @@ def _icon_nav_script(color: str = "#cdd6f4") -> QIcon:
     p.drawEllipse(QPoint(22, 16), 5, 5)
     for angle_offset in range(0, 360, 60):
         import math
+
         rad = math.radians(angle_offset)
         x1 = 22 + int(6 * math.cos(rad))
         y1 = 16 + int(6 * math.sin(rad))
@@ -146,6 +148,7 @@ def _icon_next_review(color: str = "#cdd6f4") -> QIcon:
 
 
 # -- Iconos de zoom --
+
 
 def _icon_zoom_in(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
@@ -205,6 +208,7 @@ def _icon_zoom_100(color: str = "#cdd6f4") -> QIcon:
 
 
 # -- Iconos de herramientas --
+
 
 def _icon_rotate(color: str = "#cdd6f4") -> QIcon:
     pm = _pm()
@@ -325,20 +329,26 @@ class ViewerOverlay(QWidget):
         c = "#cdd6f4"  # Color base (se adapta vía QSS)
 
         # --- Navegación ---
-        self._btn_first = _make_button(_icon_first(c), self.tr("Primera p\u00e1gina (Home)"))
+        self._btn_first = _make_button(
+            _icon_first(c), self.tr("Primera p\u00e1gina (Home)")
+        )
         self._btn_prev = _make_button(_icon_prev(c), self.tr("Anterior (Left)"))
         self._lbl_page_info = QLabel(" 0 / 0 ")
         self._lbl_page_info.setObjectName("pageInfoLabel")
         self._lbl_page_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl_page_info.setMinimumWidth(90)
         self._btn_next = _make_button(_icon_next(c), self.tr("Siguiente (Right)"))
-        self._btn_last = _make_button(_icon_last(c), self.tr("\u00daltima p\u00e1gina (End)"))
+        self._btn_last = _make_button(
+            _icon_last(c), self.tr("\u00daltima p\u00e1gina (End)")
+        )
 
         self._btn_next_bc = _make_button(
-            _icon_next_barcode(c), self.tr("Siguiente con barcode (Ctrl+Right)"),
+            _icon_next_barcode(c),
+            self.tr("Siguiente con barcode (Ctrl+Right)"),
         )
         self._btn_next_review = _make_button(
-            _icon_next_review(c), self.tr("Siguiente pendiente revisión (Ctrl+Shift+Right)"),
+            _icon_next_review(c),
+            self.tr("Siguiente pendiente revisión (Ctrl+Shift+Right)"),
         )
 
         layout.addWidget(self._btn_first)
@@ -355,7 +365,8 @@ class ViewerOverlay(QWidget):
 
         # Navegación programable
         self._btn_nav_script = _make_button(
-            _icon_nav_script(c), self.tr("Navegación programable (Ctrl+G)"),
+            _icon_nav_script(c),
+            self.tr("Navegación programable (Ctrl+G)"),
         )
         layout.addWidget(self._btn_nav_script)
 
@@ -366,10 +377,13 @@ class ViewerOverlay(QWidget):
         self._btn_zoom_in = _make_button(_icon_zoom_in(c), self.tr("Acercar (Ctrl++)"))
         self._btn_zoom_out = _make_button(_icon_zoom_out(c), self.tr("Alejar (Ctrl+-)"))
         self._btn_zoom_fit = _make_button(
-            _icon_zoom_fit(c), self.tr("Ajustar a p\u00e1gina (Ctrl+F)"),
+            _icon_zoom_fit(c),
+            self.tr("Ajustar a p\u00e1gina (Ctrl+F)"),
         )
         self._btn_zoom_100 = _make_button(
-            _icon_zoom_100(c), self.tr("Tamaño real (Ctrl+0)"), width=42,
+            _icon_zoom_100(c),
+            self.tr("Tamaño real (Ctrl+0)"),
+            width=42,
         )
 
         layout.addWidget(self._btn_zoom_in)
@@ -382,13 +396,17 @@ class ViewerOverlay(QWidget):
 
         # --- Herramientas ---
         self._btn_rotate = _make_button(_icon_rotate(c), self.tr("Rotar 90° (Ctrl+R)"))
-        self._btn_mark = _make_button(_icon_mark(c), self.tr("Marcar/desmarcar página (Ctrl+M)"))
+        self._btn_mark = _make_button(
+            _icon_mark(c), self.tr("Marcar/desmarcar página (Ctrl+M)")
+        )
         self._btn_delete_current = _make_button(
-            _icon_delete_current(), self.tr("Eliminar página actual (Delete)"),
+            _icon_delete_current(),
+            self.tr("Eliminar página actual (Delete)"),
             obj_name="dangerButton",
         )
         self._btn_delete_from = _make_button(
-            _icon_delete_from(), self.tr("Borrar desde aqu\u00ed"),
+            _icon_delete_from(),
+            self.tr("Borrar desde aqu\u00ed"),
             obj_name="dangerButton",
         )
 

@@ -30,13 +30,30 @@ def gray_image():
 class TestImageOps:
     def test_all_ops_registered(self):
         expected = {
-            "AutoDeskew", "ConvertTo1Bpp", "Crop", "CropWhiteBorders",
-            "CropBlackBorders", "Resize", "Rotate", "RotateAngle",
-            "SetBrightness", "SetContrast", "RemoveLines",
-            "FxDespeckle", "FxGrayscale", "FxNegative", "FxDilate",
-            "FxErode", "FxEqualizeIntensity", "FloodFill",
-            "RemoveHolePunch", "SetResolution", "SwapColor",
-            "KeepChannel", "RemoveChannel", "ScaleChannel",
+            "AutoDeskew",
+            "ConvertTo1Bpp",
+            "Crop",
+            "CropWhiteBorders",
+            "CropBlackBorders",
+            "Resize",
+            "Rotate",
+            "RotateAngle",
+            "SetBrightness",
+            "SetContrast",
+            "RemoveLines",
+            "FxDespeckle",
+            "FxGrayscale",
+            "FxNegative",
+            "FxDilate",
+            "FxErode",
+            "FxEqualizeIntensity",
+            "FloodFill",
+            "RemoveHolePunch",
+            "SetResolution",
+            "SwapColor",
+            "KeepChannel",
+            "RemoveChannel",
+            "ScaleChannel",
         }
         assert expected == set(IMAGE_OPS.keys())
 
@@ -47,7 +64,9 @@ class TestImageOps:
 
     def test_crop(self, service, color_image):
         result = service.execute(
-            color_image, "Crop", {"x": 10, "y": 20, "w": 100, "h": 50},
+            color_image,
+            "Crop",
+            {"x": 10, "y": 20, "w": 100, "h": 50},
         )
         assert result.shape == (50, 100, 3)
 
@@ -131,7 +150,9 @@ class TestWindowedExecution:
     def test_windowed_grayscale(self, service, color_image):
         """Aplica FxGrayscale solo a una región."""
         result = service.execute(
-            color_image, "FxNegative", window=(0, 0, 150, 100),
+            color_image,
+            "FxNegative",
+            window=(0, 0, 150, 100),
         )
         # La región modificada y la no modificada deben diferir
         assert result.shape == color_image.shape
@@ -139,7 +160,9 @@ class TestWindowedExecution:
     def test_windowed_crop(self, service, color_image):
         """Una op en ventana no cambia el tamaño total."""
         result = service.execute(
-            color_image, "SetBrightness", {"value": 50},
+            color_image,
+            "SetBrightness",
+            {"value": 50},
             window=(50, 50, 100, 100),
         )
         assert result.shape == color_image.shape

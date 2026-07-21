@@ -173,7 +173,7 @@ def _compile_lifecycle_events(
     events: dict[str, str] = {}
     try:
         events_data = json.loads(app_record.events_json)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return events
 
     for event_name, event_config in events_data.items():

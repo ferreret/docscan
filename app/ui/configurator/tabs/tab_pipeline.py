@@ -104,23 +104,41 @@ class PipelineTab(QWidget):
         self._btn_add.setProperty("cssClass", "primary")
         self._btn_add.setToolTip(self.tr("Añadir un nuevo paso del tipo seleccionado"))
         self._btn_edit = QPushButton(self.tr("Editar"))
-        self._btn_edit.setToolTip(self.tr("Editar la configuración del paso seleccionado"))
+        self._btn_edit.setToolTip(
+            self.tr("Editar la configuración del paso seleccionado")
+        )
         self._btn_delete = QPushButton(self.tr("Eliminar"))
         self._btn_delete.setProperty("cssClass", "danger")
-        self._btn_delete.setToolTip(self.tr("Eliminar el paso seleccionado del pipeline"))
+        self._btn_delete.setToolTip(
+            self.tr("Eliminar el paso seleccionado del pipeline")
+        )
         self._btn_toggle = QPushButton(self.tr("On/Off"))
-        self._btn_toggle.setToolTip(self.tr("Activar o desactivar el paso seleccionado"))
+        self._btn_toggle.setToolTip(
+            self.tr("Activar o desactivar el paso seleccionado")
+        )
         self._btn_up = QPushButton("↑")
-        self._btn_up.setToolTip(self.tr("Mover el paso hacia arriba en el orden de ejecución"))
+        self._btn_up.setToolTip(
+            self.tr("Mover el paso hacia arriba en el orden de ejecución")
+        )
         self._btn_down = QPushButton("↓")
-        self._btn_down.setToolTip(self.tr("Mover el paso hacia abajo en el orden de ejecución"))
+        self._btn_down.setToolTip(
+            self.tr("Mover el paso hacia abajo en el orden de ejecución")
+        )
         self._btn_test = QPushButton(self.tr("Probar pipeline"))
         self._btn_test.setProperty("cssClass", "accent")
-        self._btn_test.setToolTip(self.tr("Ejecutar el pipeline sobre una imagen de muestra para verificar el resultado"))
+        self._btn_test.setToolTip(
+            self.tr(
+                "Ejecutar el pipeline sobre una imagen de muestra para verificar el resultado"
+            )
+        )
 
         for btn in (
-            self._btn_add, self._btn_edit, self._btn_delete,
-            self._btn_toggle, self._btn_up, self._btn_down,
+            self._btn_add,
+            self._btn_edit,
+            self._btn_delete,
+            self._btn_toggle,
+            self._btn_up,
+            self._btn_down,
         ):
             actions_layout.addWidget(btn)
         actions_layout.addStretch()
@@ -132,7 +150,11 @@ class PipelineTab(QWidget):
         self._list = QListWidget()
         self._list.setObjectName("pipelineStepList")
         self._list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self._list.setToolTip(self.tr("Lista de pasos del pipeline. Doble clic para editar, arrastrar para reordenar"))
+        self._list.setToolTip(
+            self.tr(
+                "Lista de pasos del pipeline. Doble clic para editar, arrastrar para reordenar"
+            )
+        )
         layout.addWidget(self._list)
 
         # Conexiones
@@ -218,7 +240,8 @@ class PipelineTab(QWidget):
         if idx is None or idx == 0:
             return
         self._steps[idx - 1], self._steps[idx] = (
-            self._steps[idx], self._steps[idx - 1]
+            self._steps[idx],
+            self._steps[idx - 1],
         )
         self._refresh_list()
         self._list.setCurrentRow(idx - 1)
@@ -228,7 +251,8 @@ class PipelineTab(QWidget):
         if idx is None or idx >= len(self._steps) - 1:
             return
         self._steps[idx], self._steps[idx + 1] = (
-            self._steps[idx + 1], self._steps[idx]
+            self._steps[idx + 1],
+            self._steps[idx],
         )
         self._refresh_list()
         self._list.setCurrentRow(idx + 1)
@@ -240,7 +264,9 @@ class PipelineTab(QWidget):
     def _create_step_dialog(self, step: PipelineStep) -> Any:
         """Crea el diálogo de edición apropiado para el tipo de paso."""
         from app.ui.configurator.step_dialogs.image_op_dialog import ImageOpDialog
-        from app.ui.configurator.step_dialogs.barcode_step_dialog import BarcodeStepDialog
+        from app.ui.configurator.step_dialogs.barcode_step_dialog import (
+            BarcodeStepDialog,
+        )
         from app.ui.configurator.step_dialogs.ocr_step_dialog import OcrStepDialog
         from app.ui.configurator.step_dialogs.script_step_dialog import ScriptStepDialog
 
@@ -275,7 +301,8 @@ class PipelineTab(QWidget):
         """Ejecuta el pipeline sobre una imagen de muestra."""
         if not self._steps:
             QMessageBox.information(
-                self, self.tr("Pipeline vacio"),
+                self,
+                self.tr("Pipeline vacio"),
                 self.tr("Añade al menos un paso antes de probar."),
             )
             return
@@ -286,9 +313,7 @@ class PipelineTab(QWidget):
             self,
             self.tr("Seleccionar imagen de prueba"),
             "",
-            self.tr(
-                "Imagenes (*.tif *.tiff *.png *.jpg *.jpeg *.bmp *.pdf)"
-            ),
+            self.tr("Imagenes (*.tif *.tiff *.png *.jpg *.jpeg *.bmp *.pdf)"),
         )
         if not path:
             return
@@ -299,14 +324,16 @@ class PipelineTab(QWidget):
             images = ImageLib.load(path)
             if not images:
                 QMessageBox.warning(
-                    self, self.tr("Error"),
+                    self,
+                    self.tr("Error"),
                     self.tr("No se pudo cargar la imagen."),
                 )
                 return
             image = images[0]
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Error al cargar"),
+                self,
+                self.tr("Error al cargar"),
                 str(e),
             )
             return
@@ -329,11 +356,13 @@ class PipelineTab(QWidget):
         ocr_service = None
         try:
             from app.services.barcode_service import BarcodeService
+
             barcode_service = BarcodeService()
         except Exception:
             log.debug("BarcodeService no disponible para test pipeline")
         try:
             from app.services.ocr_service import OcrService
+
             ocr_service = OcrService()
         except Exception:
             log.debug("OcrService no disponible para test pipeline")
@@ -357,7 +386,11 @@ class PipelineTab(QWidget):
 
         # Progress dialog
         progress = QProgressDialog(
-            self.tr("Ejecutando pipeline..."), None, 0, 0, self,
+            self.tr("Ejecutando pipeline..."),
+            None,
+            0,
+            0,
+            self,
         )
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
@@ -377,7 +410,11 @@ class PipelineTab(QWidget):
         )
         self._test_worker.finished.connect(
             lambda page, snaps: self._on_test_finished(
-                page, snaps, progress, image, source_name,
+                page,
+                snaps,
+                progress,
+                image,
+                source_name,
             )
         )
         self._test_worker.error_occurred.connect(
@@ -386,14 +423,19 @@ class PipelineTab(QWidget):
         self._test_worker.start()
 
     def _on_test_finished(
-        self, page: Any, snapshots: list, progress: Any,
-        original_image: Any, source_name: str,
+        self,
+        page: Any,
+        snapshots: list,
+        progress: Any,
+        original_image: Any,
+        source_name: str,
     ) -> None:
         """Muestra el dialogo de resultados."""
         progress.close()
         from app.ui.configurator.test_pipeline_dialog import (
             TestPipelineResultDialog,
         )
+
         dialog = TestPipelineResultDialog(
             snapshots=snapshots,
             original_image=original_image,
@@ -405,6 +447,7 @@ class PipelineTab(QWidget):
     def _on_test_error(self, error_msg: str, progress: Any) -> None:
         progress.close()
         QMessageBox.critical(
-            self, self.tr("Error en pipeline"),
+            self,
+            self.tr("Error en pipeline"),
             error_msg,
         )

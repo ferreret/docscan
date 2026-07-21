@@ -46,7 +46,9 @@ class AiModeWorker(QThread):
     ) -> None:
         if self.isRunning():
             log.warning("AiModeWorker: peticion ignorada, hilo ocupado.")
-            self.error_occurred.emit("El asistente aun esta procesando. Espera la respuesta.")
+            self.error_occurred.emit(
+                "El asistente aun esta procesando. Espera la respuesta."
+            )
             return
         self._messages = messages
         self._apps_summary = apps_summary

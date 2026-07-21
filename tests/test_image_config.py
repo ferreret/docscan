@@ -6,7 +6,11 @@ import json
 
 import pytest
 
-from app.models.image_config import ImageConfig, parse_image_config, serialize_image_config
+from app.models.image_config import (
+    ImageConfig,
+    parse_image_config,
+    serialize_image_config,
+)
 
 
 class TestImageConfigDefaults:
@@ -30,11 +34,13 @@ class TestParseImageConfig:
         assert config == ImageConfig()
 
     def test_parse_valid_json(self):
-        data = json.dumps({
-            "format": "jpg",
-            "color_mode": "grayscale",
-            "jpeg_quality": 50,
-        })
+        data = json.dumps(
+            {
+                "format": "jpg",
+                "color_mode": "grayscale",
+                "jpeg_quality": 50,
+            }
+        )
         config = parse_image_config(data)
         assert config.format == "jpg"
         assert config.color_mode == "grayscale"
@@ -44,14 +50,16 @@ class TestParseImageConfig:
         assert config.png_compression == 6
 
     def test_parse_all_fields(self):
-        data = json.dumps({
-            "format": "png",
-            "color_mode": "bw",
-            "jpeg_quality": 10,
-            "tiff_compression": "zip",
-            "png_compression": 9,
-            "bw_threshold": 200,
-        })
+        data = json.dumps(
+            {
+                "format": "png",
+                "color_mode": "bw",
+                "jpeg_quality": 10,
+                "tiff_compression": "zip",
+                "png_compression": 9,
+                "bw_threshold": 200,
+            }
+        )
         config = parse_image_config(data)
         assert config.format == "png"
         assert config.color_mode == "bw"
@@ -61,11 +69,13 @@ class TestParseImageConfig:
         assert config.bw_threshold == 200
 
     def test_parse_ignores_unknown_fields(self):
-        data = json.dumps({
-            "format": "jpg",
-            "unknown_field": "valor",
-            "another_unknown": 42,
-        })
+        data = json.dumps(
+            {
+                "format": "jpg",
+                "unknown_field": "valor",
+                "another_unknown": 42,
+            }
+        )
         config = parse_image_config(data)
         assert config.format == "jpg"
         assert not hasattr(config, "unknown_field")

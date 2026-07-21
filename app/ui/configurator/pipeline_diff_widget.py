@@ -45,10 +45,10 @@ _LABEL_REMOVED = QT_TRANSLATE_NOOP(_ctx, "(eliminado)")
 _tr = lambda s: QCoreApplication.translate(_ctx, s)
 
 # Colores para diff
-_COLOR_ADDED = QColor(76, 175, 80, 40)       # verde suave
-_COLOR_REMOVED = QColor(244, 67, 54, 40)     # rojo suave
-_COLOR_MODIFIED = QColor(255, 193, 7, 40)    # amarillo suave
-_COLOR_UNCHANGED = QColor(0, 0, 0, 0)        # transparente
+_COLOR_ADDED = QColor(76, 175, 80, 40)  # verde suave
+_COLOR_REMOVED = QColor(244, 67, 54, 40)  # rojo suave
+_COLOR_MODIFIED = QColor(255, 193, 7, 40)  # amarillo suave
+_COLOR_UNCHANGED = QColor(0, 0, 0, 0)  # transparente
 
 _TEXT_ADDED = QColor(46, 125, 50)
 _TEXT_REMOVED = QColor(198, 40, 40)
@@ -121,17 +121,21 @@ def compute_diff(
                 matched_current.add(pi)
                 matched_proposed.add(pi)
                 if _steps_equal(cstep, pstep):
-                    result.append({
-                        "current": cstep,
-                        "proposed": pstep,
-                        "status": "unchanged",
-                    })
+                    result.append(
+                        {
+                            "current": cstep,
+                            "proposed": pstep,
+                            "status": "unchanged",
+                        }
+                    )
                 else:
-                    result.append({
-                        "current": cstep,
-                        "proposed": pstep,
-                        "status": "modified",
-                    })
+                    result.append(
+                        {
+                            "current": cstep,
+                            "proposed": pstep,
+                            "status": "modified",
+                        }
+                    )
                 continue
 
         # Buscar por key en current
@@ -142,35 +146,43 @@ def compute_diff(
                 matched_proposed.add(pi)
                 cstep = current[ci]
                 if _steps_equal(cstep, pstep):
-                    result.append({
-                        "current": cstep,
-                        "proposed": pstep,
-                        "status": "unchanged",
-                    })
+                    result.append(
+                        {
+                            "current": cstep,
+                            "proposed": pstep,
+                            "status": "unchanged",
+                        }
+                    )
                 else:
-                    result.append({
-                        "current": cstep,
-                        "proposed": pstep,
-                        "status": "modified",
-                    })
+                    result.append(
+                        {
+                            "current": cstep,
+                            "proposed": pstep,
+                            "status": "modified",
+                        }
+                    )
                 continue
 
         # Nuevo paso
         matched_proposed.add(pi)
-        result.append({
-            "current": None,
-            "proposed": pstep,
-            "status": "added",
-        })
+        result.append(
+            {
+                "current": None,
+                "proposed": pstep,
+                "status": "added",
+            }
+        )
 
     # Pasos eliminados (en current pero no emparejados)
     for ci, cstep in enumerate(current):
         if ci not in matched_current:
-            result.append({
-                "current": cstep,
-                "proposed": None,
-                "status": "removed",
-            })
+            result.append(
+                {
+                    "current": cstep,
+                    "proposed": None,
+                    "status": "removed",
+                }
+            )
 
     return result
 

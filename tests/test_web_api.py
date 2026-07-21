@@ -241,9 +241,7 @@ class TestTenantSuspended:
             display_name="U",
             tenant_name="SuspendedCo",
         )
-        _set_tenant_active(
-            client.app.state.test_db_factory, info["tenant_id"], False
-        )
+        _set_tenant_active(client.app.state.test_db_factory, info["tenant_id"], False)
         resp = client.post(
             "/api/auth/login",
             json={"email": "user@suspended.com", "password": "password123"},
@@ -265,7 +263,9 @@ class TestTenantSuspended:
 
         factory = client.app.state.test_db_factory
         with factory() as db:
-            t = db.execute(select(Tenant).where(Tenant.slug == "activecorp")).scalar_one()
+            t = db.execute(
+                select(Tenant).where(Tenant.slug == "activecorp")
+            ).scalar_one()
             t.active = False
             db.commit()
 
@@ -281,9 +281,7 @@ class TestTenantSuspended:
             display_name="F",
             tenant_name="FormSuspended",
         )
-        _set_tenant_active(
-            client.app.state.test_db_factory, info["tenant_id"], False
-        )
+        _set_tenant_active(client.app.state.test_db_factory, info["tenant_id"], False)
         resp = client.post(
             "/api/auth/token",
             data={"username": "form@suspended.com", "password": "password123"},

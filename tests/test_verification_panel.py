@@ -102,7 +102,7 @@ class TestCustomPanel:
         page0 = MagicMock()
         page0.index_fields_json = '{"nif": "B12345"}'
         page1 = MagicMock()
-        page1.index_fields_json = '{}'
+        page1.index_fields_json = "{}"
 
         class PageValidator(VerificationPanel):
             def validate_page(self, page_index):

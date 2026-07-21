@@ -63,8 +63,7 @@ def _fields_summary(fields: list[dict]) -> str:
     if not fields:
         return "  (ninguno)"
     return "\n".join(
-        f"  - {f.get('label', '?')} ({f.get('type', '?')})"
-        for f in fields
+        f"  - {f.get('label', '?')} ({f.get('type', '?')})" for f in fields
     )
 
 
@@ -198,7 +197,9 @@ class AppChangePreview(QFrame):
         if general:
             parts = []
             if "auto_transfer" in general:
-                parts.append(f"auto-transfer={'si' if general['auto_transfer'] else 'no'}")
+                parts.append(
+                    f"auto-transfer={'si' if general['auto_transfer'] else 'no'}"
+                )
             if "output_format" in general:
                 parts.append(f"formato={general['output_format']}")
             if parts:

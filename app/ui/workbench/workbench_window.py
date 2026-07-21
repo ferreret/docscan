@@ -184,7 +184,7 @@ class WorkbenchWindow(QMainWindow):
         """Pre-compila los scripts de eventos del ciclo de vida."""
         try:
             events = json.loads(self._application.events_json)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             events = {}
 
         for event_name, source in events.items():
@@ -496,7 +496,7 @@ class WorkbenchWindow(QMainWindow):
             return
         try:
             events = json.loads(self._application.events_json or "{}")
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return
 
         source = events.get("verification_panel", "").strip()
@@ -590,11 +590,11 @@ class WorkbenchWindow(QMainWindow):
             return
         try:
             raw_batch = json.loads(self._application.batch_fields_json)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             raw_batch = []
         try:
             index_fields = json.loads(self._application.index_fields_json)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             index_fields = []
 
         # Mapear formato tab_batch_fields → MetadataPanel.configure()
@@ -1172,7 +1172,7 @@ class WorkbenchWindow(QMainWindow):
         if self._application and self._application.ai_config_json:
             try:
                 return json.loads(self._application.ai_config_json)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 pass
         return {}
 
@@ -1311,7 +1311,7 @@ class WorkbenchWindow(QMainWindow):
 
             try:
                 idx_fields = json.loads(page.index_fields_json)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 idx_fields = {}
 
             self._viewer.set_image(image, state)
@@ -1540,7 +1540,7 @@ class WorkbenchWindow(QMainWindow):
                     continue
                 try:
                     fields = json.loads(page.index_fields_json)
-                except (json.JSONDecodeError, TypeError):
+                except json.JSONDecodeError, TypeError:
                     fields = {}
                 # Obtener primer barcode para el patrón de nombre
                 db_page = page_repo.get_by_id(page.id)
@@ -1890,7 +1890,7 @@ class WorkbenchWindow(QMainWindow):
         # Leer configuración de barcode manual
         try:
             ai_config = json.loads(self._application.ai_config_json or "{}")
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             ai_config = {}
         bc_regex = ai_config.get("barcode_regex", "")
         bc_fixed = ai_config.get("barcode_fixed_value", "")
@@ -2059,14 +2059,12 @@ class WorkbenchWindow(QMainWindow):
         try:
             with self._session_factory() as session:
                 page_repo = PageRepository(session)
-                page = page_repo.get_by_batch_and_index(
-                    self._batch_id, page_index
-                )
+                page = page_repo.get_by_batch_and_index(self._batch_id, page_index)
                 if page is None:
                     return PageContext(page_index=page_index)
                 try:
                     fields = json.loads(page.index_fields_json or "{}")
-                except (json.JSONDecodeError, TypeError):
+                except json.JSONDecodeError, TypeError:
                     fields = {}
                 barcodes = [
                     BarcodeResult(
@@ -2246,7 +2244,7 @@ class WorkbenchWindow(QMainWindow):
         if scan_options_json:
             try:
                 self._last_scan_options = json.loads(scan_options_json)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 self._last_scan_options = {}
 
         if mode == "scanner":

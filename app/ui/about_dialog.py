@@ -27,9 +27,16 @@ _DESCRIPTION = (
 )
 
 _STACK_ITEMS = [
-    "Python 3.14", "PySide6", "SQLAlchemy 2", "OpenCV",
-    "PyMuPDF", "RapidOCR", "pyzbar", "zxing-cpp",
-    "Anthropic SDK", "OpenAI SDK",
+    "Python 3.14",
+    "PySide6",
+    "SQLAlchemy 2",
+    "OpenCV",
+    "PyMuPDF",
+    "RapidOCR",
+    "pyzbar",
+    "zxing-cpp",
+    "Anthropic SDK",
+    "OpenAI SDK",
 ]
 
 
@@ -58,12 +65,22 @@ class AboutDialog(QDialog):
         icon_label.setFixedSize(64, 64)
         try:
             from pathlib import Path
-            icon_path = Path(__file__).parent.parent.parent / "resources" / "icons" / "docscan.svg"
+
+            icon_path = (
+                Path(__file__).parent.parent.parent
+                / "resources"
+                / "icons"
+                / "docscan.svg"
+            )
             if icon_path.exists():
                 pixmap = QPixmap(str(icon_path))
                 icon_label.setPixmap(
-                    pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio,
-                                  Qt.TransformationMode.SmoothTransformation)
+                    pixmap.scaled(
+                        64,
+                        64,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
                 )
         except Exception:
             pass

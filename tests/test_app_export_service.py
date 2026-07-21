@@ -53,10 +53,17 @@ def sample_app(session: Session) -> Application:
         name="Facturas",
         description="App de facturas",
         active=True,
-        pipeline_json=json.dumps([
-            {"id": "s1", "type": "image_op", "op": "AutoDeskew"},
-            {"id": "s2", "type": "barcode", "engine": "motor1", "symbologies": ["Code128"]},
-        ]),
+        pipeline_json=json.dumps(
+            [
+                {"id": "s1", "type": "image_op", "op": "AutoDeskew"},
+                {
+                    "id": "s2",
+                    "type": "barcode",
+                    "engine": "motor1",
+                    "symbologies": ["Code128"],
+                },
+            ]
+        ),
         events_json=json.dumps({"on_app_start": "log.info('Inicio')"}),
         transfer_json=json.dumps({"mode": "folder", "destination": "/tmp/export"}),
         batch_fields_json=json.dumps([{"label": "Ref", "type": "texto"}]),
@@ -79,6 +86,7 @@ def sample_app(session: Session) -> Application:
 # ---------------------------------------------------------------
 # Tests de export
 # ---------------------------------------------------------------
+
 
 class TestExport:
     def test_export_contains_all_fields(self, sample_app):
@@ -133,6 +141,7 @@ class TestExport:
 # Tests de validacion
 # ---------------------------------------------------------------
 
+
 class TestValidation:
     def test_valid_data(self, sample_app):
         data = export_application(sample_app)
@@ -168,6 +177,7 @@ class TestValidation:
 # Tests de import
 # ---------------------------------------------------------------
 
+
 class TestImport:
     def test_import_creates_app(self, session):
         data = {
@@ -175,7 +185,9 @@ class TestImport:
             "application": {
                 "name": "Nueva App",
                 "description": "Importada",
-                "pipeline_json": [{"id": "s1", "type": "image_op", "op": "FxGrayscale"}],
+                "pipeline_json": [
+                    {"id": "s1", "type": "image_op", "op": "FxGrayscale"}
+                ],
                 "auto_transfer": True,
             },
         }
@@ -220,6 +232,7 @@ class TestImport:
 # ---------------------------------------------------------------
 # Test roundtrip
 # ---------------------------------------------------------------
+
 
 class TestRoundtrip:
     def test_export_import_preserves_all_fields(self, session, sample_app):

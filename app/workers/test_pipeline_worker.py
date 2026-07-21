@@ -47,7 +47,9 @@ class TestPipelineWorker(QThread):
         try:
             page = PageContext(page_index=0, image=self._image)
             page, snapshots = self._executor.execute_instrumented(
-                page, self._batch_ctx, self._app_ctx,
+                page,
+                self._batch_ctx,
+                self._app_ctx,
             )
             self.finished.emit(page, snapshots)
         except Exception as e:

@@ -18,17 +18,14 @@ class PageRepository:
         return self._session.get(Page, page_id)
 
     def get_by_batch(self, batch_id: int) -> list[Page]:
-        stmt = (
-            select(Page)
-            .where(Page.batch_id == batch_id)
-            .order_by(Page.page_index)
-        )
+        stmt = select(Page).where(Page.batch_id == batch_id).order_by(Page.page_index)
         return list(self._session.scalars(stmt))
 
     def get_by_batch_and_index(self, batch_id: int, page_index: int) -> Page | None:
         """Obtiene una página por batch_id y page_index."""
         stmt = select(Page).where(
-            Page.batch_id == batch_id, Page.page_index == page_index,
+            Page.batch_id == batch_id,
+            Page.page_index == page_index,
         )
         return self._session.scalars(stmt).first()
 
@@ -57,8 +54,5 @@ class PageRepository:
             self._session.flush()
 
     def count_by_batch(self, batch_id: int) -> int:
-        stmt = (
-            select(func.count(Page.id))
-            .where(Page.batch_id == batch_id)
-        )
+        stmt = select(func.count(Page.id)).where(Page.batch_id == batch_id)
         return self._session.scalar(stmt) or 0

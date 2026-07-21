@@ -95,7 +95,9 @@ class LogPanel(QWidget):
         self._level_combo.addItem("WARNING", logging.WARNING)
         self._level_combo.addItem("ERROR", logging.ERROR)
         self._level_combo.setCurrentIndex(1)  # INFO por defecto
-        self._level_combo.setToolTip(self.tr("Mostrar mensajes de este nivel y superiores"))
+        self._level_combo.setToolTip(
+            self.tr("Mostrar mensajes de este nivel y superiores")
+        )
         self._min_level = logging.INFO
         self._level_combo.currentIndexChanged.connect(self._on_level_changed)
         toolbar.addWidget(self._level_combo)
@@ -134,8 +136,10 @@ class LogPanel(QWidget):
 
         self._handler = QtLogHandler(self._bridge)
         self._handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)-7s] %(name)s: %(message)s",
-                              datefmt="%H:%M:%S")
+            logging.Formatter(
+                "%(asctime)s [%(levelname)-7s] %(name)s: %(message)s",
+                datefmt="%H:%M:%S",
+            )
         )
         logging.getLogger().addHandler(self._handler)
 

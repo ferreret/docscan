@@ -69,7 +69,8 @@ class LauncherWindow(QMainWindow):
         from app.ui.launcher.sidebar import Sidebar
 
         self._sidebar = Sidebar(
-            is_dark=self._theme_manager.is_dark, parent=self,
+            is_dark=self._theme_manager.is_dark,
+            parent=self,
         )
         self._sidebar.action_triggered.connect(self._on_sidebar_action)
         main_hlayout.addWidget(self._sidebar)
@@ -247,6 +248,7 @@ class LauncherWindow(QMainWindow):
     def _on_about(self) -> None:
         """Muestra el diálogo Acerca de."""
         from app.ui.about_dialog import AboutDialog
+
         dialog = AboutDialog(self)
         dialog.exec()
 
@@ -277,12 +279,14 @@ class LauncherWindow(QMainWindow):
         load_language(lang_code)
 
         QMessageBox.information(
-            self, self.tr("Idioma cambiado"),
+            self,
+            self.tr("Idioma cambiado"),
             self.tr("El idioma se aplicará completamente al reiniciar la aplicación."),
         )
 
     def _update_theme_button(self) -> None:
         from app.ui.icon_factory import icon_moon, icon_sun
+
         if self._theme_manager.is_dark:
             self._btn_theme.setText("")
             self._btn_theme.setIcon(icon_sun())
@@ -292,6 +296,7 @@ class LauncherWindow(QMainWindow):
 
     def _update_font_icons(self) -> None:
         from app.ui.icon_factory import icon_font_decrease, icon_font_increase
+
         color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
         self._btn_font_up.setIcon(icon_font_increase(color, 32))
         self._btn_font_down.setIcon(icon_font_decrease(color, 32))
@@ -311,7 +316,8 @@ class LauncherWindow(QMainWindow):
 
         count = self._app_list.count()
         self._status_bar.showMessage(
-            self.tr("{0} aplicación(es) disponible(s)").format(count), 3000,
+            self.tr("{0} aplicación(es) disponible(s)").format(count),
+            3000,
         )
         self._update_button_state()
 
@@ -337,8 +343,11 @@ class LauncherWindow(QMainWindow):
             repo = ApplicationRepository(session)
             if repo.get_by_name(name):
                 QMessageBox.warning(
-                    self, self.tr("Error"),
-                    self.tr("Ya existe una aplicación con el nombre '{0}'.").format(name),
+                    self,
+                    self.tr("Error"),
+                    self.tr("Ya existe una aplicación con el nombre '{0}'.").format(
+                        name
+                    ),
                 )
                 return
             app = Application(name=name, description=description)
@@ -346,7 +355,9 @@ class LauncherWindow(QMainWindow):
             session.commit()
 
         self._load_apps()
-        self._status_bar.showMessage(self.tr("Aplicación '{0}' creada").format(name), 3000)
+        self._status_bar.showMessage(
+            self.tr("Aplicación '{0}' creada").format(name), 3000
+        )
 
     def _on_open_app(self) -> None:
         app_id = self._app_list.selected_app_id()
@@ -355,9 +366,12 @@ class LauncherWindow(QMainWindow):
         app_data = self._app_list.selected_app_data()
         if app_data and not app_data.get("active", True):
             QMessageBox.information(
-                self, self.tr("Aplicación inactiva"),
-                self.tr("Esta aplicación está inactiva. Actívala desde "
-                "el configurador antes de abrirla."),
+                self,
+                self.tr("Aplicación inactiva"),
+                self.tr(
+                    "Esta aplicación está inactiva. Actívala desde "
+                    "el configurador antes de abrirla."
+                ),
             )
             return
         log.info("Abriendo aplicación %d", app_id)
@@ -414,7 +428,9 @@ class LauncherWindow(QMainWindow):
             session.commit()
 
         self._load_apps()
-        self._status_bar.showMessage(self.tr("Aplicación clonada como '{0}'").format(clone_name), 3000)
+        self._status_bar.showMessage(
+            self.tr("Aplicación clonada como '{0}'").format(clone_name), 3000
+        )
 
     def _on_export_app(self) -> None:
         """Exporta la aplicación seleccionada a un fichero .docscan."""
@@ -443,13 +459,17 @@ class LauncherWindow(QMainWindow):
 
             try:
                 from app.services.app_export_service import export_to_file
+
                 export_to_file(app, path)
                 self._status_bar.showMessage(
-                    self.tr("Aplicación '{0}' exportada").format(app.name), 3000,
+                    self.tr("Aplicación '{0}' exportada").format(app.name),
+                    3000,
                 )
             except Exception as e:
                 QMessageBox.critical(
-                    self, self.tr("Error al exportar"), str(e),
+                    self,
+                    self.tr("Error al exportar"),
+                    str(e),
                 )
 
     def _on_import_app(self) -> None:
@@ -473,18 +493,22 @@ class LauncherWindow(QMainWindow):
 
         try:
             from pathlib import Path
+
             text = Path(path).read_text(encoding="utf-8")
             data = json.loads(text)
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Error al leer fichero"), str(e),
+                self,
+                self.tr("Error al leer fichero"),
+                str(e),
             )
             return
 
         errors = validate_import_data(data)
         if errors:
             QMessageBox.warning(
-                self, self.tr("Fichero no válido"),
+                self,
+                self.tr("Fichero no válido"),
                 "\n".join(errors),
             )
             return
@@ -495,15 +519,20 @@ class LauncherWindow(QMainWindow):
                 session.commit()
             self._load_apps()
             self._status_bar.showMessage(
-                self.tr("Aplicación '{0}' importada").format(app.name), 3000,
+                self.tr("Aplicación '{0}' importada").format(app.name),
+                3000,
             )
         except AppImportError as e:
             QMessageBox.warning(
-                self, self.tr("Error de importación"), str(e),
+                self,
+                self.tr("Error de importación"),
+                str(e),
             )
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Error al importar"), str(e),
+                self,
+                self.tr("Error al importar"),
+                str(e),
             )
 
     def _on_delete_app(self) -> None:
@@ -513,8 +542,11 @@ class LauncherWindow(QMainWindow):
             return
 
         reply = QMessageBox.question(
-            self, self.tr("Confirmar eliminación"),
-            self.tr("¿Eliminar la aplicación '{0}' y todos sus lotes?").format(app_name),
+            self,
+            self.tr("Confirmar eliminación"),
+            self.tr("¿Eliminar la aplicación '{0}' y todos sus lotes?").format(
+                app_name
+            ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -528,7 +560,9 @@ class LauncherWindow(QMainWindow):
             session.commit()
 
         self._load_apps()
-        self._status_bar.showMessage(self.tr("Aplicación '{0}' eliminada").format(app_name), 3000)
+        self._status_bar.showMessage(
+            self.tr("Aplicación '{0}' eliminada").format(app_name), 3000
+        )
 
     # ------------------------------------------------------------------
     # UI helpers
@@ -541,10 +575,13 @@ class LauncherWindow(QMainWindow):
             desc = app_data.get("description", "")
             desc_text = f" — {desc}" if desc else ""
             created = app_data.get("created_at", "")[:10]
-            status = self.tr("Activa") if app_data.get("active", True) else self.tr("Inactiva")
+            status = (
+                self.tr("Activa")
+                if app_data.get("active", True)
+                else self.tr("Inactiva")
+            )
             self._info_label.setText(
-                f"<b>{app_data['name']}</b>{desc_text} · "
-                f"{status} · Creada: {created}"
+                f"<b>{app_data['name']}</b>{desc_text} · {status} · Creada: {created}"
             )
         else:
             self._info_label.setText("")

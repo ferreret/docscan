@@ -76,13 +76,19 @@ class BarcodePanel(QWidget):
 
         self._table = QTableWidget(0, 5)
         self._table.setHorizontalHeaderLabels(
-            ["", self.tr("Valor"), self.tr("Simbolog\u00eda"), self.tr("Motor"), self.tr("Rol")],
+            [
+                "",
+                self.tr("Valor"),
+                self.tr("Simbolog\u00eda"),
+                self.tr("Motor"),
+                self.tr("Rol"),
+            ],
         )
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setStretchLastSection(True)
         header.setDefaultSectionSize(100)
-        header.resizeSection(0, 28)   # Columna de color (estrecha)
+        header.resizeSection(0, 28)  # Columna de color (estrecha)
         header.resizeSection(1, 180)  # Valor
         self._table.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows,
@@ -99,9 +105,13 @@ class BarcodePanel(QWidget):
         # Botones de barcode
         bc_buttons = QHBoxLayout()
         self._btn_insert_bc = QPushButton(self.tr("+ Barcode manual"))
-        self._btn_insert_bc.setToolTip(self.tr("Añadir un código de barras manualmente a esta página"))
+        self._btn_insert_bc.setToolTip(
+            self.tr("Añadir un código de barras manualmente a esta página")
+        )
         self._btn_delete_bc = QPushButton(self.tr("\u2212 Barcode"))
-        self._btn_delete_bc.setToolTip(self.tr("Eliminar el código de barras seleccionado"))
+        self._btn_delete_bc.setToolTip(
+            self.tr("Eliminar el código de barras seleccionado")
+        )
         self._btn_insert_bc.clicked.connect(self.insert_barcode_requested)
         self._btn_delete_bc.clicked.connect(self.delete_barcode_requested)
         bc_buttons.addWidget(self._btn_insert_bc)
@@ -144,32 +154,39 @@ class BarcodePanel(QWidget):
             self._table.setItem(row, 0, color_item)
 
             self._table.setItem(
-                row, 1,
+                row,
+                1,
                 QTableWidgetItem(getattr(bc, "value", str(bc))),
             )
             self._table.setItem(
-                row, 2, QTableWidgetItem(getattr(bc, "symbology", "")),
+                row,
+                2,
+                QTableWidgetItem(getattr(bc, "symbology", "")),
             )
             self._table.setItem(
-                row, 3, QTableWidgetItem(getattr(bc, "engine", "")),
+                row,
+                3,
+                QTableWidgetItem(getattr(bc, "engine", "")),
             )
             self._table.setItem(
-                row, 4, QTableWidgetItem(getattr(bc, "role", "")),
+                row,
+                4,
+                QTableWidgetItem(getattr(bc, "role", "")),
             )
 
     def set_lot_counters(self, stats: dict) -> None:
         """Actualiza los contadores del lote."""
         self._lbl_total.setText(
-            self.tr("Total p\u00e1ginas: {0}").format(stats.get('total_pages', 0))
+            self.tr("Total p\u00e1ginas: {0}").format(stats.get("total_pages", 0))
         )
         self._lbl_with_barcode.setText(
-            self.tr("Con barcode: {0}").format(stats.get('with_barcode', 0))
+            self.tr("Con barcode: {0}").format(stats.get("with_barcode", 0))
         )
         self._lbl_separators.setText(
-            self.tr("Separadores: {0}").format(stats.get('separators', 0))
+            self.tr("Separadores: {0}").format(stats.get("separators", 0))
         )
         self._lbl_review.setText(
-            self.tr("Revisi\u00f3n: {0}").format(stats.get('needs_review', 0))
+            self.tr("Revisi\u00f3n: {0}").format(stats.get("needs_review", 0))
         )
 
     def selected_row(self) -> int:

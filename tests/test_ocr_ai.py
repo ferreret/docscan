@@ -18,8 +18,13 @@ def _make_text_image(text: str = "Hello World 123") -> np.ndarray:
     """Crea una imagen con texto renderizado."""
     img = np.ones((80, 400, 3), dtype=np.uint8) * 255
     cv2.putText(
-        img, text, (10, 55),
-        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 3,
+        img,
+        text,
+        (10, 55),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.5,
+        (0, 0, 0),
+        3,
     )
     return img
 
@@ -65,7 +70,9 @@ class TestOcrService:
         service = OcrService()
         img = _make_text_image("Hello World 123")
         result = service.recognize(
-            img, engine="rapidocr", full_page=False,
+            img,
+            engine="rapidocr",
+            full_page=False,
             window=(0, 0, 200, 80),
         )
         assert isinstance(result.text, str)

@@ -135,6 +135,7 @@ _SET_EVENT_CODE_TOOL = {
 # Response dataclass
 # ---------------------------------------------------------------
 
+
 @dataclass
 class AssistantResponse:
     """Respuesta del asistente IA.
@@ -159,6 +160,7 @@ class AssistantResponse:
 # ---------------------------------------------------------------
 # Servicio principal
 # ---------------------------------------------------------------
+
 
 class PipelineAssistantService:
     """Asistente IA para construir pipelines y generar scripts.
@@ -195,12 +197,14 @@ class PipelineAssistantService:
 
         if self._provider == "anthropic":
             import anthropic
+
             self._client = anthropic.Anthropic(
                 api_key=self._api_key,
                 timeout=_API_TIMEOUT,
             )
         else:
             import openai
+
             self._client = openai.OpenAI(
                 api_key=self._api_key,
                 timeout=_API_TIMEOUT,
@@ -532,6 +536,7 @@ class PipelineAssistantService:
 # ---------------------------------------------------------------
 # Utilidades
 # ---------------------------------------------------------------
+
 
 def _call_with_retry(fn: Any, retries: int = _RATE_LIMIT_RETRIES) -> Any:
     """Ejecuta fn() con retry para rate-limit."""

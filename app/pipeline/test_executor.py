@@ -41,7 +41,10 @@ class InstrumentedPipelineExecutor(PipelineExecutor):
     """
 
     def execute_instrumented(
-        self, page: Any, batch: Any, app: Any,
+        self,
+        page: Any,
+        batch: Any,
+        app: Any,
     ) -> tuple[Any, list[StepSnapshot]]:
         """Ejecuta el pipeline capturando un snapshot tras cada paso.
 
@@ -85,7 +88,11 @@ class InstrumentedPipelineExecutor(PipelineExecutor):
             self._capture_state(snapshot, page, ctx)
             snapshots.append(snapshot)
 
-        if ctx.image_replaced and ctx.current_image is not None and hasattr(page, "image"):
+        if (
+            ctx.image_replaced
+            and ctx.current_image is not None
+            and hasattr(page, "image")
+        ):
             page.image = ctx.current_image
             if hasattr(page, "image_replaced"):
                 page.image_replaced = True
@@ -93,10 +100,17 @@ class InstrumentedPipelineExecutor(PipelineExecutor):
         return page, snapshots
 
     def _capture_state(
-        self, snapshot: StepSnapshot, page: Any, ctx: PipelineContext,
+        self,
+        snapshot: StepSnapshot,
+        page: Any,
+        ctx: PipelineContext,
     ) -> None:
         """Captura una copia del estado actual en el snapshot."""
-        img = ctx.current_image if ctx.current_image is not None else getattr(page, "image", None)
+        img = (
+            ctx.current_image
+            if ctx.current_image is not None
+            else getattr(page, "image", None)
+        )
         if img is not None:
             snapshot.image = img.copy()
 

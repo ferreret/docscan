@@ -139,9 +139,13 @@ class BatchDetailPanel(QTabWidget):
                     lines.append(f"{key}: {val}")
                 self._txt_pipeline_stats.setPlainText("\n".join(lines))
             else:
-                self._txt_pipeline_stats.setPlainText(self.tr("Sin estadísticas de pipeline"))
-        except (json.JSONDecodeError, TypeError):
-            self._txt_pipeline_stats.setPlainText(self.tr("Sin estadísticas de pipeline"))
+                self._txt_pipeline_stats.setPlainText(
+                    self.tr("Sin estadísticas de pipeline")
+                )
+        except json.JSONDecodeError, TypeError:
+            self._txt_pipeline_stats.setPlainText(
+                self.tr("Sin estadísticas de pipeline")
+            )
 
     # ------------------------------------------------------------------
     # Páginas
@@ -155,17 +159,19 @@ class BatchDetailPanel(QTabWidget):
 
         self._pages_table = QTableWidget()
         cols = [
-            self.tr("#"), self.tr("Revisión"), self.tr("Excluida"),
-            self.tr("Blanco"), self.tr("OCR"), self.tr("Errores"),
+            self.tr("#"),
+            self.tr("Revisión"),
+            self.tr("Excluida"),
+            self.tr("Blanco"),
+            self.tr("OCR"),
+            self.tr("Errores"),
         ]
         self._pages_table.setColumnCount(len(cols))
         self._pages_table.setHorizontalHeaderLabels(cols)
         self._pages_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
         )
-        self._pages_table.setEditTriggers(
-            QAbstractItemView.EditTrigger.NoEditTriggers
-        )
+        self._pages_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._pages_table.verticalHeader().setVisible(False)
         self._pages_table.horizontalHeader().setStretchLastSection(True)
 
@@ -207,8 +213,12 @@ class BatchDetailPanel(QTabWidget):
 
         self._history_table = QTableWidget()
         cols = [
-            self.tr("Fecha"), self.tr("Operación"), self.tr("Estado ant."),
-            self.tr("Estado nuevo"), self.tr("Usuario"), self.tr("Mensaje"),
+            self.tr("Fecha"),
+            self.tr("Operación"),
+            self.tr("Estado ant."),
+            self.tr("Estado nuevo"),
+            self.tr("Usuario"),
+            self.tr("Mensaje"),
         ]
         self._history_table.setColumnCount(len(cols))
         self._history_table.setHorizontalHeaderLabels(cols)
@@ -234,15 +244,21 @@ class BatchDetailPanel(QTabWidget):
             items = [
                 self._fmt_dt(entry.get("timestamp")),
                 entry.get("operation", ""),
-                STATE_LABELS().get(entry.get("old_state", ""), entry.get("old_state", "")),
-                STATE_LABELS().get(entry.get("new_state", ""), entry.get("new_state", "")),
+                STATE_LABELS().get(
+                    entry.get("old_state", ""), entry.get("old_state", "")
+                ),
+                STATE_LABELS().get(
+                    entry.get("new_state", ""), entry.get("new_state", "")
+                ),
                 entry.get("username", ""),
                 entry.get("message", ""),
             ]
 
             for col_idx, text in enumerate(items):
                 self._history_table.setItem(
-                    row_idx, col_idx, QTableWidgetItem(text),
+                    row_idx,
+                    col_idx,
+                    QTableWidgetItem(text),
                 )
 
     # ------------------------------------------------------------------
@@ -252,15 +268,23 @@ class BatchDetailPanel(QTabWidget):
     def clear_all(self) -> None:
         """Limpia toda la información del panel."""
         for lbl in (
-            self._lbl_id, self._lbl_app, self._lbl_state,
-            self._lbl_hostname, self._lbl_username, self._lbl_pages,
-            self._lbl_created, self._lbl_updated, self._lbl_folder,
+            self._lbl_id,
+            self._lbl_app,
+            self._lbl_state,
+            self._lbl_hostname,
+            self._lbl_username,
+            self._lbl_pages,
+            self._lbl_created,
+            self._lbl_updated,
+            self._lbl_folder,
         ):
             lbl.setText("-")
 
         for lbl in (
-            self._lbl_stat_total, self._lbl_stat_review,
-            self._lbl_stat_excluded, self._lbl_stat_blank,
+            self._lbl_stat_total,
+            self._lbl_stat_review,
+            self._lbl_stat_excluded,
+            self._lbl_stat_blank,
             self._lbl_stat_errors,
         ):
             lbl.setText("0")

@@ -131,12 +131,16 @@ class BatchManagerWindow(QMainWindow):
 
         self._btn_open_batch = QPushButton(self.tr("Abrir lote"))
         self._btn_open_batch.setProperty("cssClass", "primary")
-        self._btn_open_batch.setToolTip(self.tr("Abrir el lote seleccionado en el workbench para editar"))
+        self._btn_open_batch.setToolTip(
+            self.tr("Abrir el lote seleccionado en el workbench para editar")
+        )
         self._btn_refresh = QPushButton(self.tr("Actualizar"))
         self._btn_refresh.setToolTip(self.tr("Actualizar la lista de lotes"))
         self._btn_delete = QPushButton(self.tr("Eliminar"))
         self._btn_delete.setProperty("cssClass", "danger")
-        self._btn_delete.setToolTip(self.tr("Eliminar el lote seleccionado y sus archivos del disco"))
+        self._btn_delete.setToolTip(
+            self.tr("Eliminar el lote seleccionado y sus archivos del disco")
+        )
 
         toolbar.addWidget(self._btn_open_batch)
         toolbar.addSeparator()
@@ -187,7 +191,9 @@ class BatchManagerWindow(QMainWindow):
         layout.addWidget(self._date_to)
 
         self._btn_filter = QPushButton(self.tr("Filtrar"))
-        self._btn_filter.setToolTip(self.tr("Aplicar los filtros de fecha, aplicación y estación"))
+        self._btn_filter.setToolTip(
+            self.tr("Aplicar los filtros de fecha, aplicación y estación")
+        )
         layout.addWidget(self._btn_filter)
 
         layout.addStretch()
@@ -248,16 +254,20 @@ class BatchManagerWindow(QMainWindow):
 
             batch_dicts = []
             for b in batches:
-                batch_dicts.append({
-                    "id": b.id,
-                    "application_id": b.application_id,
-                    "app_name": self._apps_cache.get(b.application_id, f"App {b.application_id}"),
-                    "state": b.state,
-                    "page_count": b.page_count,
-                    "hostname": b.hostname,
-                    "created_at": b.created_at,
-                    "updated_at": b.updated_at,
-                })
+                batch_dicts.append(
+                    {
+                        "id": b.id,
+                        "application_id": b.application_id,
+                        "app_name": self._apps_cache.get(
+                            b.application_id, f"App {b.application_id}"
+                        ),
+                        "state": b.state,
+                        "page_count": b.page_count,
+                        "hostname": b.hostname,
+                        "created_at": b.created_at,
+                        "updated_at": b.updated_at,
+                    }
+                )
 
         self._batch_app_map = {b["id"]: b["application_id"] for b in batch_dicts}
         self._batch_list.set_batches(batch_dicts)
@@ -294,19 +304,22 @@ class BatchManagerWindow(QMainWindow):
                 return
 
             # General
-            self._detail_panel.set_general_info({
-                "id": batch.id,
-                "app_name": self._apps_cache.get(
-                    batch.application_id, f"App {batch.application_id}",
-                ),
-                "state": batch.state,
-                "hostname": batch.hostname,
-                "username": batch.username,
-                "page_count": batch.page_count,
-                "created_at": batch.created_at,
-                "updated_at": batch.updated_at,
-                "folder_path": batch.folder_path,
-            })
+            self._detail_panel.set_general_info(
+                {
+                    "id": batch.id,
+                    "app_name": self._apps_cache.get(
+                        batch.application_id,
+                        f"App {batch.application_id}",
+                    ),
+                    "state": batch.state,
+                    "hostname": batch.hostname,
+                    "username": batch.username,
+                    "page_count": batch.page_count,
+                    "created_at": batch.created_at,
+                    "updated_at": batch.updated_at,
+                    "folder_path": batch.folder_path,
+                }
+            )
 
             # Páginas (una sola query, derivar stats en memoria)
             pages = page_repo.get_by_batch(batch_id)
@@ -323,29 +336,37 @@ class BatchManagerWindow(QMainWindow):
 
             page_dicts = []
             for p in pages:
-                errors = json.loads(p.processing_errors_json) if p.processing_errors_json != "[]" else []
-                page_dicts.append({
-                    "page_index": p.page_index,
-                    "needs_review": p.needs_review,
-                    "is_excluded": p.is_excluded,
-                    "is_blank": p.is_blank,
-                    "ocr_text": p.ocr_text,
-                    "error_count": len(errors),
-                })
+                errors = (
+                    json.loads(p.processing_errors_json)
+                    if p.processing_errors_json != "[]"
+                    else []
+                )
+                page_dicts.append(
+                    {
+                        "page_index": p.page_index,
+                        "needs_review": p.needs_review,
+                        "is_excluded": p.is_excluded,
+                        "is_blank": p.is_blank,
+                        "ocr_text": p.ocr_text,
+                        "error_count": len(errors),
+                    }
+                )
             self._detail_panel.set_pages(page_dicts)
 
             # Historial
             history = history_repo.get_by_batch(batch_id)
             history_dicts = []
             for h in history:
-                history_dicts.append({
-                    "timestamp": h.timestamp,
-                    "operation": h.operation,
-                    "old_state": h.old_state,
-                    "new_state": h.new_state,
-                    "username": h.username,
-                    "message": h.message,
-                })
+                history_dicts.append(
+                    {
+                        "timestamp": h.timestamp,
+                        "operation": h.operation,
+                        "old_state": h.old_state,
+                        "new_state": h.new_state,
+                        "username": h.username,
+                        "message": h.message,
+                    }
+                )
             self._detail_panel.set_history(history_dicts)
 
     # ==================================================================
@@ -356,7 +377,9 @@ class BatchManagerWindow(QMainWindow):
         """Devuelve el batch_id seleccionado o muestra aviso."""
         batch_id = self._batch_list.get_selected_batch_id()
         if batch_id is None:
-            QMessageBox.information(self, self.tr("Sin selección"), self.tr("Selecciona un lote."))
+            QMessageBox.information(
+                self, self.tr("Sin selección"), self.tr("Selecciona un lote.")
+            )
         return batch_id
 
     def _on_open_batch(self) -> None:
@@ -378,8 +401,11 @@ class BatchManagerWindow(QMainWindow):
             return
 
         reply = QMessageBox.question(
-            self, self.tr("Confirmar eliminación"),
-            self.tr("¿Eliminar el lote {0} y sus imágenes de disco?\nEsta acción no se puede deshacer.").format(batch_id),
+            self,
+            self.tr("Confirmar eliminación"),
+            self.tr(
+                "¿Eliminar el lote {0} y sus imágenes de disco?\nEsta acción no se puede deshacer."
+            ).format(batch_id),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply != QMessageBox.StandardButton.Yes:
@@ -393,7 +419,9 @@ class BatchManagerWindow(QMainWindow):
         self._selected_batch_id = None
         self._detail_panel.clear_all()
         self._refresh_batches()
-        self._status_bar.showMessage(self.tr("Lote {0} eliminado").format(batch_id), 5000)
+        self._status_bar.showMessage(
+            self.tr("Lote {0} eliminado").format(batch_id), 5000
+        )
 
     # ==================================================================
     # Cierre

@@ -89,8 +89,10 @@ class MetadataPanel(QWidget):
         Cada definición es un dict con: name, type, required, choices.
         """
         self._build_fields(
-            batch_fields_def, self._lote_layout,
-            self._batch_widgets, self.batch_field_changed,
+            batch_fields_def,
+            self._lote_layout,
+            self._batch_widgets,
+            self.batch_field_changed,
         )
 
     def _build_fields(
@@ -136,12 +138,15 @@ class MetadataPanel(QWidget):
             elif isinstance(widget, QDateEdit):
                 widget.dateChanged.connect(
                     lambda d, n=name, w=widget: signal.emit(
-                        n, d.toString(w.displayFormat()),
+                        n,
+                        d.toString(w.displayFormat()),
                     ),
                 )
 
             lbl = QLabel(label_text)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            lbl.setAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            )
             lbl.setMinimumWidth(80)
             form_layout.addRow(lbl, widget)
 
@@ -168,7 +173,11 @@ class MetadataPanel(QWidget):
                 w.setMinimum(int(fdef.get("min", 0)))
                 w.setMaximum(int(fdef.get("max", 999999)))
                 w.setSingleStep(int(fdef.get("step", 1)))
-                w.setToolTip(self.tr("Valor numérico entre {0} y {1}").format(w.minimum(), w.maximum()))
+                w.setToolTip(
+                    self.tr("Valor numérico entre {0} y {1}").format(
+                        w.minimum(), w.maximum()
+                    )
+                )
                 return w
             case "Booleano":
                 w = QCheckBox()
@@ -177,7 +186,9 @@ class MetadataPanel(QWidget):
             case "Lista":
                 combo = QComboBox()
                 combo.addItems(choices)
-                combo.setToolTip(self.tr("Seleccionar una opción para «{0}»").format(name))
+                combo.setToolTip(
+                    self.tr("Seleccionar una opción para «{0}»").format(name)
+                )
                 return combo
             case _:  # Texto
                 w = QLineEdit()
@@ -266,7 +277,7 @@ class MetadataPanel(QWidget):
         elif isinstance(widget, QSpinBox):
             try:
                 widget.setValue(int(float(value)))
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 widget.setValue(0)
 
     @staticmethod

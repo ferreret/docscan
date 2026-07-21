@@ -55,9 +55,7 @@ def determine_page_state(
         return PageState.NEEDS_REVIEW
 
     barcodes = barcodes or []
-    has_separator = any(
-        getattr(b, "role", "") == "separator" for b in barcodes
-    )
+    has_separator = any(getattr(b, "role", "") == "separator" for b in barcodes)
     if has_separator:
         return PageState.SEPARATOR_BARCODE
 
@@ -106,7 +104,11 @@ def ndarray_to_qpixmap(image: np.ndarray) -> QPixmap:
         display_image = _antialias_binary(image)
         h, w = display_image.shape
         qimg = QImage(
-            display_image.data, w, h, w, QImage.Format.Format_Grayscale8,
+            display_image.data,
+            w,
+            h,
+            w,
+            QImage.Format.Format_Grayscale8,
         )
     elif image.shape[2] == 4:
         # BGRA -> RGBA

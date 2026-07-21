@@ -137,7 +137,9 @@ class BatchService:
 
         log.info(
             "Añadidas %d páginas al lote %d (total: %d)",
-            len(images), batch_id, batch.page_count,
+            len(images),
+            batch_id,
+            batch.page_count,
         )
         return pages
 
@@ -155,7 +157,8 @@ class BatchService:
             image = ImageLib.to_bw(image, config.bw_threshold)
 
         ImageLib.save(
-            image, filepath,
+            image,
+            filepath,
             quality=config.jpeg_quality,
             compression=config.tiff_compression,
             png_level=config.png_compression,
@@ -208,8 +211,7 @@ class BatchService:
         """
         if new_state not in BATCH_STATES:
             raise ValueError(
-                f"Estado no válido: '{new_state}'. "
-                f"Válidos: {BATCH_STATES}"
+                f"Estado no válido: '{new_state}'. Válidos: {BATCH_STATES}"
             )
 
         batch = self._batch_repo.get_by_id(batch_id)
@@ -250,9 +252,7 @@ class BatchService:
             "needs_review": sum(1 for p in pages if p.needs_review),
             "excluded": sum(1 for p in pages if p.is_excluded),
             "blank": sum(1 for p in pages if p.is_blank),
-            "with_errors": sum(
-                1 for p in pages if p.processing_errors_json != "[]"
-            ),
+            "with_errors": sum(1 for p in pages if p.processing_errors_json != "[]"),
         }
 
     # ------------------------------------------------------------------

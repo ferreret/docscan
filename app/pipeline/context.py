@@ -116,8 +116,7 @@ class PipelineContext:
         if count >= self._max_repeats:
             self._aborted = True
             raise PipelineAbortError(
-                f"Paso '{step_id}' superó el límite de "
-                f"{self._max_repeats} repeticiones"
+                f"Paso '{step_id}' superó el límite de {self._max_repeats} repeticiones"
             )
         self._repeat_counts[step_id] = count + 1
 

@@ -50,7 +50,9 @@ def _image_thumbnail(image: np.ndarray, max_h: int = _MAX_THUMB_H) -> QPixmap:
     """Convierte ndarray a QPixmap escalado."""
     pixmap = ndarray_to_qpixmap(image)
     if pixmap.height() > max_h:
-        pixmap = pixmap.scaledToHeight(max_h, Qt.TransformationMode.SmoothTransformation)
+        pixmap = pixmap.scaledToHeight(
+            max_h, Qt.TransformationMode.SmoothTransformation
+        )
     return pixmap
 
 
@@ -177,9 +179,7 @@ class TestPipelineResultDialog(QDialog):
         # Fields (para script steps)
         if snap.step.type == "script" and snap.fields:
             table = QTableWidget(len(snap.fields), 2)
-            table.setHorizontalHeaderLabels(
-                [self.tr("Campo"), self.tr("Valor")]
-            )
+            table.setHorizontalHeaderLabels([self.tr("Campo"), self.tr("Valor")])
             table.setMaximumHeight(min(150, 30 + 25 * len(snap.fields)))
             for r, (k, v) in enumerate(snap.fields.items()):
                 table.setItem(r, 0, QTableWidgetItem(str(k)))

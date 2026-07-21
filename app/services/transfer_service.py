@@ -41,9 +41,9 @@ class TransferConfig:
     include_metadata: bool = False
 
     # Formato de salida (modo carpeta)
-    output_format: str = ""           # "" = original, "tiff", "png", "jpg", "pdf"
-    output_dpi: int = 0               # 0 = original
-    output_color_mode: str = ""       # "" = original, "color", "grayscale", "bw"
+    output_format: str = ""  # "" = original, "tiff", "png", "jpg", "pdf"
+    output_dpi: int = 0  # 0 = original
+    output_color_mode: str = ""  # "" = original, "color", "grayscale", "bw"
     output_jpeg_quality: int = 85
     output_tiff_compression: str = "lzw"
     output_png_compression: int = 6
@@ -58,10 +58,9 @@ def parse_transfer_config(json_str: str) -> TransferConfig:
     if not json_str or json_str == "{}":
         return TransferConfig()
     data = json.loads(json_str)
-    return TransferConfig(**{
-        k: v for k, v in data.items()
-        if k in TransferConfig.__dataclass_fields__
-    })
+    return TransferConfig(
+        **{k: v for k, v in data.items() if k in TransferConfig.__dataclass_fields__}
+    )
 
 
 @dataclass
@@ -101,7 +100,11 @@ class TransferService:
 
         if config.mode == "folder":
             return self._transfer_folder(
-                pages, config, batch_fields, batch_id, on_page_callback,
+                pages,
+                config,
+                batch_fields,
+                batch_id,
+                on_page_callback,
             )
         elif config.mode in ("pdf", "pdfa"):
             return self._transfer_pdf(pages, config, batch_fields, batch_id)
@@ -147,14 +150,24 @@ class TransferService:
                 else:
                     out_ext = src.suffix
 
-                filename = self._build_filename(
-                    config.filename_pattern, page, batch_fields, batch_id,
-                ) + out_ext
+                filename = (
+                    self._build_filename(
+                        config.filename_pattern,
+                        page,
+                        batch_fields,
+                        batch_id,
+                    )
+                    + out_ext
+                )
                 dst = dest / filename
                 dst.parent.mkdir(parents=True, exist_ok=True)
 
                 dst = self._resolve_collision(
-                    src, dst, config.collision_policy, needs_conversion, config,
+                    src,
+                    dst,
+                    config.collision_policy,
+                    needs_conversion,
+                    config,
                 )
                 if dst is not None:
                     if needs_conversion:
@@ -171,14 +184,18 @@ class TransferService:
                     on_page_callback(page.get("page_index", 0), True)
 
             except Exception as e:
-                result.errors.append(f"Error copiando página {page.get('page_index')}: {e}")
+                result.errors.append(
+                    f"Error copiando página {page.get('page_index')}: {e}"
+                )
                 if on_page_callback:
                     on_page_callback(page.get("page_index", 0), False)
 
         result.success = len(result.errors) == 0
         log.info(
             "Transferencia carpeta: %d/%d ficheros a '%s'",
-            result.files_transferred, len(pages), dest,
+            result.files_transferred,
+            len(pages),
+            dest,
         )
         return result
 
@@ -221,7 +238,8 @@ class TransferService:
         img = self._apply_output_transforms(imgs[0], src, config)
 
         ImageLib.save(
-            img, dst,
+            img,
+            dst,
             quality=config.output_jpeg_quality,
             compression=config.output_tiff_compression,
             png_level=config.output_png_compression,
@@ -243,10 +261,15 @@ class TransferService:
         dest = Path(config.destination)
         dest.mkdir(parents=True, exist_ok=True)
 
-        filename = self._build_filename(
-            config.filename_pattern, pages[0] if pages else {},
-            batch_fields, batch_id,
-        ) + ".pdf"
+        filename = (
+            self._build_filename(
+                config.filename_pattern,
+                pages[0] if pages else {},
+                batch_fields,
+                batch_id,
+            )
+            + ".pdf"
+        )
         output_path = dest / filename
 
         result = TransferResult(output_path=str(output_path))
@@ -276,10 +299,13 @@ class TransferService:
 
                 # Insertar imagen
                 encode_params = [
-                    cv2.IMWRITE_JPEG_QUALITY, config.pdf_jpeg_quality,
+                    cv2.IMWRITE_JPEG_QUALITY,
+                    config.pdf_jpeg_quality,
                 ]
                 img_bytes = cv2.imencode(
-                    ".jpg", img, encode_params,
+                    ".jpg",
+                    img,
+                    encode_params,
                 )[1].tobytes()
                 pdf_page.insert_image(
                     pymupdf.Rect(0, 0, page_w, page_h),
@@ -295,7 +321,8 @@ class TransferService:
 
             log.info(
                 "Transferencia PDF: %d páginas → '%s'",
-                result.files_transferred, output_path,
+                result.files_transferred,
+                output_path,
             )
         except Exception as e:
             result.success = False
@@ -320,10 +347,15 @@ class TransferService:
         dest = Path(config.destination)
         dest.mkdir(parents=True, exist_ok=True)
 
-        filename = self._build_filename(
-            config.filename_pattern, pages[0] if pages else {},
-            batch_fields, batch_id,
-        ) + ".csv"
+        filename = (
+            self._build_filename(
+                config.filename_pattern,
+                pages[0] if pages else {},
+                batch_fields,
+                batch_id,
+            )
+            + ".csv"
+        )
         output_path = dest / filename
 
         result = TransferResult(output_path=str(output_path))
@@ -341,7 +373,9 @@ class TransferService:
         try:
             with open(output_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(
-                    f, fieldnames=headers, delimiter=config.csv_separator,
+                    f,
+                    fieldnames=headers,
+                    delimiter=config.csv_separator,
                     extrasaction="ignore",
                 )
                 writer.writeheader()
@@ -361,7 +395,8 @@ class TransferService:
             result.success = True
             log.info(
                 "Transferencia CSV: %d filas → '%s'",
-                result.files_transferred, output_path,
+                result.files_transferred,
+                output_path,
             )
         except Exception as e:
             result.success = False
@@ -385,8 +420,7 @@ class TransferService:
                 return candidate
             counter += 1
         raise RuntimeError(
-            f"No se encontro nombre libre para '{dst}' "
-            f"tras {self._MAX_SUFFIX} intentos"
+            f"No se encontro nombre libre para '{dst}' tras {self._MAX_SUFFIX} intentos"
         )
 
     def _resolve_collision(
@@ -410,7 +444,10 @@ class TransferService:
 
         if policy == "merge":
             return self._merge_into_existing(
-                src, dst, needs_conversion, config,
+                src,
+                dst,
+                needs_conversion,
+                config,
             )
 
         return self._next_free_path(dst)
@@ -438,11 +475,17 @@ class TransferService:
                     raise ValueError(f"No se pudo cargar: {src}")
                 img = self._apply_output_transforms(new_imgs[0], src, config)
                 ImageLib.merge_to_pdf(
-                    [img], dst, dpi=config.output_dpi or 200, append=True,
+                    [img],
+                    dst,
+                    dpi=config.output_dpi or 200,
+                    append=True,
                 )
             else:
                 ImageLib.merge_to_pdf(
-                    [src], dst, dpi=config.output_dpi or 200, append=True,
+                    [src],
+                    dst,
+                    dpi=config.output_dpi or 200,
+                    append=True,
                 )
             return None
 
@@ -454,7 +497,8 @@ class TransferService:
                 new_imgs = [self._apply_output_transforms(new_imgs[0], src, config)]
             existing = ImageLib.load(str(dst))
             ImageLib.merge_to_tiff(
-                existing + new_imgs, str(dst),
+                existing + new_imgs,
+                str(dst),
                 compression=config.output_tiff_compression,
                 dpi=config.output_dpi if config.output_dpi > 0 else None,
             )
@@ -485,9 +529,7 @@ class TransferService:
         para que "fecha lote" sea accesible como {fecha_lote}.
         """
         # Normalizar claves: "fecha lote" → "fecha_lote"
-        normalized = {
-            k.replace(" ", "_"): v for k, v in batch_fields.items()
-        }
+        normalized = {k.replace(" ", "_"): v for k, v in batch_fields.items()}
         try:
             result = pattern.format(
                 batch_id=batch_id or 0,
@@ -499,8 +541,12 @@ class TransferService:
             log.warning(
                 "Error interpolando patrón '%s': %s. "
                 "Variables: batch_id=%s, page_index=%s, first_barcode=%s, campos=%s",
-                pattern, e, batch_id, page.get("page_index"),
-                page.get("first_barcode"), list(normalized.keys()),
+                pattern,
+                e,
+                batch_id,
+                page.get("page_index"),
+                page.get("first_barcode"),
+                list(normalized.keys()),
             )
             result = f"batch_{batch_id or 0}_page_{page.get('page_index', 0):04d}"
 

@@ -50,15 +50,17 @@ def _bbox_corners_to_xywh(
 def _split_line_into_words(
     line_text: str,
     confidence: float,
-    x: int, y: int, w: int, h: int,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
 ) -> list[OcrRegion]:
     """Divide una línea OCR en palabras con bboxes proporcionales."""
     words = line_text.split()
     if not words:
         return []
     if len(words) == 1:
-        return [OcrRegion(text=words[0], confidence=confidence,
-                          x=x, y=y, w=w, h=h)]
+        return [OcrRegion(text=words[0], confidence=confidence, x=x, y=y, w=w, h=h)]
 
     total_chars = sum(len(word) for word in words)
     if total_chars == 0:
@@ -72,10 +74,16 @@ def _split_line_into_words(
             word_w = right_edge - cursor_x
         else:
             word_w = max(1, int(w * len(word) / total_chars))
-        regions.append(OcrRegion(
-            text=word, confidence=confidence,
-            x=cursor_x, y=y, w=max(1, word_w), h=h,
-        ))
+        regions.append(
+            OcrRegion(
+                text=word,
+                confidence=confidence,
+                x=cursor_x,
+                y=y,
+                w=max(1, word_w),
+                h=h,
+            )
+        )
         cursor_x += word_w
 
     return regions
@@ -131,7 +139,7 @@ class OcrService:
         offset_x, offset_y = 0, 0
         if window and not full_page:
             x, y, w, h = window
-            image = image[y:y + h, x:x + w].copy()
+            image = image[y : y + h, x : x + w].copy()
             offset_x, offset_y = x, y
 
         match engine:
@@ -158,6 +166,7 @@ class OcrService:
         if self._rapidocr is None:
             try:
                 from rapidocr_onnxruntime import RapidOCR
+
                 self._rapidocr = RapidOCR()
             except ImportError:
                 log.error("rapidocr-onnxruntime no instalado")
@@ -177,8 +186,10 @@ class OcrService:
         if lang_key not in self._easyocr_readers:
             try:
                 import easyocr
+
                 self._easyocr_readers[lang_key] = easyocr.Reader(
-                    languages, gpu=False,
+                    languages,
+                    gpu=False,
                 )
             except ImportError:
                 log.error("easyocr no instalado")
@@ -199,13 +210,20 @@ class OcrService:
             return OcrResult()
 
         lang_str = "+".join(languages)
-        gray = image if len(image.shape) == 2 else cv2.cvtColor(
-            image, cv2.COLOR_BGR2GRAY,
+        gray = (
+            image
+            if len(image.shape) == 2
+            else cv2.cvtColor(
+                image,
+                cv2.COLOR_BGR2GRAY,
+            )
         )
 
         # Usar image_to_data para obtener coordenadas por palabra
         data = pytesseract.image_to_data(
-            gray, lang=lang_str, output_type=pytesseract.Output.DICT,
+            gray,
+            lang=lang_str,
+            output_type=pytesseract.Output.DICT,
         )
 
         regions: list[OcrRegion] = []
@@ -216,14 +234,16 @@ class OcrService:
             conf = int(data["conf"][i])
             if not word or conf < 0:
                 continue
-            regions.append(OcrRegion(
-                text=word,
-                confidence=conf / 100.0,
-                x=data["left"][i],
-                y=data["top"][i],
-                w=data["width"][i],
-                h=data["height"][i],
-            ))
+            regions.append(
+                OcrRegion(
+                    text=word,
+                    confidence=conf / 100.0,
+                    x=data["left"][i],
+                    y=data["top"][i],
+                    w=data["width"][i],
+                    h=data["height"][i],
+                )
+            )
             line_key = (data["block_num"][i], data["par_num"][i], data["line_num"][i])
             lines.setdefault(line_key, []).append(word)
 

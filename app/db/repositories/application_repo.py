@@ -20,7 +20,8 @@ class ApplicationRepository:
     def get_all(self) -> list[Application]:
         """Todas las aplicaciones (activas primero, luego por nombre)."""
         stmt = select(Application).order_by(
-            Application.active.desc(), Application.name,
+            Application.active.desc(),
+            Application.name,
         )
         return list(self._session.scalars(stmt))
 
