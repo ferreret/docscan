@@ -13,7 +13,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QWheelEvent
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem,
-    QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsView,
     QWidget,

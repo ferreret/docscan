@@ -8,7 +8,6 @@ que emite señales Qt para thread-safety.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from PySide6.QtCore import QObject, Signal, Qt
 from PySide6.QtGui import QFont, QTextCharFormat, QColor, QTextCursor

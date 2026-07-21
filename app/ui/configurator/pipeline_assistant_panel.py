@@ -7,7 +7,6 @@ lo que necesita y recibe propuestas de pipeline con diff visual.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from PySide6.QtCore import (
     QCoreApplication,
@@ -25,7 +24,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )

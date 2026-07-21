@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.pipeline.serializer import deserialize, serialize
+from app.pipeline.serializer import deserialize
 from app.services._assistant_constants import (
     EVENT_SIGNATURES,
     IMAGE_OPS_REFERENCE,

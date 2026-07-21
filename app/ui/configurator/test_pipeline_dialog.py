@@ -7,7 +7,6 @@ texto OCR, campos y errores.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 from PySide6.QtCore import Qt
@@ -16,7 +15,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QPlainTextEdit,
     QScrollArea,

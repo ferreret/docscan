@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
-from PySide6.QtWidgets import QSplashScreen, QProgressBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QSplashScreen, QProgressBar
 
+from app._version import __version__ as _VERSION
 
 _SPLASH_W = 480
 _SPLASH_H = 320
-from app._version import __version__ as _VERSION
 
 
 class SplashScreen(QSplashScreen):

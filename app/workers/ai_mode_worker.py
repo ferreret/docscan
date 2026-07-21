@@ -9,7 +9,6 @@ from PySide6.QtCore import QThread, Signal
 
 from app.services.ai_mode_assistant import (
     AiModeAssistantService,
-    AiModeResponse,
 )
 
 log = logging.getLogger(__name__)

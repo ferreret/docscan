@@ -8,12 +8,11 @@ from typing import Any
 import numpy as np
 from PySide6.QtCore import QThread, Signal
 
-from app.pipeline.test_executor import InstrumentedPipelineExecutor, StepSnapshot
+from app.pipeline.test_executor import InstrumentedPipelineExecutor
 from app.workers.recognition_worker import (
     AppContext,
     BatchContext,
     PageContext,
-    PageFlags,
 )
 
 log = logging.getLogger(__name__)

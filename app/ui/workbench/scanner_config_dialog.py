@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
-    QLabel,
     QScrollArea,
     QSpinBox,
     QVBoxLayout,

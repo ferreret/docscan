@@ -10,7 +10,6 @@ import logging
 import shutil
 import subprocess
 import uuid
-from pathlib import Path
 
 from app.services.script_stubs import generate_stubs, strip_stubs
 from config.settings import APP_DATA_DIR

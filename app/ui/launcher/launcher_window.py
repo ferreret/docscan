@@ -19,10 +19,8 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QSizePolicy,
     QSplitter,
     QStatusBar,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )

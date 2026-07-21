@@ -6,7 +6,6 @@ o cualquier evento configurable por aplicación.
 
 from __future__ import annotations
 
-import json
 import logging
 import smtplib
 from dataclasses import dataclass, field

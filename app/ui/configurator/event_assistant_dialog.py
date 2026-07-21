@@ -7,7 +7,6 @@ deseado de un evento lifecycle y genera el codigo Python.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from PySide6.QtCore import (
     QCoreApplication,

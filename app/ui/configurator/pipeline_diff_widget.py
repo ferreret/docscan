@@ -106,9 +106,6 @@ def compute_diff(
     """
     result: list[dict[str, Any]] = []
 
-    # Indexar pasos actuales por posicion
-    max_len = max(len(current), len(proposed))
-
     # Mapear pasos por key para detectar movidos/modificados
     current_keys = {_step_key(s): i for i, s in enumerate(current)}
 

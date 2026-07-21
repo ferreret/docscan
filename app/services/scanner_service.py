@@ -757,18 +757,18 @@ def get_available_backends() -> list[str]:
     backends: list[str] = []
     if _SYSTEM == "Linux" or _SYSTEM == "Darwin":
         try:
-            import sane
+            import sane  # noqa: F401  # sonda de disponibilidad del backend
             backends.append("sane")
         except ImportError:
             pass
     elif _SYSTEM == "Windows":
         try:
-            import twain
+            import twain  # noqa: F401  # sonda de disponibilidad del backend
             backends.append("twain")
         except ImportError:
             pass
         try:
-            import win32com.client
+            import win32com.client  # noqa: F401  # sonda de disponibilidad del backend
             backends.append("wia")
         except ImportError:
             pass

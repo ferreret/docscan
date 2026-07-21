@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from config.settings import get_settings, APP_DATA_DIR, APP_IMAGES_DIR
+from config.settings import get_settings, APP_IMAGES_DIR
 from app.db.database import create_db_engine, create_tables, get_session_factory
 
 # Importar todos los modelos para que SQLAlchemy registre las relaciones
@@ -69,7 +69,6 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
     from app.pipeline.steps import ScriptStep
     from app.services.batch_service import BatchService
     from app.services.image_pipeline import ImagePipelineService
-    from app.services.import_service import ImportService
     from app.services.script_engine import ScriptEngine
     from app.services.transfer_service import TransferService, parse_transfer_config
     from app.workers.recognition_worker import (
@@ -110,7 +109,6 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
         ocr_service=OcrService(),
         max_repeats=settings.pipeline.max_step_repeats,
     )
-    import_service = ImportService()
     images_dir = APP_IMAGES_DIR
     images_dir.mkdir(parents=True, exist_ok=True)
 
