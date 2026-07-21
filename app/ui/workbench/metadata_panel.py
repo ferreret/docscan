@@ -277,7 +277,7 @@ class MetadataPanel(QWidget):
         elif isinstance(widget, QSpinBox):
             try:
                 widget.setValue(int(float(value)))
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 widget.setValue(0)
 
     @staticmethod

@@ -142,7 +142,7 @@ class BatchDetailPanel(QTabWidget):
                 self._txt_pipeline_stats.setPlainText(
                     self.tr("Sin estadísticas de pipeline")
                 )
-        except json.JSONDecodeError, TypeError:
+        except (json.JSONDecodeError, TypeError):
             self._txt_pipeline_stats.setPlainText(
                 self.tr("Sin estadísticas de pipeline")
             )

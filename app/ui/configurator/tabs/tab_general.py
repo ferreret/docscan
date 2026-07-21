@@ -161,7 +161,7 @@ class GeneralTab(QWidget):
         """Parsea ai_config_json con fallback a dict vacío."""
         try:
             return json.loads(app.ai_config_json or "{}")
-        except json.JSONDecodeError, TypeError:
+        except (json.JSONDecodeError, TypeError):
             return {}
 
     def _load_barcode_config(self, app: Application) -> None:

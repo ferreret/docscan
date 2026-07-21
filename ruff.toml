@@ -3,7 +3,11 @@
 # La parte web SaaS quedó archivada el 2026-07-21; se excluye del linting
 # para que `ruff check` refleje únicamente el estado del código desktop.
 
-target-version = "py314"
+# py313, NO py314: los instaladores y el CI se construyen con Python 3.13.
+# Con py314, `ruff format` elimina los paréntesis de `except (A, B):` (PEP 758
+# permite `except A, B:` sin paréntesis sólo en 3.14), rompiendo la importación
+# en 3.13. Mantener py313 obliga a la sintaxis portable.
+target-version = "py313"
 line-length = 88
 
 # Directorios fuera del alcance del linting del desktop.
