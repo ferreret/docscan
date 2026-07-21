@@ -91,6 +91,20 @@ Dos tests dependen del entorno gráfico/hardware y pueden colgar la suite comple
 
 Recomendación transversal: añadir `pytest-timeout` a `requirements-dev.txt` y un `--timeout` por defecto en la config de pytest, para que un cuelgue se convierta en fallo con nombre en vez de bloquear toda la suite.
 
+### Bug crítico de portabilidad Python 3.13/3.14 (detectado por el nuevo CI)
+
+Al añadir el workflow de CI (que construye con **Python 3.13**, igual que
+`release.yml`), afloró que **20 bloques** del código usaban `except A, B:` sin
+paréntesis. Esa forma **solo la acepta Python 3.14** (PEP 758, `except` sin
+paréntesis); en 3.12/3.13 es un `SyntaxError`. El proyecto se desarrolla en
+3.14, pero como CI y los instaladores se construyen en 3.13, el código no
+importaba fuera del entorno de desarrollo. Corregido a `except (A, B):`, válido
+en todas las versiones (`app/services/script_engine.py`, `workbench_window.py`,
+`verification_panel.py`, `metadata_panel.py`, varios tabs del configurador,
+`docscan_worker/worker_main.py`, etc.). **Aprendizaje**: el entorno de dev
+(3.14) y el de build/CI (3.13) divergían silenciosamente; el CI cierra ese
+hueco. Conviene decidir si unificar ambos en 3.14 o mantener el soporte 3.13.
+
 ---
 
 ## 4. Base de datos y migraciones
