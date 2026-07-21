@@ -80,7 +80,7 @@ All scripts (ScriptStep + lifecycle events) receive: `app` (AppContext), `batch`
 - `app/services/barcode_service.py` -- Motor 1 (pyzbar) + Motor 2 (zxing-cpp)
 - `app/services/image_pipeline.py` -- all ImageOp implementations
 - `app/services/scanner_service.py` -- BaseScanner ABC with SaneScanner (Linux) + TwainScanner + WiaScanner (Windows). Auto-selects by platform.
-- `app/providers/` -- BaseProvider ABC with anthropic/openai/local_ocr implementations (Strategy pattern)
+- `app/services/ai_mode_assistant.py` + `app/services/pipeline_assistant.py` -- AI assistants using the `anthropic` SDK directly (shared constants in `_assistant_constants.py`)
 - `app/workers/` -- QThread workers (scan, recognition, transfer)
 
 ### Database
@@ -120,7 +120,7 @@ SQLite with **mandatory WAL mode** for UI + DocScanWorker concurrency. Repositor
 7. `app/services/script_engine.py`
 8. `app/services/image_pipeline.py`
 9. `app/services/barcode_service.py`
-10. `app/providers/` + `app/services/ocr_service.py`
+10. `app/services/ocr_service.py`
 11. `app/pipeline/executor.py`
 12. `app/services/scanner_service.py`
 13. `app/services/import_service.py`
