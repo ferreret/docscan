@@ -11,7 +11,7 @@ zxing-cpp==3.0.0
 opencv-python==4.13.0.92
 
 # Imagen
-pillow==12.1.1
+pillow==12.3.0
 
 # OCR
 rapidocr-onnxruntime==1.2.3
@@ -37,8 +37,8 @@ pywin32==310; sys_platform == "win32"
 python-sane==2.9.1; sys_platform == "linux"
 
 # Seguridad
-cryptography==46.0.5
+cryptography==48.0.1
 
 # Config
-pydantic-settings==2.13.1
+pydantic-settings==2.14.2
 platformdirs==4.9.4
