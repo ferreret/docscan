@@ -37,7 +37,9 @@ class ImportService:
         self._default_dpi = default_dpi
 
     def import_file(
-        self, path: Path | str, dpi: int | None = None,
+        self,
+        path: Path | str,
+        dpi: int | None = None,
     ) -> list[np.ndarray]:
         """Importa un fichero (imagen o PDF).
 
@@ -93,7 +95,8 @@ class ImportService:
 
         pattern = "**/*" if recursive else "*"
         files = sorted(
-            f for f in folder.glob(pattern)
+            f
+            for f in folder.glob(pattern)
             if f.is_file() and f.suffix.lower() in ALL_EXTENSIONS
         )
 
@@ -106,7 +109,9 @@ class ImportService:
 
         log.info(
             "Importadas %d imágenes de %d ficheros en '%s'",
-            len(images), len(files), folder,
+            len(images),
+            len(files),
+            folder,
         )
         return images
 
@@ -130,7 +135,9 @@ class ImportService:
 
                 # Pixmap a numpy array
                 img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
-                    pix.height, pix.width, pix.n,
+                    pix.height,
+                    pix.width,
+                    pix.n,
                 )
 
                 # Convertir RGB a BGR para OpenCV
@@ -159,7 +166,9 @@ class ImportService:
             for frame in frames:
                 images.append(frame)
             log.info(
-                "TIFF '%s': %d páginas", path.name, len(images),
+                "TIFF '%s': %d páginas",
+                path.name,
+                len(images),
             )
             return images
 

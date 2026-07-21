@@ -61,7 +61,8 @@ class UpdateDialog(QDialog):
         # Cabecera: versión actual → nueva
         header = QLabel(
             self.tr("Nueva versión: <b>{0}</b>  (actual: {1})").format(
-                self._release.version, _CURRENT_VERSION,
+                self._release.version,
+                _CURRENT_VERSION,
             )
         )
         header.setProperty("cssClass", "update-header")
@@ -140,7 +141,9 @@ class UpdateDialog(QDialog):
 
         dest_dir = Path(tempfile.gettempdir()) / "docscan_updates"
         self._download_worker = UpdateDownloadWorker(
-            self._release, dest_dir, parent=self,
+            self._release,
+            dest_dir,
+            parent=self,
         )
         self._download_worker.progress.connect(self._on_progress)
         self._download_worker.download_finished.connect(self._on_download_finished)
@@ -215,9 +218,7 @@ class UpdateDialog(QDialog):
             self._btn_cancel.setText(self.tr("Cerrar"))
         except Exception as e:
             log.error("Error aplicando actualización: %s", e)
-            self._status_label.setText(
-                self.tr("Error al aplicar: {0}").format(e)
-            )
+            self._status_label.setText(self.tr("Error al aplicar: {0}").format(e))
             self._status_label.setStyleSheet("color: red;")
             self._btn_apply.setEnabled(True)
 

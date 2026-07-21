@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.services.pipeline_assistant import (
-    AssistantResponse,
     PipelineAssistantService,
     _classify_error,
-    _IMAGE_OPS_REFERENCE,
-    _SCRIPT_API_REFERENCE,
     _SET_PIPELINE_TOOL,
     _SET_EVENT_CODE_TOOL,
 )
@@ -29,6 +24,7 @@ from app.pipeline.steps import (
 # ---------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------
+
 
 @pytest.fixture
 def anthropic_service():
@@ -53,6 +49,7 @@ def openai_service():
 # ---------------------------------------------------------------
 # Helpers para simular respuestas de APIs
 # ---------------------------------------------------------------
+
 
 def _make_anthropic_tool_response(tool_name: str, tool_input: dict) -> MagicMock:
     """Simula una respuesta de Anthropic con tool_use."""
@@ -117,6 +114,7 @@ def _make_openai_text_response(text: str) -> MagicMock:
 # Tests de inicializacion
 # ---------------------------------------------------------------
 
+
 class TestServiceInit:
     """Tests de inicializacion del servicio."""
 
@@ -144,6 +142,7 @@ class TestServiceInit:
 # ---------------------------------------------------------------
 # Tests de generacion de pipeline — Anthropic
 # ---------------------------------------------------------------
+
 
 class TestPipelineGenerationAnthropic:
     """Tests de generacion de pipeline con Anthropic."""
@@ -281,6 +280,7 @@ class TestPipelineGenerationAnthropic:
 # Tests de generacion de pipeline — OpenAI
 # ---------------------------------------------------------------
 
+
 class TestPipelineGenerationOpenAI:
     """Tests de generacion de pipeline con OpenAI."""
 
@@ -356,6 +356,7 @@ class TestPipelineGenerationOpenAI:
 # ---------------------------------------------------------------
 # Tests de generacion de eventos
 # ---------------------------------------------------------------
+
 
 class TestEventCodeGeneration:
     """Tests de generacion de codigo de eventos."""
@@ -444,6 +445,7 @@ class TestEventCodeGeneration:
 # Tests de system prompt
 # ---------------------------------------------------------------
 
+
 class TestSystemPrompt:
     """Tests del contenido del system prompt."""
 
@@ -482,6 +484,7 @@ class TestSystemPrompt:
 # Tests de clasificacion de errores
 # ---------------------------------------------------------------
 
+
 class TestErrorClassification:
     """Tests de clasificacion de errores."""
 
@@ -509,6 +512,7 @@ class TestErrorClassification:
 # ---------------------------------------------------------------
 # Tests de tool schemas
 # ---------------------------------------------------------------
+
 
 class TestToolSchemas:
     """Tests de integridad de los schemas."""
@@ -538,6 +542,7 @@ class TestToolSchemas:
 # ---------------------------------------------------------------
 # Tests de API error handling
 # ---------------------------------------------------------------
+
 
 class TestApiErrorHandling:
     """Tests de manejo de errores de API."""

@@ -7,7 +7,6 @@ deseado de un evento lifecycle y genera el codigo Python.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from PySide6.QtCore import (
     QCoreApplication,
@@ -42,15 +41,11 @@ _TITLE = QT_TRANSLATE_NOOP(_ctx, "Asistente IA — {event}")
 _LABEL_SEND = QT_TRANSLATE_NOOP(_ctx, "Enviar")
 _LABEL_ACCEPT = QT_TRANSLATE_NOOP(_ctx, "Aplicar codigo")
 _LABEL_CLOSE = QT_TRANSLATE_NOOP(_ctx, "Cerrar")
-_LABEL_PLACEHOLDER = QT_TRANSLATE_NOOP(
-    _ctx, "Describe lo que debe hacer el evento..."
-)
+_LABEL_PLACEHOLDER = QT_TRANSLATE_NOOP(_ctx, "Describe lo que debe hacer el evento...")
 _LABEL_API_KEY = QT_TRANSLATE_NOOP(_ctx, "API Key:")
 _LABEL_SAVE_KEY = QT_TRANSLATE_NOOP(_ctx, "Guardar")
 _LABEL_WAITING = QT_TRANSLATE_NOOP(_ctx, "Generando codigo...")
-_LABEL_NO_KEY = QT_TRANSLATE_NOOP(
-    _ctx, "Configura tu API key para usar el asistente."
-)
+_LABEL_NO_KEY = QT_TRANSLATE_NOOP(_ctx, "Configura tu API key para usar el asistente.")
 _LABEL_KEY_SAVED = QT_TRANSLATE_NOOP(_ctx, "API key guardada.")
 _PROVIDERS = QT_TRANSLATE_NOOP(_ctx, "Anthropic|OpenAI")
 
@@ -104,18 +99,14 @@ class EventAssistantDialog(QDialog):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle(
-            _tr(_TITLE).format(event=self._event_name)
-        )
+        self.setWindowTitle(_tr(_TITLE).format(event=self._event_name))
         self.setMinimumSize(600, 500)
         self.resize(700, 550)
 
         layout = QVBoxLayout(self)
 
         # Info del evento
-        info = QLabel(
-            f"<b>{self._event_name}</b> — {self._event_description}"
-        )
+        info = QLabel(f"<b>{self._event_name}</b> — {self._event_description}")
         info.setWordWrap(True)
         layout.addWidget(info)
 
@@ -134,9 +125,7 @@ class EventAssistantDialog(QDialog):
         # Area de mensajes
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
-        self._scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._messages_container = QWidget()
         self._messages_layout = QVBoxLayout(self._messages_container)
         self._messages_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -268,10 +257,12 @@ class EventAssistantDialog(QDialog):
         if response.explanation:
             self._add_message("assistant", response.explanation)
             if not response.text:
-                self._messages.append({
-                    "role": "assistant",
-                    "content": response.explanation,
-                })
+                self._messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response.explanation,
+                    }
+                )
 
         if response.event_code:
             self._generated_code = response.event_code
@@ -307,9 +298,7 @@ class EventAssistantDialog(QDialog):
         blayout.setContentsMargins(8, 6, 8, 6)
         label = QLabel(text)
         label.setWordWrap(True)
-        label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         blayout.addWidget(label)
 
         self._messages_layout.addWidget(bubble)

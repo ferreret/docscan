@@ -5,12 +5,11 @@ Muestra un resumen estructurado del cambio con Aceptar/Rechazar.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -64,8 +63,7 @@ def _fields_summary(fields: list[dict]) -> str:
     if not fields:
         return "  (ninguno)"
     return "\n".join(
-        f"  - {f.get('label', '?')} ({f.get('type', '?')})"
-        for f in fields
+        f"  - {f.get('label', '?')} ({f.get('type', '?')})" for f in fields
     )
 
 
@@ -188,18 +186,20 @@ class AppChangePreview(QFrame):
             lines.append(_pipeline_summary(ti["pipeline"]))
 
         if "events" in ti:
-            lines.append(f"\nEventos:")
+            lines.append("\nEventos:")
             lines.append(_events_summary(ti["events"]))
 
         if "batch_fields" in ti:
-            lines.append(f"\nCampos de lote:")
+            lines.append("\nCampos de lote:")
             lines.append(_fields_summary(ti["batch_fields"]))
 
         general = ti.get("general", {})
         if general:
             parts = []
             if "auto_transfer" in general:
-                parts.append(f"auto-transfer={'si' if general['auto_transfer'] else 'no'}")
+                parts.append(
+                    f"auto-transfer={'si' if general['auto_transfer'] else 'no'}"
+                )
             if "output_format" in general:
                 parts.append(f"formato={general['output_format']}")
             if parts:

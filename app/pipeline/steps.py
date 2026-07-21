@@ -57,9 +57,7 @@ class BarcodeStep(PipelineStep):
     symbologies: list[str] = field(default_factory=list)  # [] = todas
     regex: str = ""  # "" = sin filtro
     regex_include_symbology: bool = False
-    orientations: list[str] = field(
-        default_factory=lambda: ["horizontal", "vertical"]
-    )
+    orientations: list[str] = field(default_factory=lambda: ["horizontal", "vertical"])
     quality_threshold: float = 0.0
     window: tuple[int, int, int, int] | None = None  # None = página completa
 

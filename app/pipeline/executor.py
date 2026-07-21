@@ -89,7 +89,9 @@ class PipelineExecutor:
                 ctx.set_step_result(step.id, result)
             except PipelineAbortError as e:
                 log.warning(
-                    "Pipeline abortado en paso %s: %s", step.id, e,
+                    "Pipeline abortado en paso %s: %s",
+                    step.id,
+                    e,
                 )
                 if hasattr(page, "flags"):
                     page.flags.needs_review = True
@@ -101,7 +103,11 @@ class PipelineExecutor:
                 self._record_processing_error(page, step, e)
 
         # Propagar imagen al page solo si un script llamó a replace_image
-        if ctx.image_replaced and ctx.current_image is not None and hasattr(page, "image"):
+        if (
+            ctx.image_replaced
+            and ctx.current_image is not None
+            and hasattr(page, "image")
+        ):
             page.image = ctx.current_image
             if hasattr(page, "image_replaced"):
                 page.image_replaced = True
@@ -139,18 +145,27 @@ class PipelineExecutor:
     # ------------------------------------------------------------------
 
     def _run_image_op(
-        self, step: ImageOpStep, page: Any, ctx: PipelineContext,
+        self,
+        step: ImageOpStep,
+        page: Any,
+        ctx: PipelineContext,
     ) -> Any:
         """Ejecuta una operación de imagen."""
         image = self._get_image(page, ctx)
         processed = self._image_service.execute(
-            image, step.op, step.params, step.window,
+            image,
+            step.op,
+            step.params,
+            step.window,
         )
         ctx.set_pipeline_image(processed)
         return {"op": step.op, "shape": processed.shape}
 
     def _run_barcode(
-        self, step: BarcodeStep, page: Any, ctx: PipelineContext,
+        self,
+        step: BarcodeStep,
+        page: Any,
+        ctx: PipelineContext,
     ) -> Any:
         """Ejecuta lectura de barcodes."""
         if self._barcode_service is None:
@@ -175,7 +190,10 @@ class PipelineExecutor:
         return results
 
     def _run_ocr(
-        self, step: OcrStep, page: Any, ctx: PipelineContext,
+        self,
+        step: OcrStep,
+        page: Any,
+        ctx: PipelineContext,
     ) -> Any:
         """Ejecuta reconocimiento OCR."""
         if self._ocr_service is None:
@@ -196,12 +214,18 @@ class PipelineExecutor:
             page.ocr_regions = result.regions
         log.info(
             "OCR [%s]: %d regiones, %d caracteres",
-            step.engine, len(result.regions), len(result.text),
+            step.engine,
+            len(result.regions),
+            len(result.text),
         )
         return result
 
     def _run_script(
-        self, step: ScriptStep, page: Any, batch: Any, app: Any,
+        self,
+        step: ScriptStep,
+        page: Any,
+        batch: Any,
+        app: Any,
         ctx: PipelineContext,
     ) -> Any:
         """Ejecuta un script de usuario."""
@@ -220,7 +244,10 @@ class PipelineExecutor:
         return None
 
     def _record_processing_error(
-        self, page: Any, step: PipelineStep, error: Exception,
+        self,
+        page: Any,
+        step: PipelineStep,
+        error: Exception,
     ) -> None:
         """Registra un error de procesado en page.flags."""
         error_msg = f"[{step.id}/{step.type}] {error}"

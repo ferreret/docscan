@@ -9,8 +9,6 @@ import pytest
 
 from app.services.ai_mode_assistant import (
     AiModeAssistantService,
-    AiModeResponse,
-    AiModeToolCall,
     TOOLS,
     _build_system_prompt,
     _classify_error,
@@ -22,6 +20,7 @@ from app.services.ai_mode_assistant import (
 # ---------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------
+
 
 @pytest.fixture
 def anthropic_service():
@@ -36,6 +35,7 @@ def openai_service():
 # ---------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------
+
 
 def _anthropic_tool_response(*tool_uses):
     """Simula respuesta Anthropic con N tool_use blocks."""
@@ -91,6 +91,7 @@ def _text_response_anthropic(text):
 # Tests de inicializacion
 # ---------------------------------------------------------------
 
+
 class TestInit:
     def test_invalid_provider(self):
         with pytest.raises(ValueError, match="no soportado"):
@@ -107,6 +108,7 @@ class TestInit:
 # Tests de create_application — Anthropic
 # ---------------------------------------------------------------
 
+
 class TestCreateApplication:
     def test_creates_app_with_pipeline(self, anthropic_service):
         tool_input = {
@@ -119,8 +121,7 @@ class TestCreateApplication:
             ],
             "events": {
                 "on_transfer_validate": (
-                    "def on_transfer_validate(app, batch) -> bool:\n"
-                    "    return True\n"
+                    "def on_transfer_validate(app, batch) -> bool:\n    return True\n"
                 ),
             },
             "batch_fields": [
@@ -165,7 +166,8 @@ class TestCreateApplication:
         with patch.object(anthropic_service, "_get_client") as mc:
             mc.return_value.messages.create.return_value = mock_resp
             result = anthropic_service.generate(
-                [{"role": "user", "content": "test"}], "",
+                [{"role": "user", "content": "test"}],
+                "",
             )
 
         assert result.tool_calls[0].tool_input["pipeline"][0]["script"]
@@ -175,13 +177,18 @@ class TestCreateApplication:
 # Tests de update_application
 # ---------------------------------------------------------------
 
+
 class TestUpdateApplication:
     def test_partial_update(self, anthropic_service):
         tool_input = {
             "app_name": "Facturas",
             "pipeline": [
                 {"type": "image_op", "op": "AutoDeskew"},
-                {"type": "image_op", "op": "RemoveLines", "params": {"direction": "HV"}},
+                {
+                    "type": "image_op",
+                    "op": "RemoveLines",
+                    "params": {"direction": "HV"},
+                },
             ],
             "explanation": "Anade RemoveLines.",
         }
@@ -190,7 +197,8 @@ class TestUpdateApplication:
         with patch.object(anthropic_service, "_get_client") as mc:
             mc.return_value.messages.create.return_value = mock_resp
             result = anthropic_service.generate(
-                [{"role": "user", "content": "Anade RemoveLines a Facturas"}], "",
+                [{"role": "user", "content": "Anade RemoveLines a Facturas"}],
+                "",
             )
 
         tc = result.tool_calls[0]
@@ -202,6 +210,7 @@ class TestUpdateApplication:
 # ---------------------------------------------------------------
 # Tests de duplicate_application
 # ---------------------------------------------------------------
+
 
 class TestDuplicateApplication:
     def test_duplicate_with_mods(self, openai_service):
@@ -219,7 +228,12 @@ class TestDuplicateApplication:
         with patch.object(openai_service, "_get_client") as mc:
             mc.return_value.chat.completions.create.return_value = mock_resp
             result = openai_service.generate(
-                [{"role": "user", "content": "Duplica Facturas como Albaranes con OCR catalan"}],
+                [
+                    {
+                        "role": "user",
+                        "content": "Duplica Facturas como Albaranes con OCR catalan",
+                    }
+                ],
                 "",
             )
 
@@ -233,6 +247,7 @@ class TestDuplicateApplication:
 # Tests de delete_application
 # ---------------------------------------------------------------
 
+
 class TestDeleteApplication:
     def test_delete(self, anthropic_service):
         tool_input = {
@@ -244,7 +259,8 @@ class TestDeleteApplication:
         with patch.object(anthropic_service, "_get_client") as mc:
             mc.return_value.messages.create.return_value = mock_resp
             result = anthropic_service.generate(
-                [{"role": "user", "content": "Elimina Albaranes"}], "",
+                [{"role": "user", "content": "Elimina Albaranes"}],
+                "",
             )
 
         tc = result.tool_calls[0]
@@ -255,6 +271,7 @@ class TestDeleteApplication:
 # ---------------------------------------------------------------
 # Tests de set_event_code
 # ---------------------------------------------------------------
+
 
 class TestSetEventCode:
     def test_set_event(self, anthropic_service):
@@ -269,7 +286,8 @@ class TestSetEventCode:
         with patch.object(anthropic_service, "_get_client") as mc:
             mc.return_value.messages.create.return_value = mock_resp
             result = anthropic_service.generate(
-                [{"role": "user", "content": "Anade validacion a Facturas"}], "",
+                [{"role": "user", "content": "Anade validacion a Facturas"}],
+                "",
             )
 
         tc = result.tool_calls[0]
@@ -282,22 +300,32 @@ class TestSetEventCode:
 # Tests de multi-tool
 # ---------------------------------------------------------------
 
+
 class TestMultiTool:
     def test_multiple_tool_calls(self, anthropic_service):
         """El modelo puede llamar multiples tools en una respuesta."""
         mock_resp = _anthropic_tool_response(
-            ("create_application", {
-                "name": "App1", "explanation": "Primera.",
-            }),
-            ("create_application", {
-                "name": "App2", "explanation": "Segunda.",
-            }),
+            (
+                "create_application",
+                {
+                    "name": "App1",
+                    "explanation": "Primera.",
+                },
+            ),
+            (
+                "create_application",
+                {
+                    "name": "App2",
+                    "explanation": "Segunda.",
+                },
+            ),
         )
 
         with patch.object(anthropic_service, "_get_client") as mc:
             mc.return_value.messages.create.return_value = mock_resp
             result = anthropic_service.generate(
-                [{"role": "user", "content": "Crea App1 y App2"}], "",
+                [{"role": "user", "content": "Crea App1 y App2"}],
+                "",
             )
 
         assert len(result.tool_calls) == 2
@@ -309,6 +337,7 @@ class TestMultiTool:
 # Tests de text-only response
 # ---------------------------------------------------------------
 
+
 class TestTextResponse:
     def test_text_only(self, anthropic_service):
         mock_resp = _text_response_anthropic("Necesito mas detalles.")
@@ -316,7 +345,8 @@ class TestTextResponse:
         with patch.object(anthropic_service, "_get_client") as mc:
             mc.return_value.messages.create.return_value = mock_resp
             result = anthropic_service.generate(
-                [{"role": "user", "content": "hola"}], "",
+                [{"role": "user", "content": "hola"}],
+                "",
             )
 
         assert len(result.tool_calls) == 0
@@ -326,6 +356,7 @@ class TestTextResponse:
 # ---------------------------------------------------------------
 # Tests de system prompt
 # ---------------------------------------------------------------
+
 
 class TestSystemPrompt:
     def test_includes_all_sections(self):
@@ -346,6 +377,7 @@ class TestSystemPrompt:
 # ---------------------------------------------------------------
 # Tests de utilidades
 # ---------------------------------------------------------------
+
 
 class TestUtilities:
     def test_process_tool_input_assigns_ids(self):
@@ -374,6 +406,7 @@ class TestUtilities:
 # ---------------------------------------------------------------
 # Tests de tool schemas
 # ---------------------------------------------------------------
+
 
 class TestToolSchemas:
     def test_all_tools_have_name_and_schema(self):
@@ -404,12 +437,14 @@ class TestToolSchemas:
 # Tests de errores
 # ---------------------------------------------------------------
 
+
 class TestErrors:
     def test_api_error(self, anthropic_service):
         with patch.object(anthropic_service, "_get_client") as mc:
             mc.return_value.messages.create.side_effect = Exception("401 Unauthorized")
             result = anthropic_service.generate(
-                [{"role": "user", "content": "test"}], "",
+                [{"role": "user", "content": "test"}],
+                "",
             )
         assert result.error is not None
         assert "API key" in result.error

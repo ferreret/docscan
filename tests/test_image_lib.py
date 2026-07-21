@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-from pathlib import Path
 
 from app.services.image_lib import ImageLib
 
@@ -11,8 +10,8 @@ from app.services.image_lib import ImageLib
 def color_image():
     """Imagen BGR de prueba 100x80 con color."""
     img = np.zeros((80, 100, 3), dtype=np.uint8)
-    img[:, :50] = [255, 0, 0]   # Azul (BGR)
-    img[:, 50:] = [0, 255, 0]   # Verde (BGR)
+    img[:, :50] = [255, 0, 0]  # Azul (BGR)
+    img[:, 50:] = [0, 255, 0]  # Verde (BGR)
     return img
 
 
@@ -33,6 +32,7 @@ def output_dir(tmp_path):
 # ------------------------------------------------------------------
 # Guardar / Cargar
 # ------------------------------------------------------------------
+
 
 class TestSaveLoad:
     def test_save_jpeg_quality(self, color_image, output_dir):
@@ -93,6 +93,7 @@ class TestSaveLoad:
 # Conversión
 # ------------------------------------------------------------------
 
+
 class TestConvert:
     def test_convert_roundtrip(self, color_image, output_dir):
         """Convertir de PNG a JPEG y verificar dimensiones."""
@@ -113,12 +114,15 @@ class TestConvert:
 # Merge / Split
 # ------------------------------------------------------------------
 
+
 class TestMergeSplit:
     def test_merge_to_pdf(self, color_image, output_dir):
         """Merge de imágenes a PDF."""
         pdf_path = output_dir / "merged.pdf"
         result = ImageLib.merge_to_pdf(
-            [color_image, color_image], pdf_path, dpi=150,
+            [color_image, color_image],
+            pdf_path,
+            dpi=150,
         )
         assert result == pdf_path
         assert pdf_path.exists()
@@ -131,7 +135,8 @@ class TestMergeSplit:
         """Merge de imágenes a TIFF multipágina."""
         tiff_path = output_dir / "merged.tiff"
         result = ImageLib.merge_to_tiff(
-            [color_image, color_image, color_image], tiff_path,
+            [color_image, color_image, color_image],
+            tiff_path,
         )
         assert result == tiff_path
         assert tiff_path.exists()
@@ -165,6 +170,7 @@ class TestMergeSplit:
 # DPI
 # ------------------------------------------------------------------
 
+
 class TestDpi:
     def test_get_dpi_default(self, color_image, output_dir):
         """Sin DPI explícito, devuelve algo razonable."""
@@ -190,6 +196,7 @@ class TestDpi:
 # ------------------------------------------------------------------
 # Modo de color
 # ------------------------------------------------------------------
+
 
 class TestColorMode:
     def test_to_grayscale(self, color_image):

@@ -8,6 +8,13 @@ docscan.db
 __pycache__/
 *.pyc
 
+# Test & lint caches / coverage
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
 # Secrets & credentials
 secrets.enc
 .secrets.key

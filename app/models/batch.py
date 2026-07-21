@@ -52,9 +52,7 @@ class Batch(Base):
     stats_json: Mapped[str] = mapped_column(Text, default="{}")
 
     # Auditoría
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

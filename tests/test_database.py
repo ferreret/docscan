@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 from sqlalchemy.orm import Session
 
-from app.db.database import create_db_engine, create_tables, get_session_factory, Base
+from app.db.database import create_db_engine, create_tables, get_session_factory
 from app.models.application import Application
 from app.models.batch import Batch
 from app.models.page import Page
@@ -116,8 +116,11 @@ class TestModels:
         batch = Batch(application=app, state="created")
         page = Page(batch=batch, page_index=0)
         Barcode(
-            page=page, value="X", symbology="QR",
-            engine="motor2", step_id="s1",
+            page=page,
+            value="X",
+            symbology="QR",
+            engine="motor2",
+            step_id="s1",
         )
         session.add(app)
         session.flush()
@@ -225,11 +228,13 @@ class TestPageRepository:
         batch = self._make_batch(session)
         repo = PageRepository(session)
 
-        repo.save_all([
-            Page(batch=batch, page_index=2, image_path="/tmp/p2.tiff"),
-            Page(batch=batch, page_index=0, image_path="/tmp/p0.tiff"),
-            Page(batch=batch, page_index=1, image_path="/tmp/p1.tiff"),
-        ])
+        repo.save_all(
+            [
+                Page(batch=batch, page_index=2, image_path="/tmp/p2.tiff"),
+                Page(batch=batch, page_index=0, image_path="/tmp/p0.tiff"),
+                Page(batch=batch, page_index=1, image_path="/tmp/p1.tiff"),
+            ]
+        )
 
         pages = repo.get_by_batch(batch.id)
         assert len(pages) == 3
@@ -274,8 +279,17 @@ class TestPageRepository:
         repo = PageRepository(session)
 
         repo.save(Page(batch=batch, page_index=0, needs_review=False))
-        repo.save(Page(batch=batch, page_index=1, needs_review=True, review_reason="Barcode ilegible"))
-        repo.save(Page(batch=batch, page_index=2, needs_review=True, review_reason="OCR bajo"))
+        repo.save(
+            Page(
+                batch=batch,
+                page_index=1,
+                needs_review=True,
+                review_reason="Barcode ilegible",
+            )
+        )
+        repo.save(
+            Page(batch=batch, page_index=2, needs_review=True, review_reason="OCR bajo")
+        )
         repo.save(Page(batch=batch, page_index=3, needs_review=False))
 
         needs_review = repo.get_needs_review(batch.id)
@@ -288,9 +302,9 @@ class TestPageRepository:
         batch = self._make_batch(session)
         repo = PageRepository(session)
 
-        repo.save_all([
-            Page(batch=batch, page_index=i, needs_review=False) for i in range(3)
-        ])
+        repo.save_all(
+            [Page(batch=batch, page_index=i, needs_review=False) for i in range(3)]
+        )
 
         assert repo.get_needs_review(batch.id) == []
 
@@ -396,8 +410,22 @@ class TestOperationHistoryRepository:
         batch = self._make_batch(session, "HistApp2")
         repo = OperationHistoryRepository(session)
 
-        repo.add(OperationHistory(batch_id=batch.id, operation="state_change", old_state="created", new_state="read"))
-        repo.add(OperationHistory(batch_id=batch.id, operation="export", old_state="read", new_state="exported"))
+        repo.add(
+            OperationHistory(
+                batch_id=batch.id,
+                operation="state_change",
+                old_state="created",
+                new_state="read",
+            )
+        )
+        repo.add(
+            OperationHistory(
+                batch_id=batch.id,
+                operation="export",
+                old_state="read",
+                new_state="exported",
+            )
+        )
 
         entries = repo.get_by_batch(batch.id)
         assert len(entries) == 2
@@ -434,8 +462,16 @@ class TestOperationHistoryRepository:
 
         base = datetime(2026, 3, 1, 10, 0, 0)
         e1 = OperationHistory(batch_id=batch.id, operation="op_primera", timestamp=base)
-        e2 = OperationHistory(batch_id=batch.id, operation="op_segunda", timestamp=base + timedelta(hours=1))
-        e3 = OperationHistory(batch_id=batch.id, operation="op_tercera", timestamp=base + timedelta(hours=2))
+        e2 = OperationHistory(
+            batch_id=batch.id,
+            operation="op_segunda",
+            timestamp=base + timedelta(hours=1),
+        )
+        e3 = OperationHistory(
+            batch_id=batch.id,
+            operation="op_tercera",
+            timestamp=base + timedelta(hours=2),
+        )
 
         repo.add(e1)
         repo.add(e2)
@@ -451,14 +487,16 @@ class TestOperationHistoryRepository:
         batch = self._make_batch(session, "HistFieldsApp")
         repo = OperationHistoryRepository(session)
 
-        entry = repo.add(OperationHistory(
-            batch_id=batch.id,
-            operation="error",
-            old_state="read",
-            new_state="error_read",
-            username="supervisor",
-            message="Fallo en paso barcode: código ilegible",
-        ))
+        entry = repo.add(
+            OperationHistory(
+                batch_id=batch.id,
+                operation="error",
+                old_state="read",
+                new_state="error_read",
+                username="supervisor",
+                message="Fallo en paso barcode: código ilegible",
+            )
+        )
 
         recovered = session.get(OperationHistory, entry.id)
         assert recovered.operation == "error"

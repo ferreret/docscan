@@ -22,13 +22,13 @@ log = logging.getLogger(__name__)
 
 # Colores por estado: (dark, light)
 STATE_COLORS_THEMED: dict[str, tuple[str, str]] = {
-    "created":         ("#585b70", "#E0E0E0"),
-    "read":            ("#3b5998", "#BBDEFB"),
-    "verified":        ("#2e7d32", "#C8E6C9"),
+    "created": ("#585b70", "#E0E0E0"),
+    "read": ("#3b5998", "#BBDEFB"),
+    "verified": ("#2e7d32", "#C8E6C9"),
     "ready_to_export": ("#8d6e00", "#FFF9C4"),
-    "exported":        ("#1b5e20", "#A5D6A7"),
-    "error_read":      ("#b71c1c", "#FFCDD2"),
-    "error_export":    ("#c62828", "#EF9A9A"),
+    "exported": ("#1b5e20", "#A5D6A7"),
+    "error_read": ("#b71c1c", "#FFCDD2"),
+    "error_export": ("#c62828", "#EF9A9A"),
 }
 
 _STATE_LABELS_SRC: dict[str, str] = {

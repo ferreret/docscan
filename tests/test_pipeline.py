@@ -62,7 +62,6 @@ class TestSteps:
         assert step.orientations == ["horizontal", "vertical"]
 
 
-
 # ------------------------------------------------------------------
 # Serializer
 # ------------------------------------------------------------------
@@ -117,7 +116,9 @@ class TestSerializer:
 
     def test_extra_fields_ignored(self):
         """Campos desconocidos no rompen la deserialización."""
-        json_str = '[{"id": "s1", "type": "image_op", "op": "Rotate", "future_field": true}]'
+        json_str = (
+            '[{"id": "s1", "type": "image_op", "op": "Rotate", "future_field": true}]'
+        )
         steps = deserialize(json_str)
         assert len(steps) == 1
         assert steps[0].op == "Rotate"

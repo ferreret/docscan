@@ -65,7 +65,9 @@ class ScriptStepDialog(QDialog):
     """Editor de paso de script Python."""
 
     def __init__(
-        self, step: ScriptStep, parent: QWidget | None = None,
+        self,
+        step: ScriptStep,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._step = step
@@ -83,13 +85,17 @@ class ScriptStepDialog(QDialog):
 
         self._label_edit = QLineEdit(step.label)
         self._label_edit.setPlaceholderText(self.tr("Ej: Asignar roles barcode"))
-        self._label_edit.setToolTip(self.tr("Nombre descriptivo del paso, aparece en la lista del pipeline"))
+        self._label_edit.setToolTip(
+            self.tr("Nombre descriptivo del paso, aparece en la lista del pipeline")
+        )
         config_form.addRow(self.tr("Nombre:"), self._label_edit)
 
         entry_row = QHBoxLayout()
         self._entry_edit = QLineEdit(step.entry_point or "process")
         self._entry_edit.setPlaceholderText("process")
-        self._entry_edit.setToolTip(self.tr("Nombre de la función Python que se ejecutará en cada página"))
+        self._entry_edit.setToolTip(
+            self.tr("Nombre de la función Python que se ejecutará en cada página")
+        )
         self._entry_edit.setMaximumWidth(250)
         entry_row.addWidget(self._entry_edit)
         entry_hint = QLabel(self.tr("Nombre de la función a ejecutar"))
@@ -107,14 +113,14 @@ class ScriptStepDialog(QDialog):
 
         # Barra superior: ayuda + botón VS Code
         code_bar = QHBoxLayout()
-        help_label = QLabel(
-            QCoreApplication.translate("ScriptStepDialog", _HELP_TEXT)
-        )
+        help_label = QLabel(QCoreApplication.translate("ScriptStepDialog", _HELP_TEXT))
         help_label.setProperty("cssClass", "info")
         code_bar.addWidget(help_label, 1)
 
         self._btn_vscode = QPushButton(self.tr("Abrir en VS Code"))
-        self._btn_vscode.setToolTip(self.tr("Editar el código en VS Code con autocompletado y sintaxis"))
+        self._btn_vscode.setToolTip(
+            self.tr("Editar el código en VS Code con autocompletado y sintaxis")
+        )
         self._btn_vscode.setVisible(detect_editor() is not None)
         self._btn_vscode.clicked.connect(self._open_in_vscode)
         code_bar.addWidget(self._btn_vscode)
@@ -138,11 +144,12 @@ class ScriptStepDialog(QDialog):
 
         # --- Botones ---
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
         )
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self.tr("Aceptar"))
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr("Cancelar"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            self.tr("Cancelar")
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -152,7 +159,8 @@ class ScriptStepDialog(QDialog):
         self._btn_vscode.setEnabled(False)
         self._btn_vscode.setText(self.tr("Editando en VS Code..."))
         self._editor_worker = _EditorWorker(
-            self._code_edit.toPlainText(), "pipeline",
+            self._code_edit.toPlainText(),
+            "pipeline",
         )
         self._editor_worker.finished.connect(self._on_editor_done)
         self._editor_worker.start()

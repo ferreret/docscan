@@ -18,9 +18,7 @@ class Barcode(Base):
     __tablename__ = "barcodes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    page_id: Mapped[int] = mapped_column(
-        ForeignKey("pages.id", ondelete="CASCADE")
-    )
+    page_id: Mapped[int] = mapped_column(ForeignKey("pages.id", ondelete="CASCADE"))
 
     value: Mapped[str] = mapped_column(Text)
     symbology: Mapped[str] = mapped_column(String(50))

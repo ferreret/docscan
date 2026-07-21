@@ -12,8 +12,6 @@ from pathlib import Path
 from sqlalchemy import event, create_engine, Engine
 from sqlalchemy.orm import (
     DeclarativeBase,
-    Mapped,
-    mapped_column,
     Session,
     sessionmaker,
 )

@@ -58,6 +58,7 @@ class TransferWorker(QThread):
                 # Convertir dicts a objetos con .image cargada
                 from types import SimpleNamespace
                 import cv2
+
                 page_objects = []
                 for pd in self._pages:
                     ns = SimpleNamespace(**pd)
@@ -85,6 +86,7 @@ class TransferWorker(QThread):
 
             # 2. Transferencia estándar si está habilitada
             if self._config.standard_enabled:
+
                 def on_page(page_index: int, success: bool) -> None:
                     self.page_transferred.emit(page_index, success)
 
@@ -98,9 +100,12 @@ class TransferWorker(QThread):
                 self.transfer_finished.emit(result)
             else:
                 # Sin avanzada ni estándar: no hay nada que hacer
-                self.transfer_finished.emit(TransferResult(
-                    success=True, files_transferred=0,
-                ))
+                self.transfer_finished.emit(
+                    TransferResult(
+                        success=True,
+                        files_transferred=0,
+                    )
+                )
         except Exception as e:
             log.error("Error en transferencia: %s", e)
             self.transfer_error.emit(str(e))

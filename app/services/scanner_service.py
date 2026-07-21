@@ -70,7 +70,9 @@ class BaseScanner(ABC):
 
     @abstractmethod
     def acquire(
-        self, source: str, config: ScanConfig,
+        self,
+        source: str,
+        config: ScanConfig,
     ) -> list[np.ndarray]:
         """Adquiere una o más páginas del escáner."""
 
@@ -110,22 +112,27 @@ def _init_sane_maps() -> None:
     if _SANE_TYPE_MAP:
         return
     import _sane
-    _SANE_TYPE_MAP.update({
-        _sane.TYPE_BOOL: "bool",
-        _sane.TYPE_INT: "int",
-        _sane.TYPE_FIXED: "fixed",
-        _sane.TYPE_STRING: "string",
-        _sane.TYPE_BUTTON: "button",
-    })
-    _SANE_UNIT_MAP.update({
-        _sane.UNIT_NONE: "none",
-        _sane.UNIT_PIXEL: "pixel",
-        _sane.UNIT_BIT: "bit",
-        _sane.UNIT_MM: "mm",
-        _sane.UNIT_DPI: "dpi",
-        _sane.UNIT_PERCENT: "percent",
-        _sane.UNIT_MICROSECOND: "microsecond",
-    })
+
+    _SANE_TYPE_MAP.update(
+        {
+            _sane.TYPE_BOOL: "bool",
+            _sane.TYPE_INT: "int",
+            _sane.TYPE_FIXED: "fixed",
+            _sane.TYPE_STRING: "string",
+            _sane.TYPE_BUTTON: "button",
+        }
+    )
+    _SANE_UNIT_MAP.update(
+        {
+            _sane.UNIT_NONE: "none",
+            _sane.UNIT_PIXEL: "pixel",
+            _sane.UNIT_BIT: "bit",
+            _sane.UNIT_MM: "mm",
+            _sane.UNIT_DPI: "dpi",
+            _sane.UNIT_PERCENT: "percent",
+            _sane.UNIT_MICROSECOND: "microsecond",
+        }
+    )
 
 
 class SaneScanner(BaseScanner):
@@ -138,15 +145,18 @@ class SaneScanner(BaseScanner):
 
     def _ensure_init(self) -> None:
         import threading
+
         current = threading.current_thread().ident
         if self._initialized and self._init_thread_id == current:
             return
         # Reinicializar si cambiamos de hilo (SANE no es thread-safe)
         if self._initialized:
             import sane
+
             sane.exit()
             self._initialized = False
         import sane
+
         sane.init()
         self._initialized = True
         self._init_thread_id = current
@@ -158,6 +168,7 @@ class SaneScanner(BaseScanner):
     def list_sources(self) -> list[str]:
         self._ensure_init()
         import sane
+
         devices = sane.get_devices()
         return [dev[0] for dev in devices]
 
@@ -193,24 +204,28 @@ class SaneScanner(BaseScanner):
                 except Exception:
                     value = None
 
-                options.append(DeviceOption(
-                    name=py_name,
-                    title=opt.title or py_name,
-                    description=opt.desc or "",
-                    type=type_str,
-                    unit=unit_str,
-                    constraint=opt.constraint,
-                    value=value,
-                    is_active=opt.is_active(),
-                    is_settable=opt.is_settable(),
-                ))
+                options.append(
+                    DeviceOption(
+                        name=py_name,
+                        title=opt.title or py_name,
+                        description=opt.desc or "",
+                        type=type_str,
+                        unit=unit_str,
+                        constraint=opt.constraint,
+                        value=value,
+                        is_active=opt.is_active(),
+                        is_settable=opt.is_settable(),
+                    )
+                )
             self._cached_options[source] = options
             return options
         finally:
             dev.close()
 
     def acquire(
-        self, source: str, config: ScanConfig,
+        self,
+        source: str,
+        config: ScanConfig,
     ) -> list[np.ndarray]:
         """Adquiere páginas usando scanimage (subprocess).
 
@@ -232,7 +247,10 @@ class SaneScanner(BaseScanner):
 
         log.info(
             "Escaneando con scanimage: device='%s', resolution=%s, mode=%s, source='%s'",
-            source, resolution, mode, sane_source,
+            source,
+            resolution,
+            mode,
+            sane_source,
         )
 
         images: list[np.ndarray] = []
@@ -244,11 +262,15 @@ class SaneScanner(BaseScanner):
 
             cmd = [
                 "scanimage",
-                "-d", source,
-                "--resolution", str(resolution),
-                "--mode", mode,
+                "-d",
+                source,
+                "--resolution",
+                str(resolution),
+                "--mode",
+                mode,
                 "--format=png",
-                "-o", tmp_path,
+                "-o",
+                tmp_path,
             ]
             if sane_source:
                 cmd.extend(["--source", sane_source])
@@ -262,8 +284,14 @@ class SaneScanner(BaseScanner):
                     cmd.extend([f"--{opt_name.replace('_', '-')}", str(val)])
 
             # Opciones booleanas extra
-            for opt_name in ("swdeskew", "swcrop", "rollerdeskew",
-                             "df_thickness", "df_length", "stapledetect"):
+            for opt_name in (
+                "swdeskew",
+                "swcrop",
+                "rollerdeskew",
+                "df_thickness",
+                "df_length",
+                "stapledetect",
+            ):
                 if config.extra_options.get(opt_name):
                     cmd.extend([f"--{opt_name.replace('_', '-')}=yes"])
 
@@ -276,7 +304,9 @@ class SaneScanner(BaseScanner):
             log.debug("Ejecutando: %s", " ".join(cmd))
 
             result = subprocess.run(
-                cmd, capture_output=True, timeout=120,
+                cmd,
+                capture_output=True,
+                timeout=120,
             )
 
             if result.returncode != 0:
@@ -293,6 +323,7 @@ class SaneScanner(BaseScanner):
 
             # Leer imagen capturada
             from pathlib import Path
+
             tmp_file = Path(tmp_path)
             if tmp_file.exists() and tmp_file.stat().st_size > 0:
                 image = cv2.imread(tmp_path, cv2.IMREAD_COLOR)
@@ -317,6 +348,7 @@ class SaneScanner(BaseScanner):
     def close(self) -> None:
         if self._initialized:
             import sane
+
             sane.exit()
             self._initialized = False
 
@@ -336,7 +368,12 @@ class SaneScanner(BaseScanner):
         if config.source_type == "adf":
             # Si ya se estableció 'source' via extra_options, no sobreescribir
             if "source" not in config.extra_options:
-                for source_name in ("ADF", "ADF Front", "Automatic Document Feeder", "adf"):
+                for source_name in (
+                    "ADF",
+                    "ADF Front",
+                    "Automatic Document Feeder",
+                    "adf",
+                ):
                     try:
                         dev.source = source_name
                         break
@@ -402,6 +439,7 @@ class TwainScanner(BaseScanner):
     def list_sources(self) -> list[str]:
         try:
             import twain
+
             sm = twain.SourceManager(0)
             sources = sm.source_list
             sm.close()
@@ -426,6 +464,7 @@ class TwainScanner(BaseScanner):
             self._sm = None
         if self._hwnd:
             import ctypes
+
             ctypes.windll.user32.DestroyWindow(self._hwnd)
             self._hwnd = 0
 
@@ -433,6 +472,7 @@ class TwainScanner(BaseScanner):
     def _cap_type_map() -> dict[int, int]:
         """Mapa de capability -> tipo TWAIN (construido una sola vez)."""
         import twain
+
         return {
             twain.ICAP_XRESOLUTION: twain.TWTY_FIX32,
             twain.ICAP_YRESOLUTION: twain.TWTY_FIX32,
@@ -485,13 +525,18 @@ class TwainScanner(BaseScanner):
         if not TwainScanner._class_registered:
             LRESULT = ctypes.c_longlong
             _WNDPROC = ctypes.WINFUNCTYPE(
-                LRESULT, wintypes.HWND, wintypes.UINT,
-                wintypes.WPARAM, wintypes.LPARAM,
+                LRESULT,
+                wintypes.HWND,
+                wintypes.UINT,
+                wintypes.WPARAM,
+                wintypes.LPARAM,
             )
 
             _user32.DefWindowProcW.argtypes = [
-                wintypes.HWND, wintypes.UINT,
-                wintypes.WPARAM, wintypes.LPARAM,
+                wintypes.HWND,
+                wintypes.UINT,
+                wintypes.WPARAM,
+                wintypes.LPARAM,
             ]
             _user32.DefWindowProcW.restype = LRESULT
 
@@ -522,13 +567,25 @@ class TwainScanner(BaseScanner):
             TwainScanner._class_registered = True
 
         hwnd = _user32.CreateWindowExW(
-            0, "DocScanTwainHidden", "DocScan TWAIN",
-            0, 0, 0, 0, 0, 0, 0, hinstance, 0,
+            0,
+            "DocScanTwainHidden",
+            "DocScan TWAIN",
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            hinstance,
+            0,
         )
         return hwnd
 
     def acquire(
-        self, source: str, config: ScanConfig,
+        self,
+        source: str,
+        config: ScanConfig,
     ) -> list[np.ndarray]:
         import twain
         import cv2
@@ -556,21 +613,29 @@ class TwainScanner(BaseScanner):
         else:
             # Sin UI o primer escaneo: usar config de la app
             src.set_capability(
-                twain.ICAP_XRESOLUTION, twain.TWTY_FIX32, config.resolution,
+                twain.ICAP_XRESOLUTION,
+                twain.TWTY_FIX32,
+                config.resolution,
             )
             src.set_capability(
-                twain.ICAP_YRESOLUTION, twain.TWTY_FIX32, config.resolution,
+                twain.ICAP_YRESOLUTION,
+                twain.TWTY_FIX32,
+                config.resolution,
             )
             pixel_type_map = {"Lineart": 0, "Gray": 1, "Color": 2}
             pixel_type = pixel_type_map.get(config.mode, 2)
             src.set_capability(
-                twain.ICAP_PIXELTYPE, twain.TWTY_UINT16, pixel_type,
+                twain.ICAP_PIXELTYPE,
+                twain.TWTY_UINT16,
+                pixel_type,
             )
 
         # ADF: escanear todas las páginas disponibles (-1 = sin límite)
         try:
             src.set_capability(
-                twain.CAP_XFERCOUNT, twain.TWTY_INT16, -1,
+                twain.CAP_XFERCOUNT,
+                twain.TWTY_INT16,
+                -1,
             )
         except Exception:
             pass
@@ -587,7 +652,8 @@ class TwainScanner(BaseScanner):
             tmp_path = None
             try:
                 with tempfile.NamedTemporaryFile(
-                    suffix=".bmp", delete=False,
+                    suffix=".bmp",
+                    delete=False,
                 ) as f:
                     tmp_path = f.name
                 img_obj.save(tmp_path)
@@ -645,6 +711,7 @@ class WiaScanner(BaseScanner):
     def list_sources(self) -> list[str]:
         try:
             import win32com.client
+
             wia = win32com.client.Dispatch("WIA.DeviceManager")
             sources = []
             for i in range(1, wia.DeviceInfos.Count + 1):
@@ -656,7 +723,9 @@ class WiaScanner(BaseScanner):
             return []
 
     def acquire(
-        self, source: str, config: ScanConfig,
+        self,
+        source: str,
+        config: ScanConfig,
     ) -> list[np.ndarray]:
         import win32com.client
         from PIL import Image
@@ -687,7 +756,9 @@ class WiaScanner(BaseScanner):
         # Modo color: 1=Color, 2=Grayscale, 4=B&W
         mode_map = {"Color": 1, "Gray": 2, "Lineart": 4}
         self._set_property(
-            item, 4103, mode_map.get(config.mode, 1),
+            item,
+            4103,
+            mode_map.get(config.mode, 1),
         )
 
         transfer = item.Transfer("{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}")  # BMP
@@ -697,6 +768,7 @@ class WiaScanner(BaseScanner):
 
         if len(image.shape) == 3:
             import cv2
+
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
         return [image]
@@ -709,9 +781,14 @@ class WiaScanner(BaseScanner):
 
         dlg = win32com.client.Dispatch("WIA.CommonDialog")
         # ScannerDeviceType=1, ColorIntent=1 (Color)
-        wia_image = dlg.ShowAcquireImage(1, 1, 0,
+        wia_image = dlg.ShowAcquireImage(
+            1,
+            1,
+            0,
             "{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}",  # BMP
-            False, True, False,
+            False,
+            True,
+            False,
         )
         if wia_image is None:
             return []  # Usuario canceló
@@ -722,6 +799,7 @@ class WiaScanner(BaseScanner):
 
         if len(image.shape) == 3:
             import cv2
+
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
         return [image]
@@ -757,18 +835,21 @@ def get_available_backends() -> list[str]:
     backends: list[str] = []
     if _SYSTEM == "Linux" or _SYSTEM == "Darwin":
         try:
-            import sane
+            import sane  # noqa: F401  # sonda de disponibilidad del backend
+
             backends.append("sane")
         except ImportError:
             pass
     elif _SYSTEM == "Windows":
         try:
-            import twain
+            import twain  # noqa: F401  # sonda de disponibilidad del backend
+
             backends.append("twain")
         except ImportError:
             pass
         try:
-            import win32com.client
+            import win32com.client  # noqa: F401  # sonda de disponibilidad del backend
+
             backends.append("wia")
         except ImportError:
             pass
@@ -797,7 +878,8 @@ def create_scanner(backend: str | None = None) -> BaseScanner:
     # Auto-selección por plataforma
     if backend and backend not in available:
         log.warning(
-            "Backend '%s' no disponible, usando alternativa", backend,
+            "Backend '%s' no disponible, usando alternativa",
+            backend,
         )
 
     if not available:

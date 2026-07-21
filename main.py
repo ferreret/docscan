@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from config.settings import get_settings, APP_DATA_DIR, APP_IMAGES_DIR
+from config.settings import get_settings, APP_IMAGES_DIR
 from app.db.database import create_db_engine, create_tables, get_session_factory
 
 # Importar todos los modelos para que SQLAlchemy registre las relaciones
@@ -43,11 +43,14 @@ def _parse_args() -> argparse.Namespace:
         # Permitir args desconocidos para Qt
     )
     parser.add_argument(
-        "app_name", nargs="?", default=None,
+        "app_name",
+        nargs="?",
+        default=None,
         help="Nombre de la aplicación a abrir directamente",
     )
     parser.add_argument(
-        "--direct-mode", action="store_true",
+        "--direct-mode",
+        action="store_true",
         help="Modo directo: escanea y transfiere sin interfaz (LCH-09)",
     )
     # Parsear solo args conocidos; el resto va a Qt
@@ -69,11 +72,12 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
     from app.pipeline.steps import ScriptStep
     from app.services.batch_service import BatchService
     from app.services.image_pipeline import ImagePipelineService
-    from app.services.import_service import ImportService
     from app.services.script_engine import ScriptEngine
     from app.services.transfer_service import TransferService, parse_transfer_config
     from app.workers.recognition_worker import (
-        AppContext, BatchContext, PageContext,
+        AppContext,
+        BatchContext,
+        PageContext,
     )
 
     # Cargar aplicación
@@ -110,14 +114,14 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
         ocr_service=OcrService(),
         max_repeats=settings.pipeline.max_step_repeats,
     )
-    import_service = ImportService()
     images_dir = APP_IMAGES_DIR
     images_dir.mkdir(parents=True, exist_ok=True)
 
     # Escanear usando el backend configurado
     try:
-        from app.services.scanner_service import get_scanner
-        scanner = get_scanner(app_record.scanner_backend)
+        from app.services.scanner_service import create_scanner
+
+        scanner = create_scanner(app_record.scanner_backend)
         log.info("Escaneando con backend '%s'...", app_record.scanner_backend)
         images = scanner.scan()
     except Exception as exc:
@@ -133,7 +137,9 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
         batch_svc = BatchService(session, images_dir)
         batch = batch_svc.create_batch(application_id=app_record.id)
         pages_db = batch_svc.add_pages(
-            batch.id, images, app_record.output_format,
+            batch.id,
+            images,
+            app_record.output_format,
         )
         batch_svc.transition_state(batch.id, "read")
         session.commit()
@@ -162,7 +168,8 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
         duration = time.monotonic() - t_start
         log.info(
             "Pipeline completado: %d páginas en %.1fs",
-            len(pages_db), duration,
+            len(pages_db),
+            duration,
         )
 
         # Transferir
@@ -179,7 +186,8 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                 for p in pages_db
             ]
             result = transfer_svc.transfer(
-                pages_data, config,
+                pages_data,
+                config,
                 batch_fields=batch_svc.get_fields(batch.id),
                 batch_id=batch.id,
             )
@@ -222,7 +230,8 @@ def _run_init_global(session_factory) -> None:
                         entry_point="init_global",
                     )
                     _log.info(
-                        "init_global ejecutado desde app '%s'", app_record.name,
+                        "init_global ejecutado desde app '%s'",
+                        app_record.name,
                     )
                 except Exception as e:
                     _log.error("Error en init_global: %s", e)
@@ -260,6 +269,7 @@ def main() -> int:
     # muestre el icono de DocScan en vez del de Python
     if sys.platform == "win32":
         import ctypes
+
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
             "tecnomedia.docscan.studio",
         )
@@ -338,7 +348,9 @@ def main() -> int:
             workbench = WorkbenchWindow(app_id, session_factory)
             workbench.closed.connect(launcher.show)
             workbench.closed.connect(
-                lambda w=workbench: _workbenches.remove(w) if w in _workbenches else None
+                lambda w=workbench: (
+                    _workbenches.remove(w) if w in _workbenches else None
+                )
             )
             _workbenches.append(workbench)
             launcher.hide()
@@ -346,8 +358,10 @@ def main() -> int:
         except Exception as e:
             log.error("Error abriendo workbench: %s", e)
             from PySide6.QtWidgets import QMessageBox
+
             QMessageBox.critical(
-                launcher, "Error",
+                launcher,
+                "Error",
                 f"No se pudo abrir la aplicación:\n{e}",
             )
 
@@ -376,11 +390,15 @@ def main() -> int:
         log.info("Abriendo lote %d de app %d", batch_id, app_id)
         try:
             workbench = WorkbenchWindow(
-                app_id, session_factory, batch_id=batch_id,
+                app_id,
+                session_factory,
+                batch_id=batch_id,
             )
             workbench.closed.connect(launcher.show)
             workbench.closed.connect(
-                lambda w=workbench: _workbenches.remove(w) if w in _workbenches else None
+                lambda w=workbench: (
+                    _workbenches.remove(w) if w in _workbenches else None
+                )
             )
             _workbenches.append(workbench)
             launcher.hide()
@@ -388,8 +406,10 @@ def main() -> int:
         except Exception as e:
             log.error("Error abriendo lote: %s", e)
             from PySide6.QtWidgets import QMessageBox
+
             QMessageBox.critical(
-                launcher, "Error",
+                launcher,
+                "Error",
                 f"No se pudo abrir el lote:\n{e}",
             )
 

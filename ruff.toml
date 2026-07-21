@@ -1,0 +1,25 @@
+# Configuración de ruff para DocScan Studio (desktop).
+#
+# La parte web SaaS quedó archivada el 2026-07-21; se excluye del linting
+# para que `ruff check` refleje únicamente el estado del código desktop.
+
+target-version = "py314"
+line-length = 88
+
+# Directorios fuera del alcance del linting del desktop.
+extend-exclude = [
+    "web",              # versión web SaaS archivada
+    "alembic/versions", # migraciones autogeneradas
+    "dist",
+    "site",
+    "build/docscan-linux",
+]
+
+[lint]
+# Regla activa por defecto en ruff. Ignoramos deliberadamente:
+ignore = [
+    # E731: asignación de lambda. El proyecto usa el patrón de i18n perezoso
+    # `_tr = lambda s: QCoreApplication.translate("Contexto", s)` de forma
+    # consistente para diferir la traducción al momento de uso. Es intencional.
+    "E731",
+]

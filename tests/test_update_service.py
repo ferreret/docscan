@@ -3,15 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from app.services.update_service import (
-    ReleaseInfo,
-    UpdateCheckResult,
     UpdateService,
 )
 
@@ -139,9 +134,7 @@ class TestCheckForUpdate:
         """Las pre-releases se ignoran."""
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = _make_release_json(
-            "v99.0.0", prerelease=True
-        )
+        mock_resp.json.return_value = _make_release_json("v99.0.0", prerelease=True)
         mock_resp.raise_for_status = MagicMock()
 
         mock_client = MagicMock()
@@ -160,9 +153,7 @@ class TestCheckForUpdate:
         """Los drafts se ignoran."""
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = _make_release_json(
-            "v99.0.0", draft=True
-        )
+        mock_resp.json.return_value = _make_release_json("v99.0.0", draft=True)
         mock_resp.raise_for_status = MagicMock()
 
         mock_client = MagicMock()
@@ -216,13 +207,16 @@ class TestCheckForUpdate:
     @patch("app.services.update_service.httpx.Client")
     def test_no_platform_asset(self, mock_client_cls):
         """Update disponible pero sin asset para la plataforma."""
-        release = _make_release_json("v99.0.0", assets=[
-            {
-                "name": "DocScanStudio-99.0.0-macos-arm64.dmg",
-                "browser_download_url": "https://example.com/app.dmg",
-                "size": 100_000_000,
-            },
-        ])
+        release = _make_release_json(
+            "v99.0.0",
+            assets=[
+                {
+                    "name": "DocScanStudio-99.0.0-macos-arm64.dmg",
+                    "browser_download_url": "https://example.com/app.dmg",
+                    "size": 100_000_000,
+                },
+            ],
+        )
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -283,8 +277,14 @@ class TestFindPlatformAsset:
     def test_linux_appimage(self):
         """Selecciona AppImage en Linux."""
         assets = [
-            {"name": "DocScanStudio-0.2.0-linux-x86_64.AppImage", "browser_download_url": "u1"},
-            {"name": "DocScanStudio-0.2.0-win64-setup.exe", "browser_download_url": "u2"},
+            {
+                "name": "DocScanStudio-0.2.0-linux-x86_64.AppImage",
+                "browser_download_url": "u1",
+            },
+            {
+                "name": "DocScanStudio-0.2.0-win64-setup.exe",
+                "browser_download_url": "u2",
+            },
         ]
         with patch("app.services.update_service.platform") as mock_plat:
             mock_plat.system.return_value = "Linux"
@@ -296,8 +296,14 @@ class TestFindPlatformAsset:
     def test_windows_exe(self):
         """Selecciona .exe en Windows."""
         assets = [
-            {"name": "DocScanStudio-0.2.0-linux-x86_64.AppImage", "browser_download_url": "u1"},
-            {"name": "DocScanStudio-0.2.0-win64-setup.exe", "browser_download_url": "u2"},
+            {
+                "name": "DocScanStudio-0.2.0-linux-x86_64.AppImage",
+                "browser_download_url": "u1",
+            },
+            {
+                "name": "DocScanStudio-0.2.0-win64-setup.exe",
+                "browser_download_url": "u2",
+            },
         ]
         with patch("app.services.update_service.platform") as mock_plat:
             mock_plat.system.return_value = "Windows"
@@ -309,7 +315,10 @@ class TestFindPlatformAsset:
     def test_unsupported_platform(self):
         """Devuelve None en plataforma no soportada."""
         assets = [
-            {"name": "DocScanStudio-0.2.0-linux-x86_64.AppImage", "browser_download_url": "u1"},
+            {
+                "name": "DocScanStudio-0.2.0-linux-x86_64.AppImage",
+                "browser_download_url": "u1",
+            },
         ]
         with patch("app.services.update_service.platform") as mock_plat:
             mock_plat.system.return_value = "Darwin"

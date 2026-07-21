@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from app.services.script_stubs import (
     STUB_DELIMITER,
@@ -56,8 +55,7 @@ class TestStripStubs:
 
     def test_strip_removes_stub_block(self) -> None:
         code = (
-            f"{STUB_DELIMITER}\n# Stubs aquí\n{STUB_DELIMITER}\n"
-            "def run():\n    pass\n"
+            f"{STUB_DELIMITER}\n# Stubs aquí\n{STUB_DELIMITER}\ndef run():\n    pass\n"
         )
         result = strip_stubs(code)
         assert STUB_DELIMITER not in result
@@ -101,7 +99,9 @@ class TestEditScript:
     """Edición bloqueante con VS Code."""
 
     def test_returns_none_when_no_editor(self) -> None:
-        with patch("app.services.external_editor_service.detect_editor", return_value=None):
+        with patch(
+            "app.services.external_editor_service.detect_editor", return_value=None
+        ):
             result = edit_script("code here")
             assert result is None
 
@@ -112,6 +112,7 @@ class TestEditScript:
             # Simular que VS Code modifica el archivo
             path = cmd[2]  # ["code", "--wait", path]
             from pathlib import Path
+
             p = Path(path)
             content = p.read_text(encoding="utf-8")
             # Reemplazar todo con código nuevo (sin stubs)
@@ -122,8 +123,14 @@ class TestEditScript:
             return MagicMock(returncode=0)
 
         with (
-            patch("app.services.external_editor_service.detect_editor", return_value="/usr/bin/code"),
-            patch("app.services.external_editor_service.subprocess.run", side_effect=fake_run),
+            patch(
+                "app.services.external_editor_service.detect_editor",
+                return_value="/usr/bin/code",
+            ),
+            patch(
+                "app.services.external_editor_service.subprocess.run",
+                side_effect=fake_run,
+            ),
             patch("app.services.external_editor_service._SCRIPTS_TMP_DIR", tmp_path),
         ):
             result = edit_script("original code", "pipeline")
@@ -134,8 +141,14 @@ class TestEditScript:
 
     def test_returns_none_on_nonzero_exit(self, tmp_path) -> None:
         with (
-            patch("app.services.external_editor_service.detect_editor", return_value="/usr/bin/code"),
-            patch("app.services.external_editor_service.subprocess.run", return_value=MagicMock(returncode=1)),
+            patch(
+                "app.services.external_editor_service.detect_editor",
+                return_value="/usr/bin/code",
+            ),
+            patch(
+                "app.services.external_editor_service.subprocess.run",
+                return_value=MagicMock(returncode=1),
+            ),
             patch("app.services.external_editor_service._SCRIPTS_TMP_DIR", tmp_path),
         ):
             result = edit_script("code", "pipeline")

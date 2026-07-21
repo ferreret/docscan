@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import QLocale, QTranslator
+from PySide6.QtCore import QTranslator
 from PySide6.QtWidgets import QApplication
 
 log = logging.getLogger(__name__)
@@ -24,7 +24,9 @@ SUPPORTED_LANGUAGES: dict[str, str] = {
 DEFAULT_LANGUAGE = "es"
 
 # Directorio donde residen los ficheros .qm compilados
-_TRANSLATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "resources" / "translations"
+_TRANSLATIONS_DIR = (
+    Path(__file__).resolve().parent.parent.parent / "resources" / "translations"
+)
 
 # Traductores activos (para poder desinstalarlos al cambiar idioma)
 _active_translators: list[QTranslator] = []
@@ -95,6 +97,7 @@ def _uninstall_translators(app: QApplication) -> None:
 def get_language_preference() -> str:
     """Lee el idioma guardado en preferencias (QSettings)."""
     from PySide6.QtCore import QSettings
+
     settings = QSettings("DocScanStudio", "DocScanStudio")
     return settings.value("i18n/language", DEFAULT_LANGUAGE)
 
@@ -102,5 +105,6 @@ def get_language_preference() -> str:
 def save_language_preference(language: str) -> None:
     """Guarda el idioma en preferencias (QSettings)."""
     from PySide6.QtCore import QSettings
+
     settings = QSettings("DocScanStudio", "DocScanStudio")
     settings.setValue("i18n/language", language)

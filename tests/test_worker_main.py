@@ -15,16 +15,12 @@ Cubre:
 from __future__ import annotations
 
 import json
-import threading
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch, call, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
-from docscan_worker.folder_watcher import FolderWatcher
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -142,56 +138,47 @@ class TestParseArgs:
 
     def test_debounce_default(self, tmp_path: Path) -> None:
         """El valor por defecto de --debounce es 3."""
-        args = _parse_args(
-            ["--app-name", "MiApp", "--watch", str(tmp_path)]
-        )
+        args = _parse_args(["--app-name", "MiApp", "--watch", str(tmp_path)])
         assert args.debounce == 3
 
     def test_debounce_personalizado(self, tmp_path: Path) -> None:
         """--debounce acepta valor personalizado."""
         args = _parse_args(
-            ["--app-name", "MiApp", "--watch", str(tmp_path),
-             "--debounce", "10"]
+            ["--app-name", "MiApp", "--watch", str(tmp_path), "--debounce", "10"]
         )
         assert args.debounce == 10
 
     def test_sentinel_vacio_por_defecto(self, tmp_path: Path) -> None:
         """--sentinel es vacío por defecto."""
-        args = _parse_args(
-            ["--app-name", "MiApp", "--watch", str(tmp_path)]
-        )
+        args = _parse_args(["--app-name", "MiApp", "--watch", str(tmp_path)])
         assert args.sentinel == ""
 
     def test_sentinel_personalizado(self, tmp_path: Path) -> None:
         """--sentinel acepta nombre de fichero."""
         args = _parse_args(
-            ["--app-name", "MiApp", "--watch", str(tmp_path),
-             "--sentinel", "GO.txt"]
+            ["--app-name", "MiApp", "--watch", str(tmp_path), "--sentinel", "GO.txt"]
         )
         assert args.sentinel == "GO.txt"
 
     def test_log_level_default(self, tmp_path: Path) -> None:
         """--log-level es INFO por defecto."""
-        args = _parse_args(
-            ["--app-name", "MiApp", "--watch", str(tmp_path)]
-        )
+        args = _parse_args(["--app-name", "MiApp", "--watch", str(tmp_path)])
         assert args.log_level == "INFO"
 
     def test_log_level_debug(self, tmp_path: Path) -> None:
         """--log-level acepta DEBUG."""
         args = _parse_args(
-            ["--app-name", "MiApp", "--watch", str(tmp_path),
-             "--log-level", "DEBUG"]
+            ["--app-name", "MiApp", "--watch", str(tmp_path), "--log-level", "DEBUG"]
         )
         assert args.log_level == "DEBUG"
 
-    def test_watch_y_process_pending_mutuamente_exclusivos(self, tmp_path: Path) -> None:
+    def test_watch_y_process_pending_mutuamente_exclusivos(
+        self, tmp_path: Path
+    ) -> None:
         """--watch y --process-pending son mutuamente exclusivos."""
         with pytest.raises(SystemExit):
             _parse_args(
-                ["--app-name", "MiApp",
-                 "--watch", str(tmp_path),
-                 "--process-pending"]
+                ["--app-name", "MiApp", "--watch", str(tmp_path), "--process-pending"]
             )
 
     def test_falta_app_name_falla(self) -> None:
@@ -225,9 +212,7 @@ class TestLoadApplication:
             _load_application(session_factory, "AppQueNoExiste")
         assert exc_info.value.code == 1
 
-    def test_app_inactiva_llama_sys_exit(
-        self, session_factory, engine
-    ) -> None:
+    def test_app_inactiva_llama_sys_exit(self, session_factory, engine) -> None:
         """Si la app está desactivada, sys.exit(1) es invocado."""
         with sessionmaker(bind=engine)() as session:
             app = Application(
@@ -254,6 +239,7 @@ class TestBuildExecutor:
     def test_pipeline_vacio(self, active_app: Application) -> None:
         """Un pipeline vacío genera un executor sin errores."""
         from app.services.script_engine import ScriptEngine
+
         script_engine = ScriptEngine()
         executor = _build_executor(active_app, script_engine)
         assert executor is not None
@@ -307,6 +293,7 @@ class TestCompileLifecycleEvents:
     ) -> None:
         """Con events_json='{}' el resultado es dict vacío."""
         from app.services.script_engine import ScriptEngine
+
         active_app.events_json = "{}"
         result = _compile_lifecycle_events(active_app, ScriptEngine())
         assert result == {}
@@ -316,24 +303,23 @@ class TestCompileLifecycleEvents:
     ) -> None:
         """Con events_json no válido retorna dict vacío sin error."""
         from app.services.script_engine import ScriptEngine
+
         active_app.events_json = "NO ES JSON"
         result = _compile_lifecycle_events(active_app, ScriptEngine())
         assert result == {}
 
-    def test_events_json_none_retorna_dict_vacio(
-        self, active_app: Application
-    ) -> None:
+    def test_events_json_none_retorna_dict_vacio(self, active_app: Application) -> None:
         """Con events_json=None retorna dict vacío sin error."""
         from app.services.script_engine import ScriptEngine
+
         active_app.events_json = None
         result = _compile_lifecycle_events(active_app, ScriptEngine())
         assert result == {}
 
-    def test_evento_con_script_valido_compilado(
-        self, active_app: Application
-    ) -> None:
+    def test_evento_con_script_valido_compilado(self, active_app: Application) -> None:
         """Un evento con script válido queda registrado en el resultado."""
         from app.services.script_engine import ScriptEngine
+
         events = {
             "on_app_start": {
                 "script": "def on_app_start(app, batch):\n    pass\n",
@@ -345,11 +331,10 @@ class TestCompileLifecycleEvents:
         assert "on_app_start" in result
         assert result["on_app_start"] == "on_app_start"
 
-    def test_evento_sin_script_ignorado(
-        self, active_app: Application
-    ) -> None:
+    def test_evento_sin_script_ignorado(self, active_app: Application) -> None:
         """Un evento con script vacío no aparece en el resultado."""
         from app.services.script_engine import ScriptEngine
+
         events = {
             "on_app_start": {
                 "script": "",
@@ -365,6 +350,7 @@ class TestCompileLifecycleEvents:
     ) -> None:
         """Un script con error de compilación no detiene el proceso."""
         from app.services.script_engine import ScriptEngine
+
         events = {
             "on_app_start": {
                 "script": "def run(@@@@",  # sintaxis inválida
@@ -379,6 +365,7 @@ class TestCompileLifecycleEvents:
     def test_multiples_eventos(self, active_app: Application) -> None:
         """Varios eventos válidos quedan todos registrados."""
         from app.services.script_engine import ScriptEngine
+
         events = {
             "on_app_start": {
                 "script": "def ev(app, batch):\n    pass\n",
@@ -394,11 +381,10 @@ class TestCompileLifecycleEvents:
         assert "on_app_start" in result
         assert "on_scan_complete" in result
 
-    def test_entrada_no_dict_ignorada(
-        self, active_app: Application
-    ) -> None:
+    def test_entrada_no_dict_ignorada(self, active_app: Application) -> None:
         """Si el valor del evento no es un dict, se ignora sin error."""
         from app.services.script_engine import ScriptEngine
+
         active_app.events_json = json.dumps({"on_app_start": "esto no es dict"})
         result = _compile_lifecycle_events(active_app, ScriptEngine())
         assert result == {}
@@ -455,7 +441,6 @@ class TestProcessFiles:
         """El flujo básico crea lote, importa y ejecuta pipeline sin error."""
         from app.services.script_engine import ScriptEngine
         from app.pipeline.executor import PipelineExecutor
-        from app.services.image_pipeline import ImagePipelineService
 
         image = np.ones((100, 100, 3), dtype=np.uint8) * 200
         batch_svc, _, page_mock, batch_mock = self._make_services(tmp_path)
@@ -466,13 +451,17 @@ class TestProcessFiles:
         script_engine_mock = MagicMock(spec=ScriptEngine)
 
         # Parche de BatchService para que use nuestro mock
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc,
-        ), patch(
-            "docscan_worker.worker_main.TransferService",
-        ), patch(
-            "docscan_worker.worker_main.NotificationService",
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc,
+            ),
+            patch(
+                "docscan_worker.worker_main.TransferService",
+            ),
+            patch(
+                "docscan_worker.worker_main.NotificationService",
+            ),
         ):
             _process_files(
                 file_paths=[tmp_path / "scan.tiff"],
@@ -505,11 +494,14 @@ class TestProcessFiles:
         # Activar shutdown antes de procesar
         wm._shutdown.set()
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"):
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+        ):
             _process_files(
                 file_paths=[tmp_path / "scan.tiff"],
                 app_record=active_app,
@@ -537,11 +529,14 @@ class TestProcessFiles:
         import_svc_mock.import_file.side_effect = IOError("fichero corrompido")
         script_engine_mock = MagicMock(spec=ScriptEngine)
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"):
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+        ):
             _process_files(
                 file_paths=[tmp_path / "bad.tiff"],
                 app_record=active_app,
@@ -573,11 +568,14 @@ class TestProcessFiles:
 
         lifecycle = {"on_app_start": "on_app_start"}
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"):
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+        ):
             _process_files(
                 file_paths=[tmp_path / "img.jpg"],
                 app_record=active_app,
@@ -608,12 +606,15 @@ class TestProcessFiles:
         import_svc_mock.import_file.return_value = [image]
         script_engine_mock = MagicMock(spec=ScriptEngine)
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"), \
-           patch("docscan_worker.worker_main._transfer_batch") as mock_transfer:
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+            patch("docscan_worker.worker_main._transfer_batch") as mock_transfer,
+        ):
             _process_files(
                 file_paths=[tmp_path / "img.png"],
                 app_record=active_app,
@@ -648,17 +649,29 @@ class TestTransferBatch:
         app_ctx = AppContext(id=1, name="TestApp", description="")
         batch_ctx = BatchContext(id=batch_id, state="ready_to_export")
         return (
-            batch_svc, transfer_svc, notification_svc,
-            script_engine, session, app_ctx, batch_ctx,
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
         )
 
     def test_sin_destino_no_transfiere(
         self, active_app: Application, tmp_path: Path
     ) -> None:
         """Si no hay destino de transferencia configurado, no transfiere."""
-        from app.services.transfer_service import TransferConfig
-        (batch_svc, transfer_svc, notification_svc,
-         script_engine, session, app_ctx, batch_ctx) = self._make_transfer_context(tmp_path)
+
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
 
         active_app.transfer_json = json.dumps({"destination": ""})
 
@@ -684,13 +697,22 @@ class TestTransferBatch:
 
         dest = tmp_path / "output"
         dest.mkdir()
-        active_app.transfer_json = json.dumps({
-            "mode": "folder",
-            "destination": str(dest),
-        })
+        active_app.transfer_json = json.dumps(
+            {
+                "mode": "folder",
+                "destination": str(dest),
+            }
+        )
 
-        (batch_svc, transfer_svc, notification_svc,
-         script_engine, session, app_ctx, batch_ctx) = self._make_transfer_context(tmp_path)
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
 
         transfer_svc.transfer.return_value = TransferResult(
             success=True,
@@ -721,13 +743,22 @@ class TestTransferBatch:
 
         dest = tmp_path / "output"
         dest.mkdir()
-        active_app.transfer_json = json.dumps({
-            "mode": "folder",
-            "destination": str(dest),
-        })
+        active_app.transfer_json = json.dumps(
+            {
+                "mode": "folder",
+                "destination": str(dest),
+            }
+        )
 
-        (batch_svc, transfer_svc, notification_svc,
-         script_engine, session, app_ctx, batch_ctx) = self._make_transfer_context(tmp_path)
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
 
         transfer_svc.transfer.return_value = TransferResult(
             success=False,
@@ -755,13 +786,22 @@ class TestTransferBatch:
         """Si on_transfer_validate devuelve False, no se transfiere."""
         dest = tmp_path / "output"
         dest.mkdir()
-        active_app.transfer_json = json.dumps({
-            "mode": "folder",
-            "destination": str(dest),
-        })
+        active_app.transfer_json = json.dumps(
+            {
+                "mode": "folder",
+                "destination": str(dest),
+            }
+        )
 
-        (batch_svc, transfer_svc, notification_svc,
-         script_engine, session, app_ctx, batch_ctx) = self._make_transfer_context(tmp_path)
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
         script_engine.run_event.return_value = False
 
         lifecycle = {"on_transfer_validate": "validate"}
@@ -788,15 +828,26 @@ class TestTransferBatch:
 
         dest = tmp_path / "output"
         dest.mkdir()
-        active_app.transfer_json = json.dumps({
-            "mode": "folder",
-            "destination": str(dest),
-        })
+        active_app.transfer_json = json.dumps(
+            {
+                "mode": "folder",
+                "destination": str(dest),
+            }
+        )
 
-        (batch_svc, transfer_svc, notification_svc,
-         script_engine, session, app_ctx, batch_ctx) = self._make_transfer_context(tmp_path)
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
         transfer_svc.transfer.return_value = TransferResult(
-            success=True, files_transferred=1, output_path=str(dest),
+            success=True,
+            files_transferred=1,
+            output_path=str(dest),
         )
 
         lifecycle = {"on_transfer_advanced": "advanced"}
@@ -824,10 +875,12 @@ class TestTransferBatch:
 
         dest = tmp_path / "output"
         dest.mkdir()
-        active_app.transfer_json = json.dumps({
-            "mode": "folder",
-            "destination": str(dest),
-        })
+        active_app.transfer_json = json.dumps(
+            {
+                "mode": "folder",
+                "destination": str(dest),
+            }
+        )
 
         excluded_page = MagicMock()
         excluded_page.is_excluded = True
@@ -838,11 +891,20 @@ class TestTransferBatch:
         included_page.index_fields_json = "{}"
         included_page.ocr_text = ""
 
-        (batch_svc, transfer_svc, notification_svc,
-         script_engine, session, app_ctx, batch_ctx) = self._make_transfer_context(tmp_path)
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
         batch_svc.get_pages.return_value = [excluded_page, included_page]
         transfer_svc.transfer.return_value = TransferResult(
-            success=True, files_transferred=1, output_path=str(dest),
+            success=True,
+            files_transferred=1,
+            output_path=str(dest),
         )
 
         _transfer_batch(
@@ -886,11 +948,14 @@ class TestProcessPendingBatches:
         batch_svc_mock = MagicMock()
         batch_svc_mock.get_batches_by_state.return_value = []
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc_mock,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"):
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc_mock,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+        ):
             count = _process_pending_batches(
                 app_record=active_app,
                 executor=MagicMock(spec=PipelineExecutor),
@@ -932,11 +997,14 @@ class TestProcessPendingBatches:
 
         executor_mock = MagicMock(spec=PipelineExecutor)
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc_mock,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"):
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc_mock,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+        ):
             count = _process_pending_batches(
                 app_record=active_app,
                 executor=executor_mock,
@@ -965,12 +1033,15 @@ class TestProcessPendingBatches:
             [batch_mock] if state == "ready_to_export" else []
         )
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc_mock,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"), \
-           patch("docscan_worker.worker_main._transfer_batch") as mock_transfer:
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc_mock,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+            patch("docscan_worker.worker_main._transfer_batch") as mock_transfer,
+        ):
             count = _process_pending_batches(
                 app_record=active_app,
                 executor=MagicMock(spec=PipelineExecutor),
@@ -1000,11 +1071,14 @@ class TestProcessPendingBatches:
 
         executor_mock = MagicMock(spec=PipelineExecutor)
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc_mock,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"):
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc_mock,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+        ):
             count = _process_pending_batches(
                 app_record=active_app,
                 executor=executor_mock,
@@ -1050,11 +1124,14 @@ class TestProcessPendingBatches:
 
         executor_mock = MagicMock(spec=PipelineExecutor)
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc_mock,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"):
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc_mock,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+        ):
             count = _process_pending_batches(
                 app_record=active_app,
                 executor=executor_mock,
@@ -1088,11 +1165,14 @@ class TestProcessPendingBatches:
 
         executor_mock = MagicMock(spec=PipelineExecutor)
 
-        with patch(
-            "docscan_worker.worker_main.BatchService",
-            return_value=batch_svc_mock,
-        ), patch("docscan_worker.worker_main.TransferService"), \
-           patch("docscan_worker.worker_main.NotificationService"):
+        with (
+            patch(
+                "docscan_worker.worker_main.BatchService",
+                return_value=batch_svc_mock,
+            ),
+            patch("docscan_worker.worker_main.TransferService"),
+            patch("docscan_worker.worker_main.NotificationService"),
+        ):
             _process_pending_batches(
                 app_record=active_app,
                 executor=executor_mock,
@@ -1131,16 +1211,24 @@ class TestMain:
         """main() --process-pending retorna 0 cuando no hay pendientes."""
         app_mock = self._make_app_record()
 
-        with patch("docscan_worker.worker_main.create_db_engine"), \
-             patch("docscan_worker.worker_main.create_tables"), \
-             patch("docscan_worker.worker_main.get_session_factory"), \
-             patch("docscan_worker.worker_main._load_application", return_value=app_mock), \
-             patch("docscan_worker.worker_main.ScriptEngine"), \
-             patch("docscan_worker.worker_main._compile_lifecycle_events", return_value={}), \
-             patch("docscan_worker.worker_main._build_executor"), \
-             patch("docscan_worker.worker_main.ImportService"), \
-             patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path), \
-             patch("docscan_worker.worker_main._process_pending_batches", return_value=0) as mock_pp:
+        with (
+            patch("docscan_worker.worker_main.create_db_engine"),
+            patch("docscan_worker.worker_main.create_tables"),
+            patch("docscan_worker.worker_main.get_session_factory"),
+            patch(
+                "docscan_worker.worker_main._load_application", return_value=app_mock
+            ),
+            patch("docscan_worker.worker_main.ScriptEngine"),
+            patch(
+                "docscan_worker.worker_main._compile_lifecycle_events", return_value={}
+            ),
+            patch("docscan_worker.worker_main._build_executor"),
+            patch("docscan_worker.worker_main.ImportService"),
+            patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path),
+            patch(
+                "docscan_worker.worker_main._process_pending_batches", return_value=0
+            ) as mock_pp,
+        ):
             result = wm.main(["--app-name", "TestApp", "--process-pending"])
 
         assert result == 0
@@ -1150,16 +1238,24 @@ class TestMain:
         """main() --process-pending informa cuántos lotes se procesaron."""
         app_mock = self._make_app_record()
 
-        with patch("docscan_worker.worker_main.create_db_engine"), \
-             patch("docscan_worker.worker_main.create_tables"), \
-             patch("docscan_worker.worker_main.get_session_factory"), \
-             patch("docscan_worker.worker_main._load_application", return_value=app_mock), \
-             patch("docscan_worker.worker_main.ScriptEngine"), \
-             patch("docscan_worker.worker_main._compile_lifecycle_events", return_value={}), \
-             patch("docscan_worker.worker_main._build_executor"), \
-             patch("docscan_worker.worker_main.ImportService"), \
-             patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path), \
-             patch("docscan_worker.worker_main._process_pending_batches", return_value=5):
+        with (
+            patch("docscan_worker.worker_main.create_db_engine"),
+            patch("docscan_worker.worker_main.create_tables"),
+            patch("docscan_worker.worker_main.get_session_factory"),
+            patch(
+                "docscan_worker.worker_main._load_application", return_value=app_mock
+            ),
+            patch("docscan_worker.worker_main.ScriptEngine"),
+            patch(
+                "docscan_worker.worker_main._compile_lifecycle_events", return_value={}
+            ),
+            patch("docscan_worker.worker_main._build_executor"),
+            patch("docscan_worker.worker_main.ImportService"),
+            patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path),
+            patch(
+                "docscan_worker.worker_main._process_pending_batches", return_value=5
+            ),
+        ):
             result = wm.main(["--app-name", "TestApp", "--process-pending"])
 
         assert result == 0
@@ -1169,18 +1265,22 @@ class TestMain:
         app_mock = self._make_app_record()
         nonexistent = tmp_path / "no_existe"
 
-        with patch("docscan_worker.worker_main.create_db_engine"), \
-             patch("docscan_worker.worker_main.create_tables"), \
-             patch("docscan_worker.worker_main.get_session_factory"), \
-             patch("docscan_worker.worker_main._load_application", return_value=app_mock), \
-             patch("docscan_worker.worker_main.ScriptEngine"), \
-             patch("docscan_worker.worker_main._compile_lifecycle_events", return_value={}), \
-             patch("docscan_worker.worker_main._build_executor"), \
-             patch("docscan_worker.worker_main.ImportService"), \
-             patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path):
-            result = wm.main(
-                ["--app-name", "TestApp", "--watch", str(nonexistent)]
-            )
+        with (
+            patch("docscan_worker.worker_main.create_db_engine"),
+            patch("docscan_worker.worker_main.create_tables"),
+            patch("docscan_worker.worker_main.get_session_factory"),
+            patch(
+                "docscan_worker.worker_main._load_application", return_value=app_mock
+            ),
+            patch("docscan_worker.worker_main.ScriptEngine"),
+            patch(
+                "docscan_worker.worker_main._compile_lifecycle_events", return_value={}
+            ),
+            patch("docscan_worker.worker_main._build_executor"),
+            patch("docscan_worker.worker_main.ImportService"),
+            patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path),
+        ):
+            result = wm.main(["--app-name", "TestApp", "--watch", str(nonexistent)])
 
         assert result == 1
 
@@ -1196,19 +1296,25 @@ class TestMain:
             wm._shutdown.set()
             return watcher_mock
 
-        with patch("docscan_worker.worker_main.create_db_engine"), \
-             patch("docscan_worker.worker_main.create_tables"), \
-             patch("docscan_worker.worker_main.get_session_factory"), \
-             patch("docscan_worker.worker_main._load_application", return_value=app_mock), \
-             patch("docscan_worker.worker_main.ScriptEngine"), \
-             patch("docscan_worker.worker_main._compile_lifecycle_events", return_value={}), \
-             patch("docscan_worker.worker_main._build_executor"), \
-             patch("docscan_worker.worker_main.ImportService"), \
-             patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path), \
-             patch("docscan_worker.folder_watcher.FolderWatcher", side_effect=make_watcher):
-            result = wm.main(
-                ["--app-name", "TestApp", "--watch", str(watch_folder)]
-            )
+        with (
+            patch("docscan_worker.worker_main.create_db_engine"),
+            patch("docscan_worker.worker_main.create_tables"),
+            patch("docscan_worker.worker_main.get_session_factory"),
+            patch(
+                "docscan_worker.worker_main._load_application", return_value=app_mock
+            ),
+            patch("docscan_worker.worker_main.ScriptEngine"),
+            patch(
+                "docscan_worker.worker_main._compile_lifecycle_events", return_value={}
+            ),
+            patch("docscan_worker.worker_main._build_executor"),
+            patch("docscan_worker.worker_main.ImportService"),
+            patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path),
+            patch(
+                "docscan_worker.folder_watcher.FolderWatcher", side_effect=make_watcher
+            ),
+        ):
+            result = wm.main(["--app-name", "TestApp", "--watch", str(watch_folder)])
 
         assert result == 0
         watcher_mock.start.assert_called_once()
@@ -1228,22 +1334,36 @@ class TestMain:
             wm._shutdown.set()
             return watcher_mock
 
-        with patch("docscan_worker.worker_main.create_db_engine"), \
-             patch("docscan_worker.worker_main.create_tables"), \
-             patch("docscan_worker.worker_main.get_session_factory"), \
-             patch("docscan_worker.worker_main._load_application", return_value=app_mock), \
-             patch("docscan_worker.worker_main.ScriptEngine"), \
-             patch("docscan_worker.worker_main._compile_lifecycle_events", return_value={}), \
-             patch("docscan_worker.worker_main._build_executor"), \
-             patch("docscan_worker.worker_main.ImportService"), \
-             patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path), \
-             patch("docscan_worker.folder_watcher.FolderWatcher", side_effect=make_watcher):
-            wm.main([
-                "--app-name", "TestApp",
-                "--watch", str(watch_folder),
-                "--debounce", "7",
-                "--sentinel", "READY.txt",
-            ])
+        with (
+            patch("docscan_worker.worker_main.create_db_engine"),
+            patch("docscan_worker.worker_main.create_tables"),
+            patch("docscan_worker.worker_main.get_session_factory"),
+            patch(
+                "docscan_worker.worker_main._load_application", return_value=app_mock
+            ),
+            patch("docscan_worker.worker_main.ScriptEngine"),
+            patch(
+                "docscan_worker.worker_main._compile_lifecycle_events", return_value={}
+            ),
+            patch("docscan_worker.worker_main._build_executor"),
+            patch("docscan_worker.worker_main.ImportService"),
+            patch("docscan_worker.worker_main.APP_DATA_DIR", tmp_path),
+            patch(
+                "docscan_worker.folder_watcher.FolderWatcher", side_effect=make_watcher
+            ),
+        ):
+            wm.main(
+                [
+                    "--app-name",
+                    "TestApp",
+                    "--watch",
+                    str(watch_folder),
+                    "--debounce",
+                    "7",
+                    "--sentinel",
+                    "READY.txt",
+                ]
+            )
 
         assert captured_kwargs.get("debounce_seconds") == 7
         assert captured_kwargs.get("sentinel_filename") == "READY.txt"

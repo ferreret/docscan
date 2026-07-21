@@ -29,13 +29,11 @@ a = Analysis(
         "PySide6.QtSvgWidgets",
         # SQLAlchemy dialects
         "sqlalchemy.dialects.sqlite",
-        # Pipeline & providers
+        # Pipeline (importado dinámicamente)
         "app.pipeline.steps",
         "app.pipeline.context",
         "app.pipeline.executor",
         "app.pipeline.serializer",
-        "app.providers.anthropic_provider",
-        "app.providers.base_provider",
         # Servicios
         "app.services.script_engine",
         "app.services.barcode_service",

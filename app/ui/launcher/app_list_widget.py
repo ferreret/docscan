@@ -91,8 +91,10 @@ class AppCardDelegate(QStyledItemDelegate):
         # --- Indicador de estado (barra lateral izquierda) ---
         indicator_color = active_color if is_active else inactive_color
         indicator_rect = QRect(
-            card_rect.left() + 1, card_rect.top() + 12,
-            INDICATOR_WIDTH, card_rect.height() - 24,
+            card_rect.left() + 1,
+            card_rect.top() + 12,
+            INDICATOR_WIDTH,
+            card_rect.height() - 24,
         )
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(indicator_color))
@@ -143,7 +145,9 @@ class AppCardDelegate(QStyledItemDelegate):
             # Truncar descripción si es muy larga
             metrics = painter.fontMetrics()
             elided = metrics.elidedText(
-                description, Qt.TextElideMode.ElideRight, text_width,
+                description,
+                Qt.TextElideMode.ElideRight,
+                text_width,
             )
             painter.drawText(
                 desc_rect,
@@ -160,8 +164,10 @@ class AppCardDelegate(QStyledItemDelegate):
             painter.setPen(date_color)
             date_text = created_at[:10] if len(created_at) >= 10 else created_at
             date_rect = QRect(
-                card_rect.right() - 110, card_rect.top() + 12,
-                100, 20,
+                card_rect.right() - 110,
+                card_rect.top() + 12,
+                100,
+                20,
             )
             painter.drawText(
                 date_rect,
@@ -176,8 +182,10 @@ class AppCardDelegate(QStyledItemDelegate):
             painter.setFont(badge_font)
             painter.setPen(inactive_color)
             badge_rect = QRect(
-                card_rect.right() - 110, card_rect.top() + 36,
-                100, 18,
+                card_rect.right() - 110,
+                card_rect.top() + 36,
+                100,
+                18,
             )
             painter.drawText(
                 badge_rect,
@@ -211,12 +219,15 @@ class AppListWidget(QListWidget):
             item = QListWidgetItem()
             item.setText(app.name)
             item.setData(APP_ID_ROLE, app.id)
-            item.setData(APP_DATA_ROLE, {
-                "name": app.name,
-                "description": app.description or "",
-                "active": app.active,
-                "created_at": str(app.created_at) if app.created_at else "",
-            })
+            item.setData(
+                APP_DATA_ROLE,
+                {
+                    "name": app.name,
+                    "description": app.description or "",
+                    "active": app.active,
+                    "created_at": str(app.created_at) if app.created_at else "",
+                },
+            )
             item.setSizeHint(QSize(0, CARD_HEIGHT + CARD_MARGIN))
             self.addItem(item)
 

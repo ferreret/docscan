@@ -17,7 +17,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
-    QLabel,
     QScrollArea,
     QSpinBox,
     QVBoxLayout,
@@ -30,12 +29,23 @@ log = logging.getLogger(__name__)
 
 # Opciones que se muestran en el diálogo (las que realmente interesan)
 _COMMON_OPTIONS = {
-    "source", "mode", "resolution",
-    "brightness", "contrast", "threshold",
-    "df_thickness", "df_length",
-    "rollerdeskew", "swdeskew", "swdespeck", "swcrop", "swskip",
-    "stapledetect", "buffermode",
-    "dropout_front", "dropout_back",
+    "source",
+    "mode",
+    "resolution",
+    "brightness",
+    "contrast",
+    "threshold",
+    "df_thickness",
+    "df_length",
+    "rollerdeskew",
+    "swdeskew",
+    "swdespeck",
+    "swcrop",
+    "swskip",
+    "stapledetect",
+    "buffermode",
+    "dropout_front",
+    "dropout_back",
     "duplex",
 }
 
@@ -87,8 +97,7 @@ class ScannerConfigDialog(QDialog):
 
         # Botones OK/Cancelar
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)

@@ -8,7 +8,30 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
-### 🛡️ Sprint Superadmin (versión web SaaS) — 2026-05-05
+### 🧹 Mantenimiento desktop — 2026-07-21
+
+La versión web SaaS quedó **archivada**; el proyecto se enfoca en DocScan
+Desktop. Auditoría completa en `docs/auditoria_desktop_2026-07-21.md`.
+
+- **Fix**: `--direct-mode` estaba roto por un import inexistente (`get_scanner`
+  → `create_scanner` en `main.py`). Añadidos tests de regresión del modo directo.
+- **Seguridad**: actualizadas dependencias con CVEs conocidos — Pillow
+  12.1.1→12.3.0, cryptography 46.0.5→48.0.1, pydantic-settings→2.14.2,
+  pytest→9.0.3. `pip-audit` limpio.
+- **Limpieza**: eliminado `app/providers/` (código muerto desde el borrado de
+  AiStep). Barrido `ruff check --fix` + `ruff format` sobre todo el código
+  desktop; añadido `ruff.toml` (primera config de lint del proyecto).
+- **Tests**: mockeado el modal `QMessageBox.warning` en `test_create_duplicate_app`
+  que colgaba la suite de forma intermitente.
+
+---
+
+### 🗄️ Histórico versión web SaaS (archivada 2026-07-21)
+
+> Las secciones siguientes documentan la versión web SaaS, archivada. Se
+> conservan como referencia; no forman parte de las releases del desktop.
+
+#### 🛡️ Sprint Superadmin (versión web SaaS) — 2026-05-05
 
 Plataforma multi-tenant lista para SaaS con jerarquía de roles `superadmin > company_admin > operator`. Sólo el equipo de TecnoMedia (rol `superadmin`) puede crear tenants y administradores; el registro público está deshabilitado.
 

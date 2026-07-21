@@ -47,7 +47,9 @@ def auto_deskew(image: np.ndarray, params: dict[str, Any]) -> np.ndarray:
     center = (w // 2, h // 2)
     matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
     rotated = cv2.warpAffine(
-        image, matrix, (w, h),
+        image,
+        matrix,
+        (w, h),
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_REPLICATE,
     )
@@ -69,7 +71,7 @@ def crop(image: np.ndarray, params: dict[str, Any]) -> np.ndarray:
     y = params.get("y", 0)
     w = params.get("w", image.shape[1])
     h = params.get("h", image.shape[0])
-    return image[y:y + h, x:x + w].copy()
+    return image[y : y + h, x : x + w].copy()
 
 
 def crop_white_borders(image: np.ndarray, params: dict[str, Any]) -> np.ndarray:
@@ -85,7 +87,7 @@ def crop_white_borders(image: np.ndarray, params: dict[str, Any]) -> np.ndarray:
     y = max(0, y - margin)
     w = min(image.shape[1] - x, w + 2 * margin)
     h = min(image.shape[0] - y, h + 2 * margin)
-    return image[y:y + h, x:x + w].copy()
+    return image[y : y + h, x : x + w].copy()
 
 
 def crop_black_borders(image: np.ndarray, params: dict[str, Any]) -> np.ndarray:
@@ -101,7 +103,7 @@ def crop_black_borders(image: np.ndarray, params: dict[str, Any]) -> np.ndarray:
     y = max(0, y - margin)
     w = min(image.shape[1] - x, w + 2 * margin)
     h = min(image.shape[0] - y, h + 2 * margin)
-    return image[y:y + h, x:x + w].copy()
+    return image[y : y + h, x : x + w].copy()
 
 
 def resize(image: np.ndarray, params: dict[str, Any]) -> np.ndarray:
@@ -237,8 +239,12 @@ def remove_hole_punch(image: np.ndarray, params: dict[str, Any]) -> np.ndarray:
     """Elimina marcas de perforadora detectando círculos."""
     gray = _to_gray(image)
     circles = cv2.HoughCircles(
-        gray, cv2.HOUGH_GRADIENT, dp=1.2, minDist=50,
-        param1=100, param2=30,
+        gray,
+        cv2.HOUGH_GRADIENT,
+        dp=1.2,
+        minDist=50,
+        param1=100,
+        param2=30,
         minRadius=params.get("min_radius", 10),
         maxRadius=params.get("max_radius", 30),
     )
@@ -438,19 +444,19 @@ class ImagePipelineService:
     ) -> np.ndarray:
         """Aplica la operación solo a una región rectangular."""
         x, y, w, h = window
-        roi = image[y:y + h, x:x + w].copy()
+        roi = image[y : y + h, x : x + w].copy()
         processed_roi = fn(roi, params)
 
         result = image.copy()
         # Si la op cambió de color a gris o viceversa, adaptar
-        if len(processed_roi.shape) != len(result[y:y + h, x:x + w].shape):
+        if len(processed_roi.shape) != len(result[y : y + h, x : x + w].shape):
             if len(processed_roi.shape) == 2:
                 processed_roi = cv2.cvtColor(processed_roi, cv2.COLOR_GRAY2BGR)
             else:
                 processed_roi = cv2.cvtColor(processed_roi, cv2.COLOR_BGR2GRAY)
 
         rh, rw = processed_roi.shape[:2]
-        result[y:y + rh, x:x + rw] = processed_roi
+        result[y : y + rh, x : x + rw] = processed_roi
         return result
 
     def list_operations(self) -> list[str]:

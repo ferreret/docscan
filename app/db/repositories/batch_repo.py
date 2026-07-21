@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.models.batch import Batch
 
@@ -28,11 +28,7 @@ class BatchRepository:
         return list(self._session.scalars(stmt))
 
     def get_by_state(self, state: str) -> list[Batch]:
-        stmt = (
-            select(Batch)
-            .where(Batch.state == state)
-            .order_by(Batch.created_at)
-        )
+        stmt = select(Batch).where(Batch.state == state).order_by(Batch.created_at)
         return list(self._session.scalars(stmt))
 
     def get_all(self) -> list[Batch]:

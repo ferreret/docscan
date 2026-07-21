@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import cv2
 import numpy as np
 import pytest
 from sqlalchemy import create_engine, event
@@ -13,8 +12,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.database import Base
 from app.models.application import Application
-from app.models.batch import Batch
-from app.models.page import Page
 from app.models.barcode import Barcode  # noqa: F401
 from app.models.template import Template  # noqa: F401
 from app.services.batch_service import BatchService
@@ -76,7 +73,8 @@ class TestCreateBatch:
 
     def test_create_with_fields(self, service: BatchService, app_id: int):
         batch = service.create_batch(
-            app_id, fields={"cliente": "ACME", "tipo": "factura"},
+            app_id,
+            fields={"cliente": "ACME", "tipo": "factura"},
         )
         fields = json.loads(batch.fields_json)
         assert fields["cliente"] == "ACME"
@@ -94,7 +92,9 @@ class TestCreateBatch:
 
 class TestPages:
     def test_add_pages(
-        self, service: BatchService, app_id: int,
+        self,
+        service: BatchService,
+        app_id: int,
         sample_images: list[np.ndarray],
     ):
         batch = service.create_batch(app_id)
@@ -106,7 +106,9 @@ class TestPages:
             assert Path(p.image_path).exists()
 
     def test_add_pages_increments_count(
-        self, service: BatchService, app_id: int,
+        self,
+        service: BatchService,
+        app_id: int,
         sample_images: list[np.ndarray],
     ):
         batch = service.create_batch(app_id)
@@ -115,7 +117,9 @@ class TestPages:
         assert batch.page_count == 3
 
     def test_add_pages_continues_index(
-        self, service: BatchService, app_id: int,
+        self,
+        service: BatchService,
+        app_id: int,
         sample_images: list[np.ndarray],
     ):
         batch = service.create_batch(app_id)
@@ -124,7 +128,9 @@ class TestPages:
         assert pages2[0].page_index == 2
 
     def test_get_page_image(
-        self, service: BatchService, app_id: int,
+        self,
+        service: BatchService,
+        app_id: int,
         sample_images: list[np.ndarray],
     ):
         batch = service.create_batch(app_id)
@@ -134,8 +140,11 @@ class TestPages:
         assert img.shape == (100, 200, 3)
 
     def test_remove_page(
-        self, service: BatchService, app_id: int,
-        sample_images: list[np.ndarray], session: Session,
+        self,
+        service: BatchService,
+        app_id: int,
+        sample_images: list[np.ndarray],
+        session: Session,
     ):
         batch = service.create_batch(app_id)
         pages = service.add_pages(batch.id, sample_images[:1])
@@ -146,7 +155,9 @@ class TestPages:
         assert not image_path.exists()
 
     def test_reorder_pages(
-        self, service: BatchService, app_id: int,
+        self,
+        service: BatchService,
+        app_id: int,
         sample_images: list[np.ndarray],
     ):
         batch = service.create_batch(app_id)
@@ -214,8 +225,11 @@ class TestQueries:
         assert len(read) == 1
 
     def test_get_stats(
-        self, service: BatchService, app_id: int,
-        sample_images: list[np.ndarray], session: Session,
+        self,
+        service: BatchService,
+        app_id: int,
+        sample_images: list[np.ndarray],
+        session: Session,
     ):
         batch = service.create_batch(app_id)
         pages = service.add_pages(batch.id, sample_images)
@@ -229,8 +243,11 @@ class TestQueries:
         assert stats["excluded"] == 1
 
     def test_get_pages_needing_review(
-        self, service: BatchService, app_id: int,
-        sample_images: list[np.ndarray], session: Session,
+        self,
+        service: BatchService,
+        app_id: int,
+        sample_images: list[np.ndarray],
+        session: Session,
     ):
         batch = service.create_batch(app_id)
         pages = service.add_pages(batch.id, sample_images)
@@ -255,7 +272,9 @@ class TestFieldsAndDeletion:
         assert fields["ref"] == "ABC-123"
 
     def test_delete_batch(
-        self, service: BatchService, app_id: int,
+        self,
+        service: BatchService,
+        app_id: int,
         sample_images: list[np.ndarray],
     ):
         batch = service.create_batch(app_id)

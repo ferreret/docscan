@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import numpy as np
 import pytest
 from PySide6.QtWidgets import QLabel, QVBoxLayout
 
@@ -102,7 +101,7 @@ class TestCustomPanel:
         page0 = MagicMock()
         page0.index_fields_json = '{"nif": "B12345"}'
         page1 = MagicMock()
-        page1.index_fields_json = '{}'
+        page1.index_fields_json = "{}"
 
         class PageValidator(VerificationPanel):
             def validate_page(self, page_index):

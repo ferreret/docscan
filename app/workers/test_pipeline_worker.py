@@ -8,12 +8,11 @@ from typing import Any
 import numpy as np
 from PySide6.QtCore import QThread, Signal
 
-from app.pipeline.test_executor import InstrumentedPipelineExecutor, StepSnapshot
+from app.pipeline.test_executor import InstrumentedPipelineExecutor
 from app.workers.recognition_worker import (
     AppContext,
     BatchContext,
     PageContext,
-    PageFlags,
 )
 
 log = logging.getLogger(__name__)
@@ -48,7 +47,9 @@ class TestPipelineWorker(QThread):
         try:
             page = PageContext(page_index=0, image=self._image)
             page, snapshots = self._executor.execute_instrumented(
-                page, self._batch_ctx, self._app_ctx,
+                page,
+                self._batch_ctx,
+                self._app_ctx,
             )
             self.finished.emit(page, snapshots)
         except Exception as e:

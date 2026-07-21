@@ -6,7 +6,6 @@ o cualquier evento configurable por aplicación.
 
 from __future__ import annotations
 
-import json
 import logging
 import smtplib
 from dataclasses import dataclass, field
@@ -69,7 +68,8 @@ class NotificationService:
         """
         if not config.url:
             return NotificationResult(
-                success=False, channel="webhook",
+                success=False,
+                channel="webhook",
                 detail="URL de webhook vacía",
             )
 
@@ -79,17 +79,22 @@ class NotificationService:
             with httpx.Client(timeout=config.timeout) as client:
                 if config.method.upper() == "GET":
                     resp = client.get(
-                        config.url, params=payload, headers=headers,
+                        config.url,
+                        params=payload,
+                        headers=headers,
                     )
                 else:
                     resp = client.post(
-                        config.url, json=payload, headers=headers,
+                        config.url,
+                        json=payload,
+                        headers=headers,
                     )
 
             resp.raise_for_status()
             log.info("Webhook enviado a %s: %d", config.url, resp.status_code)
             return NotificationResult(
-                success=True, channel="webhook",
+                success=True,
+                channel="webhook",
                 detail=f"HTTP {resp.status_code}",
             )
 
@@ -97,13 +102,17 @@ class NotificationService:
             msg = f"Webhook error HTTP {e.response.status_code}: {config.url}"
             log.error(msg)
             return NotificationResult(
-                success=False, channel="webhook", detail=msg,
+                success=False,
+                channel="webhook",
+                detail=msg,
             )
         except Exception as e:
             msg = f"Webhook error: {e}"
             log.error(msg)
             return NotificationResult(
-                success=False, channel="webhook", detail=msg,
+                success=False,
+                channel="webhook",
+                detail=msg,
             )
 
     def send_email(
@@ -126,13 +135,15 @@ class NotificationService:
         """
         if not config.smtp_host:
             return NotificationResult(
-                success=False, channel="email",
+                success=False,
+                channel="email",
                 detail="Host SMTP no configurado",
             )
 
         if not config.to_addrs:
             return NotificationResult(
-                success=False, channel="email",
+                success=False,
+                channel="email",
                 detail="Sin destinatarios",
             )
 
@@ -162,7 +173,8 @@ class NotificationService:
 
             log.info("Email enviado a %s", config.to_addrs)
             return NotificationResult(
-                success=True, channel="email",
+                success=True,
+                channel="email",
                 detail=f"Enviado a {len(config.to_addrs)} destinatario(s)",
             )
 
@@ -170,7 +182,9 @@ class NotificationService:
             msg_err = f"Error enviando email: {e}"
             log.error(msg_err)
             return NotificationResult(
-                success=False, channel="email", detail=msg_err,
+                success=False,
+                channel="email",
+                detail=msg_err,
             )
 
     def notify_transfer_complete(
@@ -233,9 +247,7 @@ class NotificationService:
         if email and email.smtp_host and email.to_addrs:
             subject = f"[DocScan] Error — {app_name}"
             body = (
-                f"Error en lote {batch_id}.\n"
-                f"Aplicación: {app_name}\n"
-                f"Error: {error}\n"
+                f"Error en lote {batch_id}.\nAplicación: {app_name}\nError: {error}\n"
             )
             results.append(self.send_email(email, subject, body))
 

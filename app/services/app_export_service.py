@@ -105,9 +105,7 @@ def validate_import_data(data: dict[str, Any]) -> list[str]:
     if version is None:
         errors.append("Falta el campo 'version'.")
     elif version != EXPORT_VERSION:
-        errors.append(
-            f"Version no soportada: {version} (esperada: {EXPORT_VERSION})."
-        )
+        errors.append(f"Version no soportada: {version} (esperada: {EXPORT_VERSION}).")
 
     app_data = data.get("application")
     if app_data is None:
@@ -168,8 +166,12 @@ def import_application(
 
     # Campos escalares
     for field_name in (
-        "auto_transfer", "close_after_transfer", "background_color",
-        "output_format", "default_tab", "scanner_backend",
+        "auto_transfer",
+        "close_after_transfer",
+        "background_color",
+        "output_format",
+        "default_tab",
+        "scanner_backend",
     ):
         value = app_data.get(field_name)
         if value is not None:

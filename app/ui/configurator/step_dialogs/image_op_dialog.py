@@ -19,7 +19,9 @@ class ImageOpDialog(QDialog):
     """Editor de paso de operación de imagen."""
 
     def __init__(
-        self, step: ImageOpStep, parent: QWidget | None = None,
+        self,
+        step: ImageOpStep,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._step = step
@@ -29,7 +31,9 @@ class ImageOpDialog(QDialog):
         layout = QFormLayout(self)
 
         self._op_combo = QComboBox()
-        self._op_combo.setToolTip(self.tr("Operación de procesamiento de imagen a aplicar"))
+        self._op_combo.setToolTip(
+            self.tr("Operación de procesamiento de imagen a aplicar")
+        )
         self._op_combo.addItems(sorted(IMAGE_OPS.keys()))
         if step.op:
             idx = self._op_combo.findText(step.op)
@@ -39,7 +43,11 @@ class ImageOpDialog(QDialog):
 
         # Parámetros como JSON simple clave=valor
         self._params_edit = QLineEdit()
-        self._params_edit.setToolTip(self.tr("Parámetros de la operación en formato clave=valor, separados por coma"))
+        self._params_edit.setToolTip(
+            self.tr(
+                "Parámetros de la operación en formato clave=valor, separados por coma"
+            )
+        )
         if step.params:
             self._params_edit.setText(
                 ", ".join(f"{k}={v}" for k, v in step.params.items())
@@ -49,15 +57,12 @@ class ImageOpDialog(QDialog):
 
         self._window_edit = QLineEdit()
         if step.window:
-            self._window_edit.setText(
-                ", ".join(str(v) for v in step.window)
-            )
+            self._window_edit.setText(", ".join(str(v) for v in step.window))
         self._window_edit.setPlaceholderText(self.tr("x, y, w, h (vacío = completa)"))
         layout.addRow(self.tr("Ventana:"), self._window_edit)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)

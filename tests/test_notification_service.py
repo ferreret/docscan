@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import patch, MagicMock
 
 import pytest
 
 from app.services.notification_service import (
     EmailConfig,
-    NotificationResult,
     NotificationService,
     WebhookConfig,
 )
@@ -129,7 +127,10 @@ class TestEmail:
             to_addrs=["dest@example.com"],
         )
         result = service.send_email(
-            config, "Asunto", "<h1>HTML</h1>", html=True,
+            config,
+            "Asunto",
+            "<h1>HTML</h1>",
+            html=True,
         )
         assert result.success
 
@@ -154,7 +155,9 @@ class TestEmail:
 class TestHighLevel:
     @patch("app.services.notification_service.httpx.Client")
     def test_notify_transfer_complete(
-        self, mock_client_cls, service: NotificationService,
+        self,
+        mock_client_cls,
+        service: NotificationService,
     ):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -167,8 +170,10 @@ class TestHighLevel:
 
         webhook = WebhookConfig(url="https://example.com/hook")
         results = service.notify_transfer_complete(
-            webhook=webhook, email=None,
-            batch_id=1, app_name="Test",
+            webhook=webhook,
+            email=None,
+            batch_id=1,
+            app_name="Test",
             stats={"total_pages": 10},
         )
         assert len(results) == 1
@@ -176,14 +181,19 @@ class TestHighLevel:
 
     def test_notify_no_channels(self, service: NotificationService):
         results = service.notify_transfer_complete(
-            webhook=None, email=None,
-            batch_id=1, app_name="Test", stats={},
+            webhook=None,
+            email=None,
+            batch_id=1,
+            app_name="Test",
+            stats={},
         )
         assert results == []
 
     @patch("app.services.notification_service.httpx.Client")
     def test_notify_error(
-        self, mock_client_cls, service: NotificationService,
+        self,
+        mock_client_cls,
+        service: NotificationService,
     ):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -196,8 +206,11 @@ class TestHighLevel:
 
         webhook = WebhookConfig(url="https://example.com/hook")
         results = service.notify_error(
-            webhook=webhook, email=None,
-            batch_id=1, app_name="Test", error="Pipeline failed",
+            webhook=webhook,
+            email=None,
+            batch_id=1,
+            app_name="Test",
+            error="Pipeline failed",
         )
         assert len(results) == 1
         assert results[0].success

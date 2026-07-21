@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import os
-import time
 from pathlib import Path
 from typing import Callable
 
@@ -98,10 +97,17 @@ class _SentinelHandler(PatternMatchingEventHandler):
         """Recopila ficheros válidos y dispara el callback."""
         log.info("Fichero centinela detectado: %s", sentinel_path)
         valid_suffixes = {
-            ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".tif",
+            ".tiff",
+            ".bmp",
+            ".pdf",
         }
         files = sorted(
-            f for f in self._watch_folder.iterdir()
+            f
+            for f in self._watch_folder.iterdir()
             if f.is_file()
             and f.suffix.lower() in valid_suffixes
             and f.stat().st_size >= MIN_FILE_SIZE_BYTES
@@ -155,7 +161,9 @@ class FolderWatcher:
         if self._sentinel_mode:
             # Modo centinela: espera fichero específico
             self._handler = _SentinelHandler(
-                sentinel_filename, self._watch_folder, batch_callback,
+                sentinel_filename,
+                self._watch_folder,
+                batch_callback,
             )
             self._debouncer = None
             self._observer.schedule(
@@ -240,7 +248,13 @@ class FolderWatcher:
         al batch_callback.
         """
         valid_suffixes = {
-            ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".tif",
+            ".tiff",
+            ".bmp",
+            ".pdf",
         }
         seen: set[str] = set()
         ready_paths: list[Path] = []

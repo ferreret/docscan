@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from app.pipeline.executor import PipelineExecutor, StepError
+from app.pipeline.executor import PipelineExecutor
 from app.pipeline.steps import (
     ImageOpStep,
     ScriptStep,
@@ -84,7 +84,10 @@ def app_ctx():
 
 
 def make_executor(
-    steps, image_service, script_engine, **kwargs,
+    steps,
+    image_service,
+    script_engine,
+    **kwargs,
 ) -> PipelineExecutor:
     # Pre-compilar scripts
     for step in steps:
@@ -115,7 +118,9 @@ class TestExecutorBasic:
         result = executor.execute(page, batch, app_ctx)
         assert result is page
 
-    def test_multiple_image_ops(self, image_service, script_engine, page, batch, app_ctx):
+    def test_multiple_image_ops(
+        self, image_service, script_engine, page, batch, app_ctx
+    ):
         steps = [
             ImageOpStep(id="s1", op="FxGrayscale"),
             ImageOpStep(id="s2", op="ConvertTo1Bpp", params={"threshold": 128}),
@@ -124,7 +129,9 @@ class TestExecutorBasic:
         result = executor.execute(page, batch, app_ctx)
         assert result is page
 
-    def test_disabled_step_skipped(self, image_service, script_engine, page, batch, app_ctx):
+    def test_disabled_step_skipped(
+        self, image_service, script_engine, page, batch, app_ctx
+    ):
         steps = [
             ImageOpStep(id="s1", op="FxGrayscale", enabled=False),
             ImageOpStep(id="s2", op="FxNegative"),
@@ -135,7 +142,9 @@ class TestExecutorBasic:
 
 
 class TestExecutorWithScripts:
-    def test_script_modifies_page(self, image_service, script_engine, page, batch, app_ctx):
+    def test_script_modifies_page(
+        self, image_service, script_engine, page, batch, app_ctx
+    ):
         steps = [
             ScriptStep(
                 id="s1",
@@ -175,7 +184,9 @@ class TestExecutorWithScripts:
         assert page.flags.needs_review is True
         assert "razón de test" in page.flags.review_reason
 
-    def test_script_error_recorded(self, image_service, script_engine, page, batch, app_ctx):
+    def test_script_error_recorded(
+        self, image_service, script_engine, page, batch, app_ctx
+    ):
         steps = [
             ScriptStep(
                 id="s1",
@@ -192,7 +203,9 @@ class TestExecutorWithScripts:
 
 
 class TestExecutorImageFlow:
-    def test_image_transforms_chain(self, image_service, script_engine, page, batch, app_ctx):
+    def test_image_transforms_chain(
+        self, image_service, script_engine, page, batch, app_ctx
+    ):
         """Las transformaciones se encadenan sobre la imagen del contexto."""
         steps = [
             ImageOpStep(id="s1", op="FxGrayscale"),
@@ -201,7 +214,9 @@ class TestExecutorImageFlow:
         executor = make_executor(steps, image_service, script_engine)
         executor.execute(page, batch, app_ctx)
 
-    def test_invalid_op_records_error(self, image_service, script_engine, page, batch, app_ctx):
+    def test_invalid_op_records_error(
+        self, image_service, script_engine, page, batch, app_ctx
+    ):
         steps = [ImageOpStep(id="s1", op="NoExiste")]
         executor = make_executor(steps, image_service, script_engine)
         executor.execute(page, batch, app_ctx)

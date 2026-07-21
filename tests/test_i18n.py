@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
-import pytest
-from PySide6.QtCore import QTranslator
 from PySide6.QtWidgets import QApplication
 
 from app.i18n import (
@@ -13,7 +10,6 @@ from app.i18n import (
     SUPPORTED_LANGUAGES,
     _TRANSLATIONS_DIR,
     _active_translators,
-    _uninstall_translators,
     available_languages,
     get_language_preference,
     load_language,

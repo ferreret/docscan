@@ -11,10 +11,8 @@ Cubre:
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -306,9 +304,7 @@ class TestOnDebouncedEvents:
         watcher._on_debounced_events([])
         batch_callback.assert_not_called()
 
-    def test_error_en_batch_callback_no_propaga(
-        self, watch_folder: Path
-    ) -> None:
+    def test_error_en_batch_callback_no_propaga(self, watch_folder: Path) -> None:
         """Si batch_callback lanza excepción, _on_debounced_events no propaga."""
         crashing_callback = MagicMock(side_effect=RuntimeError("boom"))
         valid_file = _write_valid_file(watch_folder, "safe.tiff")
@@ -326,10 +322,7 @@ class TestOnDebouncedEvents:
         self, watch_folder: Path, batch_callback: MagicMock
     ) -> None:
         """Varios ficheros válidos se entregan juntos al callback."""
-        files = [
-            _write_valid_file(watch_folder, f"doc_{i}.jpg")
-            for i in range(4)
-        ]
+        files = [_write_valid_file(watch_folder, f"doc_{i}.jpg") for i in range(4)]
         watcher = self._make_watcher(watch_folder, batch_callback)
         events = [_make_closed_event(str(f)) for f in files]
         watcher._on_debounced_events(events)
@@ -493,9 +486,7 @@ class TestSentinelHandler:
         handler._trigger(str(sentinel))
         batch_callback.assert_not_called()
 
-    def test_error_en_batch_callback_no_propaga(
-        self, watch_folder: Path
-    ) -> None:
+    def test_error_en_batch_callback_no_propaga(self, watch_folder: Path) -> None:
         """Si batch_callback lanza excepción, _trigger no propaga."""
         _write_valid_file(watch_folder, "img.bmp")
         sentinel = watch_folder / "GO.txt"

@@ -13,7 +13,6 @@ import pytest
 
 from app.services.transfer_service import (
     TransferConfig,
-    TransferResult,
     TransferService,
     parse_transfer_config,
 )
@@ -31,18 +30,29 @@ def sample_pages(tmp_path: Path) -> list[dict]:
     for i in range(3):
         img = np.ones((100, 200, 3), dtype=np.uint8) * (i * 80)
         cv2.putText(
-            img, f"Page {i}", (10, 60),
-            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2,
+            img,
+            f"Page {i}",
+            (10, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.0,
+            (255, 255, 255),
+            2,
         )
         path = tmp_path / "source" / f"page_{i:04d}.tiff"
         path.parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(path), img)
-        pages.append({
-            "image_path": str(path),
-            "page_index": i,
-            "ocr_text": f"Texto OCR página {i}",
-            "fields": {"numero": f"F-{i:03d}", "ref": f"REF-{i}", "tipo": "factura"},
-        })
+        pages.append(
+            {
+                "image_path": str(path),
+                "page_index": i,
+                "ocr_text": f"Texto OCR página {i}",
+                "fields": {
+                    "numero": f"F-{i:03d}",
+                    "ref": f"REF-{i}",
+                    "tipo": "factura",
+                },
+            }
+        )
     return pages
 
 
@@ -58,11 +68,13 @@ class TestTransferConfig:
         assert config.pdf_dpi == 200
 
     def test_parse_from_json(self):
-        data = json.dumps({
-            "mode": "pdf",
-            "destination": "/tmp/output",
-            "pdf_dpi": 300,
-        })
+        data = json.dumps(
+            {
+                "mode": "pdf",
+                "destination": "/tmp/output",
+                "pdf_dpi": 300,
+            }
+        )
         config = parse_transfer_config(data)
         assert config.mode == "pdf"
         assert config.destination == "/tmp/output"
@@ -85,7 +97,9 @@ class TestTransferConfig:
 
 class TestFolderTransfer:
     def test_basic_copy(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -100,7 +114,9 @@ class TestFolderTransfer:
         assert len(list(output_dir.glob("*.*"))) == 3
 
     def test_creates_subdirs(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -112,7 +128,9 @@ class TestFolderTransfer:
         assert "batch_42" in result.output_path
 
     def test_no_subdirs(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -124,7 +142,9 @@ class TestFolderTransfer:
         assert "batch_42" not in result.output_path
 
     def test_with_metadata(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -142,7 +162,9 @@ class TestFolderTransfer:
         assert "ocr_text" in meta
 
     def test_missing_image(
-        self, service: TransferService, tmp_path: Path,
+        self,
+        service: TransferService,
+        tmp_path: Path,
     ):
         pages = [{"image_path": "/nonexistent/image.tiff", "page_index": 0}]
         config = TransferConfig(
@@ -162,7 +184,9 @@ class TestFolderTransfer:
 
 class TestPdfTransfer:
     def test_generate_pdf(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -181,7 +205,9 @@ class TestPdfTransfer:
         doc.close()
 
     def test_generate_pdfa(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -200,7 +226,9 @@ class TestPdfTransfer:
 
 class TestCsvTransfer:
     def test_generate_csv(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -223,7 +251,9 @@ class TestCsvTransfer:
         assert rows[0]["tipo"] == "factura"
 
     def test_csv_auto_detect_fields(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -262,7 +292,9 @@ class TestUnsupportedMode:
 
 class TestFilenamePattern:
     def test_custom_pattern(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -271,15 +303,19 @@ class TestFilenamePattern:
             filename_pattern="doc_{batch_id}_{page_index:04d}",
         )
         result = service.transfer(
-            sample_pages[:1], config,
-            batch_fields={"cliente": "ACME"}, batch_id=5,
+            sample_pages[:1],
+            config,
+            batch_fields={"cliente": "ACME"},
+            batch_id=5,
         )
         output_dir = Path(result.output_path)
         files = list(output_dir.glob("doc_5_0000.*"))
         assert len(files) == 1
 
     def test_pattern_with_batch_fields(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         config = TransferConfig(
@@ -288,8 +324,10 @@ class TestFilenamePattern:
             filename_pattern="{cliente}_{page_index:04d}",
         )
         result = service.transfer(
-            sample_pages[:1], config,
-            batch_fields={"cliente": "ACME"}, batch_id=1,
+            sample_pages[:1],
+            config,
+            batch_fields={"cliente": "ACME"},
+            batch_id=1,
         )
         output_dir = Path(result.output_path)
         files = list(output_dir.glob("ACME_0000.*"))
@@ -303,7 +341,9 @@ class TestFilenamePattern:
 
 class TestCollisionPolicy:
     def test_suffix_creates_numbered_files(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         """Transferir dos veces con suffix crea ficheros con sufijo."""
@@ -326,7 +366,9 @@ class TestCollisionPolicy:
         assert (output_dir / "doc_1.tiff").exists()
 
     def test_overwrite_replaces_file(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         """Transferir con overwrite reemplaza el fichero existente."""
@@ -351,7 +393,9 @@ class TestCollisionPolicy:
         assert len(doc_files) == 1
 
     def test_merge_tiff_appends_pages(
-        self, service: TransferService, sample_pages: list[dict],
+        self,
+        service: TransferService,
+        sample_pages: list[dict],
         tmp_path: Path,
     ):
         """Transferir con merge en TIFF crea multi-pagina."""
@@ -375,7 +419,9 @@ class TestCollisionPolicy:
         assert len(merged) == 2
 
     def test_merge_fallback_to_suffix_for_jpg(
-        self, service: TransferService, tmp_path: Path,
+        self,
+        service: TransferService,
+        tmp_path: Path,
     ):
         """Merge con JPG cae en fallback a sufijo."""
         # Crear pagina JPG

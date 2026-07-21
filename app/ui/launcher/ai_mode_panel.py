@@ -54,9 +54,7 @@ _LABEL_PLACEHOLDER = QT_TRANSLATE_NOOP(
 _LABEL_API_KEY = QT_TRANSLATE_NOOP(_ctx, "API Key:")
 _LABEL_SAVE_KEY = QT_TRANSLATE_NOOP(_ctx, "Guardar")
 _LABEL_WAITING = QT_TRANSLATE_NOOP(_ctx, "Generando respuesta...")
-_LABEL_NO_KEY = QT_TRANSLATE_NOOP(
-    _ctx, "Configura tu API key para usar el asistente."
-)
+_LABEL_NO_KEY = QT_TRANSLATE_NOOP(_ctx, "Configura tu API key para usar el asistente.")
 _LABEL_KEY_SAVED = QT_TRANSLATE_NOOP(_ctx, "API key guardada.")
 
 _tr = lambda s: QCoreApplication.translate(_ctx, s)
@@ -133,9 +131,7 @@ class AiModePanel(QWidget):
         # Area de mensajes
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
-        self._scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._messages_container = QWidget()
         self._messages_layout = QVBoxLayout(self._messages_container)
         self._messages_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -241,22 +237,28 @@ class AiModePanel(QWidget):
 
                     # Campos de lote
                     try:
-                        fields = json.loads(app.batch_fields_json) if app.batch_fields_json else []
+                        fields = (
+                            json.loads(app.batch_fields_json)
+                            if app.batch_fields_json
+                            else []
+                        )
                         field_labels = [f.get("label", "?") for f in fields]
                     except Exception:
                         field_labels = []
 
-                    summary.append({
-                        "name": app.name,
-                        "description": app.description or "",
-                        "active": app.active,
-                        "pipeline_steps": step_count,
-                        "pipeline_types": step_types,
-                        "events_with_code": event_names,
-                        "batch_fields": field_labels,
-                        "output_format": app.output_format,
-                        "auto_transfer": app.auto_transfer,
-                    })
+                    summary.append(
+                        {
+                            "name": app.name,
+                            "description": app.description or "",
+                            "active": app.active,
+                            "pipeline_steps": step_count,
+                            "pipeline_types": step_types,
+                            "events_with_code": event_names,
+                            "batch_fields": field_labels,
+                            "output_format": app.output_format,
+                            "auto_transfer": app.auto_transfer,
+                        }
+                    )
 
                 return json.dumps(summary, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -335,8 +337,9 @@ class AiModePanel(QWidget):
                 f"{tc.explanation}"
             )
         elif tc.tool_name == "update_application":
-            changed = [k for k in ("pipeline", "events", "batch_fields", "general")
-                       if k in ti]
+            changed = [
+                k for k in ("pipeline", "events", "batch_fields", "general") if k in ti
+            ]
             return (
                 f"[Executed tool: update_application] "
                 f"Updated '{ti.get('app_name', '?')}' — changed: {changed}. "
@@ -362,7 +365,9 @@ class AiModePanel(QWidget):
         elif tc.tool_name == "list_applications":
             return "[Executed tool: list_applications]"
         elif tc.tool_name == "get_application":
-            return f"[Executed tool: get_application] Fetched '{ti.get('app_name', '?')}'"
+            return (
+                f"[Executed tool: get_application] Fetched '{ti.get('app_name', '?')}'"
+            )
         return f"[Executed tool: {tc.tool_name}]"
 
     def _on_error(self, error_msg: str) -> None:
@@ -436,9 +441,7 @@ class AiModePanel(QWidget):
             tool_input=tc.tool_input,
             explanation=tc.explanation,
         )
-        preview.accepted.connect(
-            lambda ti, tn=tc.tool_name: self._execute_tool(tn, ti)
-        )
+        preview.accepted.connect(lambda ti, tn=tc.tool_name: self._execute_tool(tn, ti))
         preview.rejected.connect(lambda p=preview: self._on_preview_rejected(p))
         self._messages_layout.addWidget(preview)
         self._scroll_to_bottom()
@@ -446,10 +449,12 @@ class AiModePanel(QWidget):
     def _on_preview_rejected(self, preview: AppChangePreview) -> None:
         preview.set_enabled_state(False)
         self._add_message("assistant", "Propuesta descartada.")
-        self._messages.append({
-            "role": "user",
-            "content": "[User rejected the proposed change]",
-        })
+        self._messages.append(
+            {
+                "role": "user",
+                "content": "[User rejected the proposed change]",
+            }
+        )
 
     # ------------------------------------------------------------------
     # Ejecucion BD
@@ -472,10 +477,12 @@ class AiModePanel(QWidget):
                 self._add_message("error", f"Operacion desconocida: {tool_name}")
                 return
             # Registrar aceptacion en historial
-            self._messages.append({
-                "role": "user",
-                "content": f"[User accepted and executed: {tool_name}]",
-            })
+            self._messages.append(
+                {
+                    "role": "user",
+                    "content": f"[User accepted and executed: {tool_name}]",
+                }
+            )
         except Exception as e:
             log.error("Error ejecutando %s: %s", tool_name, e)
             self._add_message("error", f"Error: {e}")
@@ -512,7 +519,9 @@ class AiModePanel(QWidget):
             # Actualizar nombre si se proporciona y es diferente
             if "name" in ti and ti["name"] != app_name:
                 if repo.get_by_name(ti["name"]):
-                    self._add_message("error", f"Ya existe una aplicacion '{ti['name']}'.")
+                    self._add_message(
+                        "error", f"Ya existe una aplicacion '{ti['name']}'."
+                    )
                     return
                 app.name = ti["name"]
 
@@ -675,9 +684,7 @@ class AiModePanel(QWidget):
         blayout.setContentsMargins(8, 6, 8, 6)
         label = QLabel(text)
         label.setWordWrap(True)
-        label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         blayout.addWidget(label)
 
         self._messages_layout.addWidget(bubble)

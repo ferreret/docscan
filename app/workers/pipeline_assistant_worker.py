@@ -12,7 +12,6 @@ from typing import Any
 from PySide6.QtCore import QThread, Signal
 
 from app.services.pipeline_assistant import (
-    AssistantResponse,
     PipelineAssistantService,
 )
 

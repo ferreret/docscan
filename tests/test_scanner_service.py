@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import platform
 
-import numpy as np
 import pytest
 
 from app.services.scanner_service import (
@@ -19,6 +18,7 @@ _SYSTEM = platform.system()
 _HAS_SANE = False
 try:
     import sane
+
     _HAS_SANE = True
 except ImportError:
     pass

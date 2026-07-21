@@ -14,12 +14,12 @@ class ImageConfig:
     Los archivos importados se almacenan en su formato original.
     """
 
-    format: str = "tiff"              # tiff, png, jpg, pdf
-    color_mode: str = "color"         # color, grayscale, bw
-    jpeg_quality: int = 85            # 1-100
-    tiff_compression: str = "lzw"     # none, lzw, zip, group4
-    png_compression: int = 6          # 0-9
-    bw_threshold: int = 128           # 0-255
+    format: str = "tiff"  # tiff, png, jpg, pdf
+    color_mode: str = "color"  # color, grayscale, bw
+    jpeg_quality: int = 85  # 1-100
+    tiff_compression: str = "lzw"  # none, lzw, zip, group4
+    png_compression: int = 6  # 0-9
+    bw_threshold: int = 128  # 0-255
 
 
 def parse_image_config(json_str: str) -> ImageConfig:
@@ -34,10 +34,9 @@ def parse_image_config(json_str: str) -> ImageConfig:
     if not json_str or json_str == "{}":
         return ImageConfig()
     data = json.loads(json_str)
-    return ImageConfig(**{
-        k: v for k, v in data.items()
-        if k in ImageConfig.__dataclass_fields__
-    })
+    return ImageConfig(
+        **{k: v for k, v in data.items() if k in ImageConfig.__dataclass_fields__}
+    )
 
 
 def serialize_image_config(config: ImageConfig) -> str:
@@ -50,4 +49,5 @@ def serialize_image_config(config: ImageConfig) -> str:
         Cadena JSON.
     """
     from dataclasses import asdict
+
     return json.dumps(asdict(config))

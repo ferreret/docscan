@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
-from PySide6.QtWidgets import QSplashScreen, QProgressBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QSplashScreen, QProgressBar
 
+from app._version import __version__ as _VERSION
 
 _SPLASH_W = 480
 _SPLASH_H = 320
-from app._version import __version__ as _VERSION
 
 
 class SplashScreen(QSplashScreen):
@@ -49,6 +49,7 @@ class SplashScreen(QSplashScreen):
 
         # Fondo degradado oscuro
         from PySide6.QtGui import QLinearGradient
+
         grad = QLinearGradient(0, 0, 0, _SPLASH_H)
         grad.setColorAt(0, QColor("#1e1e2e"))
         grad.setColorAt(1, QColor("#11111b"))
@@ -60,10 +61,13 @@ class SplashScreen(QSplashScreen):
         p.drawRect(0, 0, _SPLASH_W, 3)
 
         # Logo SVG si existe
-        icon_path = Path(__file__).parent.parent.parent / "resources" / "icons" / "docscan.svg"
+        icon_path = (
+            Path(__file__).parent.parent.parent / "resources" / "icons" / "docscan.svg"
+        )
         if icon_path.exists():
             from PySide6.QtSvg import QSvgRenderer
             from PySide6.QtCore import QRectF
+
             renderer = QSvgRenderer(str(icon_path))
             logo_size = 80
             logo_x = (_SPLASH_W - logo_size) / 2
@@ -78,20 +82,27 @@ class SplashScreen(QSplashScreen):
         font_title = QFont("Segoe UI", 28)
         font_title.setWeight(QFont.Weight.Bold)
         p.setFont(font_title)
-        p.drawText(0, text_y, _SPLASH_W, 45, Qt.AlignmentFlag.AlignCenter, "DocScan Studio")
+        p.drawText(
+            0, text_y, _SPLASH_W, 45, Qt.AlignmentFlag.AlignCenter, "DocScan Studio"
+        )
 
         # Version
         p.setPen(QColor("#6c7086"))
         font_ver = QFont("Segoe UI", 12)
         p.setFont(font_ver)
-        p.drawText(0, text_y + 42, _SPLASH_W, 25, Qt.AlignmentFlag.AlignCenter, f"v{_VERSION}")
+        p.drawText(
+            0, text_y + 42, _SPLASH_W, 25, Qt.AlignmentFlag.AlignCenter, f"v{_VERSION}"
+        )
 
         # Subtitulo
         p.setPen(QColor("#585b70"))
         font_sub = QFont("Segoe UI", 10)
         p.setFont(font_sub)
         p.drawText(
-            0, text_y + 70, _SPLASH_W, 25,
+            0,
+            text_y + 70,
+            _SPLASH_W,
+            25,
             Qt.AlignmentFlag.AlignCenter,
             "Document Scanning & Processing",
         )
@@ -101,7 +112,10 @@ class SplashScreen(QSplashScreen):
         font_copy = QFont("Segoe UI", 8)
         p.setFont(font_copy)
         p.drawText(
-            0, _SPLASH_H - 30, _SPLASH_W, 20,
+            0,
+            _SPLASH_H - 30,
+            _SPLASH_W,
+            20,
             Qt.AlignmentFlag.AlignCenter,
             "Tecnomedia  2026",
         )

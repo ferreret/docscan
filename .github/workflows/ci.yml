@@ -1,0 +1,74 @@
+# CI — Lint + Tests del DocScan Desktop
+#
+# Trigger: push a main / ramas feature-* / fix-* y pull requests.
+# Ejecuta ruff (lint + formato) sobre el código fuente desktop y la suite
+# de tests (excluyendo los tests de la web SaaS archivada y el test de
+# escáner que requiere hardware SANE real).
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+
+env:
+  PYTHON_VERSION: '3.13'
+  # Plataforma Qt sin display para pytest-qt en runners headless.
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libsane-dev \
+            libzbar0 \
+            tesseract-ocr \
+            tesseract-ocr-spa \
+            libgl1 \
+            libegl1 \
+            libxcb-xinerama0 \
+            libxcb-cursor0
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ruff lint (código fuente)
+        run: ruff check app/ main.py docscan_worker/ config/
+
+      - name: Ruff format check (código fuente)
+        run: ruff format --check app/ main.py docscan_worker/ config/
+
+      - name: Pytest (suite desktop)
+        run: |
+          pytest -q \
+            --ignore=tests/test_scanner_service.py \
+            --ignore=tests/test_arq_recovery.py \
+            --ignore=tests/test_arq_lifespan.py \
+            --ignore=tests/test_arq_queue.py \
+            --ignore=tests/test_arq_worker.py \
+            --ignore=tests/test_pipeline_runner_events.py \
+            --ignore=tests/test_web_admin_tenants.py \
+            --ignore=tests/test_web_admin_users.py \
+            --ignore=tests/test_web_api.py \
+            --ignore=tests/test_web_bootstrap.py \
+            --ignore=tests/test_web_audit.py

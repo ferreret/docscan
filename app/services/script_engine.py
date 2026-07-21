@@ -221,7 +221,7 @@ class ScriptEngine:
                     filtered = kwargs
                 else:
                     filtered = {k: v for k, v in kwargs.items() if k in sig.parameters}
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 filtered = kwargs
             return func(**filtered)
         except Exception as e:
@@ -279,7 +279,7 @@ class ScriptEngine:
                 filtered = kwargs
             else:
                 filtered = {k: v for k, v in kwargs.items() if k in sig.parameters}
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             filtered = kwargs
 
         return func(**filtered)

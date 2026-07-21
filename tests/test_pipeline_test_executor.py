@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
-from app.pipeline.steps import BarcodeStep, ImageOpStep, OcrStep, ScriptStep
-from app.pipeline.test_executor import InstrumentedPipelineExecutor, StepSnapshot
+from app.pipeline.steps import ImageOpStep, ScriptStep
+from app.pipeline.test_executor import InstrumentedPipelineExecutor
 from app.services.image_pipeline import ImagePipelineService
 from app.services.script_engine import ScriptEngine
 from app.workers.recognition_worker import (
     AppContext,
     BatchContext,
     PageContext,
-    PageFlags,
 )
 
 
@@ -43,7 +41,9 @@ class TestSnapshotsCapture:
         executor = _make_executor([])
         page = PageContext(page_index=0, image=_make_image())
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         assert snaps == []
 
@@ -52,7 +52,9 @@ class TestSnapshotsCapture:
         executor = _make_executor(steps)
         page = PageContext(page_index=0, image=_make_image())
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         assert len(snaps) == 1
         assert snaps[0].step.id == "s1"
@@ -69,7 +71,9 @@ class TestSnapshotsCapture:
         executor = _make_executor(steps)
         page = PageContext(page_index=0, image=_make_image())
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         assert len(snaps) == 3
         for snap in snaps:
@@ -84,7 +88,9 @@ class TestSnapshotsCapture:
         executor = _make_executor(steps)
         page = PageContext(page_index=0, image=_make_image())
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         assert len(snaps) == 1
         assert snaps[0].step.id == "s1"
@@ -101,7 +107,9 @@ class TestSnapshotImageIsCopy:
         img = np.full((50, 50, 3), 128, dtype=np.uint8)
         page = PageContext(page_index=0, image=img)
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         original_val = snaps[1].image[0, 0].copy()
         # Modificar snapshot 0 no debe afectar snapshot 1
@@ -119,7 +127,9 @@ class TestErrorCapture:
         executor = _make_executor(steps)
         page = PageContext(page_index=0, image=_make_image())
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         assert len(snaps) == 3
         assert snaps[0].error is None
@@ -140,7 +150,9 @@ class TestErrorCapture:
         executor = _make_executor(steps)
         page = PageContext(page_index=0, image=_make_image())
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         # Solo s1 y s2 (s3 no se ejecuta porque abort detiene)
         assert len(snaps) == 2
@@ -157,7 +169,7 @@ class TestScriptFieldsCapture:
                 label="SetField",
                 entry_point="process",
                 script=(
-                    'def process(app, batch, page, pipeline):\n'
+                    "def process(app, batch, page, pipeline):\n"
                     '    page.fields["doc_type"] = "factura"\n'
                 ),
             ),
@@ -165,7 +177,9 @@ class TestScriptFieldsCapture:
         executor = _make_executor(steps)
         page = PageContext(page_index=0, image=_make_image())
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         assert len(snaps) == 1
         assert snaps[0].fields.get("doc_type") == "factura"
@@ -177,6 +191,8 @@ class TestElapsedTime:
         executor = _make_executor(steps)
         page = PageContext(page_index=0, image=_make_image())
         page, snaps = executor.execute_instrumented(
-            page, BatchContext(), AppContext(),
+            page,
+            BatchContext(),
+            AppContext(),
         )
         assert snaps[0].elapsed_ms > 0

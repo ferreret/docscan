@@ -307,6 +307,7 @@ class TestThemeManagerScaleFontSizes:
         result = tm._scale_font_sizes(qss)
         # El valor resultante no debe ser menor que MIN_FONT_SIZE
         import re
+
         sizes = [int(m.group(1)) for m in re.finditer(r"font-size:\s*(\d+)px", result)]
         for size in sizes:
             assert size >= MIN_FONT_SIZE
@@ -326,7 +327,10 @@ class TestThemeManagerScaleFontSizes:
         tm = ThemeManager()
         tm._font_size = BASE_FONT_SIZE
         from pathlib import Path
-        qss_path = Path(__file__).resolve().parent.parent / "resources" / "styles" / "dark.qss"
+
+        qss_path = (
+            Path(__file__).resolve().parent.parent / "resources" / "styles" / "dark.qss"
+        )
         qss = qss_path.read_text(encoding="utf-8")
         result = tm._scale_font_sizes(qss)
         assert isinstance(result, str)

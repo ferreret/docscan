@@ -13,7 +13,11 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.application import Application
-from app.models.image_config import ImageConfig, parse_image_config, serialize_image_config
+from app.models.image_config import (
+    ImageConfig,
+    parse_image_config,
+    serialize_image_config,
+)
 
 
 class ImageTab(QWidget):
@@ -70,7 +74,9 @@ class ImageTab(QWidget):
         self._jpeg_quality_spin = QSpinBox()
         self._jpeg_quality_spin.setRange(1, 100)
         self._jpeg_quality_spin.setValue(85)
-        self._jpeg_quality_spin.setToolTip(self.tr("Calidad JPEG (1=mínima, 100=máxima)"))
+        self._jpeg_quality_spin.setToolTip(
+            self.tr("Calidad JPEG (1=mínima, 100=máxima)")
+        )
         self._jpeg_quality_label = QLabel(self.tr("Calidad JPEG:"))
         form.addRow(self._jpeg_quality_label, self._jpeg_quality_spin)
 
@@ -78,7 +84,9 @@ class ImageTab(QWidget):
         self._png_comp_spin = QSpinBox()
         self._png_comp_spin.setRange(0, 9)
         self._png_comp_spin.setValue(6)
-        self._png_comp_spin.setToolTip(self.tr("Nivel de compresión PNG (0=sin, 9=máxima)"))
+        self._png_comp_spin.setToolTip(
+            self.tr("Nivel de compresión PNG (0=sin, 9=máxima)")
+        )
         self._png_comp_label = QLabel(self.tr("Compresión PNG:"))
         form.addRow(self._png_comp_label, self._png_comp_spin)
 
@@ -132,9 +140,7 @@ class ImageTab(QWidget):
 
     def _load_from(self, app: Application) -> None:
         """Carga configuración desde la aplicación."""
-        config = parse_image_config(
-            getattr(app, "image_config_json", "{}") or "{}"
-        )
+        config = parse_image_config(getattr(app, "image_config_json", "{}") or "{}")
 
         idx = self._format_combo.findText(config.format)
         if idx >= 0:

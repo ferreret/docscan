@@ -19,6 +19,7 @@ from app.services.barcode_service import BarcodeResult, BarcodeService
 _HAS_ZXINGCPP = False
 try:
     import zxingcpp
+
     _HAS_ZXINGCPP = True
 except ImportError:
     pass
@@ -26,6 +27,7 @@ except ImportError:
 _HAS_PYZBAR = False
 try:
     from pyzbar import pyzbar as _pyzbar_mod
+
     _HAS_PYZBAR = True
 except ImportError:
     pass
@@ -52,7 +54,8 @@ def _generate_barcode_image(
     if w < 300:
         scale = 300 / w
         arr = cv2.resize(
-            arr, (int(w * scale), int(h * scale)),
+            arr,
+            (int(w * scale), int(h * scale)),
             interpolation=cv2.INTER_NEAREST,
         )
     return arr
@@ -89,7 +92,9 @@ def qr_image():
 class TestMotor2:
     def test_read_code128(self, service, code128_image):
         results = service.read(
-            code128_image, engine="motor2", step_id="s1",
+            code128_image,
+            engine="motor2",
+            step_id="s1",
         )
         assert len(results) >= 1
         assert results[0].value == "12345678"
@@ -99,7 +104,9 @@ class TestMotor2:
 
     def test_read_qr(self, service, qr_image):
         results = service.read(
-            qr_image, engine="motor2", step_id="s2",
+            qr_image,
+            engine="motor2",
+            step_id="s2",
         )
         assert len(results) >= 1
         assert results[0].value == "HELLO-QR-2024"
@@ -107,24 +114,30 @@ class TestMotor2:
     def test_filter_by_symbology(self, service, code128_image):
         # Buscar solo QR — no debe encontrar nada en imagen Code128
         results = service.read(
-            code128_image, engine="motor2",
-            symbologies=["QR"], step_id="s1",
+            code128_image,
+            engine="motor2",
+            symbologies=["QR"],
+            step_id="s1",
         )
         assert len(results) == 0
 
     def test_filter_by_regex(self, service, code128_image):
         # Solo valores que empiecen con 123
         results = service.read(
-            code128_image, engine="motor2",
-            regex=r"^123", step_id="s1",
+            code128_image,
+            engine="motor2",
+            regex=r"^123",
+            step_id="s1",
         )
         assert len(results) >= 1
 
     def test_filter_by_regex_excludes(self, service, code128_image):
         # Regex que no matchea
         results = service.read(
-            code128_image, engine="motor2",
-            regex=r"^ABC", step_id="s1",
+            code128_image,
+            engine="motor2",
+            regex=r"^ABC",
+            step_id="s1",
         )
         assert len(results) == 0
 
@@ -137,14 +150,18 @@ class TestMotor2:
         """Leer en una ventana que contenga el barcode."""
         h, w = code128_image.shape[:2]
         results = service.read(
-            code128_image, engine="motor2",
-            window=(0, 0, w, h), step_id="s1",
+            code128_image,
+            engine="motor2",
+            window=(0, 0, w, h),
+            step_id="s1",
         )
         assert len(results) >= 1
 
     def test_barcode_result_position(self, service, code128_image):
         results = service.read(
-            code128_image, engine="motor2", step_id="s1",
+            code128_image,
+            engine="motor2",
+            step_id="s1",
         )
         if results:
             r = results[0]
@@ -161,7 +178,9 @@ class TestMotor2:
 class TestMotor1:
     def test_read_code128(self, service, code128_image):
         results = service.read(
-            code128_image, engine="motor1", step_id="s1",
+            code128_image,
+            engine="motor1",
+            step_id="s1",
         )
         assert len(results) >= 1
         assert results[0].value == "12345678"
@@ -183,15 +202,24 @@ class TestBarcodeServiceGeneral:
         blank = np.ones((100, 100), dtype=np.uint8) * 255
         # Un regex inválido no debe crashear
         results = service.read(
-            blank, engine="motor2", regex="[invalid", step_id="s1",
+            blank,
+            engine="motor2",
+            regex="[invalid",
+            step_id="s1",
         )
         assert isinstance(results, list)
 
     def test_result_dataclass(self):
         r = BarcodeResult(
-            value="ABC", symbology="Code128", engine="motor1",
-            step_id="s1", quality=95.0,
-            pos_x=10, pos_y=20, pos_w=100, pos_h=50,
+            value="ABC",
+            symbology="Code128",
+            engine="motor1",
+            step_id="s1",
+            quality=95.0,
+            pos_x=10,
+            pos_y=20,
+            pos_w=100,
+            pos_h=50,
         )
         assert r.role == ""
         r.role = "separator"

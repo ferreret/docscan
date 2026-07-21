@@ -199,10 +199,13 @@ class ImageLib:
                 pdf_page = doc.new_page(width=page_w, height=page_h)
 
                 encode_params = [
-                    cv2.IMWRITE_JPEG_QUALITY, quality,
+                    cv2.IMWRITE_JPEG_QUALITY,
+                    quality,
                 ]
                 img_bytes = cv2.imencode(
-                    ".jpg", img, encode_params,
+                    ".jpg",
+                    img,
+                    encode_params,
                 )[1].tobytes()
                 pdf_page.insert_image(
                     pymupdf.Rect(0, 0, page_w, page_h),
@@ -257,7 +260,8 @@ class ImageLib:
         first = pil_images[0]
         rest = pil_images[1:] if len(pil_images) > 1 else []
         first.save(
-            str(output_path), "TIFF",
+            str(output_path),
+            "TIFF",
             save_all=True,
             append_images=rest,
             **save_kwargs,
@@ -351,9 +355,7 @@ class ImageLib:
         new_w = int(w * scale)
         new_h = int(h * scale)
 
-        interpolation = (
-            cv2.INTER_AREA if scale < 1 else cv2.INTER_LANCZOS4
-        )
+        interpolation = cv2.INTER_AREA if scale < 1 else cv2.INTER_LANCZOS4
         return cv2.resize(image, (new_w, new_h), interpolation=interpolation)
 
     # ------------------------------------------------------------------
@@ -460,7 +462,9 @@ class ImageLib:
                 page = doc[page_num]
                 pix = page.get_pixmap(dpi=dpi)
                 img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
-                    pix.height, pix.width, pix.n,
+                    pix.height,
+                    pix.width,
+                    pix.n,
                 )
                 if pix.n == 3:
                     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)

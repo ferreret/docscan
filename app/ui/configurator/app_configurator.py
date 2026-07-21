@@ -6,11 +6,9 @@ Transferencia, etc.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -82,7 +80,9 @@ class AppConfigurator(QDialog):
             | QDialogButtonBox.StandardButton.Cancel,
         )
         buttons.button(QDialogButtonBox.StandardButton.Save).setText(self.tr("Guardar"))
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self.tr("Cancelar"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            self.tr("Cancelar")
+        )
         buttons.accepted.connect(self._on_save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -112,6 +112,7 @@ class AppConfigurator(QDialog):
         except Exception as e:
             log.error("Error guardando configuración: %s", e)
             QMessageBox.critical(
-                self, self.tr("Error al guardar"),
+                self,
+                self.tr("Error al guardar"),
                 self.tr("No se pudo guardar la configuración:\n{0}").format(e),
             )

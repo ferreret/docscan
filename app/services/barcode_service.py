@@ -82,17 +82,19 @@ def _read_motor1(
         sym_name = _PYZBAR_SYMBOLOGY_MAP.get(d.type, d.type)
         rect = d.rect
 
-        results.append(BarcodeResult(
-            value=value,
-            symbology=sym_name,
-            engine="motor1",
-            step_id=step_id,
-            quality=float(d.quality) if hasattr(d, "quality") else 0.0,
-            pos_x=rect.left,
-            pos_y=rect.top,
-            pos_w=rect.width,
-            pos_h=rect.height,
-        ))
+        results.append(
+            BarcodeResult(
+                value=value,
+                symbology=sym_name,
+                engine="motor1",
+                step_id=step_id,
+                quality=float(d.quality) if hasattr(d, "quality") else 0.0,
+                pos_x=rect.left,
+                pos_y=rect.top,
+                pos_w=rect.width,
+                pos_h=rect.height,
+            )
+        )
 
     return results
 
@@ -121,9 +123,7 @@ _ZXING_FORMAT_MAP: dict[str, str] = {
 }
 
 # Mapeo inverso: formato zxingcpp -> nombre normalizado
-_ZXING_FORMAT_REVERSE: dict[str, str] = {
-    v: k for k, v in _ZXING_FORMAT_MAP.items()
-}
+_ZXING_FORMAT_REVERSE: dict[str, str] = {v: k for k, v in _ZXING_FORMAT_MAP.items()}
 
 
 def _read_motor2(
@@ -175,17 +175,19 @@ def _read_motor2(
         fmt_name = d.format.name if hasattr(d.format, "name") else str(d.format)
         sym_name = _ZXING_FORMAT_REVERSE.get(fmt_name, fmt_name)
 
-        results.append(BarcodeResult(
-            value=d.text,
-            symbology=sym_name,
-            engine="motor2",
-            step_id=step_id,
-            quality=0.0,
-            pos_x=x_min,
-            pos_y=y_min,
-            pos_w=x_max - x_min,
-            pos_h=y_max - y_min,
-        ))
+        results.append(
+            BarcodeResult(
+                value=d.text,
+                symbology=sym_name,
+                engine="motor2",
+                step_id=step_id,
+                quality=0.0,
+                pos_x=x_min,
+                pos_y=y_min,
+                pos_w=x_max - x_min,
+                pos_h=y_max - y_min,
+            )
+        )
 
     return results
 
@@ -210,7 +212,7 @@ def _apply_window(
     if window is None:
         return image, 0, 0
     x, y, w, h = window
-    return image[y:y + h, x:x + w].copy(), x, y
+    return image[y : y + h, x : x + w].copy(), x, y
 
 
 def _rotate_image(image: np.ndarray, angle: int) -> np.ndarray:
@@ -276,14 +278,20 @@ class BarcodeService:
 
         # Leer en la orientación original
         all_results = self._read_with_engine(
-            roi, engine, symbologies, step_id,
+            roi,
+            engine,
+            symbologies,
+            step_id,
         )
 
         # Leer en orientaciones adicionales
         if "vertical" in orientations:
             rotated = _rotate_image(roi, 90)
             extra = self._read_with_engine(
-                rotated, engine, symbologies, step_id,
+                rotated,
+                engine,
+                symbologies,
+                step_id,
             )
             # Nota: las posiciones rotadas no son exactas, pero
             # el valor del barcode sí es válido
@@ -296,7 +304,10 @@ class BarcodeService:
                 matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
                 rotated = cv2.warpAffine(roi, matrix, (w, h))
                 extra = self._read_with_engine(
-                    rotated, engine, symbologies, step_id,
+                    rotated,
+                    engine,
+                    symbologies,
+                    step_id,
                 )
                 all_results.extend(extra)
 
@@ -318,7 +329,9 @@ class BarcodeService:
         # Filtrar por regex
         if regex:
             unique = self._filter_regex(
-                unique, regex, regex_include_symbology,
+                unique,
+                regex,
+                regex_include_symbology,
             )
 
         return unique

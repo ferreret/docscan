@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.pipeline.serializer import deserialize, serialize
+from app.pipeline.serializer import deserialize
 from app.services._assistant_constants import (
     EVENT_SIGNATURES,
     IMAGE_OPS_REFERENCE,
@@ -40,7 +40,12 @@ _PIPELINE_STEP_SCHEMA = {
         "enabled": {"type": "boolean", "default": True},
         "op": {"type": "string"},
         "params": {"type": "object"},
-        "window": {"type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4},
+        "window": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 4,
+            "maxItems": 4,
+        },
         "engine": {"type": "string"},
         "symbologies": {"type": "array", "items": {"type": "string"}},
         "regex": {"type": "string"},
@@ -117,13 +122,25 @@ _APP_CONFIG_PROPERTIES = {
             "destination": {"type": "string"},
             "filename_pattern": {"type": "string"},
             "create_subdirs": {"type": "boolean", "default": True},
-            "collision_policy": {"type": "string", "enum": ["suffix", "overwrite", "merge"]},
+            "collision_policy": {
+                "type": "string",
+                "enum": ["suffix", "overwrite", "merge"],
+            },
             "include_metadata": {"type": "boolean", "default": False},
-            "output_format": {"type": "string", "enum": ["", "tiff", "png", "jpg", "pdf"]},
+            "output_format": {
+                "type": "string",
+                "enum": ["", "tiff", "png", "jpg", "pdf"],
+            },
             "output_dpi": {"type": "integer"},
-            "output_color_mode": {"type": "string", "enum": ["", "color", "grayscale", "bw"]},
+            "output_color_mode": {
+                "type": "string",
+                "enum": ["", "color", "grayscale", "bw"],
+            },
             "output_jpeg_quality": {"type": "integer", "minimum": 1, "maximum": 100},
-            "output_tiff_compression": {"type": "string", "enum": ["lzw", "zip", "none", "group4"]},
+            "output_tiff_compression": {
+                "type": "string",
+                "enum": ["lzw", "zip", "none", "group4"],
+            },
             "output_png_compression": {"type": "integer", "minimum": 0, "maximum": 9},
             "output_bw_threshold": {"type": "integer", "minimum": 0, "maximum": 255},
             "pdf_dpi": {"type": "integer", "minimum": 72, "maximum": 600},
@@ -179,7 +196,10 @@ TOOLS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "app_name": {"type": "string", "description": "Name of the app to update."},
+                "app_name": {
+                    "type": "string",
+                    "description": "Name of the app to update.",
+                },
                 **_APP_CONFIG_PROPERTIES,
             },
             "required": ["app_name", "explanation"],
@@ -247,9 +267,11 @@ _OPENAI_TOOLS: list[dict[str, Any]] = [
 # Response dataclasses
 # ---------------------------------------------------------------
 
+
 @dataclass
 class AiModeToolCall:
     """Una llamada a tool del modelo."""
+
     tool_name: str
     tool_input: dict[str, Any]
     explanation: str = ""
@@ -258,6 +280,7 @@ class AiModeToolCall:
 @dataclass
 class AiModeResponse:
     """Respuesta del asistente AI MODE."""
+
     tool_calls: list[AiModeToolCall] = field(default_factory=list)
     text: str = ""
     error: str | None = None
@@ -476,8 +499,7 @@ def on_transfer_advanced(app, batch, result):
 
 
 _EVENT_SIGS_TEXT = "\n".join(
-    f"- **{name}**:\n```python\n{sig}\n```"
-    for name, sig in EVENT_SIGNATURES.items()
+    f"- **{name}**:\n```python\n{sig}\n```" for name, sig in EVENT_SIGNATURES.items()
 )
 
 _SYSTEM_PROMPT_STATIC = _SYSTEM_PROMPT_TEMPLATE.format(
@@ -496,6 +518,7 @@ def _build_system_prompt(apps_summary: str) -> str:
 # ---------------------------------------------------------------
 # Servicio principal
 # ---------------------------------------------------------------
+
 
 class AiModeAssistantService:
     """Asistente AI MODE para gestion completa de aplicaciones.
@@ -517,7 +540,8 @@ class AiModeAssistantService:
         self._provider = provider
         self._api_key = api_key
         self._model = model or (
-            _DEFAULT_ANTHROPIC_MODEL if provider == "anthropic"
+            _DEFAULT_ANTHROPIC_MODEL
+            if provider == "anthropic"
             else _DEFAULT_OPENAI_MODEL
         )
         self._client: Any = None
@@ -527,13 +551,17 @@ class AiModeAssistantService:
             return self._client
         if self._provider == "anthropic":
             import anthropic
+
             self._client = anthropic.Anthropic(
-                api_key=self._api_key, timeout=_API_TIMEOUT,
+                api_key=self._api_key,
+                timeout=_API_TIMEOUT,
             )
         else:
             import openai
+
             self._client = openai.OpenAI(
-                api_key=self._api_key, timeout=_API_TIMEOUT,
+                api_key=self._api_key,
+                timeout=_API_TIMEOUT,
             )
         return self._client
 
@@ -645,11 +673,13 @@ class AiModeAssistantService:
                     text=text,
                     error="El asistente genero argumentos JSON invalidos.",
                 )
-            tool_calls.append(AiModeToolCall(
-                tool_name=tc.function.name,
-                tool_input=_process_tool_input(tc.function.name, tool_input),
-                explanation=tool_input.get("explanation", ""),
-            ))
+            tool_calls.append(
+                AiModeToolCall(
+                    tool_name=tc.function.name,
+                    tool_input=_process_tool_input(tc.function.name, tool_input),
+                    explanation=tool_input.get("explanation", ""),
+                )
+            )
 
         return AiModeResponse(tool_calls=tool_calls, text=text)
 
@@ -658,9 +688,14 @@ class AiModeAssistantService:
 # Utilidades
 # ---------------------------------------------------------------
 
+
 def _process_tool_input(tool_name: str, tool_input: dict) -> dict:
     """Procesa el input de un tool call: asigna IDs, valida pipeline."""
-    if tool_name in ("create_application", "update_application", "duplicate_application"):
+    if tool_name in (
+        "create_application",
+        "update_application",
+        "duplicate_application",
+    ):
         pipeline = tool_input.get("pipeline")
         if pipeline:
             for step_data in pipeline:

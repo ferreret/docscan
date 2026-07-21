@@ -7,7 +7,6 @@ lo que necesita y recibe propuestas de pipeline con diff visual.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from PySide6.QtCore import (
     QCoreApplication,
@@ -25,7 +24,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -44,15 +42,11 @@ _ctx = "PipelineAssistantPanel"
 _PROVIDERS = QT_TRANSLATE_NOOP(_ctx, "Anthropic|OpenAI")
 _LABEL_SEND = QT_TRANSLATE_NOOP(_ctx, "Enviar")
 _LABEL_NEW_CHAT = QT_TRANSLATE_NOOP(_ctx, "Nueva conversacion")
-_LABEL_PLACEHOLDER = QT_TRANSLATE_NOOP(
-    _ctx, "Describe el pipeline que necesitas..."
-)
+_LABEL_PLACEHOLDER = QT_TRANSLATE_NOOP(_ctx, "Describe el pipeline que necesitas...")
 _LABEL_API_KEY = QT_TRANSLATE_NOOP(_ctx, "API Key:")
 _LABEL_SAVE_KEY = QT_TRANSLATE_NOOP(_ctx, "Guardar")
 _LABEL_WAITING = QT_TRANSLATE_NOOP(_ctx, "Generando respuesta...")
-_LABEL_NO_KEY = QT_TRANSLATE_NOOP(
-    _ctx, "Configura tu API key para usar el asistente."
-)
+_LABEL_NO_KEY = QT_TRANSLATE_NOOP(_ctx, "Configura tu API key para usar el asistente.")
 _LABEL_KEY_SAVED = QT_TRANSLATE_NOOP(_ctx, "API key guardada.")
 
 _tr = lambda s: QCoreApplication.translate(_ctx, s)
@@ -126,9 +120,7 @@ class PipelineAssistantPanel(QWidget):
         # Area de mensajes scrollable
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
-        self._scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._messages_container = QWidget()
         self._messages_layout = QVBoxLayout(self._messages_container)
         self._messages_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -271,10 +263,12 @@ class PipelineAssistantPanel(QWidget):
         if response.explanation:
             self._add_message("assistant", response.explanation)
             if not response.text:
-                self._messages.append({
-                    "role": "assistant",
-                    "content": response.explanation,
-                })
+                self._messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response.explanation,
+                    }
+                )
 
         # Propuesta de pipeline con diff
         if response.steps is not None:
@@ -317,9 +311,7 @@ class PipelineAssistantPanel(QWidget):
         blayout.setContentsMargins(8, 6, 8, 6)
         label = QLabel(text)
         label.setWordWrap(True)
-        label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         blayout.addWidget(label)
 
         self._messages_layout.addWidget(bubble)

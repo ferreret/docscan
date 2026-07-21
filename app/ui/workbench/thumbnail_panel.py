@@ -117,7 +117,8 @@ class ThumbnailPanel(QWidget):
         h, w = image.shape[:2]
         scale = THUMBNAIL_WIDTH / max(w, 1)
         thumb = cv2.resize(
-            image, (THUMBNAIL_WIDTH, int(h * scale)),
+            image,
+            (THUMBNAIL_WIDTH, int(h * scale)),
             interpolation=cv2.INTER_AREA,
         )
         return ndarray_to_qpixmap(thumb)
@@ -160,18 +161,26 @@ class ThumbnailPanel(QWidget):
         # Deseleccionar anterior
         if self._current_index in self._thumbnails:
             old = self._thumbnails[self._current_index]
-            old.set_selected(False, self._states.get(
-                self._current_index, PageState.NO_RECOGNITION,
-            ))
+            old.set_selected(
+                False,
+                self._states.get(
+                    self._current_index,
+                    PageState.NO_RECOGNITION,
+                ),
+            )
 
         self._current_index = page_index
         item = self._thumbnails.get(page_index)
         if item is None:
             return
 
-        item.set_selected(True, self._states.get(
-            page_index, PageState.NO_RECOGNITION,
-        ))
+        item.set_selected(
+            True,
+            self._states.get(
+                page_index,
+                PageState.NO_RECOGNITION,
+            ),
+        )
         self._scroll.ensureWidgetVisible(item)
 
     def clear(self) -> None:

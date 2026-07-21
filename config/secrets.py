@@ -111,16 +111,13 @@ class SecretsManager:
             decrypted = f.decrypt(encrypted)
         except InvalidToken as e:
             raise SecretsError(
-                "No se pudo descifrar el almacén de secrets. "
-                "¿La clave es correcta?"
+                "No se pudo descifrar el almacén de secrets. ¿La clave es correcta?"
             ) from e
 
         try:
             return json.loads(decrypted)
         except json.JSONDecodeError as e:
-            raise SecretsError(
-                f"Contenido descifrado no es JSON válido: {e}"
-            ) from e
+            raise SecretsError(f"Contenido descifrado no es JSON válido: {e}") from e
 
     def _save(self, data: dict[str, str]) -> None:
         """Cifra y guarda el diccionario de secrets."""
