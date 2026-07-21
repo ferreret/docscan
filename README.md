@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1_RC-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.1.2-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.10-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
-  <img src="https://img.shields.io/badge/tests-813_passing-brightgreen?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-861_passing-brightgreen?style=flat-square" alt="Tests">
   <img src="https://img.shields.io/badge/license-proprietary-red?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/platform-Linux_%7C_Windows-lightgrey?style=flat-square" alt="Platform">
 </p>
@@ -277,7 +277,7 @@ docscan/
 │   ├── styles/          # QSS temas claro/oscuro
 │   └── translations/    # .ts para ES, EN, CAT
 ├── alembic/             # Migraciones de BD
-├── tests/               # 813 tests (pytest + pytest-qt)
+├── tests/               # 861 tests (pytest + pytest-qt)
 └── docs/                # Documentación e informes
 ```
 
@@ -289,7 +289,7 @@ docscan/
 | Líneas de test | **11.618** |
 | Ficheros fuente | **94** |
 | Ficheros de test | **32** |
-| Tests pasando | **813** ✅ |
+| Tests pasando | **861** ✅ |
 | Ratio código:test | **1.7:1** |
 
 ---
@@ -606,7 +606,7 @@ pytest tests/test_pipeline.py::TestExecutor::test_barcode_step -v
 pytest tests/ --cov=app --cov-report=html
 ```
 
-**Estado actual: 813 tests ✅ — 0 fallos**
+**Estado actual: 861 tests ✅ — 0 fallos**
 
 ---
 
