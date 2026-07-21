@@ -61,7 +61,6 @@ jobs:
       - name: Pytest (suite desktop)
         run: |
           pytest -q \
-            --ignore=tests/test_scanner_service.py \
             --ignore=tests/test_arq_recovery.py \
             --ignore=tests/test_arq_lifespan.py \
             --ignore=tests/test_arq_queue.py \

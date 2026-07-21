@@ -70,12 +70,6 @@ class TestUpdateDialog:
         dialog = UpdateDialog(sample_release)
         qtbot.addWidget(dialog)
 
-        # El header contiene la versión nueva
-        header_text = dialog.findChildren(
-            type(dialog._banner_label)
-            if hasattr(dialog, "_banner_label")
-            else type(None)
-        )
         # Verificar que existe el texto de versión en algún label
         assert (
             "99.0.0" in dialog._notes_browser.toPlainText()

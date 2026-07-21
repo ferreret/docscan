@@ -75,7 +75,7 @@ def _placeholder(label: str, w: int = 800, h: int = 350) -> io.BytesIO:
     draw.ellipse([cx - 12, cy - 12, cx + 12, cy + 12], outline=(120, 120, 120), width=2)
     # Texto
     bbox = draw.textbbox((0, 0), label)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    tw = bbox[2] - bbox[0]
     draw.text(((w - tw) // 2, cy + 35), label, fill=(80, 80, 80))
     buf = io.BytesIO()
     img.save(buf, format="PNG")

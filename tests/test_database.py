@@ -67,7 +67,7 @@ class TestModels:
 
     def test_application_batch_relationship(self, session):
         app = Application(name="App1")
-        batch = Batch(application=app, state="created")
+        Batch(application=app, state="created")
         session.add(app)
         session.flush()
         assert len(app.batches) == 1
@@ -76,7 +76,7 @@ class TestModels:
     def test_batch_page_relationship(self, session):
         app = Application(name="App2")
         batch = Batch(application=app, state="created")
-        page = Page(batch=batch, page_index=0, image_path="/tmp/img.tiff")
+        Page(batch=batch, page_index=0, image_path="/tmp/img.tiff")
         session.add(app)
         session.flush()
         assert len(batch.pages) == 1
@@ -86,7 +86,7 @@ class TestModels:
         app = Application(name="App3")
         batch = Batch(application=app, state="created")
         page = Page(batch=batch, page_index=0)
-        bc = Barcode(
+        Barcode(
             page=page,
             value="12345678",
             symbology="Code128",
@@ -101,7 +101,7 @@ class TestModels:
 
     def test_application_template_relationship(self, session):
         app = Application(name="App4")
-        tpl = Template(
+        Template(
             application=app,
             name="Factura",
             provider="anthropic",

@@ -26,7 +26,7 @@ except ImportError:
 
 _HAS_PYZBAR = False
 try:
-    from pyzbar import pyzbar as _pyzbar_mod
+    from pyzbar import pyzbar as _pyzbar_mod  # noqa: F401  # sonda de disponibilidad
 
     _HAS_PYZBAR = True
 except ImportError:
