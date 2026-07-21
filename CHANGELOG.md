@@ -29,6 +29,11 @@ Desktop. Auditoría completa en `docs/auditoria_desktop_2026-07-21.md`.
   real de hardware, ~33s y capaz de colgarse). Suite completa 861/861 en ~22s.
 - **CI**: nuevo workflow `.github/workflows/ci.yml` (lint + tests en push/PR) y
   `pytest.ini` con `--timeout` por defecto contra cuelgues.
+- **Portabilidad Python 3.13**: 20 bloques usaban `except A, B:` sin paréntesis,
+  sintaxis exclusiva de Python 3.14 (PEP 758) que rompía la importación en 3.13
+  (CI e instaladores). Corregido a `except (A, B):`; `ruff.toml` fijado a
+  `target-version = py313` para que `ruff format` no vuelva a quitar los
+  paréntesis. Detectado por el nuevo CI.
 
 ---
 
