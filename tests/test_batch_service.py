@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import cv2
 import numpy as np
 import pytest
 from sqlalchemy import create_engine, event
@@ -13,8 +12,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.database import Base
 from app.models.application import Application
-from app.models.batch import Batch
-from app.models.page import Page
 from app.models.barcode import Barcode  # noqa: F401
 from app.models.template import Template  # noqa: F401
 from app.services.batch_service import BatchService

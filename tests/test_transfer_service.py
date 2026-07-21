@@ -13,7 +13,6 @@ import pytest
 
 from app.services.transfer_service import (
     TransferConfig,
-    TransferResult,
     TransferService,
     parse_transfer_config,
 )

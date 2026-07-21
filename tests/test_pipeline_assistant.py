@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.services.pipeline_assistant import (
-    AssistantResponse,
     PipelineAssistantService,
     _classify_error,
-    _IMAGE_OPS_REFERENCE,
-    _SCRIPT_API_REFERENCE,
     _SET_PIPELINE_TOOL,
     _SET_EVENT_CODE_TOOL,
 )

@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
-from app.pipeline.steps import BarcodeStep, ImageOpStep, OcrStep, ScriptStep
-from app.pipeline.test_executor import InstrumentedPipelineExecutor, StepSnapshot
+from app.pipeline.steps import ImageOpStep, ScriptStep
+from app.pipeline.test_executor import InstrumentedPipelineExecutor
 from app.services.image_pipeline import ImagePipelineService
 from app.services.script_engine import ScriptEngine
 from app.workers.recognition_worker import (
     AppContext,
     BatchContext,
     PageContext,
-    PageFlags,
 )
 
 

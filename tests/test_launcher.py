@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import Qt
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 

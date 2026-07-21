@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -22,10 +22,7 @@ from sqlalchemy.orm import Session
 from app.db.database import Base
 from app.models.application import Application
 from app.models.barcode import Barcode  # noqa: F401 — resolver relaciones ORM
-from app.models.batch import BATCH_STATES, Batch
-from app.models.page import Page
 from app.models.template import Template  # noqa: F401 — resolver relaciones ORM
-from app.pipeline.context import PipelineAbortError
 from app.pipeline.executor import PipelineExecutor
 from app.pipeline.steps import BarcodeStep, ImageOpStep, ScriptStep
 from app.services.batch_service import BatchService
@@ -627,7 +624,6 @@ class TestBatchLifecycle:
     def test_delete_batch_removes_files_and_record(
         self, session, app_record, tmp_path
     ) -> None:
-        from pathlib import Path
 
         svc = BatchService(session=session, images_dir=tmp_path)
         batch = svc.create_batch(application_id=app_record.id)
@@ -793,7 +789,6 @@ class TestScriptEngineCompilation:
 
     def test_run_step_propagates_abort_error(self) -> None:
         """run_step no captura PipelineAbortError; el executor lo recibe."""
-        from app.pipeline.context import PipelineAbortError, PipelineContext
         from app.pipeline.steps import ScriptStep
 
         engine = ScriptEngine()

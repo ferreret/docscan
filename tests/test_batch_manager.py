@@ -6,7 +6,6 @@ y widgets de la UI del batch manager.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 
 import pytest
@@ -16,14 +15,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.db.database import Base
 from app.db.repositories.batch_repo import BatchRepository
 from app.db.repositories.operation_history_repo import OperationHistoryRepository
-from app.db.repositories.page_repo import PageRepository
 from app.models.application import Application
 from app.models.barcode import Barcode  # noqa: F401 — resolver relaciones
-from app.models.batch import Batch, BATCH_STATES
+from app.models.batch import Batch
 from app.models.operation_history import OperationHistory
-from app.models.page import Page
 from app.models.template import Template  # noqa: F401 — resolver relaciones
-from app.services.batch_service import BatchService
 
 
 # ------------------------------------------------------------------ #

@@ -15,16 +15,12 @@ Cubre:
 from __future__ import annotations
 
 import json
-import threading
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch, call, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
-from docscan_worker.folder_watcher import FolderWatcher
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -445,7 +441,6 @@ class TestProcessFiles:
         """El flujo básico crea lote, importa y ejecuta pipeline sin error."""
         from app.services.script_engine import ScriptEngine
         from app.pipeline.executor import PipelineExecutor
-        from app.services.image_pipeline import ImagePipelineService
 
         image = np.ones((100, 100, 3), dtype=np.uint8) * 200
         batch_svc, _, page_mock, batch_mock = self._make_services(tmp_path)
@@ -667,7 +662,6 @@ class TestTransferBatch:
         self, active_app: Application, tmp_path: Path
     ) -> None:
         """Si no hay destino de transferencia configurado, no transfiere."""
-        from app.services.transfer_service import TransferConfig
 
         (
             batch_svc,

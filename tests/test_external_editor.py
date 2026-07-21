@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from app.services.script_stubs import (
     STUB_DELIMITER,

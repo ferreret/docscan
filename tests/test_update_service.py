@@ -3,15 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from app.services.update_service import (
-    ReleaseInfo,
-    UpdateCheckResult,
     UpdateService,
 )
 

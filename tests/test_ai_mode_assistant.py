@@ -9,8 +9,6 @@ import pytest
 
 from app.services.ai_mode_assistant import (
     AiModeAssistantService,
-    AiModeResponse,
-    AiModeToolCall,
     TOOLS,
     _build_system_prompt,
     _classify_error,

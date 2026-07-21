@@ -1,8 +1,5 @@
 """Tests de configuración y secrets."""
 
-import os
-import tempfile
-from pathlib import Path
 
 import pytest
 

@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from app.pipeline.executor import PipelineExecutor, StepError
+from app.pipeline.executor import PipelineExecutor
 from app.pipeline.steps import (
     ImageOpStep,
     ScriptStep,

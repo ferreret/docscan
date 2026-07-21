@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import patch, MagicMock
 
 import pytest
 
 from app.services.notification_service import (
     EmailConfig,
-    NotificationResult,
     NotificationService,
     WebhookConfig,
 )

@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-from pathlib import Path
 
 from app.services.image_lib import ImageLib
 

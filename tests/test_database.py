@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 from sqlalchemy.orm import Session
 
-from app.db.database import create_db_engine, create_tables, get_session_factory, Base
+from app.db.database import create_db_engine, create_tables, get_session_factory
 from app.models.application import Application
 from app.models.batch import Batch
 from app.models.page import Page
