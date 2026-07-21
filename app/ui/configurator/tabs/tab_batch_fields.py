@@ -108,7 +108,7 @@ class BatchFieldsTab(QWidget):
         """Carga los campos desde batch_fields_json."""
         try:
             fields = json.loads(app.batch_fields_json or "[]")
-        except json.JSONDecodeError, TypeError:
+        except (json.JSONDecodeError, TypeError):
             fields = []
 
         for field in fields:
