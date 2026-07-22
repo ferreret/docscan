@@ -121,7 +121,7 @@ class WorkbenchAPI:
             return {}
         try:
             return json.loads(pages[page_index].index_fields_json or "{}")
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return {}
 
     def set_page_field(
@@ -144,7 +144,7 @@ class WorkbenchAPI:
                 return
             try:
                 fields = json.loads(db_page.index_fields_json or "{}")
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 fields = {}
             fields[name] = value
             merged_json = json.dumps(fields, ensure_ascii=False)
