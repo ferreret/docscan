@@ -59,15 +59,8 @@ jobs:
         run: ruff format --check app/ main.py docscan_worker/ config/
 
       - name: Pytest (suite desktop)
-        run: |
-          pytest -q \
-            --ignore=tests/test_arq_recovery.py \
-            --ignore=tests/test_arq_lifespan.py \
-            --ignore=tests/test_arq_queue.py \
-            --ignore=tests/test_arq_worker.py \
-            --ignore=tests/test_pipeline_runner_events.py \
-            --ignore=tests/test_web_admin_tenants.py \
-            --ignore=tests/test_web_admin_users.py \
-            --ignore=tests/test_web_api.py \
-            --ignore=tests/test_web_bootstrap.py \
-            --ignore=tests/test_web_audit.py
+        # Los tests de la web archivada (test_web_*, test_arq_*,
+        # test_pipeline_runner_events) se autodescartan en tests/conftest.py
+        # cuando faltan sus dependencias (fastapi/bcrypt/arq), ausentes en el
+        # entorno desktop. No hace falta enumerarlos aquí.
+        run: pytest -q
