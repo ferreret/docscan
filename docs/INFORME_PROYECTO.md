@@ -1,7 +1,7 @@
 # DocScan Studio — Informe de Proyecto
-**Fecha**: 10 de marzo de 2026
-**Versión del documento**: 1.0
-**Estado del proyecto**: En desarrollo — Fase avanzada (91% completado)
+**Fecha**: 22 de julio de 2026
+**Versión del documento**: 1.1
+**Estado del proyecto**: En producción — v0.1.3 publicada (22/22 fases completadas)
 
 ---
 
@@ -11,7 +11,7 @@ DocScan Studio es una aplicación de escritorio para la **captura masiva, proces
 
 El sistema permite digitalizar documentos desde escáneres físicos o importar archivos existentes (imágenes, PDFs), procesarlos automáticamente mediante un pipeline configurable, extraer información relevante y transferir los resultados a sistemas externos (carpetas de red, APIs, bases de datos, gestores documentales).
 
-**Estado actual**: 20 de 22 fases de implementación completadas, con 67 módulos de código fuente (9.086 líneas), 409 tests automatizados pasando exitosamente, y la aplicación operativa para escenarios de captura, procesamiento y gestión de lotes.
+**Estado actual**: Las 22 fases de implementación están completadas. El proyecto cuenta con 104 módulos de código fuente (~23.000 líneas), 861 tests automatizados pasando, y cuatro releases públicas (v0.1.0 → v0.1.3) con instaladores para Linux (AppImage) y Windows (.exe) y actualización automática. La versión vigente es la **v0.1.3** (julio de 2026). Toda la cadena —desarrollo, integración continua e instaladores— está unificada en Python 3.14.
 
 ---
 
@@ -247,12 +247,13 @@ El proyecto se ha estructurado en **22 fases** organizadas de abajo hacia arriba
 
 | Métrica | Valor |
 |---------|-------|
-| Fases completadas | **20 de 22** (91%) |
-| Módulos de código fuente | **67 archivos Python** |
-| Líneas de código (producción) | **9.086** |
-| Líneas de código (tests) | **5.289** |
-| Tests automatizados | **409 pasando** (0 fallando) |
-| Commits | **10** |
+| Fases completadas | **22 de 22** (100%) |
+| Módulos de código fuente | **104 archivos Python** |
+| Líneas de código (producción) | **~23.000** |
+| Tests automatizados | **861 pasando** (0 fallando) |
+| Versión actual | **v0.1.3** (julio 2026) |
+| Releases públicas | **4** (v0.1.0 → v0.1.3) |
+| Runtime | **Python 3.14** (desarrollo, CI e instaladores) |
 
 ### 6.2 Funcionalidades Operativas
 
@@ -277,14 +278,16 @@ Las siguientes funcionalidades están **implementadas y verificadas**:
 | ✅ Cifrado de credenciales | API keys protegidas con Fernet |
 | ✅ Base de datos WAL | Concurrencia entre UI y worker sin conflictos |
 
-### 6.3 Funcionalidades Pendientes
+### 6.3 Funcionalidades Completadas tras el Informe Inicial
 
-| Funcionalidad | Fase | Descripción |
-|---------------|------|-------------|
-| 🔲 DocScanWorker | 21 | Proceso CLI para procesamiento desatendido de lotes |
-| 🔲 Folder-watch | 21 | Vigilancia automática de carpeta de entrada con watchdog |
-| 🔲 Notificaciones automatizadas | 21 | Webhooks y emails al completar lotes en modo desatendido |
-| 🔲 Tests de integración | 22 | Cobertura extendida de flujos end-to-end |
+Las fases 21-22, pendientes en la versión 1.0 de este informe, están **completadas**:
+
+| Funcionalidad | Fase | Estado |
+|---------------|------|--------|
+| ✅ DocScanWorker | 21 | Proceso CLI para procesamiento desatendido de lotes |
+| ✅ Folder-watch | 21 | Vigilancia automática de carpeta de entrada con watchdog |
+| ✅ Notificaciones automatizadas | 21 | Webhooks y emails al completar lotes en modo desatendido |
+| ✅ Tests de integración | 22 | Cobertura extendida (65% global; 861 tests) |
 
 ### 6.4 Funcionalidades Configuradas pero Pendientes de Validación en Producción
 
@@ -309,13 +312,19 @@ Estas funcionalidades están implementadas a nivel de código pero requieren val
 | H3 | Completado | Interfaz de usuario: launcher, configurador, workbench, gestor |
 | H4 | Completado | Integración: pipeline ejecutándose en tiempo real desde la UI |
 
+### Hitos Completados (continuación)
+
+| Hito | Fecha | Descripción |
+|------|-------|-------------|
+| H5 | Completado | DocScanWorker + folder-watch (procesamiento desatendido) |
+| H6 | Completado | Tests de integración y cobertura extendida (861 tests) |
+| H7 | 2026 | Releases públicas v0.1.0 → v0.1.3 con instaladores y auto-update |
+
 ### Hitos Pendientes
 
 | Hito | Descripción | Esfuerzo estimado |
 |------|-------------|-------------------|
-| H5 | DocScanWorker + folder-watch | 1 fase |
-| H6 | Tests de integración y cobertura extendida | 1 fase |
-| H7 | Validación con escáneres y entornos reales | Variable |
+| H8 | Validación en campo con escáneres y entornos reales | Variable |
 
 ---
 
@@ -373,13 +382,13 @@ Estas funcionalidades están implementadas a nivel de código pero requieren val
 
 ## 11. Conclusión
 
-DocScan Studio se encuentra en una **fase avanzada de desarrollo** con el 91% de las fases completadas. La arquitectura base, todos los servicios de negocio y la interfaz de usuario principal están operativos y verificados con 409 tests automatizados.
+DocScan Studio está **completo y en producción**: las 22 fases de implementación están terminadas y el núcleo, los servicios de negocio y la interfaz de usuario están verificados con 861 tests automatizados. Se han publicado cuatro releases (v0.1.0 → v0.1.3) con instaladores para Linux y Windows y actualización automática.
 
-Las dos fases restantes (proceso desatendido y tests de integración extendidos) representan funcionalidades complementarias que no afectan al núcleo del sistema. La aplicación es **funcional hoy** para escenarios de captura interactiva, procesamiento con pipeline y gestión de lotes.
+La aplicación es **plenamente funcional** tanto para captura interactiva (escaneo, pipeline, gestión de lotes) como para procesamiento desatendido (DocScanWorker con vigilancia de carpetas y notificaciones). El trabajo restante es de validación en campo con escáneres y entornos reales.
 
 El diseño modular y extensible permite incorporar nuevos tipos de paso, proveedores de IA y destinos de transferencia sin modificar el código existente, garantizando la evolución futura del producto.
 
 ---
 
-*Documento generado el 10 de marzo de 2026*
+*Documento generado el 10 de marzo de 2026; actualizado el 22 de julio de 2026 (v1.1).*
 *DocScan Studio — Tecnomedia*
