@@ -27,7 +27,9 @@ except ImportError:
 
 config = context.config
 
-if config.config_file_name is not None:
+if config.config_file_name is not None and config.attributes.get(
+    "configure_logger", True
+):
     fileConfig(config.config_file_name)
 
 # Resolver URL de la BD:
@@ -60,7 +62,24 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Migraciones en modo online (con conexión activa)."""
+    """Migraciones en modo online (con conexión activa).
+
+    Si el llamador ya pasó una conexión en ``config.attributes["connection"]``
+    (caso del arranque desktop, que reusa el engine con WAL), la reutiliza para
+    operar sobre esa misma BD. En caso contrario construye su propio engine
+    desde ``sqlalchemy.url`` (CLI de alembic, docker-bootstrap-db, tests).
+    """
+    connection = config.attributes.get("connection", None)
+    if connection is not None:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=True,
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

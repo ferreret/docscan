@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 from config.settings import get_settings, APP_IMAGES_DIR
-from app.db.database import create_db_engine, create_tables, get_session_factory
+from app.db.database import create_db_engine, run_migrations, get_session_factory
 
 # Importar todos los modelos para que SQLAlchemy registre las relaciones
 from app.models.application import Application  # noqa: F401
@@ -247,9 +247,10 @@ def main() -> int:
 
     log.info("Iniciando %s", settings.app_name)
 
-    # Base de datos
+    # Base de datos: aplica migraciones alembic al arrancar (robusto a BD nueva,
+    # versionada o legacy creada con create_all). Ver app/db/database.py.
     engine = create_db_engine()
-    create_tables(engine)
+    run_migrations(engine)
     session_factory = get_session_factory(engine)
 
     # ------------------------------------------------------------------

@@ -10,6 +10,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision: str = "a3b8d4e2f7c9"
@@ -19,6 +20,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Idempotente: en una BD que ya tiene la tabla (entornos con web deps donde
+    # create_all la creó) no la recrea, para que ``upgrade head`` no reviente.
+    if "audit_logs" in set(inspect(op.get_bind()).get_table_names()):
+        return
     op.create_table(
         "audit_logs",
         sa.Column("id", sa.Integer(), primary_key=True),

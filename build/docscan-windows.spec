@@ -29,6 +29,13 @@ a = Analysis(
         "PySide6.QtSvgWidgets",
         # SQLAlchemy dialects
         "sqlalchemy.dialects.sqlite",
+        # Alembic (migraciones al arrancar; DDL resuelto dinámicamente)
+        "alembic",
+        "alembic.runtime.migration",
+        "alembic.ddl.sqlite",
+        # Stdlib cargado dinámicamente por alembic/env.py (no visible al análisis
+        # estático porque env.py se importa por ruta vía importlib)
+        "logging.config",
         # Pipeline (importado dinámicamente)
         "app.pipeline.steps",
         "app.pipeline.context",
