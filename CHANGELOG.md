@@ -8,6 +8,8 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-22
+
 ### ⬆️ Actualización de dependencias mayores
 
 - **opencv-python 4.13 → 5.0.0.93** (salto de versión mayor). El uso del proyecto
