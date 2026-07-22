@@ -1,5 +1,5 @@
 # UI
-PySide6==6.10.2
+PySide6==6.11.1
 
 # ORM / BD
 SQLAlchemy==2.0.51
