@@ -8,6 +8,25 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-07-22
+
+### 🐛 La app desktop aplica migraciones al arrancar
+
+- **Corregido el crash de arranque contra una base de datos preexistente**
+  (`no such column: applications.notifications_json`). La app inicializaba el
+  esquema con `create_all()`, que crea tablas nuevas pero **nunca añade columnas**
+  a tablas ya existentes ni aplica migraciones. Al evolucionar el modelo (p.ej. el
+  webhook de v0.1.4 añadió `notifications_json`), cualquier instalación con una BD
+  anterior quedaba inservible.
+- Ahora el arranque aplica migraciones Alembic de forma robusta a tres estados de
+  BD: **nueva** (crea el esquema desde las migraciones), **versionada** (aplica lo
+  que falte) y **heredada** (creada con `create_all` sin control de versión: se
+  reconcilian por reflexión las columnas ausentes del modelo y se adopta en
+  Alembic). Los datos existentes se preservan.
+- Migraciones internas hechas idempotentes para no romper el proceso en SQLite.
+- **Nota**: quien tenga la v0.1.4 instalada y sufriera el crash queda arreglado al
+  actualizar; no hay que hacer nada manualmente.
+
 ## [0.1.4] - 2026-07-22
 
 ### ⬆️ Actualización de dependencias mayores
