@@ -8,6 +8,23 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🔧 Infraestructura de tests y unificación de Python
+
+- **Unificación en Python 3.14**: desarrollo, CI e instaladores pasan a usar
+  todos Python 3.14 (antes se desarrollaba en 3.14 pero se construía en 3.13).
+  Esa divergencia había causado el bug de portabilidad de `except A, B:`
+  (PEP 758). Con toda la cadena en 3.14, `ruff.toml` vuelve a `target-version =
+  py314` y `ruff format` normaliza los `except` a la sintaxis 3.14. CI y
+  `release.yml` construyen con 3.14.
+- **Suite no interactiva y sin hardware**: nuevo `tests/conftest.py` global que
+  (1) mockea todos los modales de Qt para que ningún test espere un clic,
+  (2) inyecta un módulo `sane` falso antes de recolectar tests —ninguna ruta
+  abre el escáner USB real, se elimina el prompt de administrador (polkit) y los
+  ~33 s de enumeración de hardware—, y (3) autodescarta los tests de la web
+  archivada cuando faltan sus dependencias. `pytest tests/` sin flags:
+  861 passing en ~24 s, cero interacción. El CI delega en el conftest en vez de
+  enumerar `--ignore`.
+
 ## [0.1.3] — 2026-07-21
 
 ### 🧹 Mantenimiento y saneamiento del desktop
