@@ -2,12 +2,12 @@
 PySide6==6.10.2
 
 # ORM / BD
-SQLAlchemy==2.0.48
+SQLAlchemy==2.0.51
 alembic==1.18.4
 
 # Barcode
 pyzbar==0.1.9
-zxing-cpp==3.0.0
+zxing-cpp==3.1.0
 opencv-python==4.13.0.92
 
 # Imagen
@@ -19,10 +19,10 @@ pytesseract==0.3.13
 
 # IA
 anthropic==0.84.0
-openai==2.26.0
+openai==2.46.0
 
 # PDF
-PyMuPDF==1.27.1
+PyMuPDF==1.28.0
 
 # HTTP / notificaciones
 httpx==0.28.1
