@@ -8,6 +8,21 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### ⬆️ Actualización de dependencias mayores
+
+- **opencv-python 4.13 → 5.0.0.93** (salto de versión mayor). El uso del proyecto
+  es 100 % API core (`cvtColor`, `resize`, `threshold`, morfología, `warpAffine`,
+  `HoughCircles`…), no afectada por los breaking de OpenCV 5 (retirada del C API
+  legacy, G-API/ML movidos a `contrib`, cambios de DNN/ONNX).
+- **anthropic 0.84.0 → 0.117.1**. La superficie usada (`Anthropic()`,
+  `messages.create`, iteración de bloques de contenido) es estable.
+- **PySide6 6.10.2 → 6.11.1**, **SQLAlchemy 2.0.48 → 2.0.51**,
+  **zxing-cpp 3.0.0 → 3.1.0**, **PyMuPDF 1.27.1 → 1.28.0**,
+  **openai 2.26.0 → 2.46.0**.
+- Sin cambios de código: los 879 tests siguen en verde y el smoke de importación
+  de servicios y clientes IA pasa. Todos los paquetes tienen _wheels_ para
+  Python 3.14.
+
 ### ✨ Notificaciones webhook por aplicación
 
 - **Webhook configurable por aplicación**: nueva pestaña «Notificaciones» en el

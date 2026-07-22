@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-0.1.2-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/PySide6-6.10-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
+  <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
   <img src="https://img.shields.io/badge/tests-861_passing-brightgreen?style=flat-square" alt="Tests">
   <img src="https://img.shields.io/badge/license-proprietary-red?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/platform-Linux_%7C_Windows-lightgrey?style=flat-square" alt="Platform">
@@ -512,22 +512,22 @@ El **AI Mode** es un asistente conversacional integrado que permite crear y conf
 
 | Categoría | Paquete | Versión |
 |-----------|---------|---------|
-| **UI** | PySide6 | 6.10.2 |
-| **BD** | SQLAlchemy | 2.0.48 |
+| **UI** | PySide6 | 6.11.1 |
+| **BD** | SQLAlchemy | 2.0.51 |
 | **BD** | Alembic | 1.18.4 |
 | **Barcode** | pyzbar | 0.1.9 |
-| **Barcode** | zxing-cpp | 3.0.0 |
-| **Imagen** | opencv-python | 4.13.0.92 |
-| **Imagen** | Pillow | 12.1.1 |
+| **Barcode** | zxing-cpp | 3.1.0 |
+| **Imagen** | opencv-python | 5.0.0.93 |
+| **Imagen** | Pillow | 12.3.0 |
 | **OCR** | rapidocr-onnxruntime | 1.2.3 |
 | **OCR** | pytesseract | 0.3.13 |
-| **IA** | anthropic | 0.84.0 |
-| **IA** | openai | 2.26.0 |
-| **PDF** | PyMuPDF | 1.27.1 |
+| **IA** | anthropic | 0.117.1 |
+| **IA** | openai | 2.46.0 |
+| **PDF** | PyMuPDF | 1.28.0 |
 | **HTTP** | httpx | 0.28.1 |
-| **Config** | pydantic-settings | 2.13.1 |
+| **Config** | pydantic-settings | 2.14.2 |
 | **Config** | platformdirs | 4.9.4 |
-| **Seguridad** | cryptography | 46.0.5 |
+| **Seguridad** | cryptography | 48.0.1 |
 | **Scanner** | python-sane | 2.9.1 |
 | **Automatización** | watchdog | 6.0.0 |
 | **Automatización** | APScheduler | 3.11.2 |
