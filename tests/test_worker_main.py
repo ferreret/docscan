@@ -780,6 +780,145 @@ class TestTransferBatch:
 
         batch_svc.transition_state.assert_called_with(1, "error_export")
 
+    def test_webhook_habilitado_se_pasa_a_notify_transfer_complete(
+        self, active_app: Application, tmp_path: Path
+    ) -> None:
+        """Con webhook habilitado y URL, se pasa el WebhookConfig a la notificación."""
+        from app.services.transfer_service import TransferResult
+
+        dest = tmp_path / "output"
+        dest.mkdir()
+        active_app.transfer_json = json.dumps(
+            {"mode": "folder", "destination": str(dest)}
+        )
+        active_app.notifications_json = json.dumps(
+            {
+                "webhook_enabled": True,
+                "webhook": {"url": "https://ejemplo/hook", "method": "POST"},
+            }
+        )
+
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
+        transfer_svc.transfer.return_value = TransferResult(
+            success=True, files_transferred=1, output_path=str(dest)
+        )
+
+        _transfer_batch(
+            batch_id=1,
+            app_record=active_app,
+            batch_svc=batch_svc,
+            transfer_svc=transfer_svc,
+            notification_svc=notification_svc,
+            script_engine=script_engine,
+            lifecycle_events={},
+            session=session,
+            app_ctx=app_ctx,
+            batch_ctx=batch_ctx,
+        )
+
+        notification_svc.notify_transfer_complete.assert_called_once()
+        webhook = notification_svc.notify_transfer_complete.call_args.kwargs["webhook"]
+        assert webhook is not None
+        assert webhook.url == "https://ejemplo/hook"
+
+    def test_webhook_deshabilitado_pasa_none(
+        self, active_app: Application, tmp_path: Path
+    ) -> None:
+        """Con webhook deshabilitado, la notificación recibe webhook=None."""
+        from app.services.transfer_service import TransferResult
+
+        dest = tmp_path / "output"
+        dest.mkdir()
+        active_app.transfer_json = json.dumps(
+            {"mode": "folder", "destination": str(dest)}
+        )
+        active_app.notifications_json = json.dumps(
+            {"webhook_enabled": False, "webhook": {"url": "https://ejemplo/hook"}}
+        )
+
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
+        transfer_svc.transfer.return_value = TransferResult(
+            success=True, files_transferred=1, output_path=str(dest)
+        )
+
+        _transfer_batch(
+            batch_id=1,
+            app_record=active_app,
+            batch_svc=batch_svc,
+            transfer_svc=transfer_svc,
+            notification_svc=notification_svc,
+            script_engine=script_engine,
+            lifecycle_events={},
+            session=session,
+            app_ctx=app_ctx,
+            batch_ctx=batch_ctx,
+        )
+
+        webhook = notification_svc.notify_transfer_complete.call_args.kwargs["webhook"]
+        assert webhook is None
+
+    def test_webhook_se_pasa_a_notify_error_en_fallo(
+        self, active_app: Application, tmp_path: Path
+    ) -> None:
+        """En fallo de transferencia, notify_error recibe el webhook configurado."""
+        from app.services.transfer_service import TransferResult
+
+        dest = tmp_path / "output"
+        dest.mkdir()
+        active_app.transfer_json = json.dumps(
+            {"mode": "folder", "destination": str(dest)}
+        )
+        active_app.notifications_json = json.dumps(
+            {"webhook_enabled": True, "webhook": {"url": "https://ejemplo/hook"}}
+        )
+
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = self._make_transfer_context(tmp_path)
+        transfer_svc.transfer.return_value = TransferResult(
+            success=False, errors=["fallo"]
+        )
+
+        _transfer_batch(
+            batch_id=1,
+            app_record=active_app,
+            batch_svc=batch_svc,
+            transfer_svc=transfer_svc,
+            notification_svc=notification_svc,
+            script_engine=script_engine,
+            lifecycle_events={},
+            session=session,
+            app_ctx=app_ctx,
+            batch_ctx=batch_ctx,
+        )
+
+        notification_svc.notify_error.assert_called_once()
+        webhook = notification_svc.notify_error.call_args.kwargs["webhook"]
+        assert webhook is not None
+        assert webhook.url == "https://ejemplo/hook"
+
     def test_on_transfer_validate_false_cancela_transferencia(
         self, active_app: Application, tmp_path: Path
     ) -> None:

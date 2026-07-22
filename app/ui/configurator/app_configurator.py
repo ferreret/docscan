@@ -25,6 +25,7 @@ from app.ui.configurator.tabs.tab_batch_fields import BatchFieldsTab
 from app.ui.configurator.tabs.tab_pipeline import PipelineTab
 from app.ui.configurator.tabs.tab_events import EventsTab
 from app.ui.configurator.tabs.tab_transfer import TransferTab
+from app.ui.configurator.tabs.tab_notifications import NotificationsTab
 
 log = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class AppConfigurator(QDialog):
         self._tab_pipeline = PipelineTab(self._app)
         self._tab_events = EventsTab(self._app)
         self._tab_transfer = TransferTab(self._app)
+        self._tab_notifications = NotificationsTab(self._app)
 
         self._tabs.addTab(self._tab_general, self.tr("General"))
         self._tabs.addTab(self._tab_image, self.tr("Imagen"))
@@ -71,6 +73,7 @@ class AppConfigurator(QDialog):
         self._tabs.addTab(self._tab_pipeline, self.tr("Pipeline"))
         self._tabs.addTab(self._tab_events, self.tr("Eventos"))
         self._tabs.addTab(self._tab_transfer, self.tr("Transferencia"))
+        self._tabs.addTab(self._tab_notifications, self.tr("Notificaciones"))
 
         layout.addWidget(self._tabs)
 
@@ -97,6 +100,7 @@ class AppConfigurator(QDialog):
             self._tab_pipeline.apply_to(self._app)
             self._tab_events.apply_to(self._app)
             self._tab_transfer.apply_to(self._app)
+            self._tab_notifications.apply_to(self._app)
 
             # Persistir
             with self._session_factory() as session:

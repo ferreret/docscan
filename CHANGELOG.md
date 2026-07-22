@@ -8,6 +8,18 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### ✨ Notificaciones webhook por aplicación
+
+- **Webhook configurable por aplicación**: nueva pestaña «Notificaciones» en el
+  configurador para definir un webhook (URL, método POST/GET, cabeceras HTTP y
+  timeout) que se dispara al completar o fallar la transferencia de un lote.
+  Hasta ahora el servicio de notificaciones existía pero el webhook llegaba
+  siempre `None` (un `TODO` en el worker); ahora se carga de la configuración.
+- Persistencia en la columna nueva `applications.notifications_json` (migración
+  Alembic `c1d5e9f34b28`); la estructura JSON anidada reserva sitio para email
+  SMTP en el futuro. La config viaja al exportar/importar aplicaciones.
+- Email SMTP queda pendiente (requiere cifrado Fernet del password).
+
 ### 🔧 Infraestructura de tests y unificación de Python
 
 - **Unificación en Python 3.14**: desarrollo, CI e instaladores pasan a usar

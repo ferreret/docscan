@@ -612,5 +612,5 @@ class TestAppConfigurator:
     def test_creates_with_tabs(self, qtbot, sample_app, session_factory):
         dialog = AppConfigurator(sample_app, session_factory)
         qtbot.addWidget(dialog)
-        assert dialog._tabs.count() == 6
+        assert dialog._tabs.count() == 7
         assert dialog.windowTitle().startswith("Configurar")

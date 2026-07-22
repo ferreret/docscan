@@ -6,9 +6,10 @@ o cualquier evento configurable por aplicación.
 
 from __future__ import annotations
 
+import json
 import logging
 import smtplib
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from email.message import EmailMessage
 from typing import Any
 
@@ -47,6 +48,51 @@ class NotificationResult:
     success: bool = True
     channel: str = ""  # "webhook" o "email"
     detail: str = ""
+
+
+@dataclass
+class NotificationConfig:
+    """Configuración de notificaciones de una aplicación.
+
+    Agrupa los canales configurables. Por ahora solo webhook; la estructura
+    anidada reserva sitio para email SMTP en el futuro sin nueva migración.
+    """
+
+    webhook_enabled: bool = False
+    webhook: WebhookConfig = field(default_factory=WebhookConfig)
+
+
+def parse_notification_config(json_str: str) -> NotificationConfig:
+    """Parsea la configuración de notificaciones desde JSON.
+
+    Tolera cadenas vacías y claves desconocidas (compatibilidad hacia adelante).
+
+    Args:
+        json_str: Cadena JSON almacenada en ``Application.notifications_json``.
+
+    Returns:
+        NotificationConfig con los valores deserializados.
+    """
+    if not json_str or json_str == "{}":
+        return NotificationConfig()
+    data = json.loads(json_str)
+    webhook_data = data.get("webhook") or {}
+    webhook = WebhookConfig(
+        **{
+            k: v
+            for k, v in webhook_data.items()
+            if k in WebhookConfig.__dataclass_fields__
+        }
+    )
+    return NotificationConfig(
+        webhook_enabled=bool(data.get("webhook_enabled", False)),
+        webhook=webhook,
+    )
+
+
+def serialize_notification_config(config: NotificationConfig) -> str:
+    """Serializa la configuración de notificaciones a JSON."""
+    return json.dumps(asdict(config))
 
 
 class NotificationService:

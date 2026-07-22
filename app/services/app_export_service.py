@@ -32,6 +32,7 @@ _EXPORTABLE_FIELDS: list[str] = [
     "index_fields_json",
     "image_config_json",
     "ai_config_json",
+    "notifications_json",
     "auto_transfer",
     "close_after_transfer",
     "background_color",
@@ -49,6 +50,7 @@ _JSON_FIELDS: list[str] = [
     "index_fields_json",
     "image_config_json",
     "ai_config_json",
+    "notifications_json",
 ]
 
 

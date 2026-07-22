@@ -42,7 +42,10 @@ from app.pipeline.steps import ScriptStep
 from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
-from app.services.notification_service import NotificationService
+from app.services.notification_service import (
+    NotificationService,
+    parse_notification_config,
+)
 from app.services.script_engine import ScriptEngine
 from app.services.transfer_service import (
     TransferService,
@@ -440,6 +443,14 @@ def _transfer_batch(
         batch_id,
     )
 
+    # Config de notificaciones (webhook) cargada de la aplicación.
+    notif_cfg = parse_notification_config(app_record.notifications_json)
+    webhook = (
+        notif_cfg.webhook
+        if notif_cfg.webhook_enabled and notif_cfg.webhook.url
+        else None
+    )
+
     if transfer_result.success:
         batch_svc.transition_state(batch_id, "exported")
         log.info(
@@ -462,7 +473,7 @@ def _transfer_batch(
         # Notificaciones (BAT-11 / MLT-03)
         stats = batch_svc.get_stats(batch_id)
         notification_svc.notify_transfer_complete(
-            webhook=None,  # TODO: cargar de app config
+            webhook=webhook,
             email=None,
             batch_id=batch_id,
             app_name=app_record.name,
@@ -476,7 +487,7 @@ def _transfer_batch(
             transfer_result.errors,
         )
         notification_svc.notify_error(
-            webhook=None,
+            webhook=webhook,
             email=None,
             batch_id=batch_id,
             app_name=app_record.name,
