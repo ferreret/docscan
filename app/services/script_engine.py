@@ -367,9 +367,27 @@ class ScriptEngine:
         try:
             return future.result(timeout=self._script_timeout)
         except concurrent.futures.TimeoutError:
+            # El hilo sigue atrapado en el script y Python no permite
+            # matarlo. Si se reutilizara el pool, todas las páginas
+            # siguientes se encolarían detrás y expirarían una a una: un
+            # solo script colgado dejaría el resto del lote sin scripting
+            # y con 30s de espera por página. Se descarta el pool y se
+            # abre uno limpio; el hilo viejo queda como daemon.
+            self._renew_executor()
             raise ScriptTimeoutError(
                 f"Script excedió el timeout de {self._script_timeout}s"
             )
+
+    def _renew_executor(self) -> None:
+        """Sustituye el pool de ejecución por uno limpio."""
+        old = self._executor
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        # No esperar: el hilo antiguo sigue ocupado por el script colgado.
+        old.shutdown(wait=False)
+        log.warning(
+            "Pool de scripts renovado tras un timeout; "
+            "el hilo anterior sigue ocupado por el script colgado"
+        )
 
     def _build_namespace(self, **kwargs: Any) -> dict[str, Any]:
         """Construye el namespace para exec/eval."""
