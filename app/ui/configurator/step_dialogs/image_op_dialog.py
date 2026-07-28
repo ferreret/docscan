@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -61,6 +62,22 @@ class ImageOpDialog(QDialog):
         self._window_edit.setPlaceholderText(self.tr("x, y, w, h (vacío = completa)"))
         layout.addRow(self.tr("Ventana:"), self._window_edit)
 
+        self._persist_check = QCheckBox(
+            self.tr("Guardar el resultado en el fichero de la página")
+        )
+        self._persist_check.setChecked(bool(getattr(step, "persist", False)))
+        self._persist_check.setToolTip(
+            self.tr(
+                "Desmarcado, la operación solo prepara la imagen para los pasos\n"
+                "siguientes (leer barcodes, OCR) y el fichero que se archiva y\n"
+                "transfiere conserva el original del escáneo.\n\n"
+                "Marcado, el resultado sustituye al fichero de la página. Es lo\n"
+                "habitual en operaciones como AutoDeskew, CropWhiteBorders o\n"
+                "Rotate, cuyo efecto se espera ver en el documento entregado."
+            )
+        )
+        layout.addRow("", self._persist_check)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
         )
@@ -73,6 +90,7 @@ class ImageOpDialog(QDialog):
         self._step.op = self._op_combo.currentText()
         self._step.params = self._parse_params()
         self._step.window = self._parse_window()
+        self._step.persist = self._persist_check.isChecked()
         return self._step
 
     def _parse_params(self) -> dict:

@@ -222,3 +222,183 @@ class TestExecutorImageFlow:
         executor.execute(page, batch, app_ctx)
         assert len(page.flags.processing_errors) == 1
         assert "NoExiste" in page.flags.processing_errors[0]
+
+
+class TestPersistirImageOp:
+    """El resultado llega al fichero solo si el paso lo pide (C9)."""
+
+    @staticmethod
+    def _page():
+        from app.pipeline.page_context import PageContext
+
+        return PageContext(
+            page_index=0,
+            image=np.full((60, 80, 3), 200, dtype=np.uint8),
+        )
+
+    def test_por_defecto_no_toca_la_imagen_de_la_pagina(
+        self, image_service, script_engine, batch, app_ctx
+    ):
+        page = self._page()
+        original = page.image.copy()
+
+        steps = [ImageOpStep(id="s1", op="FxNegative")]
+        make_executor(steps, image_service, script_engine).execute(page, batch, app_ctx)
+
+        assert np.array_equal(page.image, original)
+        assert page.image_replaced is False
+
+    def test_persist_propaga_el_resultado(
+        self, image_service, script_engine, batch, app_ctx
+    ):
+        page = self._page()
+        original = page.image.copy()
+
+        steps = [ImageOpStep(id="s1", op="FxNegative", persist=True)]
+        make_executor(steps, image_service, script_engine).execute(page, batch, app_ctx)
+
+        assert not np.array_equal(page.image, original)
+        assert page.image_replaced is True
+        # FxNegative sobre 200 da 55
+        assert int(page.image.mean()) == 55
+
+    def test_los_pasos_encadenan_aunque_no_persistan(
+        self, image_service, script_engine, batch, app_ctx
+    ):
+        """El paso 2 ve el resultado del 1 aunque ninguno persista."""
+        vistas = []
+
+        class Spy(ImagePipelineService):
+            def execute(self, image, op, params, window=None):
+                vistas.append(float(image.mean()))
+                return super().execute(image, op, params, window)
+
+        page = self._page()
+        steps = [
+            ImageOpStep(id="s1", op="FxNegative"),
+            ImageOpStep(id="s2", op="FxNegative"),
+        ]
+        make_executor(steps, Spy(), script_engine).execute(page, batch, app_ctx)
+
+        assert vistas == [200.0, 55.0]
+
+    def test_persistir_guarda_instantanea_no_el_estado_final(
+        self, image_service, script_engine, batch, app_ctx
+    ):
+        """Enderezar y archivar; binarizar después solo para leer.
+
+        El paso que persiste fija SU resultado; una operación posterior
+        que no persiste alimenta al pipeline pero no ensucia el fichero.
+        """
+        page = self._page()
+
+        steps = [
+            ImageOpStep(id="persistido", op="FxNegative", persist=True),
+            ImageOpStep(
+                id="solo_lectura", op="ConvertTo1Bpp", params={"threshold": 10}
+            ),
+        ]
+        make_executor(steps, image_service, script_engine).execute(page, batch, app_ctx)
+
+        assert page.image_replaced is True
+        # La instantánea del negativo (55), no el binarizado posterior.
+        assert int(page.image.mean()) == 55
+
+    def test_gana_el_ultimo_paso_que_persiste(
+        self, image_service, script_engine, batch, app_ctx
+    ):
+        page = self._page()
+
+        steps = [
+            ImageOpStep(id="s1", op="FxNegative", persist=True),
+            ImageOpStep(id="s2", op="FxNegative", persist=True),
+        ]
+        make_executor(steps, image_service, script_engine).execute(page, batch, app_ctx)
+
+        # Dos negativos seguidos devuelven el valor original.
+        assert int(page.image.mean()) == 200
+
+    def test_replace_image_de_script_mantiene_su_contrato(
+        self, image_service, script_engine, batch, app_ctx
+    ):
+        """Sin ningún paso persistente, un script sigue mandando."""
+        page = self._page()
+
+        steps = [
+            ScriptStep(
+                id="sc",
+                script=(
+                    "import numpy as np\n"
+                    "def run(app, batch, page, pipeline):\n"
+                    "    pipeline.replace_image(np.zeros((10, 10, 3), dtype=np.uint8))\n"
+                ),
+                entry_point="run",
+            ),
+        ]
+        make_executor(steps, image_service, script_engine).execute(page, batch, app_ctx)
+
+        assert page.image_replaced is True
+        assert page.image.shape == (10, 10, 3)
+
+
+class TestConfiguracionPorPaso:
+    """Cada paso usa su propia configuración, sin heredar (C2)."""
+
+    def test_cada_image_op_recibe_sus_parametros(
+        self, image_service, script_engine, page, batch, app_ctx
+    ):
+        recibidos = []
+
+        class Spy(ImagePipelineService):
+            def execute(self, image, op, params, window=None):
+                recibidos.append((op, dict(params or {}), window))
+                return super().execute(image, op, params, window)
+
+        steps = [
+            ImageOpStep(
+                id="s1",
+                op="ConvertTo1Bpp",
+                params={"threshold": 100},
+                window=(0, 0, 50, 50),
+            ),
+            # Sin params ni ventana propios: NO debe heredar los del anterior.
+            ImageOpStep(id="s2", op="FxGrayscale"),
+        ]
+        make_executor(steps, Spy(), script_engine).execute(page, batch, app_ctx)
+
+        assert recibidos[0] == ("ConvertTo1Bpp", {"threshold": 100}, (0, 0, 50, 50))
+        assert recibidos[1] == ("FxGrayscale", {}, None)
+
+    def test_cada_barcode_step_recibe_su_configuracion(
+        self, image_service, script_engine, page, batch, app_ctx
+    ):
+        from app.pipeline.steps import BarcodeStep
+
+        recibidos = []
+
+        class SpyBarcode:
+            def read(self, **kwargs):
+                recibidos.append(kwargs)
+                return []
+
+        steps = [
+            BarcodeStep(
+                id="b1", engine="motor2", regex=r"^\d+$", symbologies=["QRCode"]
+            ),
+            # Sin configuración propia: valores por defecto del dataclass.
+            BarcodeStep(id="b2"),
+        ]
+        make_executor(
+            steps,
+            image_service,
+            script_engine,
+            barcode_service=SpyBarcode(),
+        ).execute(page, batch, app_ctx)
+
+        assert recibidos[0]["engine"] == "motor2"
+        assert recibidos[0]["regex"] == r"^\d+$"
+        assert recibidos[0]["symbologies"] == ["QRCode"]
+
+        assert recibidos[1]["engine"] == "motor1"
+        assert recibidos[1]["regex"] == ""
+        assert recibidos[1]["symbologies"] == []

@@ -88,12 +88,11 @@ class InstrumentedPipelineExecutor(PipelineExecutor):
             self._capture_state(snapshot, page, ctx)
             snapshots.append(snapshot)
 
-        if (
-            ctx.image_replaced
-            and ctx.current_image is not None
-            and hasattr(page, "image")
-        ):
-            page.image = ctx.current_image
+        target_image = (
+            ctx.persist_image if ctx.persist_image is not None else ctx.current_image
+        )
+        if ctx.image_replaced and target_image is not None and hasattr(page, "image"):
+            page.image = target_image
             if hasattr(page, "image_replaced"):
                 page.image_replaced = True
 

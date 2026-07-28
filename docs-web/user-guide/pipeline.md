@@ -47,6 +47,29 @@ El pipeline es el **corazón** de DocScan Studio. Cada página escaneada/importa
     | KeepChannel | Extraer canal |
     | RemoveChannel | Eliminar canal |
 
+### ¿La operación cambia el fichero entregado?
+
+Por defecto **no**. Una operación de imagen prepara la página para los
+pasos que vienen detrás (leer barcodes, hacer OCR), pero el fichero que
+se archiva y se transfiere conserva el original del escáneo. Así puedes
+binarizar o invertir la imagen para leer mejor sin destruir el documento.
+
+Cuando sí quieras que el resultado llegue al documento entregado —lo
+habitual en `AutoDeskew`, `CropWhiteBorders`, `Rotate` o
+`RemoveHolePunch`— marca en el paso la casilla **«Guardar el resultado en
+el fichero de la página»**.
+
+!!! tip "Se guarda ese punto exacto del pipeline"
+
+    La casilla toma una instantánea del resultado **de ese paso**. Un
+    paso posterior sin la casilla marcada sigue alimentando al pipeline,
+    pero ya no afecta al fichero. El caso típico es enderezar y archivar
+    (`AutoDeskew` con la casilla) y después binarizar solo para leer
+    (`ConvertTo1Bpp` sin ella): se archiva la página enderezada en color,
+    y los barcodes se leen sobre la binarizada.
+
+    Si varios pasos la marcan, gana el último.
+
 ## Simbologías de barcode
 
 | Simbología | Motor 1 (pyzbar) | Motor 2 (zxing-cpp) |

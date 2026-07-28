@@ -45,6 +45,7 @@ class PipelineContext:
         self._results: dict[str, Any] = {}
         self._metadata: dict[str, Any] = {}
         self._current_image: np.ndarray | None = None
+        self._persist_image: np.ndarray | None = None
         self._image_replaced: bool = False
         self._aborted: bool = False
         self._abort_reason: str = ""
@@ -143,6 +144,25 @@ class PipelineContext:
     def set_pipeline_image(self, image: np.ndarray) -> None:
         """Uso interno del executor: actualiza la imagen sin marcar image_replaced."""
         self._current_image = image
+
+    def mark_persist(self, image: np.ndarray) -> None:
+        """Uso interno del executor: fija la imagen que debe ir a disco.
+
+        Guarda una **instantánea** de este punto del pipeline, no el
+        estado final. Es la diferencia que importa cuando el pipeline
+        endereza la página (y eso sí debe archivarse) y después la
+        binariza solo para leer los barcodes (y eso no).
+
+        Si varios pasos lo piden, gana el último.
+        """
+        self._current_image = image
+        self._persist_image = image
+        self._image_replaced = True
+
+    @property
+    def persist_image(self) -> np.ndarray | None:
+        """Instantánea marcada para persistir, si algún paso la fijó."""
+        return self._persist_image
 
     @property
     def current_image(self) -> np.ndarray | None:
