@@ -8,6 +8,8 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-28
+
 ### ✨ Salto directo a página en el visor
 
 - El contador `N / M` de la barra flotante del visor **es editable**: clic, teclear
