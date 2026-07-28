@@ -36,6 +36,10 @@ pytwain==2.3.0; sys_platform == "win32"
 pywin32==310; sys_platform == "win32"
 python-sane==2.9.1; sys_platform == "linux"
 
+# Regex de usuario con timeout (el `re` de stdlib no lo admite y no libera
+# el GIL: un patron patologico congelaria el proceso entero)
+regex==2026.7.19
+
 # Seguridad
 cryptography==48.0.1
 

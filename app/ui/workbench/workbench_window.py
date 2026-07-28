@@ -940,6 +940,7 @@ class WorkbenchWindow(QMainWindow):
         # Conectar señales del scan worker
         self._scan_worker.page_acquired.connect(self._on_page_acquired)
         self._scan_worker.finished_scanning.connect(self._on_scan_finished)
+        self._scan_worker.cancelled.connect(self._on_scan_cancelled)
         self._scan_worker.error_occurred.connect(self._on_scan_error)
 
         # Conectar señales del recognition worker
@@ -949,6 +950,7 @@ class WorkbenchWindow(QMainWindow):
         self._recognition_worker.all_processed.connect(
             self._on_all_processed,
         )
+        self._recognition_worker.cancelled.connect(self._on_processing_cancelled)
         self._recognition_worker.page_error.connect(self._on_page_error)
         self._recognition_worker.progress.connect(self._on_progress)
 
@@ -1045,6 +1047,37 @@ class WorkbenchWindow(QMainWindow):
         log.info("Adquisición completada: %d páginas", total)
         if self._recognition_worker:
             self._recognition_worker.signal_no_more_pages()
+
+    def _on_scan_cancelled(self, emitidas: int) -> None:
+        """La adquisición se ha interrumpido antes de terminar.
+
+        Se cierra la cola del reconocimiento para que no espere páginas
+        que ya no van a llegar, pero **no** se trata como final correcto.
+        """
+        log.info("Adquisición cancelada tras %d páginas", emitidas)
+        if self._recognition_worker:
+            self._recognition_worker.signal_no_more_pages()
+
+    def _on_processing_cancelled(self, procesadas: int, totales: int) -> None:
+        """El reconocimiento se ha interrumpido con páginas pendientes.
+
+        A diferencia de ``_on_all_processed``, no marca el lote como
+        leído, no dispara ``on_scan_complete`` y no lanza la
+        auto-transferencia: quedan páginas sin pasar por el pipeline.
+        """
+        if self._script_engine is None:
+            return  # Ventana cerrada, ignorar señales tardías
+        self._progress_bar.setVisible(False)
+        self._btn_process.setEnabled(True)
+        self._reload_pages()
+        self._update_lot_counters()
+        log.warning("Procesamiento cancelado: %d de %d páginas", procesadas, totales)
+        self._status_bar.showMessage(
+            self.tr("Procesamiento cancelado: {0} de {1} páginas").format(
+                procesadas, totales
+            ),
+            8000,
+        )
 
     def _on_scan_error(self, error: str) -> None:
         """Error durante la adquisición."""
@@ -1276,6 +1309,7 @@ class WorkbenchWindow(QMainWindow):
         self._recognition_worker.all_processed.connect(
             self._on_all_processed,
         )
+        self._recognition_worker.cancelled.connect(self._on_processing_cancelled)
         self._recognition_worker.page_error.connect(self._on_page_error)
         self._recognition_worker.progress.connect(self._on_progress)
 
@@ -1944,11 +1978,13 @@ class WorkbenchWindow(QMainWindow):
                 return
             value = value.strip()
 
-            # Validar con regex si está configurada
+            # Validar con regex si está configurada. Acotada en tiempo:
+            # esto corre en el hilo de la UI y un patrón patológico
+            # congelaría la ventana entera.
             if bc_regex:
-                import re
+                from app.utils import safe_regex
 
-                if not re.fullmatch(bc_regex, value):
+                if not safe_regex.fullmatch(bc_regex, value):
                     QMessageBox.warning(
                         self,
                         self.tr("Formato inv\u00e1lido"),
@@ -2049,6 +2085,12 @@ class WorkbenchWindow(QMainWindow):
             lambda: self._status_bar.showMessage(
                 self.tr("Re-procesado completado"),
                 3000,
+            ),
+        )
+        self._recognition_worker.cancelled.connect(
+            lambda procesadas, totales: self._status_bar.showMessage(
+                self.tr("Re-procesado cancelado"),
+                5000,
             ),
         )
         self._recognition_worker.start()
