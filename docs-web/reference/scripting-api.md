@@ -48,8 +48,20 @@ Referencia completa de los objetos disponibles en scripts.
 | `skip_to(id)` | Saltar hasta un paso |
 | `abort(reason)` | Abortar pipeline |
 | `repeat_step(id)` | Repetir paso (máx. 3) |
-| `replace_image(img)` | Reemplazar imagen |
+| `replace_image(img)` | Reemplazar imagen y marcarla para guardar |
 | `set_metadata(k, v)` | Guardar dato |
 | `get_metadata(k)` | Recuperar dato |
 | `get_step_result(id)` | Resultado de paso anterior |
 | `current_image` | Imagen actual (propiedad) |
+
+!!! warning "Qué imagen se guarda con `replace_image()`"
+
+    `replace_image()` marca la página para que se persista en disco, pero
+    lo que acaba en el fichero es el **estado final del pipeline**, no
+    forzosamente la imagen que pasa tu script: si detrás corren más
+    operaciones de imagen, el fichero recoge el resultado de estas.
+
+    Si necesitas fijar un punto concreto, marca la casilla **«Guardar el
+    resultado en el fichero de la página»** en el paso que corresponda.
+    Esa guarda una instantánea de ese paso y tiene prioridad sobre el
+    estado final.

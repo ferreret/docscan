@@ -134,9 +134,16 @@ class PipelineContext:
     def replace_image(self, image: np.ndarray) -> None:
         """Reemplaza la imagen en curso del pipeline.
 
-        Cuando se llama desde un script, marca la imagen como
-        modificada por el usuario (image_replaced=True) para que
-        se persista en disco al finalizar el pipeline.
+        Marca la página como modificada para que se persista en disco al
+        finalizar el pipeline.
+
+        Ojo con qué imagen acaba guardándose: lo que se persiste es el
+        **estado final** del pipeline, no necesariamente la imagen que
+        pasa este script. Si después corren más ``ImageOpStep``, el
+        fichero recoge el resultado de estos. Para fijar una instantánea
+        concreta, marca la casilla «Guardar el resultado en el fichero de
+        la página» en el paso que corresponda: esa sí tiene prioridad
+        sobre el estado final.
         """
         self._current_image = image
         self._image_replaced = True
