@@ -8,6 +8,39 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### ✨ Salto directo a página en el visor
+
+- El contador `N / M` de la barra flotante del visor **es editable**: clic, teclear
+  el número y pulsar Intro lleva a esa página. Pensado para lotes largos, donde
+  llegar a la página 427 de 600 a golpe de flecha no es viable. Escape o hacer clic
+  fuera cancelan y restauran el valor. Los números fuera de rango se ignoran.
+- Mientras se escribe en el contador, los atajos de tecla simple (flechas,
+  Inicio/Fin y **Supr**) quedan desactivados: de lo contrario el atajo de ventana
+  tiene prioridad sobre el campo de texto y `Supr` borraría una página en lugar de
+  un dígito.
+
+### 🐛 Correcciones de robustez
+
+- **La caché de scripts se indexa por contenido, no por identificador de paso.**
+  Antes, editar un script podía seguir ejecutando la versión anterior si el motor
+  sobrevivía al guardado, porque la entrada de caché se buscaba por `step.id`.
+  Ahora la clave es el hash del código fuente y una edición se detecta sola; las
+  versiones ya compiladas se reutilizan sin recompilar.
+- **Los identificadores de paso se sanean al cargar el pipeline.** Un id vacío,
+  ausente o duplicado rompía de forma difusa todo lo que indexa por id (caché de
+  scripts, `skip_step`, `skip_to`, el límite de `repeat_step`). Ahora se regeneran
+  al deserializar, dejando aviso en el log, en lugar de fallar más tarde y lejos de
+  la causa.
+- **Escritura atómica** (temporal + `rename`) del almacén cifrado de credenciales,
+  de su clave y de los ficheros de exportación de aplicaciones. Un cierre a
+  destiempo ya no puede dejar un `secrets.enc` truncado —y por tanto ilegible por
+  completo— ni un pack de aplicación a medias.
+- **Los ficheros de un lote se borran solo después de que la base de datos confirme
+  la eliminación.** Al eliminar lotes o páginas, el borrado en disco se difiere al
+  `commit`; si la transacción se revierte, las imágenes siguen en su sitio. El
+  orden anterior (borrar primero, confirmar después) destruía imágenes de forma
+  irrecuperable si la base de datos rechazaba el borrado.
+
 ## [0.1.5] - 2026-07-22
 
 ### 🐛 La app desktop aplica migraciones al arrancar
