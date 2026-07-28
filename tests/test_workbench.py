@@ -523,6 +523,88 @@ class TestAppContext:
 # ==================================================================
 
 
+class TestCancelacionHonesta:
+    """Cancelar no debe reportarse como terminación correcta (C7)."""
+
+    def test_scan_worker_cancelado_no_dice_terminado(self, qtbot, color_image):
+        """Al interrumpir emite `cancelled`, nunca `finished_scanning`."""
+        mock_import = MagicMock()
+        mock_import.import_file.return_value = [color_image] * 50
+
+        worker = ScanWorker(
+            mode="import_file",
+            source="/fake/doc.tiff",
+            import_service=mock_import,
+        )
+
+        terminados: list[int] = []
+        worker.finished_scanning.connect(terminados.append)
+
+        emitidas: list[int] = []
+        worker.page_acquired.connect(lambda *a: emitidas.append(1))
+        # Pedir la interrupción en cuanto llegue la primera página.
+        worker.page_acquired.connect(lambda *a: worker.requestInterruption())
+
+        with qtbot.waitSignal(worker.cancelled, timeout=5000) as sig:
+            worker.start()
+        worker.wait()
+
+        assert terminados == [], "no debe anunciar 'terminado' tras cancelar"
+        # Informa de las páginas realmente entregadas, no del total.
+        assert sig.args[0] < 50
+        assert sig.args[0] == len(emitidas)
+
+    def test_scan_worker_completo_sigue_diciendo_terminado(self, qtbot, color_image):
+        """Sin interrupción, el camino normal no cambia."""
+        mock_import = MagicMock()
+        mock_import.import_file.return_value = [color_image, color_image]
+
+        worker = ScanWorker(
+            mode="import_file",
+            source="/fake/doc.tiff",
+            import_service=mock_import,
+        )
+
+        cancelados: list[int] = []
+        worker.cancelled.connect(cancelados.append)
+
+        with qtbot.waitSignal(worker.finished_scanning, timeout=3000) as sig:
+            worker.start()
+        worker.wait()
+
+        assert sig.args[0] == 2
+        assert cancelados == []
+
+    def test_recognition_worker_cancelado_no_dice_todo_procesado(
+        self, qtbot, color_image
+    ):
+        """`all_processed` marca el lote como leído: no puede emitirse al cancelar."""
+        executor = MagicMock()
+        worker = RecognitionWorker(
+            executor=executor,
+            app_context=AppContext(id=1, name="Test"),
+            batch_context=BatchContext(id=10),
+        )
+
+        procesados_todos: list[int] = []
+        worker.all_processed.connect(lambda: procesados_todos.append(1))
+
+        # Cola con páginas pendientes y SIN sentinel: se interrumpe a media faena.
+        for i in range(5):
+            worker.enqueue_page(i, color_image)
+
+        worker.page_processed.connect(lambda *a: worker.requestInterruption())
+
+        with qtbot.waitSignal(worker.cancelled, timeout=5000) as sig:
+            worker.start()
+        worker.wait()
+
+        assert procesados_todos == [], "no debe anunciar 'todo procesado' tras cancelar"
+        procesadas, totales = sig.args
+        assert totales == 5
+        assert procesadas < 5
+
+
 class TestRecognitionWorker:
     def _make_executor(self, side_effect=None):
         """Crea un executor mock que simplemente no hace nada (o lanza error)."""
