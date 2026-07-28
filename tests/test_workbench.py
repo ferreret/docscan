@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -542,8 +543,15 @@ class TestCancelacionHonesta:
 
         emitidas: list[int] = []
         worker.page_acquired.connect(lambda *a: emitidas.append(1))
-        # Pedir la interrupción en cuanto llegue la primera página.
-        worker.page_acquired.connect(lambda *a: worker.requestInterruption())
+        # Pedir la interrupción en cuanto llegue la primera página. La conexión
+        # es directa a propósito: así el flag queda puesto en el propio hilo del
+        # worker antes de la siguiente vuelta del bucle. Con una conexión en
+        # cola, en una máquina rápida el worker termina las 50 páginas antes de
+        # que el hilo principal despache la petición, y el test es una lotería.
+        worker.page_acquired.connect(
+            lambda *a: worker.requestInterruption(),
+            Qt.ConnectionType.DirectConnection,
+        )
 
         with qtbot.waitSignal(worker.cancelled, timeout=5000) as sig:
             worker.start()
@@ -593,7 +601,14 @@ class TestCancelacionHonesta:
         for i in range(5):
             worker.enqueue_page(i, color_image)
 
-        worker.page_processed.connect(lambda *a: worker.requestInterruption())
+        # Conexión directa: el flag se pone en el hilo del worker justo tras
+        # emitir, de modo que la siguiente vuelta del bucle lo ve. En cola, con
+        # un executor simulado que devuelve al instante, el worker vacía las
+        # cinco páginas antes de que el hilo principal despache la petición.
+        worker.page_processed.connect(
+            lambda *a: worker.requestInterruption(),
+            Qt.ConnectionType.DirectConnection,
+        )
 
         with qtbot.waitSignal(worker.cancelled, timeout=5000) as sig:
             worker.start()
@@ -602,7 +617,7 @@ class TestCancelacionHonesta:
         assert procesados_todos == [], "no debe anunciar 'todo procesado' tras cancelar"
         procesadas, totales = sig.args
         assert totales == 5
-        assert procesadas < 5
+        assert procesadas < 5, "debía quedar trabajo pendiente en la cola"
 
 
 class TestRecognitionWorker:
