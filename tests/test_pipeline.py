@@ -128,6 +128,48 @@ class TestSerializer:
         assert serialize([]) == "[]"
 
 
+class TestCuracionDeIds:
+    """Ids vacíos o duplicados se sanean al cargar (regresión C8)."""
+
+    def test_id_ausente_se_genera(self):
+        steps = deserialize('[{"type": "image_op", "op": "Rotate"}]')
+        assert len(steps) == 1
+        assert steps[0].id == "image_op_001"
+
+    def test_id_vacio_se_genera(self):
+        steps = deserialize('[{"id": "   ", "type": "barcode"}]')
+        assert steps[0].id == "barcode_001"
+
+    def test_ids_duplicados_se_renombran(self):
+        json_str = (
+            '[{"id": "s1", "type": "image_op", "op": "Rotate"},'
+            ' {"id": "s1", "type": "image_op", "op": "AutoDeskew"},'
+            ' {"id": "s1", "type": "barcode"}]'
+        )
+        steps = deserialize(json_str)
+        ids = [s.id for s in steps]
+        assert ids[0] == "s1"
+        assert len(set(ids)) == 3, f"ids no únicos: {ids}"
+
+    def test_id_generado_no_colisiona_con_uno_existente(self):
+        """El id inventado para el paso 1 ya lo usa otro paso."""
+        json_str = (
+            '[{"id": "", "type": "barcode"}, {"id": "barcode_001", "type": "barcode"}]'
+        )
+        steps = deserialize(json_str)
+        assert steps[0].id == "barcode_001"
+        assert steps[1].id != "barcode_001"
+        assert len({s.id for s in steps}) == 2
+
+    def test_ids_validos_no_se_tocan(self):
+        json_str = (
+            '[{"id": "recorte", "type": "image_op", "op": "Crop"},'
+            ' {"id": "lectura", "type": "barcode"}]'
+        )
+        steps = deserialize(json_str)
+        assert [s.id for s in steps] == ["recorte", "lectura"]
+
+
 # ------------------------------------------------------------------
 # PipelineContext
 # ------------------------------------------------------------------

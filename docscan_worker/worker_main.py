@@ -202,6 +202,37 @@ def _compile_lifecycle_events(
     return events
 
 
+def _persist_processed_image(page_db: Any, page_ctx: Any) -> None:
+    """Guarda en disco la imagen si el pipeline la marcó como reemplazada.
+
+    Ocurre cuando un ``ImageOpStep`` tiene ``persist=True`` o cuando un
+    script llamó a ``pipeline.replace_image()``. Sin esto, el worker
+    desatendido transferiría el original mientras el workbench transfiere
+    la imagen procesada, con el mismo pipeline.
+
+    Args:
+        page_db: Registro Page de la base de datos.
+        page_ctx: Contexto de página tras ejecutar el pipeline.
+    """
+    if not getattr(page_ctx, "image_replaced", False):
+        return
+    if page_ctx.image is None or not page_db.image_path:
+        return
+
+    try:
+        from app.services.image_lib import ImageLib
+
+        original_dpi = ImageLib.get_dpi(page_db.image_path)
+        dpi_val = int(original_dpi[0]) if original_dpi[0] > 0 else None
+        ImageLib.save(page_ctx.image, page_db.image_path, dpi=dpi_val)
+    except Exception as exc:
+        log.error(
+            "Error guardando la imagen procesada de la página %s: %s",
+            getattr(page_db, "page_index", "?"),
+            exc,
+        )
+
+
 # ------------------------------------------------------------------
 # Procesamiento de un lote de ficheros
 # ------------------------------------------------------------------
@@ -319,6 +350,7 @@ def _process_files(
 
         # 5. Actualizar páginas en BD con resultados del pipeline
         for page_db, page_ctx in page_contexts:
+            _persist_processed_image(page_db, page_ctx)
             page_db.ocr_text = page_ctx.ocr_text
             page_db.index_fields_json = json.dumps(page_ctx.fields)
             page_db.needs_review = page_ctx.flags.needs_review
@@ -565,6 +597,7 @@ def _process_pending_batches(
                     )
                     continue
 
+                _persist_processed_image(page_db, page_ctx)
                 page_db.ocr_text = page_ctx.ocr_text
                 page_db.index_fields_json = json.dumps(page_ctx.fields)
                 page_db.needs_review = page_ctx.flags.needs_review

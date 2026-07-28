@@ -303,6 +303,28 @@ QToolBar::separator {
     font-weight: 800;
 }
 
+/* Contador editable: se ve como la etiqueta hasta que recibe el foco */
+#viewerOverlay #pageInfoEdit {
+    color: #f38ba8;
+    font-size: 36px;
+    font-weight: 800;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 0px 2px;
+    selection-background-color: #f38ba8;
+    selection-color: #1e1e2e;
+}
+
+#viewerOverlay #pageInfoEdit:hover {
+    border-color: #6c7086;
+}
+
+#viewerOverlay #pageInfoEdit:focus {
+    background-color: #1e1e2e;
+    border-color: #f38ba8;
+}
+
 #viewerOverlay #overlaySeparator {
     background-color: #45475a;
 }

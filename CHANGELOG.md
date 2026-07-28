@@ -8,6 +8,77 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### ✨ Salto directo a página en el visor
+
+- El contador `N / M` de la barra flotante del visor **es editable**: clic, teclear
+  el número y pulsar Intro lleva a esa página. Pensado para lotes largos, donde
+  llegar a la página 427 de 600 a golpe de flecha no es viable. Escape o hacer clic
+  fuera cancelan y restauran el valor. Los números fuera de rango se ignoran.
+- Mientras se escribe en el contador, los atajos de tecla simple (flechas,
+  Inicio/Fin y **Supr**) quedan desactivados: de lo contrario el atajo de ventana
+  tiene prioridad sobre el campo de texto y `Supr` borraría una página en lugar de
+  un dígito.
+
+### ✨ Las operaciones de imagen pueden alterar el documento entregado
+
+- Nueva casilla **«Guardar el resultado en el fichero de la página»** en el paso de
+  operación de imagen. Hasta ahora las ImageOps solo afectaban a la imagen que
+  circula por el pipeline —preparación para leer barcodes u OCR— y el fichero que
+  se archivaba y transfería conservaba el original del escáneo. Eso es razonable
+  para `FxGrayscale` o `ConvertTo1Bpp`, pero no para `AutoDeskew`,
+  `CropWhiteBorders`, `Rotate` o `RemoveHolePunch`, donde el operador da por hecho
+  que el documento sale enderezado y recortado. La única alternativa era escribir
+  un script con `pipeline.replace_image()`.
+- **Desactivada por defecto**: las aplicaciones existentes se comportan
+  exactamente igual y no hay migración que aplicar.
+- La casilla guarda una **instantánea de ese paso**, no el estado final del
+  pipeline: se puede enderezar y archivar, y binarizar después solo para leer.
+- El **worker desatendido** también persiste ahora la imagen procesada. Antes no
+  lo hacía en ningún caso, así que el mismo pipeline transfería imágenes
+  distintas según se ejecutara desde el workbench o sin supervisión.
+
+### 🐛 Correcciones de robustez
+
+- **La caché de scripts se indexa por contenido, no por identificador de paso.**
+  Antes, editar un script podía seguir ejecutando la versión anterior si el motor
+  sobrevivía al guardado, porque la entrada de caché se buscaba por `step.id`.
+  Ahora la clave es el hash del código fuente y una edición se detecta sola; las
+  versiones ya compiladas se reutilizan sin recompilar.
+- **Los identificadores de paso se sanean al cargar el pipeline.** Un id vacío,
+  ausente o duplicado rompía de forma difusa todo lo que indexa por id (caché de
+  scripts, `skip_step`, `skip_to`, el límite de `repeat_step`). Ahora se regeneran
+  al deserializar, dejando aviso en el log, en lugar de fallar más tarde y lejos de
+  la causa.
+- **Escritura atómica** (temporal + `rename`) del almacén cifrado de credenciales,
+  de su clave y de los ficheros de exportación de aplicaciones. Un cierre a
+  destiempo ya no puede dejar un `secrets.enc` truncado —y por tanto ilegible por
+  completo— ni un pack de aplicación a medias.
+- **Los ficheros de un lote se borran solo después de que la base de datos confirme
+  la eliminación.** Al eliminar lotes o páginas, el borrado en disco se difiere al
+  `commit`; si la transacción se revierte, las imágenes siguen en su sitio. El
+  orden anterior (borrar primero, confirmar después) destruía imágenes de forma
+  irrecuperable si la base de datos rechazaba el borrado.
+- **Un script colgado ya no deja sin scripting al resto del lote.** El motor
+  ejecuta los scripts en un hilo con límite de tiempo, pero ese hilo no se puede
+  matar: al expirar el plazo se quedaba ocupado para siempre y todas las páginas
+  siguientes se encolaban detrás, agotando el timeout una a una. En un lote de 600
+  páginas eran horas de esperas con el scripting muerto y sin aviso. Ahora, tras un
+  timeout, el motor descarta ese hilo y sigue con uno limpio.
+- **Las expresiones regulares de usuario se evalúan con límite de tiempo** (1 s,
+  criterio *fail-open*), tanto en el filtro del paso de barcode como en la
+  validación del barcode manual —esta última corría en el hilo de la interfaz, así
+  que un patrón con *backtracking* catastrófico congelaba la ventana entera. Se
+  añade la dependencia `regex`: el `re` de la biblioteca estándar no admite timeout
+  y no libera el GIL mientras evalúa, de modo que ningún vigilante escrito en
+  Python puede rescatarlo.
+- **Cancelar deja de reportarse como terminación correcta.** `ScanWorker` anunciaba
+  el total completo de páginas tras una interrupción, y `RecognitionWorker` emitía
+  la misma señal de «todo procesado» que en el camino normal —la señal que marca el
+  lote como leído y dispara la auto-transferencia—. Ambos emiten ahora una señal
+  propia de cancelación con el recuento real. Hoy la interrupción solo ocurre al
+  cerrar la ventana, así que no había daño observable; quedaba como una mina para
+  el día que se añada un botón de cancelar.
+
 ## [0.1.5] - 2026-07-22
 
 ### 🐛 La app desktop aplica migraciones al arrancar

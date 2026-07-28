@@ -10,13 +10,13 @@ Los resultados se acumulan en page.barcodes sin semántica de rol.
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
 import cv2
 import numpy as np
 
 from app.pipeline.page_context import BarcodeResult  # noqa: F401 — re-export
+from app.utils import safe_regex
 
 log = logging.getLogger(__name__)
 
@@ -358,11 +358,15 @@ class BarcodeService:
         regex: str,
         include_symbology: bool,
     ) -> list[BarcodeResult]:
-        """Filtra resultados por expresión regular."""
-        try:
-            pattern = re.compile(regex)
-        except re.error as e:
-            log.error("Regex inválido '%s': %s", regex, e)
+        """Filtra resultados por expresión regular.
+
+        El patrón lo escribe el integrador, así que se evalúa con límite
+        de tiempo: uno con backtracking catastrófico colgaría el pipeline
+        entero sin dejar rastro. Criterio fail-open, igual que con un
+        patrón inválido: ante la duda pasa el valor y queda en el log.
+        """
+        if safe_regex.compile_pattern(regex) is None:
+            # Patrón inválido: ya queda registrado en el log. Fail-open.
             return results
 
         filtered: list[BarcodeResult] = []
@@ -371,7 +375,7 @@ class BarcodeService:
             if include_symbology:
                 # Prefijo de 2 caracteres con el tipo de simbología
                 test_value = f"{r.symbology[:2]}{r.value}"
-            if pattern.search(test_value):
+            if safe_regex.search(regex, test_value):
                 filtered.append(r)
 
         return filtered

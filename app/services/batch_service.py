@@ -14,6 +14,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from app.models.batch import Batch, BATCH_STATES
@@ -173,15 +174,19 @@ class BatchService:
         return img
 
     def remove_page(self, page_id: int) -> None:
-        """Elimina una página y su imagen de disco."""
+        """Elimina una página y su imagen de disco.
+
+        La imagen se borra **después** de que el llamador confirme la
+        transacción. Si hace rollback, el fichero sigue en su sitio y la
+        página permanece íntegra.
+        """
         page = self._page_repo.get_by_id(page_id)
         if page is None:
             return
-        # Eliminar imagen de disco
-        path = Path(page.image_path)
-        if path.exists():
-            path.unlink()
+        image_path = page.image_path
         self._page_repo.delete(page_id)
+        if image_path:
+            self._delete_after_commit([Path(image_path)])
 
     def reorder_pages(self, batch_id: int, page_ids: list[int]) -> None:
         """Reordena las páginas según el orden dado de IDs."""
@@ -279,24 +284,40 @@ class BatchService:
     # ------------------------------------------------------------------
 
     def delete_batch(self, batch_id: int) -> None:
-        """Elimina un lote y sus imágenes de disco."""
+        """Elimina un lote y sus imágenes de disco.
+
+        El borrado en disco se difiere hasta que el llamador confirma la
+        transacción: si el commit falla o se hace rollback, las imágenes
+        siguen ahí y el lote se puede seguir explotando. El orden
+        contrario (borrar primero, confirmar después) destruye datos de
+        forma irrecuperable cuando la BD rechaza el borrado.
+        """
         batch = self._batch_repo.get_by_id(batch_id)
         if batch is None:
             return
 
-        # Eliminar directorio de imágenes
         batch_dir = self._batch_dir(batch)
-        if batch_dir.exists():
-            for f in batch_dir.iterdir():
-                if f.is_file():
-                    f.unlink()
-            try:
-                batch_dir.rmdir()
-            except OSError:
-                log.warning("No se pudo eliminar directorio: %s", batch_dir)
-
         self._batch_repo.delete(batch_id)
-        log.info("Lote %d eliminado", batch_id)
+        self._delete_after_commit([batch_dir])
+        log.info("Lote %d marcado para eliminación", batch_id)
+
+    def _delete_after_commit(self, paths: list[Path]) -> None:
+        """Programa el borrado de ficheros o directorios tras el commit.
+
+        Se engancha al evento ``after_commit`` de la sesión, de modo que
+        nada se toca en disco mientras la transacción pueda revertirse.
+        Si el llamador nunca confirma, los ficheros quedan huérfanos: es
+        el fallo preferible frente a perder imágenes de un lote vivo.
+
+        Args:
+            paths: Ficheros o directorios a eliminar.
+        """
+
+        def _on_commit(session: Session) -> None:
+            for path in paths:
+                _delete_path(path)
+
+        event.listen(self._session, "after_commit", _on_commit, once=True)
 
     # ------------------------------------------------------------------
     # Internos
@@ -305,3 +326,22 @@ class BatchService:
     def _batch_dir(self, batch: Batch) -> Path:
         """Directorio de imágenes del lote."""
         return self._images_dir / f"app_{batch.application_id}" / f"batch_{batch.id}"
+
+
+def _delete_path(path: Path) -> None:
+    """Elimina un fichero, o un directorio con sus ficheros.
+
+    Best-effort: cualquier fallo se registra en el log y no interrumpe el
+    borrado del resto. Llegados aquí la BD ya está confirmada, así que lo
+    peor que puede pasar es dejar ficheros huérfanos.
+    """
+    try:
+        if path.is_dir():
+            for child in path.iterdir():
+                if child.is_file():
+                    child.unlink()
+            path.rmdir()
+        else:
+            path.unlink(missing_ok=True)
+    except OSError as e:
+        log.warning("No se pudo eliminar '%s': %s", path, e)

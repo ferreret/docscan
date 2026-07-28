@@ -14,6 +14,7 @@ from typing import Any
 
 from app.db.repositories.application_repo import ApplicationRepository
 from app.models.application import Application
+from app.utils.atomic_io import atomic_write_text
 
 log = logging.getLogger(__name__)
 
@@ -82,12 +83,16 @@ def export_application(app: Application) -> dict[str, Any]:
 
 
 def export_to_file(app: Application, path: str | Path) -> None:
-    """Exporta una aplicacion a un fichero JSON."""
+    """Exporta una aplicacion a un fichero JSON.
+
+    La escritura es atomica: si el proceso muere a mitad, el fichero
+    destino conserva su contenido anterior en lugar de quedar truncado.
+    """
     data = export_application(app)
     path = Path(path)
-    path.write_text(
+    atomic_write_text(
+        path,
         json.dumps(data, indent=2, ensure_ascii=False),
-        encoding="utf-8",
     )
     log.info("Aplicacion '%s' exportada a %s", app.name, path)
 

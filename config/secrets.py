@@ -13,6 +13,7 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from app.utils.atomic_io import atomic_write_bytes
 from config.settings import get_settings
 
 log = logging.getLogger(__name__)
@@ -77,10 +78,9 @@ class SecretsManager:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _secure_chmod(path: Path) -> None:
-        """Aplica permisos 0600 en plataformas que lo soportan."""
-        if sys.platform != "win32":
-            path.chmod(0o600)
+    def _secure_mode() -> int | None:
+        """Permisos 0600, o None en plataformas que no los soportan."""
+        return None if sys.platform == "win32" else 0o600
 
     def _get_fernet(self) -> Fernet:
         """Obtiene o inicializa la instancia Fernet."""
@@ -91,9 +91,7 @@ class SecretsManager:
             key = self._key_file.read_bytes().strip()
         else:
             key = Fernet.generate_key()
-            self._key_file.parent.mkdir(parents=True, exist_ok=True)
-            self._key_file.write_bytes(key)
-            self._secure_chmod(self._key_file)
+            atomic_write_bytes(self._key_file, key, chmod=self._secure_mode())
             log.info("Clave de cifrado generada en %s", self._key_file)
 
         self._fernet = Fernet(key)
@@ -125,6 +123,10 @@ class SecretsManager:
         raw = json.dumps(data, ensure_ascii=False).encode()
         encrypted = f.encrypt(raw)
 
-        self._secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        self._secrets_file.write_bytes(encrypted)
-        self._secure_chmod(self._secrets_file)
+        # Atómica: un almacén truncado sería indescifrable por completo,
+        # no solo en el secret que se estaba guardando.
+        atomic_write_bytes(
+            self._secrets_file,
+            encrypted,
+            chmod=self._secure_mode(),
+        )

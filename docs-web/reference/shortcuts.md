@@ -14,6 +14,13 @@
 | `Ctrl+Shift+→` | Siguiente pendiente de revisión |
 | `Ctrl+W` | Cerrar lote |
 
+!!! tip "Ir a una página concreta"
+
+    El contador `N / M` de la barra flotante del visor es editable: haz clic
+    sobre el número, escribe el que quieras y pulsa ++enter++. `Esc` o hacer
+    clic fuera cancelan. Mientras escribes ahí, las teclas simples
+    (flechas, ++home++ / ++end++ y ++del++) no actúan como atajos.
+
 ## Visor
 
 | Atajo | Acción |

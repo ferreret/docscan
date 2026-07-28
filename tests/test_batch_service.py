@@ -152,7 +152,29 @@ class TestPages:
         assert image_path.exists()
 
         service.remove_page(pages[0].id)
+        # El fichero sigue en disco hasta que la BD confirma el borrado.
+        assert image_path.exists()
+
+        session.commit()
         assert not image_path.exists()
+
+    def test_remove_page_rollback_conserva_la_imagen(
+        self,
+        service: BatchService,
+        app_id: int,
+        sample_images: list[np.ndarray],
+        session: Session,
+    ):
+        """Si la transacción se revierte, la imagen no se toca."""
+        batch = service.create_batch(app_id)
+        pages = service.add_pages(batch.id, sample_images[:1])
+        session.commit()
+        image_path = Path(pages[0].image_path)
+
+        service.remove_page(pages[0].id)
+        session.rollback()
+
+        assert image_path.exists()
 
     def test_reorder_pages(
         self,
@@ -276,11 +298,36 @@ class TestFieldsAndDeletion:
         service: BatchService,
         app_id: int,
         sample_images: list[np.ndarray],
+        session: Session,
     ):
         batch = service.create_batch(app_id)
         pages = service.add_pages(batch.id, sample_images[:1])
         image_path = Path(pages[0].image_path)
 
         service.delete_batch(batch.id)
-        assert not image_path.exists()
         assert service.get_batch(batch.id) is None
+        # Las imágenes solo desaparecen cuando la BD confirma.
+        assert image_path.exists()
+
+        session.commit()
+        assert not image_path.exists()
+        assert not image_path.parent.exists()
+
+    def test_delete_batch_rollback_conserva_las_imagenes(
+        self,
+        service: BatchService,
+        app_id: int,
+        sample_images: list[np.ndarray],
+        session: Session,
+    ):
+        """Un rollback deja el lote intacto: registro e imágenes."""
+        batch = service.create_batch(app_id)
+        pages = service.add_pages(batch.id, sample_images[:1])
+        session.commit()
+        image_path = Path(pages[0].image_path)
+
+        service.delete_batch(batch.id)
+        session.rollback()
+
+        assert image_path.exists()
+        assert service.get_batch(batch.id) is not None

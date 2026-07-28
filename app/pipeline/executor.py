@@ -102,13 +102,14 @@ class PipelineExecutor:
                 log.error("Error en paso %s (%s): %s", step.id, step.type, e)
                 self._record_processing_error(page, step, e)
 
-        # Propagar imagen al page solo si un script llamó a replace_image
-        if (
-            ctx.image_replaced
-            and ctx.current_image is not None
-            and hasattr(page, "image")
-        ):
-            page.image = ctx.current_image
+        # Propagar la imagen al page solo si alguien pidió persistirla: un
+        # ImageOpStep con persist=True (que deja instantánea) o un script
+        # con replace_image (que persiste el estado final del pipeline).
+        target_image = (
+            ctx.persist_image if ctx.persist_image is not None else ctx.current_image
+        )
+        if ctx.image_replaced and target_image is not None and hasattr(page, "image"):
+            page.image = target_image
             if hasattr(page, "image_replaced"):
                 page.image_replaced = True
 
@@ -150,7 +151,14 @@ class PipelineExecutor:
         page: Any,
         ctx: PipelineContext,
     ) -> Any:
-        """Ejecuta una operación de imagen."""
+        """Ejecuta una operación de imagen.
+
+        Con ``persist=False`` (por defecto) el resultado solo viaja por el
+        pipeline y alimenta a los pasos siguientes; el fichero de la
+        página no se toca. Con ``persist=True`` se marca la imagen como
+        reemplazada, que es lo que hace que el llamador la guarde en
+        disco y, por tanto, que se archive y se transfiera procesada.
+        """
         image = self._get_image(page, ctx)
         processed = self._image_service.execute(
             image,
@@ -158,7 +166,10 @@ class PipelineExecutor:
             step.params,
             step.window,
         )
-        ctx.set_pipeline_image(processed)
+        if getattr(step, "persist", False):
+            ctx.mark_persist(processed)
+        else:
+            ctx.set_pipeline_image(processed)
         return {"op": step.op, "shape": processed.shape}
 
     def _run_barcode(

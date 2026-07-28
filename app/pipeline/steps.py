@@ -36,12 +36,19 @@ class ImageOpStep(PipelineStep):
     FxNegative, FxDilate, FxErode, FxEqualizeIntensity, FloodFill,
     RemoveHolePunch, SetResolution, SwapColor, KeepChannel, RemoveChannel,
     ScaleChannel.
+
+    Por defecto la operación solo afecta a la imagen que circula por el
+    pipeline (preproceso para leer barcodes u OCR): el fichero archivado
+    y transferido conserva el original del escaneo. Con ``persist=True``
+    el resultado sustituye al fichero de la página, que es lo que se
+    espera de operaciones como AutoDeskew, CropWhiteBorders o Rotate.
     """
 
     type: Literal["image_op"] = "image_op"
     op: str = ""
     params: dict[str, Any] = field(default_factory=dict)
     window: tuple[int, int, int, int] | None = None  # (x, y, w, h) px
+    persist: bool = False  # ¿El resultado sustituye al fichero de la página?
 
 
 @dataclass

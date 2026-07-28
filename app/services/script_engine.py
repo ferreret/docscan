@@ -1,12 +1,17 @@
 """ScriptEngine — compilación y ejecución de scripts de usuario.
 
-Compila el código Python una vez al cargar la aplicación (cache por step_id).
+Compila el código Python una vez al cargar la aplicación. La cache se
+indexa por **hash del código fuente**, no por el identificador del paso:
+si el usuario edita un script y el engine sobrevive al guardado, la
+siguiente ejecución compila la versión nueva en lugar de reutilizar la
+antigua.
 Captura TODAS las excepciones sin crashear la app ni detener el pipeline.
 """
 
 from __future__ import annotations
 
 import concurrent.futures
+import hashlib
 import inspect
 import logging
 import re
@@ -41,7 +46,8 @@ class _HasFlags(Protocol):
 class ScriptEngine:
     """Compila y ejecuta scripts Python de usuario.
 
-    - Compila el código una vez al cargar la aplicación (cache por id)
+    - Compila el código una vez al cargar la aplicación (cache por hash
+      del fuente: editar un script invalida su entrada automáticamente)
     - Captura TODAS las excepciones sin crashear la app
     - Expone el contexto completo al script
 
@@ -54,7 +60,12 @@ class ScriptEngine:
         http_client: Any = None,
         script_timeout: int = DEFAULT_SCRIPT_TIMEOUT,
     ) -> None:
-        self._compiled_cache: dict[str, CodeType] = {}
+        # Código compilado indexado por hash del fuente (evita ejecutar
+        # una versión antigua tras editar el script).
+        self._code_by_hash: dict[str, CodeType] = {}
+        # Último hash conocido de cada script_id (para los eventos de
+        # ciclo de vida, que no llevan el fuente en la llamada).
+        self._hash_by_id: dict[str, str] = {}
         self._http_client = http_client
         self._script_timeout = script_timeout
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -79,14 +90,17 @@ class ScriptEngine:
         Raises:
             ScriptCompilationError: Si el código tiene errores de sintaxis.
         """
-        display_name = label or script_id
-        try:
-            code = compile(source, f"<script:{display_name}>", "exec")
-            self._compiled_cache[script_id] = code
-        except SyntaxError as e:
-            raise ScriptCompilationError(
-                f"Error de sintaxis en '{display_name}': {e}"
-            ) from e
+        source_hash = self._source_hash(source)
+        if source_hash not in self._code_by_hash:
+            display_name = label or script_id
+            try:
+                code = compile(source, f"<script:{display_name}>", "exec")
+            except SyntaxError as e:
+                raise ScriptCompilationError(
+                    f"Error de sintaxis en '{display_name}': {e}"
+                ) from e
+            self._code_by_hash[source_hash] = code
+        self._hash_by_id[script_id] = source_hash
 
     def compile_step(self, step: Any) -> None:
         """Compila un ScriptStep (conveniencia).
@@ -98,11 +112,54 @@ class ScriptEngine:
 
     def is_compiled(self, script_id: str) -> bool:
         """¿El script está compilado en cache?"""
-        return script_id in self._compiled_cache
+        return script_id in self._hash_by_id
 
     def clear_cache(self) -> None:
         """Limpia la cache de scripts compilados."""
-        self._compiled_cache.clear()
+        self._code_by_hash.clear()
+        self._hash_by_id.clear()
+
+    @staticmethod
+    def _source_hash(source: str) -> str:
+        """Huella del código fuente que identifica la versión compilada."""
+        return hashlib.sha256((source or "").encode("utf-8")).hexdigest()
+
+    def _code_for_id(self, script_id: str) -> CodeType | None:
+        """Devuelve el código compilado asociado a un script_id."""
+        source_hash = self._hash_by_id.get(script_id)
+        if source_hash is None:
+            return None
+        return self._code_by_hash.get(source_hash)
+
+    def _code_for_step(self, step: Any) -> CodeType | None:
+        """Devuelve el código compilado vigente de un ScriptStep.
+
+        Resuelve por el **contenido actual** del paso: si el script se
+        editó después de la compilación inicial, lo recompila al vuelo en
+        lugar de ejecutar la versión cacheada anterior.
+
+        Returns:
+            El objeto código, o None si no se pudo obtener.
+        """
+        source = getattr(step, "script", None)
+        if not isinstance(source, str):
+            # Paso duck-typed sin fuente accesible: resolver por id.
+            return self._code_for_id(step.id)
+
+        source_hash = self._source_hash(source)
+        code = self._code_by_hash.get(source_hash)
+        if code is not None:
+            self._hash_by_id[step.id] = source_hash
+            return code
+
+        label = getattr(step, "label", "") or step.id
+        log.info("Script '%s' modificado desde la carga; recompilando", label)
+        try:
+            self.compile_script(step.id, source, label)
+        except ScriptCompilationError as e:
+            log.error("No se pudo recompilar el script '%s': %s", label, e)
+            return None
+        return self._code_by_hash.get(source_hash)
 
     def shutdown(self) -> None:
         """Libera el ThreadPoolExecutor."""
@@ -135,7 +192,7 @@ class ScriptEngine:
         Returns:
             El valor retornado por la función del script, o None si falla.
         """
-        code = self._compiled_cache.get(step.id)
+        code = self._code_for_step(step)
         if not code:
             log.warning(
                 "Script '%s' no compilado, ignorando",
@@ -196,7 +253,7 @@ class ScriptEngine:
         Returns:
             El valor retornado por la función, o None si falla.
         """
-        code = self._compiled_cache.get(script_id)
+        code = self._code_for_id(script_id)
         if not code:
             return None
 
@@ -258,7 +315,7 @@ class ScriptEngine:
             AttributeError: Si el entry point no existe o no es callable.
             Exception: Cualquier excepción lanzada por el script del usuario.
         """
-        code = self._compiled_cache.get(script_id)
+        code = self._code_for_id(script_id)
         if not code:
             raise KeyError(f"Script '{script_id}' no está compilado en cache")
 
@@ -310,9 +367,27 @@ class ScriptEngine:
         try:
             return future.result(timeout=self._script_timeout)
         except concurrent.futures.TimeoutError:
+            # El hilo sigue atrapado en el script y Python no permite
+            # matarlo. Si se reutilizara el pool, todas las páginas
+            # siguientes se encolarían detrás y expirarían una a una: un
+            # solo script colgado dejaría el resto del lote sin scripting
+            # y con 30s de espera por página. Se descarta el pool y se
+            # abre uno limpio; el hilo viejo queda como daemon.
+            self._renew_executor()
             raise ScriptTimeoutError(
                 f"Script excedió el timeout de {self._script_timeout}s"
             )
+
+    def _renew_executor(self) -> None:
+        """Sustituye el pool de ejecución por uno limpio."""
+        old = self._executor
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        # No esperar: el hilo antiguo sigue ocupado por el script colgado.
+        old.shutdown(wait=False)
+        log.warning(
+            "Pool de scripts renovado tras un timeout; "
+            "el hilo anterior sigue ocupado por el script colgado"
+        )
 
     def _build_namespace(self, **kwargs: Any) -> dict[str, Any]:
         """Construye el namespace para exec/eval."""

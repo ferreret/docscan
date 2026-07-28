@@ -133,6 +133,56 @@ class TestCompilation:
         engine.compile_script("s1", "def run(**kw): return 2")
         assert engine.is_compiled("s1")
 
+    def test_recompilar_evento_ejecuta_la_version_nueva(
+        self, engine, page, batch, app_ctx
+    ):
+        """Recompilar un evento con el mismo id sustituye el código."""
+        engine.compile_script("on_app_start", "def run(**kw): return 'vieja'")
+        engine.compile_script("on_app_start", "def run(**kw): return 'nueva'")
+        assert engine.run_event("on_app_start", "run", app=app_ctx) == "nueva"
+
+
+class TestCacheInvalidation:
+    """La cache se indexa por contenido, no por step.id (regresión C1)."""
+
+    def test_editar_el_script_ejecuta_la_version_nueva(
+        self, engine, page, batch, app_ctx, pipeline
+    ):
+        step = MockStep(script="def run(app, batch, page, pipeline): return 'vieja'")
+        engine.compile_step(step)
+        assert engine.run_step(step, page, batch, app_ctx, pipeline) == "vieja"
+
+        # El usuario edita el script; el engine sobrevive al guardado y
+        # nadie vuelve a llamar a compile_step().
+        step.script = "def run(app, batch, page, pipeline): return 'nueva'"
+
+        assert engine.run_step(step, page, batch, app_ctx, pipeline) == "nueva"
+
+    def test_volver_al_script_anterior_reutiliza_la_cache(
+        self, engine, page, batch, app_ctx, pipeline
+    ):
+        original = "def run(app, batch, page, pipeline): return 'A'"
+        step = MockStep(script=original)
+        engine.compile_step(step)
+
+        step.script = "def run(app, batch, page, pipeline): return 'B'"
+        assert engine.run_step(step, page, batch, app_ctx, pipeline) == "B"
+
+        step.script = original
+        assert engine.run_step(step, page, batch, app_ctx, pipeline) == "A"
+        # Ambas versiones conviven en cache; ninguna se recompila de nuevo.
+        assert len(engine._code_by_hash) == 2
+
+    def test_script_editado_con_error_de_sintaxis_no_crashea(
+        self, engine, page, batch, app_ctx, pipeline
+    ):
+        step = MockStep(script="def run(app, batch, page, pipeline): return 'ok'")
+        engine.compile_step(step)
+
+        step.script = "def run(:"
+
+        assert engine.run_step(step, page, batch, app_ctx, pipeline) is None
+
 
 # ------------------------------------------------------------------
 # Ejecución de ScriptStep

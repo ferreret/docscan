@@ -45,6 +45,7 @@ class PipelineContext:
         self._results: dict[str, Any] = {}
         self._metadata: dict[str, Any] = {}
         self._current_image: np.ndarray | None = None
+        self._persist_image: np.ndarray | None = None
         self._image_replaced: bool = False
         self._aborted: bool = False
         self._abort_reason: str = ""
@@ -133,9 +134,16 @@ class PipelineContext:
     def replace_image(self, image: np.ndarray) -> None:
         """Reemplaza la imagen en curso del pipeline.
 
-        Cuando se llama desde un script, marca la imagen como
-        modificada por el usuario (image_replaced=True) para que
-        se persista en disco al finalizar el pipeline.
+        Marca la página como modificada para que se persista en disco al
+        finalizar el pipeline.
+
+        Ojo con qué imagen acaba guardándose: lo que se persiste es el
+        **estado final** del pipeline, no necesariamente la imagen que
+        pasa este script. Si después corren más ``ImageOpStep``, el
+        fichero recoge el resultado de estos. Para fijar una instantánea
+        concreta, marca la casilla «Guardar el resultado en el fichero de
+        la página» en el paso que corresponda: esa sí tiene prioridad
+        sobre el estado final.
         """
         self._current_image = image
         self._image_replaced = True
@@ -143,6 +151,25 @@ class PipelineContext:
     def set_pipeline_image(self, image: np.ndarray) -> None:
         """Uso interno del executor: actualiza la imagen sin marcar image_replaced."""
         self._current_image = image
+
+    def mark_persist(self, image: np.ndarray) -> None:
+        """Uso interno del executor: fija la imagen que debe ir a disco.
+
+        Guarda una **instantánea** de este punto del pipeline, no el
+        estado final. Es la diferencia que importa cuando el pipeline
+        endereza la página (y eso sí debe archivarse) y después la
+        binariza solo para leer los barcodes (y eso no).
+
+        Si varios pasos lo piden, gana el último.
+        """
+        self._current_image = image
+        self._persist_image = image
+        self._image_replaced = True
+
+    @property
+    def persist_image(self) -> np.ndarray | None:
+        """Instantánea marcada para persistir, si algún paso la fijó."""
+        return self._persist_image
 
     @property
     def current_image(self) -> np.ndarray | None:
