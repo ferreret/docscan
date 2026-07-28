@@ -411,6 +411,7 @@ class WorkbenchWindow(QMainWindow):
         self._viewer_overlay.nav_next_barcode.connect(self._on_next_barcode)
         self._viewer_overlay.nav_next_review.connect(self._on_next_review)
         self._viewer_overlay.nav_script.connect(self._on_nav_script)
+        self._viewer_overlay.page_jump_requested.connect(self._on_page_jump)
 
         # Overlay: zoom
         self._viewer_overlay.zoom_in_requested.connect(self._viewer.zoom_in)
@@ -452,11 +453,14 @@ class WorkbenchWindow(QMainWindow):
             self,
         ).activated.connect(slot)
 
-        # Navegación
-        _s("Left", self._on_prev)
-        _s("Right", self._on_next)
-        _s("Home", self._on_first)
-        _s("End", self._on_last)
+        # Navegación. Las teclas simples pasan por _typing_guard: mientras
+        # se teclea en el contador de página del overlay, el atajo de
+        # ventana tendría prioridad sobre el campo de texto (y "Supr"
+        # llegaría a borrar una página en lugar de un dígito).
+        _s("Left", self._typing_guard(self._on_prev))
+        _s("Right", self._typing_guard(self._on_next))
+        _s("Home", self._typing_guard(self._on_first))
+        _s("End", self._typing_guard(self._on_last))
         _s("Ctrl+Right", self._on_next_barcode)
         _s("Ctrl+Shift+Right", self._on_next_review)
         _s("Ctrl+G", self._on_nav_script)
@@ -476,9 +480,27 @@ class WorkbenchWindow(QMainWindow):
         # Manipulación de página
         _s("Ctrl+R", self._on_rotate_90)
         _s("Ctrl+M", self._on_mark_page)
-        _s("Delete", self._on_delete_current_page)
+        _s("Delete", self._typing_guard(self._on_delete_current_page))
         _s("Ctrl+P", self._on_reprocess_page)
         _s("Ctrl+B", self._on_insert_barcode)
+
+    def _typing_guard(self, slot: Any) -> Any:
+        """Envuelve un slot para que no se dispare mientras se escribe.
+
+        Args:
+            slot: Callable del atajo original.
+
+        Returns:
+            Callable que ignora la pulsación si el contador de página
+            tiene el foco de teclado.
+        """
+
+        def _guarded() -> None:
+            if self._viewer_overlay.is_editing_page():
+                return
+            slot()
+
+        return _guarded
 
     def _call_verification_hook(self, method: str, *args: Any) -> Any:
         """Llama a un hook del panel de verificación con aislamiento de errores."""
@@ -1369,6 +1391,20 @@ class WorkbenchWindow(QMainWindow):
     def _on_last(self) -> None:
         if self._pages:
             self._navigate_to(len(self._pages) - 1)
+
+    def _on_page_jump(self, page_index: int) -> None:
+        """Salta a la página tecleada en el contador del visor.
+
+        Args:
+            page_index: Índice 0-based ya validado por el overlay.
+        """
+        if not self._pages or not 0 <= page_index < len(self._pages):
+            return
+        self._navigate_to(page_index)
+        self._status_bar.showMessage(
+            self.tr("Página {0} de {1}").format(page_index + 1, len(self._pages)),
+            2000,
+        )
 
     def _on_next_barcode(self) -> None:
         """Navega a la siguiente página que tenga barcodes."""

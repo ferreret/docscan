@@ -1725,6 +1725,69 @@ class TestWorkbenchWindow:
         workbench._update_page_info()
         assert "2" in workbench._viewer_overlay._lbl_page_info.text()
 
+    def test_salto_directo_navega_a_la_pagina(
+        self,
+        qtbot,
+        workbench,
+        session_factory,
+        tmp_path,
+        color_image,
+    ):
+        """El contador editable del visor mueve la página actual (B9)."""
+        from app.services.batch_service import BatchService
+
+        with session_factory() as session:
+            svc = BatchService(session, tmp_path / "images")
+            svc.add_pages(workbench._batch_id, [color_image, color_image, color_image])
+            session.commit()
+
+        workbench._reload_pages()
+        workbench._navigate_to(0)
+        assert workbench._current_page_index == 0
+
+        workbench._viewer_overlay.update_page_info(1, len(workbench._pages))
+        workbench._viewer_overlay._edit_page.setText("3")
+        workbench._viewer_overlay._edit_page.returnPressed.emit()
+
+        assert workbench._current_page_index == 2
+        assert workbench._viewer_overlay._edit_page.text() == "3"
+
+    def test_salto_fuera_de_rango_no_mueve_la_pagina(
+        self,
+        qtbot,
+        workbench,
+        session_factory,
+        tmp_path,
+        color_image,
+    ):
+        from app.services.batch_service import BatchService
+
+        with session_factory() as session:
+            svc = BatchService(session, tmp_path / "images")
+            svc.add_pages(workbench._batch_id, [color_image, color_image])
+            session.commit()
+
+        workbench._reload_pages()
+        workbench._navigate_to(0)
+        workbench._viewer_overlay.update_page_info(1, len(workbench._pages))
+
+        workbench._viewer_overlay._edit_page.setText("99")
+        workbench._viewer_overlay._edit_page.returnPressed.emit()
+
+        assert workbench._current_page_index == 0
+
+    def test_typing_guard_bloquea_el_atajo_mientras_se_escribe(self, workbench):
+        """Con el contador enfocado, las teclas simples no navegan ni borran."""
+        llamadas: list[str] = []
+        guarded = workbench._typing_guard(lambda: llamadas.append("x"))
+
+        guarded()
+        assert llamadas == ["x"], "sin foco el atajo debe funcionar"
+
+        workbench._viewer_overlay.is_editing_page = lambda: True
+        guarded()
+        assert llamadas == ["x"], "con foco en el contador el atajo debe ignorarse"
+
     def test_update_lot_counters_no_error(self, workbench):
         """_update_lot_counters no lanza con lote vacío."""
         workbench._update_lot_counters()  # no debe lanzar

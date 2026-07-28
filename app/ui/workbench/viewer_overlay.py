@@ -8,11 +8,20 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QIcon,
+    QIntValidator,
+    QPainter,
+    QPen,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QWidget,
 )
@@ -282,11 +291,40 @@ def _make_button(
     return btn
 
 
+class _PageNumberEdit(QLineEdit):
+    """Campo editable del contador de página.
+
+    Intro confirma el salto (``returnPressed``); Escape o perder el foco
+    cancelan y restauran el valor mostrado.
+
+    Signals:
+        cancelled: El usuario abandonó la edición sin confirmar.
+    """
+
+    cancelled = Signal()
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802 (API de Qt)
+        if event.key() == Qt.Key.Key_Escape:
+            self.cancelled.emit()
+            return
+        super().keyPressEvent(event)
+
+    def focusInEvent(self, event) -> None:  # noqa: N802 (API de Qt)
+        super().focusInEvent(event)
+        # Diferido: el clic que da el foco deshace un selectAll() inmediato.
+        QTimer.singleShot(0, self.selectAll)
+
+    def focusOutEvent(self, event) -> None:  # noqa: N802 (API de Qt)
+        super().focusOutEvent(event)
+        self.cancelled.emit()
+
+
 class ViewerOverlay(QWidget):
     """Barra flotante de herramientas sobre el visor.
 
     Signals:
         nav_first, nav_prev, nav_next, nav_last: Navegación básica.
+        page_jump_requested: Salto directo a una página (índice 0-based).
         nav_script: Navegación programable por script.
         zoom_in, zoom_out, zoom_fit, zoom_100: Control de zoom.
         rotate_requested: Rotar 90°.
@@ -303,6 +341,7 @@ class ViewerOverlay(QWidget):
     nav_next_barcode = Signal()
     nav_next_review = Signal()
     nav_script = Signal()
+    page_jump_requested = Signal(int)  # índice 0-based
 
     # Zoom
     zoom_in_requested = Signal()
@@ -333,10 +372,23 @@ class ViewerOverlay(QWidget):
             _icon_first(c), self.tr("Primera p\u00e1gina (Home)")
         )
         self._btn_prev = _make_button(_icon_prev(c), self.tr("Anterior (Left)"))
-        self._lbl_page_info = QLabel(" 0 / 0 ")
+
+        # Contador "N / M": la N es editable para saltar a una página
+        # concreta sin recorrer el lote (clic, teclear, Intro).
+        self._current_page = 0
+        self._total_pages = 0
+        self._edit_page = _PageNumberEdit("0")
+        self._edit_page.setObjectName("pageInfoEdit")
+        self._edit_page.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._edit_page.setValidator(QIntValidator(1, 999999, self._edit_page))
+        self._edit_page.setMinimumWidth(52)
+        self._edit_page.setMaximumWidth(120)
+        self._edit_page.setToolTip(
+            self.tr("Escribe un número de página y pulsa Intro para ir a ella")
+        )
+        self._lbl_page_info = QLabel("/ 0 ")
         self._lbl_page_info.setObjectName("pageInfoLabel")
-        self._lbl_page_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_page_info.setMinimumWidth(90)
+        self._lbl_page_info.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._btn_next = _make_button(_icon_next(c), self.tr("Siguiente (Right)"))
         self._btn_last = _make_button(
             _icon_last(c), self.tr("\u00daltima p\u00e1gina (End)")
@@ -353,6 +405,7 @@ class ViewerOverlay(QWidget):
 
         layout.addWidget(self._btn_first)
         layout.addWidget(self._btn_prev)
+        layout.addWidget(self._edit_page)
         layout.addWidget(self._lbl_page_info)
         layout.addWidget(self._btn_next)
         layout.addWidget(self._btn_last)
@@ -431,10 +484,58 @@ class ViewerOverlay(QWidget):
         self._btn_mark.clicked.connect(self.mark_requested)
         self._btn_delete_current.clicked.connect(self.delete_current_requested)
         self._btn_delete_from.clicked.connect(self.delete_from_requested)
+        self._edit_page.returnPressed.connect(self._on_page_entered)
+        self._edit_page.cancelled.connect(self._restore_page_number)
+
+    # ------------------------------------------------------------------
+    # Contador de página
+    # ------------------------------------------------------------------
 
     def update_page_info(self, current: int, total: int) -> None:
-        """Actualiza el indicador de página."""
-        self._lbl_page_info.setText(f" {current} / {total} ")
+        """Actualiza el indicador de página.
+
+        Args:
+            current: Página actual en base 1 (0 si el lote está vacío).
+            total: Número total de páginas.
+        """
+        self._current_page = current
+        self._total_pages = total
+        self._edit_page.setText(str(current))
+        self._edit_page.setEnabled(total > 0)
+        self._lbl_page_info.setText(f"/ {total} ")
+
+    def is_editing_page(self) -> bool:
+        """¿El usuario está tecleando en el contador de página?
+
+        El workbench lo consulta para no disparar atajos de tecla simple
+        (flechas, Inicio/Fin, Supr) mientras se escribe un número.
+        """
+        return self._edit_page.hasFocus()
+
+    def _on_page_entered(self) -> None:
+        """Valida lo tecleado y pide el salto si procede."""
+        text = self._edit_page.text().strip()
+        self._edit_page.clearFocus()
+
+        if not text.isdigit() or self._total_pages <= 0:
+            self._restore_page_number()
+            return
+
+        number = int(text)
+        if number < 1 or number > self._total_pages:
+            log.debug(
+                "Página %d fuera de rango (1-%d), se ignora",
+                number,
+                self._total_pages,
+            )
+            self._restore_page_number()
+            return
+
+        self.page_jump_requested.emit(number - 1)
+
+    def _restore_page_number(self) -> None:
+        """Devuelve el campo al valor de la página realmente mostrada."""
+        self._edit_page.setText(str(self._current_page))
 
     def update_icon_color(self, color: str) -> None:
         """Regenera los iconos con un color nuevo (al cambiar tema)."""

@@ -477,44 +477,148 @@ class TestViewerOverlayConstruction:
         assert overlay._lbl_page_info is not None
 
     def test_initial_page_info_label_text(self, qtbot):
-        """El texto inicial del label de página debe ser ' 0 / 0 '."""
+        """El contador arranca en 0 sobre un total de 0."""
         overlay = ViewerOverlay()
         qtbot.addWidget(overlay)
-        assert overlay._lbl_page_info.text() == " 0 / 0 "
+        assert overlay._edit_page.text() == "0"
+        assert overlay._lbl_page_info.text() == "/ 0 "
 
 
 class TestViewerOverlayUpdatePageInfo:
     """Verifica el método update_page_info."""
 
     def test_update_page_info_sets_correct_text(self, qtbot):
-        """update_page_info debe actualizar el label con formato ' N / M '."""
+        """update_page_info reparte el valor entre el campo y el total."""
         overlay = ViewerOverlay()
         qtbot.addWidget(overlay)
         overlay.update_page_info(3, 10)
-        assert overlay._lbl_page_info.text() == " 3 / 10 "
+        assert overlay._edit_page.text() == "3"
+        assert overlay._lbl_page_info.text() == "/ 10 "
 
     def test_update_page_info_with_zero_total(self, qtbot):
-        """update_page_info con total=0 debe mostrar ' 0 / 0 '."""
+        """Con total=0 el campo se deshabilita."""
         overlay = ViewerOverlay()
         qtbot.addWidget(overlay)
         overlay.update_page_info(0, 0)
-        assert overlay._lbl_page_info.text() == " 0 / 0 "
+        assert overlay._edit_page.text() == "0"
+        assert overlay._lbl_page_info.text() == "/ 0 "
+        assert not overlay._edit_page.isEnabled()
 
     def test_update_page_info_with_large_values(self, qtbot):
         """update_page_info debe manejar números grandes sin error."""
         overlay = ViewerOverlay()
         qtbot.addWidget(overlay)
         overlay.update_page_info(999, 1000)
-        assert overlay._lbl_page_info.text() == " 999 / 1000 "
+        assert overlay._edit_page.text() == "999"
+        assert overlay._lbl_page_info.text() == "/ 1000 "
 
     def test_update_page_info_multiple_calls(self, qtbot):
-        """Llamadas sucesivas a update_page_info actualizan el label."""
+        """Llamadas sucesivas a update_page_info actualizan el contador."""
         overlay = ViewerOverlay()
         qtbot.addWidget(overlay)
         overlay.update_page_info(1, 5)
         overlay.update_page_info(2, 5)
         overlay.update_page_info(5, 5)
-        assert overlay._lbl_page_info.text() == " 5 / 5 "
+        assert overlay._edit_page.text() == "5"
+        assert overlay._lbl_page_info.text() == "/ 5 "
+
+
+class TestViewerOverlaySaltoDirecto:
+    """Salto directo a página escribiendo en el contador (B9)."""
+
+    def test_intro_emite_el_indice_0_based(self, qtbot):
+        overlay = ViewerOverlay()
+        qtbot.addWidget(overlay)
+        overlay.update_page_info(1, 600)
+
+        overlay._edit_page.setText("427")
+        with qtbot.waitSignal(overlay.page_jump_requested, timeout=1000) as blocker:
+            overlay._edit_page.returnPressed.emit()
+
+        assert blocker.args == [426]
+
+    def test_numero_fuera_de_rango_no_navega(self, qtbot):
+        overlay = ViewerOverlay()
+        qtbot.addWidget(overlay)
+        overlay.update_page_info(3, 10)
+
+        recibidos: list[int] = []
+        overlay.page_jump_requested.connect(recibidos.append)
+
+        overlay._edit_page.setText("11")
+        overlay._edit_page.returnPressed.emit()
+
+        assert recibidos == []
+        # Y el campo vuelve a la página realmente mostrada.
+        assert overlay._edit_page.text() == "3"
+
+    def test_cero_no_navega(self, qtbot):
+        overlay = ViewerOverlay()
+        qtbot.addWidget(overlay)
+        overlay.update_page_info(3, 10)
+
+        recibidos: list[int] = []
+        overlay.page_jump_requested.connect(recibidos.append)
+
+        overlay._edit_page.setText("0")
+        overlay._edit_page.returnPressed.emit()
+
+        assert recibidos == []
+        assert overlay._edit_page.text() == "3"
+
+    def test_texto_vacio_no_navega(self, qtbot):
+        overlay = ViewerOverlay()
+        qtbot.addWidget(overlay)
+        overlay.update_page_info(4, 10)
+
+        recibidos: list[int] = []
+        overlay.page_jump_requested.connect(recibidos.append)
+
+        overlay._edit_page.setText("")
+        overlay._edit_page.returnPressed.emit()
+
+        assert recibidos == []
+        assert overlay._edit_page.text() == "4"
+
+    def test_lote_vacio_no_navega(self, qtbot):
+        overlay = ViewerOverlay()
+        qtbot.addWidget(overlay)
+        overlay.update_page_info(0, 0)
+
+        recibidos: list[int] = []
+        overlay.page_jump_requested.connect(recibidos.append)
+
+        overlay._edit_page.setText("1")
+        overlay._edit_page.returnPressed.emit()
+
+        assert recibidos == []
+
+    def test_ultima_pagina_es_valida(self, qtbot):
+        """El límite superior del rango entra."""
+        overlay = ViewerOverlay()
+        qtbot.addWidget(overlay)
+        overlay.update_page_info(1, 10)
+
+        overlay._edit_page.setText("10")
+        with qtbot.waitSignal(overlay.page_jump_requested, timeout=1000) as blocker:
+            overlay._edit_page.returnPressed.emit()
+
+        assert blocker.args == [9]
+
+    def test_el_validador_rechaza_no_digitos(self, qtbot):
+        """QIntValidator impide teclear letras o signos."""
+        overlay = ViewerOverlay()
+        qtbot.addWidget(overlay)
+        validator = overlay._edit_page.validator()
+
+        assert validator is not None
+        assert validator.validate("abc", 0)[0] != validator.State.Acceptable
+        assert validator.validate("-5", 0)[0] != validator.State.Acceptable
+
+    def test_is_editing_page_sin_foco(self, qtbot):
+        overlay = ViewerOverlay()
+        qtbot.addWidget(overlay)
+        assert overlay.is_editing_page() is False
 
 
 class TestViewerOverlayNavigationSignals:
