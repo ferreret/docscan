@@ -65,7 +65,55 @@ def deserialize(json_str: str) -> list[PipelineStep]:
         if step is not None:
             steps.append(step)
 
+    _curate_ids(steps)
     return steps
+
+
+def _curate_ids(steps: list[PipelineStep]) -> None:
+    """Garantiza que todo paso tenga un id no vacío y único.
+
+    Un pipeline con ids vacíos o repetidos rompe todo lo que indexa por
+    id (cache de scripts compilados, ``skip_step``, ``skip_to``, el
+    contador de ``repeat_step``), y el síntoma aparece tarde y lejos de
+    la causa. Se sanean al cargar, dejando rastro en el log.
+
+    Modifica la lista in situ.
+    """
+    seen: set[str] = set()
+    for i, step in enumerate(steps):
+        step_id = step.id if isinstance(step.id, str) else ""
+        step_id = step_id.strip()
+
+        if not step_id:
+            new_id = _unique_id(step.type, i, seen)
+            log.warning(
+                "Paso %d ('%s'): id vacío, se asigna '%s'", i, step.type, new_id
+            )
+            step.id = new_id
+        elif step_id in seen:
+            new_id = _unique_id(step.type, i, seen)
+            log.warning(
+                "Paso %d ('%s'): id duplicado '%s', se renombra a '%s'",
+                i,
+                step.type,
+                step_id,
+                new_id,
+            )
+            step.id = new_id
+        else:
+            step.id = step_id
+
+        seen.add(step.id)
+
+
+def _unique_id(step_type: str, index: int, taken: set[str]) -> str:
+    """Genera un id determinista que no colisione con los ya usados."""
+    candidate = f"{step_type}_{index + 1:03d}"
+    suffix = 1
+    while candidate in taken:
+        suffix += 1
+        candidate = f"{step_type}_{index + 1:03d}_{suffix}"
+    return candidate
 
 
 def _step_to_dict(step: PipelineStep) -> dict[str, Any]:
@@ -92,6 +140,10 @@ def _dict_to_step(data: dict[str, Any], index: int) -> PipelineStep | None:
     step_type = data.get("type")
     if not step_type:
         raise PipelineSerializationError(f"Paso {index}: falta el campo 'type'")
+
+    # Un id ausente no invalida el pipeline: se cura después en _curate_ids().
+    if "id" not in data:
+        data = {**data, "id": ""}
 
     # Tolerancia: tipos eliminados se saltan (compatibilidad con pipelines antiguos)
     if step_type in REMOVED_STEP_TYPES:
