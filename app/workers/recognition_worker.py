@@ -38,10 +38,15 @@ class RecognitionWorker(QThread):
     Signals:
         page_processed: (page_index, PageContext) por cada página.
         all_processed: cuando todas las páginas han sido procesadas.
+            **Solo** si el reconocimiento llegó al final.
+        cancelled: (procesadas, totales) al interrumpirse. Excluyente con
+            all_processed, que el consumidor interpreta como "el lote
+            está leído entero" y le lleva a marcarlo como tal.
         page_error: (page_index, error_message).
         progress: (completed, total).
     """
 
+    cancelled = Signal(int, int)  # (procesadas, totales)
     page_processed = Signal(int, object)  # (index, PageContext)
     all_processed = Signal()
     page_error = Signal(int, str)
@@ -72,11 +77,22 @@ class RecognitionWorker(QThread):
         self._queue.put(_SENTINEL)
 
     def run(self) -> None:
-        """Procesa páginas de la cola hasta recibir el sentinel."""
+        """Procesa páginas de la cola hasta recibir el sentinel.
+
+        Al interrumpirse emite ``cancelled``, nunca ``all_processed``: el
+        workbench reacciona a esa última marcando el lote como leído y,
+        si la aplicación tiene auto-transferencia, enviándolo. Con
+        páginas aún en la cola eso transferiría material sin procesar.
+        """
         while True:
             if self.isInterruptionRequested():
-                log.info("RecognitionWorker interrumpido")
-                break
+                log.info(
+                    "RecognitionWorker interrumpido: %d de %d páginas procesadas",
+                    self._completed,
+                    self._total_pages,
+                )
+                self.cancelled.emit(self._completed, self._total_pages)
+                return
 
             try:
                 item = self._queue.get(timeout=0.2)

@@ -21,12 +21,16 @@ class ScanWorker(QThread):
 
     Signals:
         page_acquired: (page_index, image, source_path) por cada página.
-        finished_scanning: total de páginas adquiridas.
+        finished_scanning: total de páginas adquiridas. **Solo** si la
+            adquisición terminó entera.
+        cancelled: páginas emitidas antes de interrumpir. Excluyente con
+            finished_scanning: quien cancela no recibe "terminado".
         error_occurred: mensaje de error.
     """
 
     page_acquired = Signal(int, object, str)  # (index, np.ndarray, source_path)
     finished_scanning = Signal(int)
+    cancelled = Signal(int)
     error_occurred = Signal(str)
 
     def __init__(
@@ -48,15 +52,28 @@ class ScanWorker(QThread):
         self._dpi = dpi
 
     def run(self) -> None:
-        """Ejecuta la adquisición según el modo configurado."""
+        """Ejecuta la adquisición según el modo configurado.
+
+        Al interrumpirse emite ``cancelled`` con las páginas realmente
+        entregadas, nunca ``finished_scanning``: informar del total
+        completo tras una cancelación hace creer al consumidor que tiene
+        páginas que jamás le llegaron.
+        """
+        emitidas = 0
         try:
             results = self._acquire()
             for i, (img, src) in enumerate(results):
                 if self.isInterruptionRequested():
-                    log.info("Escaneo interrumpido en página %d", i)
-                    break
+                    log.info(
+                        "Escaneo interrumpido en la página %d de %d",
+                        i,
+                        len(results),
+                    )
+                    self.cancelled.emit(emitidas)
+                    return
                 self.page_acquired.emit(i, img, src)
-            self.finished_scanning.emit(len(results))
+                emitidas += 1
+            self.finished_scanning.emit(emitidas)
         except Exception as e:
             log.error("Error en ScanWorker: %s", e)
             self.error_occurred.emit(str(e))
