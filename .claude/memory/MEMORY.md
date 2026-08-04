@@ -1,5 +1,8 @@
 # DocScan Studio — Memoria de Proyecto
 
+## Multiequipo
+- 🔄 [Memoria versionada en el repo](project_memoria_versionada_multiequipo.md) — copia en `.claude/memory/`, **resincronizar a mano al cerrar sesión**; repo público, barrer credenciales antes de commitear.
+
 ## FOCO ACTUAL (desde 2026-07-21): DocScan DESKTOP
 - [Web SaaS ARCHIVADA 2026-07-21](project_web_archivado.md) — decisión del usuario; estado congelado de ramas/sprints y cómo retomar. No reabrir trabajo web salvo petición explícita.
 - [Punto de retoma próxima sesión](project_next_session_resume.md) — foco desktop, candidatos de trabajo pendientes de priorizar.
