@@ -5,7 +5,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/media/nicolas/DATA/Tecnomedia/DocScan"
+        "${CLAUDE_PROJECT_DIR:-.}"
       ]
     },
     "sqlite": {
@@ -14,13 +14,15 @@
         "-y",
         "mcp-sqlite",
         "--db-path",
-        "/home/nicolas/.local/share/docscan/docscan.db"
+        "${DOCSCAN_DB_PATH:-/home/nicolas/.local/share/docscan/docscan.db}"
       ]
     },
     "postgres": {
       "type": "stdio",
-      "command": ".claude/scripts/mcp-postgres.sh",
-      "args": [],
+      "command": "bash",
+      "args": [
+        "${CLAUDE_PROJECT_DIR:-.}/.claude/scripts/mcp-postgres.sh"
+      ],
       "env": {}
     },
     "playwright": {

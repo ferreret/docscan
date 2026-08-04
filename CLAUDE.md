@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Session context — read this first
+
+`.claude/memory/` holds the accumulated project context from previous sessions,
+versioned so every machine starts from the same history. **Read
+`.claude/memory/MEMORY.md` at the start of a session**: it is the index, and it
+links to the individual entries (current focus, known bugs, closed decisions,
+working preferences).
+
+Native Claude Code memory lives outside the repo and does not travel between
+machines. When you write or change memory during a session, mirror it back with
+`cp ~/.claude/projects/<slug>/memory/*.md .claude/memory/` before committing.
+The repo is public — check the diff for credentials first. See
+`.claude/memory/README.md`.
+
 ## Project overview
 
 DocScan Studio is a PySide6 desktop application for batch document capture, processing, and indexing with generative AI support. Inspired by Flexibar.NET.
@@ -39,6 +53,33 @@ alembic revision --autogenerate -m "description"
 ruff check app/
 ruff format app/
 ```
+
+### On Windows
+
+The commands above assume Linux. On Windows the equivalents are:
+
+```powershell
+py -3.14 -m venv .venv
+.venv\Scripts\activate          # instead of source .venv/bin/activate
+python main.py                  # `python`, not `python3.14`
+```
+
+`requirements.txt` already has platform markers: `pytwain`/`pywin32` install only
+on Windows, `python-sane` only on Linux. The scanner backend is selected
+automatically by `app/services/scanner_service.py`.
+
+Repo tooling that is platform-sensitive:
+
+- **Hooks** (`.claude/hooks/*.sh`) are bash and run under **Git Bash**, which
+  Claude Code uses by default on Windows when it is installed. Without Git Bash
+  they do not run: no automatic ruff formatting and, more importantly, no
+  protection of `.env`/`secrets.enc`. `jq` is optional — the hooks fall back to
+  `grep`/`sed` if it is missing, as Git Bash does not ship it.
+- **`.mcp.json`** uses `${CLAUDE_PROJECT_DIR:-.}` so paths resolve per machine.
+  The `sqlite` server defaults to the Linux DB path; on Windows set
+  `DOCSCAN_DB_PATH` (typically `%LOCALAPPDATA%\docscan\docscan.db`).
+- The `postgres` MCP server belongs to the archived web project and needs `.env`;
+  it will simply fail to start without it, which is harmless.
 
 ## Stack
 
