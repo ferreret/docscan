@@ -47,6 +47,30 @@ else:
 target_metadata = Base.metadata
 
 
+def _set_sqlite_foreign_keys(connection, enabled: bool) -> None:
+    """Activa o desactiva ``PRAGMA foreign_keys`` en SQLite.
+
+    Las operaciones batch recrean la tabla ("move and copy"): crean una
+    temporal, copian, hacen ``DROP`` de la original y renombran. Con
+    ``PRAGMA foreign_keys=ON`` —que el engine del desktop activa en cada
+    conexión— ese ``DROP`` dispara un DELETE implícito que propaga los
+    ``ON DELETE CASCADE`` y **vacía las tablas hijas**: migrar una BD con
+    datos borraba lotes, páginas y códigos de barras. La doc de Alembic exige
+    desactivar el pragma mientras corren las migraciones batch.
+
+    El pragma es un no-op dentro de una transacción, así que antes se cierra
+    la que SQLAlchemy hubiera abierto de forma implícita.
+
+    Args:
+        connection: Conexión SQLAlchemy sobre la que emitir el pragma.
+        enabled: ``True`` para reactivar las FK, ``False`` para desactivarlas.
+    """
+    if connection.dialect.name != "sqlite":
+        return
+    connection.commit()
+    connection.exec_driver_sql(f"PRAGMA foreign_keys={'ON' if enabled else 'OFF'}")
+
+
 def run_migrations_offline() -> None:
     """Migraciones en modo offline (genera SQL sin conexión)."""
     url = config.get_main_option("sqlalchemy.url")
@@ -76,8 +100,12 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             render_as_batch=True,
         )
-        with context.begin_transaction():
-            context.run_migrations()
+        _set_sqlite_foreign_keys(connection, False)
+        try:
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            _set_sqlite_foreign_keys(connection, True)
         return
 
     connectable = engine_from_config(
@@ -92,8 +120,12 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             render_as_batch=True,
         )
-        with context.begin_transaction():
-            context.run_migrations()
+        _set_sqlite_foreign_keys(connection, False)
+        try:
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            _set_sqlite_foreign_keys(connection, True)
 
 
 if context.is_offline_mode():

@@ -14,6 +14,14 @@ Hermetiza la suite frente a interacción manual y hardware real:
    (polkit/libusb) y los ~30 s de enumeración de hardware que provocaba
    ``create_scanner()`` sin mockear.
 
+3. **QSettings aislado**: redirige la configuración persistente de Qt a un
+   directorio temporal. Sin esto la suite lee y **escribe** los ajustes reales
+   del usuario (registro de Windows / ``~/.config`` en Linux): los tests
+   quedaban a merced de lo que el usuario hubiera dejado guardado —p.ej.
+   ``source/<app_id>/mode = scanner`` hacía fallar
+   ``test_scan_source_radio_defaults_to_import``— y además pisaban su
+   configuración al ejecutarse.
+
 Los tests que necesitan un valor de retorno concreto de un diálogo o de SANE
 siguen mockeándolo localmente; su parche se aplica encima del global y se
 restaura al terminar.
@@ -23,6 +31,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 import types
 from unittest import mock
 
@@ -41,7 +50,7 @@ def _missing(module: str) -> bool:
     """True si `module` no es importable en el entorno actual."""
     try:
         return importlib.util.find_spec(module) is None
-    except (ImportError, ValueError):
+    except ImportError, ValueError:
         return True
 
 
@@ -104,6 +113,52 @@ def _install_fake_sane() -> None:
 
 
 _install_fake_sane()
+
+
+# --------------------------------------------------------------------------- #
+# 1bis. QSettings aislado — también antes de recolectar tests.
+# --------------------------------------------------------------------------- #
+
+
+def _isolate_qsettings() -> None:
+    """Redirige ``QSettings`` a un directorio temporal desechable.
+
+    ``QSettings("DocScanStudio", ...)`` usa el backend nativo (registro en
+    Windows, ``~/.config`` en Linux), que es **la configuración real del
+    usuario**: la suite dependía de lo que el usuario tuviera guardado y además
+    se lo pisaba al ejecutarse.
+
+    ``setDefaultFormat()`` no basta —PySide6 sigue construyendo en
+    ``NativeFormat`` desde el constructor de dos argumentos—, así que se
+    sustituye la clase por una subclase que fuerza ``IniFormat`` y
+    ``UserScope`` sobre un directorio temporal. Como ``conftest`` se importa
+    antes que los módulos de la app, el ``from PySide6.QtCore import
+    QSettings`` de estos recoge ya la subclase.
+    """
+    try:
+        from PySide6 import QtCore
+    except ImportError:
+        # Entorno sin PySide6 (p.ej. solo tests web): nada que aislar.
+        return
+
+    real = QtCore.QSettings
+    ini = real.Format.IniFormat
+    user = real.Scope.UserScope
+    real.setPath(ini, user, tempfile.mkdtemp(prefix="docscan-tests-qsettings-"))
+
+    class _IsolatedQSettings(real):
+        """``QSettings`` que ignora el backend nativo y escribe en el temporal."""
+
+        def __init__(self, *args, **kwargs):
+            if len(args) == 2 and all(isinstance(a, str) for a in args):
+                super().__init__(ini, user, args[0], args[1], **kwargs)
+            else:
+                super().__init__(*args, **kwargs)
+
+    QtCore.QSettings = _IsolatedQSettings
+
+
+_isolate_qsettings()
 
 
 # --------------------------------------------------------------------------- #
