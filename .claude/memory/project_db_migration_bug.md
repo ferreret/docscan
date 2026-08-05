@@ -79,4 +79,33 @@ versionada→upgrade; legacy sin alembic_version→reconciliar columnas por refl
 alembic en PyInstaller, mitigar fileConfig/logging de env.py, tests. Plan en
 `~/.claude/plans/tender-crafting-lemur.md`.
 
+## SEGUNDO BUG en la misma cadena: `upgrade head` BORRABA los datos (2026-08-05)
+
+Destapado al poner en marcha el PC Windows. La BD local (sellada en
+`4a90ab536830`, marzo) migró a head "sin errores"… y **vació las tablas**:
+8 lotes / 42 páginas / 58 barcodes → **0**. Sin excepción, sin log, silencioso.
+
+**Causa**: `e5b7c3d94f10` usa `batch_alter_table("applications")`, que en SQLite
+recrea la tabla ("move and copy"): tabla temporal → copia → `DROP TABLE
+applications` → rename. Con `PRAGMA foreign_keys=ON` —que `_set_sqlite_pragmas`
+activa en CADA conexión del engine desktop— ese DROP dispara un DELETE implícito
+que propaga los `ON DELETE CASCADE`: `batches` → `pages` → `barcodes`. La doc de
+Alembic lo advierte explícitamente ("the PRAGMA FOREIGN KEYS pragma must be
+disabled during batch operations"); `env.py` nunca lo hacía.
+
+**Fix** (commit `82eeeb4`, en `main`): `_set_sqlite_foreign_keys()` en
+`alembic/env.py`, cableado en las DOS rutas de `run_migrations_online` con
+`try/finally` (las FK vuelven a ON aunque la migración falle). Verificado sobre
+la BD real: datos intactos, `foreign_key_check` limpio, `PRAGMA foreign_keys`=1
+tanto en la conexión devuelta al pool como en un engine nuevo.
+
+**Alcance**: como desde v0.1.5 la app migra sola al arrancar, **v0.1.5 y v0.1.6
+publicadas destruyen los datos** de cualquier instalación con BD sellada antes de
+`e5b7c3d94f10`. El usuario decidió NO tratarlo como urgente (**no hay ninguna
+instalación en producción**) — no se hizo release correctiva.
+
+**Patrón a repetir**: probar SIEMPRE un salto de esquema sobre una COPIA y
+comparar `COUNT(*)` antes/después. Fue lo único que lo detectó; el `upgrade head`
+terminaba con éxito aparente. Refuerza [[feedback_inline_tests_can_hide_bugs]].
+
 Ver [[feedback_no_romper_desktop]].
