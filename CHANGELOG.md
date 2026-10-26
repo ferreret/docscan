@@ -66,6 +66,13 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 - **Duplicar una App ya no pierde la configuración de notificaciones.** El clon copia
   ahora la misma lista de campos que la exportación, y un test impide que una columna
   nueva quede fuera de las dos.
+- **El texto OCR de la página se ve en el Workbench** (pestaña OCR). La función que
+  debía mostrarlo era un stub vacío.
+- **Se respeta la pestaña inicial configurada** (`default_tab`). Antes se abría
+  siempre la primera.
+- **Duplicar una App desde el modo IA ya no pierde configuración**: enumeraba los
+  campos a mano y se dejaba las notificaciones. Ahora usa la misma copia que el
+  launcher.
 - **Las excepciones no capturadas quedan en el log con su traza**, también las de los
   slots de Qt y los hilos. En el binario sin consola se perdían.
 - **El worker desatendido y el modo directo leen barcodes.** No recibían el servicio
@@ -82,12 +89,42 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 
 ### 🎨 Interfaz
 
+- **Panel derecho del Workbench como el de FlexibarNET 10.**
+  - Arriba, «BARCODES DE LA PÁGINA · N» como lista de filas: punto de color,
+    valor en monoespaciada, «simbología · motor · rol», distintivo MANUAL y
+    papelera por fila. Crece hasta 280 px.
+  - Debajo, «CAMPOS DE LOTE · N» como panel, hasta 180 px; antes era una
+    pestaña.
+  - Al fondo, las pestañas Verificación / OCR / Log.
+  - Los dos paneles se pliegan.
+  - La fila y su recuadro en el visor se resaltan mutuamente al pasar el ratón.
+  - Atajos: **Ctrl+N** / **Insert** para añadir, **Supr** sobre la fila para
+    borrar sin confirmación y **Ctrl+Z** para deshacer.
+- **Pestañas del Workbench configurables por aplicación** (Configurador → General):
+  - mostrar u ocultar cada panel y cada pestaña;
+  - reordenar las pestañas;
+  - ocultar «+ Añadir» junto con sus atajos.
+
+  Lo guardan las columnas nuevas `workbench_layout_json` y
+  `hide_add_barcode_button`. La migración `b4e2a7c9d1f3` las añade con
+  `ADD COLUMN`, sin recrear la tabla, y se probó sobre una copia de una base de
+  datos real con los recuentos intactos. Las dos viajan en la exportación.
+- **Contadores del lote en la barra de estado** (páginas, con barcode, separadores y
+  a revisión), como el «Procesado 5/5» de Flexibar. Antes ocupaban el panel derecho.
+- **Al abrir una página a revisión, la barra de estado dice por qué** y cuántos
+  errores de procesado tiene.
+
 - **Paleta de FlexibarNET 10**: navy profundo en el tema oscuro y el claro de
   Flexibar en el claro. Hay una única fuente de color (`app/ui/palette.py`) y una
   sola plantilla de estilos (`resources/styles/theme.qss`, con tokens) para los dos
   temas, en lugar de dos QSS copiados. Los colores de estado de página, del log y
   del gestor de lotes salen de la paleta y cambian con el tema: el texto INFO del
   log ya se lee en el tema claro.
+- **La miniatura de la página que se ve en el visor se distingue claramente**:
+  lleva un marco macizo del color de acento por dentro del borde de estado (que
+  conserva su color: rojo a revisión, naranja separador…). Antes solo tenía 1 px
+  más de borde y un fondo casi transparente. Además, cambiar el estado de la página
+  seleccionada ya no le quita el resaltado.
 - **Iconos Lucide** (ISC, `resources/icons/lucide`, paquete `lucide-static` 1.55.0
   verificado por su hash SHA-512): un único juego de trazo fino, recoloreado con la
   paleta del tema (`app/ui/icons.py`). Sustituye a los ~30 iconos dibujados a mano en
@@ -105,6 +142,13 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 
 ### 📚 Documentación
 
+- **`tools/ui_snapshots.py`** regenera con un comando las 15 capturas de la
+  documentación (`docs/screenshots/` y `docs-web/assets/screenshots/`) y, si se
+  pide, la imagen del portfolio. Abre las ventanas reales sin mostrarlas, con datos
+  de demostración ficticios y neutros, en un entorno aislado: no toca los datos ni
+  las preferencias del usuario y no se conecta a la red. Su primera ejecución
+  destapó que la pestaña General del Configurador ya no cabía y aplastaba los
+  campos. Ahora tiene scroll.
 - Firmas reales de todos los eventos en la plantilla del Configurador, los asistentes
   de IA, los stubs del editor externo, el README y docs-web, más la receta «Un PDF por
   documento» (hojas separadoras).
