@@ -50,17 +50,24 @@ La referencia es FlexibarNET10, por la regla de paridad
     sobre UTF-16. Sin selector manual de icono (haría falta columna nueva).
   - Menú ⋮ / botón derecho; fuera la línea `_info_label` bajo la lista.
   - Workbench: «1240×1754 — N DPI», progreso 120×3 verde, «Procesado N/M (k errores)».
+- **E4e/f** (2026-10-26, commit en `feat/rediseno-ui`, sin push): campo de fecha con icono de calendario
+  (como el DatePicker de Flexibar), tic en todas las casillas, lista de pasos del
+  Configurador con casilla real + icono/color por tipo (sin botón On/Off).
+  - Token `$icons_dir` en `render_stylesheet` (ruta absoluta): los `url()` relativos
+    dependían del directorio de trabajo. SVG temáticos en `resources/icons/*-{dark,light}.svg`.
+  - Arreglado: arrastrar un paso no cambiaba el orden guardado (`rowsMoved`).
+  - Corrección de E4c: el icono «escáner» sale del escáner recordado por el Workbench
+    (`source/<id>/scanner_name`), no de `scanner_backend`, que el Configurador siempre rellena.
 - **Hallazgo (no arreglado):** las páginas no guardan los DPI reales del escáner.
   `BatchService.add_pages` guarda con `cv2.imwrite` (los TIFF quedan con «1 DPI») o con
   `ImageLib.save(dpi=300)` fijo. `read_dpi` ignora < 50, pero el 300 fijo se muestra como
   si fuera real. Encaja con el lote 4 (escáner).
 
-**Pendiente, en este orden:**
-- **E4e/f** — panel derecho (barcodes como lista, campo de fecha) y lista de pasos del
-  Configurador.
-- Quedan colores literales en `app_list_widget.py` (las tarjetas, que se rehacen en
-  E4c) y en `document_viewer.py` (la paleta de los recuadros de barcode sobre el papel,
-  que se deja así a propósito).
+**Pendiente:** con E4e/f, las fases de la propuesta están todas hechas.
+- Regenerar las capturas de la documentación con `tools/ui_snapshots.py` y rehacer la
+  ficha del portfolio ([[project_ficha_portfolio]]).
+- Quedan colores literales en `document_viewer.py` (la paleta de los recuadros de
+  barcode sobre el papel), a propósito. Las tarjetas ya usan la paleta.
 
 **Herramienta de capturas:** `tools/ui_snapshots.py` (hecha el 2026-10-26).
 - Regenera las 15 capturas de `docs/screenshots` y `docs-web/assets/screenshots`, y con
