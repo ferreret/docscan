@@ -154,6 +154,39 @@ class TestThemeManagerApplyTheme:
         assert tm.current_theme == Theme.DARK  # ya era DARK por defecto
 
 
+class TestThemeImagenes:
+    """Las imágenes del QSS no dependen del directorio de trabajo."""
+
+    @pytest.mark.parametrize("dark", [True, False])
+    def test_urls_absolutas_y_existentes(self, dark):
+        import re
+        from pathlib import Path
+
+        from app.ui.theme_manager import render_stylesheet
+
+        template = (
+            Path(__file__).resolve().parent.parent / "resources/styles/theme.qss"
+        ).read_text(encoding="utf-8")
+        urls = re.findall(r"url\(([^)]+)\)", render_stylesheet(template, dark=dark))
+        assert urls
+        for url in urls:
+            ruta = Path(url)
+            assert ruta.is_absolute(), url
+            assert ruta.exists(), url
+
+    def test_fecha_con_calendario_y_casilla_con_tic(self):
+        from pathlib import Path
+
+        from app.ui.theme_manager import render_stylesheet
+
+        template = (
+            Path(__file__).resolve().parent.parent / "resources/styles/theme.qss"
+        ).read_text(encoding="utf-8")
+        qss = render_stylesheet(template, dark=True)
+        assert "calendar-dark.svg" in qss
+        assert "check-dark.svg" in qss
+
+
 class TestThemeManagerToggle:
     """Verifica toggle_theme alterna correctamente entre temas."""
 
@@ -791,6 +824,8 @@ class TestPlantillaDeTema:
 
         tokens = set(re.findall(r"\$([a-z_][a-z0-9_]*)", self._plantilla()))
         assert tokens, "la plantilla no tiene tokens"
+        # $icons_dir no es un color: lo pone render_stylesheet (ruta absoluta)
+        tokens -= {"icons_dir"}
         assert tokens <= DARK.keys(), tokens - DARK.keys()
         assert tokens <= LIGHT.keys(), tokens - LIGHT.keys()
 

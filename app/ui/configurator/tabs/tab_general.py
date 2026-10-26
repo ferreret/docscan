@@ -37,6 +37,7 @@ from app.models.workbench_layout import (
     WorkbenchLayout,
 )
 from app.services.scanner_service import get_available_backends
+from app.ui.icons import icon
 
 
 class GeneralTab(QWidget):
@@ -256,9 +257,11 @@ class GeneralTab(QWidget):
         row.addWidget(self._layout_list, 1)
 
         buttons = QVBoxLayout()
-        self._btn_layout_up = QPushButton("▲")
+        self._btn_layout_up = QPushButton()
+        self._btn_layout_up.setIcon(icon("chevron-up", "text", 16))
         self._btn_layout_up.setToolTip(self.tr("Subir la pestaña seleccionada"))
-        self._btn_layout_down = QPushButton("▼")
+        self._btn_layout_down = QPushButton()
+        self._btn_layout_down.setIcon(icon("chevron-down", "text", 16))
         self._btn_layout_down.setToolTip(self.tr("Bajar la pestaña seleccionada"))
         for btn in (self._btn_layout_up, self._btn_layout_down):
             btn.setFixedWidth(36)

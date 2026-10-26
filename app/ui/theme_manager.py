@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication
 log = logging.getLogger(__name__)
 
 _STYLES_DIR = Path(__file__).resolve().parent.parent.parent / "resources" / "styles"
+_ICONS_DIR = _STYLES_DIR.parent / "icons"
 _TEMPLATE_NAME = "theme.qss"
 _TOKEN = re.compile(r"\$([a-z_][a-z0-9_]*)")
 
@@ -162,5 +163,8 @@ def render_stylesheet(template: str, *, dark: bool) -> str:
     """
     from app.ui.palette import palette
 
-    values = palette(dark)
+    # ``$icons_dir`` es la ruta absoluta de resources/icons: un ``url()``
+    # relativo se resuelve contra el directorio de trabajo, que fuera del
+    # repositorio (instalador, acceso directo) no es el del programa.
+    values = {**palette(dark), "icons_dir": _ICONS_DIR.as_posix()}
     return _TOKEN.sub(lambda m: values[m.group(1)], template)

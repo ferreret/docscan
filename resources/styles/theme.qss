@@ -449,6 +449,7 @@ QCheckBox::indicator:hover {
 QCheckBox::indicator:checked {
     background-color: $accent;
     border-color: $accent;
+    image: url($icons_dir/check-$arrow_variant.svg);
 }
 
 QCheckBox::indicator:disabled {
@@ -525,13 +526,13 @@ QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
 }
 
 QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
-    image: url(resources/icons/arrow-up-$arrow_variant.svg);
+    image: url($icons_dir/arrow-up-$arrow_variant.svg);
     width: 10px;
     height: 6px;
 }
 
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
-    image: url(resources/icons/arrow-down-$arrow_variant.svg);
+    image: url($icons_dir/arrow-down-$arrow_variant.svg);
     width: 10px;
     height: 6px;
 }
@@ -668,12 +669,15 @@ QTabBar::tab:hover:!selected {
 }
 
 /* === Date edit === */
+/* Como el DatePicker de Flexibar: campo de superficie con un botón
+   transparente y el icono de calendario (antes era un cuadrado con borde que
+   se confundía con una casilla). */
 QDateEdit {
     background-color: $field;
     color: $text;
     border: 1px solid $border;
-    border-radius: 8px;
-    padding: 8px 12px;
+    border-radius: 6px;
+    padding: 6px 8px;
     font-size: 13px;
 }
 
@@ -684,24 +688,20 @@ QDateEdit:focus {
 QDateEdit::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: center right;
-    width: 28px;
-    border-left: 1px solid $border;
-    border-top-right-radius: 8px;
-    border-bottom-right-radius: 8px;
-    background-color: $selection_bg;
-}
-
-QDateEdit::down-arrow {
-    image: none;
-    width: 14px;
-    height: 14px;
-    border: 2px solid $text;
-    border-radius: 3px;
+    width: 26px;
+    border: none;
     background-color: transparent;
 }
 
+QDateEdit::down-arrow {
+    image: url($icons_dir/calendar-$arrow_variant.svg);
+    width: 14px;
+    height: 14px;
+}
+
 QDateEdit::drop-down:hover {
-    background-color: $spin_hover;
+    background-color: $hover;
+    border-radius: 4px;
 }
 
 QDateEdit QAbstractItemView {
@@ -813,7 +813,6 @@ QTableWidget {
 
 #pipelineStepList::item {
     background-color: $field;
-    color: $text;
     border: 1px solid $border_soft;
     border-radius: 6px;
     margin: 3px 4px;
@@ -824,7 +823,30 @@ QTableWidget {
 #pipelineStepList::item:selected {
     background-color: $surface_active;
     border: 1px solid $accent;
-    color: $text;
+}
+
+/* Casillas de las listas (pasos del pipeline, pestañas del Workbench),
+   iguales que las QCheckBox */
+#pipelineStepList::indicator,
+#workbenchLayoutList::indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 2px solid $border_strong;
+    background-color: $field;
+    margin-right: 4px;
+}
+
+#pipelineStepList::indicator:hover,
+#workbenchLayoutList::indicator:hover {
+    border-color: $accent;
+}
+
+#pipelineStepList::indicator:checked,
+#workbenchLayoutList::indicator:checked {
+    background-color: $accent;
+    border-color: $accent;
+    image: url($icons_dir/check-$arrow_variant.svg);
 }
 
 #pipelineStepList::item:hover:!selected {

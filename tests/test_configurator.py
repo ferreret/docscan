@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import QCheckBox, QComboBox, QSpinBox, QLineEdit
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -158,6 +159,57 @@ class TestPipelineTab:
         tab.apply_to(sample_app)
         assert sample_app.pipeline_json != "[]"
 
+    def test_cada_fila_tiene_casilla_e_icono(self, qtbot, sample_app):
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        for i, step in enumerate(tab.get_steps()):
+            item = tab._list.item(i)
+            assert item.flags() & Qt.ItemFlag.ItemIsUserCheckable
+            assert (item.checkState() == Qt.CheckState.Checked) == step.enabled
+            assert not item.icon().isNull()
+
+    def test_la_casilla_desactiva_el_paso(self, qtbot, sample_app):
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        tab._list.item(1).setCheckState(Qt.CheckState.Unchecked)
+        assert not tab.get_steps()[1].enabled
+        assert tab.get_steps()[0].enabled
+        tab.apply_to(sample_app)
+        assert '"enabled": false' in sample_app.pipeline_json
+        tab._list.item(1).setCheckState(Qt.CheckState.Checked)
+        assert tab.get_steps()[1].enabled
+
+    def test_paso_desactivado_se_ve_atenuado(self, qtbot, sample_app):
+        from app.ui.palette import color
+
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        tab._list.setCurrentRow(0)
+        tab._on_toggle()
+        item = tab._list.item(0)
+        assert item.checkState() == Qt.CheckState.Unchecked
+        assert item.foreground().color().name() == color("text_disabled")
+
+    def test_arrastrar_reordena_los_pasos(self, qtbot, sample_app):
+        """Antes la lista se reordenaba al arrastrar pero _steps no: se perdía."""
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        primero, segundo = tab.get_steps()
+        # Lo que hace QListWidget al soltar un arrastre interno
+        model = tab._list.model()
+        assert model.moveRows(QModelIndex(), 1, 1, QModelIndex(), 0)
+        assert tab.get_steps() == [segundo, primero]
+        tab.apply_to(sample_app)
+        assert sample_app.pipeline_json.index(
+            '"barcode"'
+        ) < sample_app.pipeline_json.index('"image_op"')
+
+    def test_sin_boton_on_off(self, qtbot, sample_app):
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        assert not hasattr(tab, "_btn_toggle")
+        assert not tab._btn_up.icon().isNull()
+
     def test_empty_pipeline(self, qtbot):
         app = Application(name="Empty", pipeline_json="[]")
         tab = PipelineTab(app)
@@ -184,10 +236,10 @@ class TestStepDisplayText:
         assert "Script" in text
         assert "Mi script" in text
 
-    def test_disabled_marker(self):
+    def test_sin_marca_de_texto(self):
+        """El estado activo va en la casilla de la fila, no en el texto."""
         step = ImageOpStep(id="s1", op="Crop", enabled=False)
-        text = _step_display_text(step)
-        assert "[✗]" in text
+        assert _step_display_text(step) == "Imagen: Crop"
 
 
 # ------------------------------------------------------------------
