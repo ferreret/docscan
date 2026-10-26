@@ -1,11 +1,17 @@
 ---
-name: GitHub API via curl con tokens del entorno
-description: Usar curl + $GITHUB_PAT para API de GitHub (releases, assets), no buscar gh CLI ni pedir tokens
+name: Acceso a GitHub con gh CLI
+description: Usar gh CLI (autenticado) para la API de GitHub; el $GITHUB_PAT está caducado
 type: feedback
 ---
 
-Usar siempre `curl` con `$GITHUB_PAT` o `$GITHUB_PERSONAL_ACCESS_TOKEN` para operaciones de GitHub API (crear releases, subir assets, etc.). No buscar `gh` CLI ni pedir tokens al usuario.
+Usar **`gh`** para todo lo de GitHub: releases, assets, logs de CI (`gh run view
+--log-failed`), clonar repos privados como `Tecnomedia/FlexibarNET10` y llamadas con
+`gh api`. Está autenticado como `ferreret` en el PC Linux nuevo (minis-nick-linux,
+comprobado el 2026-10-26) y ya lo estaba en el anterior.
 
-**Why:** Los tokens ya están en las variables de entorno del sistema. En la sesión del 26-mar se usó este método sin problemas; el 27-mar se perdió tiempo buscando `gh` y preguntando por tokens.
+**Why:** En marzo se usaba `curl` con `$GITHUB_PAT`. Desde julio de 2026 ese token
+devuelve 401 (caducado), y esta entrada contradecía a la de «Herramientas de
+diagnóstico» del índice.
 
-**How to apply:** Antes de cualquier operación GitHub API, usar directamente `curl -H "Authorization: token $GITHUB_PAT"` contra `api.github.com`.
+**How to apply:** `gh` primero. No pedir tokens al usuario. Usar `$GITHUB_PAT` solo si
+`gh auth status` falla y el token responde.
