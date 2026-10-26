@@ -150,8 +150,7 @@ class OcrService:
             case "tesseract":
                 result = self._run_tesseract(image, languages)
             case _:
-                log.error("Motor OCR desconocido: '%s'", engine)
-                return OcrResult()
+                raise RuntimeError(f"Motor OCR desconocido: '{engine}'")
 
         # Ajustar coordenadas si se usó ROI
         if offset_x or offset_y:
@@ -168,9 +167,12 @@ class OcrService:
                 from rapidocr_onnxruntime import RapidOCR
 
                 self._rapidocr = RapidOCR()
-            except ImportError:
-                log.error("rapidocr-onnxruntime no instalado")
-                return OcrResult()
+            except ImportError as e:
+                # Paridad FlexibarNET10 v1.26: un OCR que no puede funcionar
+                # deja la página a revisión en vez de guardar texto vacío.
+                raise RuntimeError(
+                    "OCR no disponible: falta rapidocr-onnxruntime"
+                ) from e
 
         result, _ = self._rapidocr(image)
         if not result:
@@ -191,9 +193,8 @@ class OcrService:
                     languages,
                     gpu=False,
                 )
-            except ImportError:
-                log.error("easyocr no instalado")
-                return OcrResult()
+            except ImportError as e:
+                raise RuntimeError("OCR no disponible: falta easyocr") from e
 
         reader = self._easyocr_readers[lang_key]
         results = reader.readtext(image)
@@ -205,9 +206,8 @@ class OcrService:
         """OCR con Tesseract."""
         try:
             import pytesseract
-        except ImportError:
-            log.error("pytesseract no instalado")
-            return OcrResult()
+        except ImportError as e:
+            raise RuntimeError("OCR no disponible: falta pytesseract") from e
 
         lang_str = "+".join(languages)
         gray = (

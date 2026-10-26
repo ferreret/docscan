@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.application import Application
+from app.services.script_engine import find_script_errors
 from app.ui.configurator.tabs.tab_general import GeneralTab
 from app.ui.configurator.tabs.tab_image import ImageTab
 from app.ui.configurator.tabs.tab_batch_fields import BatchFieldsTab
@@ -101,6 +102,26 @@ class AppConfigurator(QDialog):
             self._tab_events.apply_to(self._app)
             self._tab_transfer.apply_to(self._app)
             self._tab_notifications.apply_to(self._app)
+
+            # No guardar una App con scripts que no compilan (paridad
+            # FlexibarNET10 v1.20): el fallo aparecería delante del operador.
+            script_errors = find_script_errors(
+                self._app.pipeline_json, self._app.events_json
+            )
+            if script_errors:
+                log.warning(
+                    "No se guarda '%s': %d script(s) no compilan",
+                    self._app.name,
+                    len(script_errors),
+                )
+                QMessageBox.warning(
+                    self,
+                    self.tr("Hay scripts que no compilan"),
+                    self.tr("Corrige estos errores antes de guardar:\n\n{0}").format(
+                        "\n".join(script_errors)
+                    ),
+                )
+                return
 
             # Persistir
             with self._session_factory() as session:

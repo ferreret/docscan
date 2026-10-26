@@ -614,3 +614,54 @@ class TestAppConfigurator:
         qtbot.addWidget(dialog)
         assert dialog._tabs.count() == 7
         assert dialog.windowTitle().startswith("Configurar")
+
+    def test_no_guarda_si_un_evento_no_compila(
+        self, qtbot, sample_app, session_factory
+    ):
+        """Paridad FlexibarNET10 v1.20: el Configurador rechaza scripts rotos."""
+        from unittest.mock import patch
+
+        dialog = AppConfigurator(sample_app, session_factory)
+        qtbot.addWidget(dialog)
+        tab = dialog._tab_events
+        assert tab._current_event == "on_app_start"
+        tab._code_edit.setPlainText("def on_app_start(app, batch:\n")
+        with patch("app.ui.configurator.app_configurator.QMessageBox.warning") as aviso:
+            dialog._on_save()
+        aviso.assert_called_once()
+        assert "on_app_start" in aviso.call_args.args[2]
+        assert dialog.result() == 0  # no se aceptó el diálogo
+
+
+class TestFindScriptErrors:
+    def test_detecta_pipeline_y_eventos(self):
+        import json
+
+        from app.services.script_engine import find_script_errors
+
+        pipeline = json.dumps(
+            [
+                {
+                    "type": "script",
+                    "id": "s1",
+                    "label": "Separar",
+                    "entry_point": "f",
+                    "script": "def f(:\n",
+                }
+            ]
+        )
+        events = json.dumps(
+            {
+                "on_app_start": "def on_app_start(app, batch):\n    pass\n",
+                "verification_panel": {"script": "class X(:\n"},
+            }
+        )
+        errors = find_script_errors(pipeline, events)
+        assert len(errors) == 2
+        assert any("Separar" in e for e in errors)
+        assert any("verification_panel" in e for e in errors)
+
+    def test_sin_errores(self):
+        from app.services.script_engine import find_script_errors
+
+        assert find_script_errors("[]", "{}") == []

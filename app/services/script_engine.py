@@ -17,6 +17,7 @@ import logging
 import re
 import json
 import datetime
+from dataclasses import dataclass
 from pathlib import Path
 from types import CodeType
 from typing import Any, Protocol
@@ -35,6 +36,26 @@ class ScriptCompilationError(Exception):
 
 class ScriptTimeoutError(Exception):
     """El script excedió el tiempo máximo de ejecución."""
+
+
+@dataclass(frozen=True)
+class EventOutcome:
+    """Resultado de ejecutar un evento con ``run_event_checked``.
+
+    Attributes:
+        ran: False si el evento no está definido en la aplicación.
+        value: Valor devuelto por la función del script.
+        error: Descripción del fallo; vacío si terminó bien.
+    """
+
+    ran: bool
+    value: Any = None
+    error: str = ""
+
+    @property
+    def failed(self) -> bool:
+        """True si el script se ejecutó y falló."""
+        return bool(self.error)
 
 
 class _HasFlags(Protocol):
@@ -63,6 +84,9 @@ class ScriptEngine:
         # Código compilado indexado por hash del fuente (evita ejecutar
         # una versión antigua tras editar el script).
         self._code_by_hash: dict[str, CodeType] = {}
+        # Fuentes que no compilan, por hash: se intenta una sola vez y el
+        # error se reporta en cada página sin recompilar cada vez.
+        self._compile_error_by_hash: dict[str, str] = {}
         # Último hash conocido de cada script_id (para los eventos de
         # ciclo de vida, que no llevan el fuente en la llamada).
         self._hash_by_id: dict[str, str] = {}
@@ -151,15 +175,25 @@ class ScriptEngine:
         if code is not None:
             self._hash_by_id[step.id] = source_hash
             return code
+        if source_hash in self._compile_error_by_hash:
+            return None
 
         label = getattr(step, "label", "") or step.id
-        log.info("Script '%s' modificado desde la carga; recompilando", label)
+        log.info("Compilando el script '%s'", label)
         try:
             self.compile_script(step.id, source, label)
         except ScriptCompilationError as e:
-            log.error("No se pudo recompilar el script '%s': %s", label, e)
+            log.error("No se pudo compilar el script '%s': %s", label, e)
+            self._compile_error_by_hash[source_hash] = str(e)
             return None
         return self._code_by_hash.get(source_hash)
+
+    def compile_error_for(self, step: Any) -> str:
+        """Error de compilación del fuente actual de un paso, o ``""``."""
+        source = getattr(step, "script", None)
+        if not isinstance(source, str):
+            return ""
+        return self._compile_error_by_hash.get(self._source_hash(source), "")
 
     def shutdown(self) -> None:
         """Libera el ThreadPoolExecutor."""
@@ -194,9 +228,9 @@ class ScriptEngine:
         """
         code = self._code_for_step(step)
         if not code:
-            log.warning(
-                "Script '%s' no compilado, ignorando",
-                step.label or step.id,
+            reason = self.compile_error_for(step) or "el script no está compilado"
+            self._record_error(
+                page, step.id, step.entry_point, ScriptCompilationError(reason)
             )
             return None
 
@@ -211,10 +245,13 @@ class ScriptEngine:
             exec(code, namespace)
             func = namespace.get(step.entry_point)
             if func is None or not callable(func):
-                log.warning(
-                    "Entry point '%s' no encontrado en script '%s'",
+                self._record_error(
+                    page,
+                    step.id,
                     step.entry_point,
-                    step.label or step.id,
+                    AttributeError(
+                        f"El script no define la función '{step.entry_point}'"
+                    ),
                 )
                 return None
             return self._execute_with_timeout(
@@ -341,6 +378,38 @@ class ScriptEngine:
 
         return func(**filtered)
 
+    def run_event_checked(
+        self,
+        script_id: str,
+        entry_point: str | None = None,
+        **kwargs: Any,
+    ) -> EventOutcome:
+        """Ejecuta un evento distinguiendo «no definido», «falló» y «devolvió».
+
+        Pensado para los eventos cuyo fallo debe detener algo (validación y
+        transferencia avanzada): ``run_event`` devuelve ``None`` tanto si el
+        script no existe como si lanza, y quien lo llama no puede saber que
+        algo ha ido mal. Paridad con FlexibarNET10 v1.20/v1.26: un fallo de
+        script nunca se trata como éxito.
+
+        Args:
+            script_id: ID del script compilado.
+            entry_point: Función a llamar (por defecto, ``script_id``).
+            **kwargs: Argumentos para la función (app, batch, pages…).
+
+        Returns:
+            EventOutcome con ``ran=False`` si el evento no está compilado, o
+            con ``error`` relleno si no define la función o lanza.
+        """
+        if not self.is_compiled(script_id):
+            return EventOutcome(ran=False)
+        try:
+            value = self.run_event_raw(script_id, entry_point or script_id, **kwargs)
+        except Exception as e:
+            log.exception("Error ejecutando evento '%s'", script_id)
+            return EventOutcome(ran=True, error=f"{type(e).__name__}: {e}")
+        return EventOutcome(ran=True, value=value)
+
     # ------------------------------------------------------------------
     # Internos
     # ------------------------------------------------------------------
@@ -434,3 +503,60 @@ class ScriptEngine:
             page.script_errors.append(error_info)
         elif hasattr(page, "flags") and hasattr(page.flags, "script_errors"):
             page.flags.script_errors.append(error_info)
+        # Paridad FlexibarNET10 v1.20: un script que falla no es invisible.
+        # El pipeline sigue, pero la página queda a revisión con el motivo.
+        flags = getattr(page, "flags", None)
+        if flags is not None and hasattr(flags, "needs_review"):
+            flags.needs_review = True
+            if not getattr(flags, "review_reason", ""):
+                flags.review_reason = f"Ha fallado el script del paso {step_id}"
+
+
+def find_script_errors(pipeline_json: str, events_json: str) -> list[str]:
+    """Errores de sintaxis de todos los scripts de una aplicación.
+
+    Lo usa el Configurador para no guardar una App con scripts que no
+    compilan (paridad FlexibarNET10 v1.20/v1.26). Antes se guardaba sin
+    comprobar nada y el fallo solo se veía, si acaso, en el log al abrir
+    el Workbench.
+
+    Args:
+        pipeline_json: JSON de pasos del pipeline.
+        events_json: JSON de eventos (``{nombre: código}`` o
+            ``{nombre: {"script": código}}``), incluido el panel de verificación.
+
+    Returns:
+        Un mensaje por script que no compila, con su origen y la línea.
+    """
+    from app.pipeline.serializer import deserialize
+    from app.pipeline.steps import ScriptStep
+
+    errors: list[str] = []
+
+    def check(source: str, origin: str) -> None:
+        if not source or not source.strip():
+            return
+        try:
+            compile(source, f"<{origin}>", "exec")
+        except SyntaxError as e:
+            errors.append(f"{origin}, línea {e.lineno}: {e.msg}")
+
+    try:
+        steps = deserialize(pipeline_json or "[]")
+    except Exception as e:
+        errors.append(f"Pipeline: no se puede leer la configuración ({e})")
+        steps = []
+    for step in steps:
+        if isinstance(step, ScriptStep):
+            check(step.script, f"Paso de pipeline «{step.label or step.id}»")
+
+    try:
+        events = json.loads(events_json or "{}")
+    except json.JSONDecodeError as e:
+        errors.append(f"Eventos: no se puede leer la configuración ({e})")
+        events = {}
+    for name, config in (events if isinstance(events, dict) else {}).items():
+        source = config.get("script", "") if isinstance(config, dict) else config
+        if isinstance(source, str):
+            check(source, f"Evento {name}")
+    return errors

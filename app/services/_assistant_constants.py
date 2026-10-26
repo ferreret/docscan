@@ -136,14 +136,14 @@ EVENT_SIGNATURES: dict[str, str] = {
     "on_app_end": 'def on_app_end(app, batch):\n    """Runs when the application closes."""',
     "on_import": 'def on_import(app, batch):\n    """Runs when the operator starts an import. Return any non-None value to replace the standard import; return None to keep it."""',
     "on_scan_complete": 'def on_scan_complete(app, batch):\n    """Runs ONCE after the pipeline finishes for ALL pages in the batch. Receives no pages."""',
-    "on_transfer_validate": 'def on_transfer_validate(app, batch) -> bool:\n    """Runs before transfer. Return False to cancel transfer.\n    Always return False explicitly to cancel: an exception does NOT cancel it today."""',
+    "on_transfer_validate": 'def on_transfer_validate(app, batch) -> bool:\n    """Runs before transfer, after the required batch fields are checked.\n    Return False to cancel. An exception also cancels it (fails closed)."""',
     "on_transfer_advanced": (
-        "def on_transfer_advanced(app, batch, pages=None, result=None):\n"
-        '    """Custom transfer logic. Keep both optional parameters: the Workbench passes\n'
-        "    `pages` (list with .image_path, .page_index, .fields, .ocr_text,\n"
-        "    .first_barcode, .image), the unattended worker passes `result` (TransferResult).\n"
-        "    There is NO batch.pages and pages have NO .barcodes (use .first_barcode).\n"
-        '    Return False to report failure; an exception is NOT reported as failure today."""'
+        "def on_transfer_advanced(app, batch, pages, result):\n"
+        '    """Runs AFTER the simple transfer (if enabled), in the Workbench and in the\n'
+        "    unattended worker alike. `pages`: list with .image_path, .page_index, .fields,\n"
+        "    .ocr_text, .first_barcode, .image (loaded on demand). `result`: TransferResult\n"
+        "    of the simple transfer. There is NO batch.pages and pages have NO .barcodes.\n"
+        '    Return False or raise to make the transfer fail: the batch is NOT marked as exported."""'
     ),
     "on_transfer_page": 'def on_transfer_page(app, batch, page_index, success):\n    """Runs after each page is copied by the simple transfer (Workbench only)."""',
     "on_navigate_prev": 'def on_navigate_prev(app, batch, current_page_index, total_pages):\n    """Custom previous navigation. Return the page index to go to (int), or None."""',

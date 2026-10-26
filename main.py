@@ -1,9 +1,9 @@
 """Punto de entrada de DocScan Studio.
 
 Modos de ejecución:
-    python3.14 main.py                          # Launcher (UI)
-    python3.14 main.py "App Name"               # Abre workbench directamente
-    python3.14 main.py --direct-mode "App Name" # Headless: escanea y transfiere
+    python main.py                          # Launcher (UI)
+    python main.py "App Name"               # Abre workbench directamente
+    python main.py --direct-mode "App Name" # Headless: escanea y transfiere
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 from config.settings import get_settings, APP_IMAGES_DIR
+from app.utils.crash_logging import install_exception_hooks, log_startup
 from app.db.database import create_db_engine, run_migrations, get_session_factory
 
 # Importar todos los modelos para que SQLAlchemy registre las relaciones
@@ -34,6 +35,8 @@ def setup_logging(settings) -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
+    install_exception_hooks()
+    log_startup("DocScan Studio")
 
 
 def _parse_args() -> argparse.Namespace:
@@ -105,12 +108,14 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
                 log.error("Error compilando script '%s': %s", step.label, exc)
 
     settings = get_settings()
+    from app.services.barcode_service import BarcodeService
     from app.services.ocr_service import OcrService
 
     executor = PipelineExecutor(
         steps=steps,
         image_service=ImagePipelineService(),
         script_engine=script_engine,
+        barcode_service=BarcodeService(),
         ocr_service=OcrService(),
         max_repeats=settings.pipeline.max_step_repeats,
     )

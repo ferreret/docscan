@@ -1,7 +1,8 @@
 """Worker de transferencia en hilo secundario.
 
-Ejecuta TransferService.transfer() sin bloquear la UI.
-Soporta modo estándar y modo avanzado (script).
+Ejecuta el flujo de ``app.services.transfer_flow`` (transferencia estándar y
+después ``on_transfer_advanced``) sin bloquear la UI. El worker desatendido
+usa el mismo flujo, así que los dos contextos se comportan igual.
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ from typing import Any
 
 from PySide6.QtCore import QThread, Signal
 
+from app.services.transfer_flow import execute_transfer
+
 log = logging.getLogger(__name__)
 
 
@@ -18,8 +21,9 @@ class TransferWorker(QThread):
     """Hilo de transferencia de lotes.
 
     Signals:
-        transfer_finished: TransferResult al completar.
-        transfer_error: mensaje de error.
+        transfer_finished: TransferResult al completar. Si el script avanzado
+            falla, llega con ``success=False`` y el motivo en ``errors``.
+        transfer_error: mensaje de un fallo inesperado del propio flujo.
         page_transferred: (page_index, success) por cada página copiada.
     """
 
@@ -49,63 +53,19 @@ class TransferWorker(QThread):
         self._advanced_contexts = advanced_contexts
 
     def run(self) -> None:
-        """Ejecuta la transferencia (avanzada y/o estándar)."""
+        """Ejecuta la transferencia (estándar y/o avanzada)."""
         try:
-            from app.services.transfer_service import TransferResult
-
-            # 1. Transferencia avanzada (script) si existe
-            if self._script_engine and self._advanced_contexts:
-                # Convertir dicts a objetos con .image cargada
-                from types import SimpleNamespace
-                import cv2
-
-                page_objects = []
-                for pd in self._pages:
-                    ns = SimpleNamespace(**pd)
-                    img = cv2.imread(pd["image_path"], cv2.IMREAD_UNCHANGED)
-                    if img is None:
-                        log.warning("No se pudo cargar imagen: %s", pd["image_path"])
-                    ns.image = img
-                    page_objects.append(ns)
-
-                result = self._script_engine.run_event(
-                    script_id="on_transfer_advanced",
-                    entry_point="on_transfer_advanced",
-                    pages=page_objects,
-                    **self._advanced_contexts,
-                )
-                if not isinstance(result, TransferResult):
-                    result = TransferResult(
-                        success=result is not False,
-                        files_transferred=len(self._pages),
-                    )
-                # Si no hay transferencia estándar, emitir y salir
-                if not self._config.standard_enabled:
-                    self.transfer_finished.emit(result)
-                    return
-
-            # 2. Transferencia estándar si está habilitada
-            if self._config.standard_enabled:
-
-                def on_page(page_index: int, success: bool) -> None:
-                    self.page_transferred.emit(page_index, success)
-
-                result = self._transfer_service.transfer(
-                    pages=self._pages,
-                    config=self._config,
-                    batch_fields=self._batch_fields,
-                    batch_id=self._batch_id,
-                    on_page_callback=on_page,
-                )
-                self.transfer_finished.emit(result)
-            else:
-                # Sin avanzada ni estándar: no hay nada que hacer
-                self.transfer_finished.emit(
-                    TransferResult(
-                        success=True,
-                        files_transferred=0,
-                    )
-                )
+            result = execute_transfer(
+                transfer_service=self._transfer_service,
+                config=self._config,
+                pages=self._pages,
+                batch_fields=self._batch_fields,
+                batch_id=self._batch_id,
+                script_engine=self._script_engine,
+                contexts=self._advanced_contexts,
+                on_page_callback=self.page_transferred.emit,
+            )
+            self.transfer_finished.emit(result)
         except Exception as e:
-            log.error("Error en transferencia: %s", e)
+            log.exception("Error en transferencia")
             self.transfer_error.emit(str(e))

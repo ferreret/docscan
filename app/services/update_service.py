@@ -219,11 +219,14 @@ class UpdateService:
             expected_sha256: Hash esperado en hexadecimal.
 
         Returns:
-            True si el checksum coincide.
+            True si el checksum coincide. Sin checksum devuelve False: una
+            descarga que no se puede verificar no se instala (falla cerrado,
+            como FlexibarNET10 con los packs de su Tienda). Las releases
+            publican siempre ``SHA256SUMS.txt``.
         """
         if not expected_sha256:
-            log.warning("No hay checksum disponible, se omite la verificación")
-            return True
+            log.error("No hay checksum publicado: la descarga no se puede verificar")
+            return False
 
         sha256 = hashlib.sha256()
         with open(file_path, "rb") as f:

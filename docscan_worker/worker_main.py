@@ -30,7 +30,7 @@ from config.settings import APP_DATA_DIR  # noqa: F401  # parcheado por tests
 from app.models.application import Application  # noqa: F401
 from app.models.batch import Batch  # noqa: F401
 from app.models.page import Page  # noqa: F401
-from app.models.barcode import Barcode  # noqa: F401
+from app.models.barcode import Barcode
 from app.models.template import Template  # noqa: F401
 from app.models.operation_history import OperationHistory  # noqa: F401
 
@@ -39,6 +39,7 @@ from app.db.repositories.application_repo import ApplicationRepository
 from app.pipeline.executor import PipelineExecutor
 from app.pipeline.serializer import deserialize
 from app.pipeline.steps import ScriptStep
+from app.services.barcode_service import BarcodeService
 from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
@@ -46,7 +47,16 @@ from app.services.notification_service import (
     NotificationService,
     parse_notification_config,
 )
+from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
+from app.utils.crash_logging import install_exception_hooks, log_startup
+from app.services.transfer_flow import (
+    ADVANCED_EVENT,
+    VALIDATE_EVENT,
+    execute_transfer,
+    transfer_page_dict,
+    validate_before_transfer,
+)
 from app.services.transfer_service import (
     TransferService,
     parse_transfer_config,
@@ -70,6 +80,8 @@ def _setup_logging(level: str = "INFO") -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
+    install_exception_hooks()
+    log_startup("DocScanWorker")
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -160,6 +172,8 @@ def _build_executor(
         steps=steps,
         image_service=ImagePipelineService(),
         script_engine=script_engine,
+        barcode_service=BarcodeService(),
+        ocr_service=OcrService(),
         max_repeats=settings.pipeline.max_step_repeats,
     )
 
@@ -361,6 +375,24 @@ def _process_files(
             page_db.script_errors_json = json.dumps(
                 page_ctx.flags.script_errors,
             )
+            # Los barcodes leídos no se guardaban: el worker transfería con
+            # {first_barcode} vacío y sin rastro de lo leído en el lote.
+            for bc in page_ctx.barcodes:
+                session.add(
+                    Barcode(
+                        page_id=page_db.id,
+                        value=bc.value,
+                        symbology=bc.symbology,
+                        engine=bc.engine,
+                        step_id=bc.step_id,
+                        quality=bc.quality,
+                        pos_x=bc.pos_x,
+                        pos_y=bc.pos_y,
+                        pos_w=bc.pos_w,
+                        pos_h=bc.pos_h,
+                        role=bc.role,
+                    )
+                )
 
         # Estadísticas
         duration = time.monotonic() - t_start
@@ -431,48 +463,45 @@ def _transfer_batch(
     app_ctx: AppContext,
     batch_ctx: BatchContext,
 ) -> None:
-    """Ejecuta la transferencia de un lote procesado."""
+    """Ejecuta la transferencia de un lote procesado.
+
+    Usa el mismo flujo que el Workbench (``app.services.transfer_flow``):
+    campos obligatorios y ``on_transfer_validate`` antes de exportar, y
+    ``on_transfer_advanced`` después, antes de marcar el lote.
+    """
     config = parse_transfer_config(app_record.transfer_json)
-    if not config.destination:
-        log.warning(
-            "Lote %d: no hay destino de transferencia configurado",
-            batch_id,
-        )
+    batch_fields = batch_svc.get_fields(batch_id)
+    try:
+        fields_def = json.loads(app_record.batch_fields_json or "[]")
+    except json.JSONDecodeError, TypeError:
+        fields_def = []
+    contexts = {"app": app_ctx, "batch": batch_ctx}
+
+    reason = validate_before_transfer(
+        script_engine=script_engine if VALIDATE_EVENT in lifecycle_events else None,
+        contexts=contexts,
+        fields_def=fields_def if isinstance(fields_def, list) else [],
+        batch_fields=batch_fields,
+        validate_entry_point=lifecycle_events.get(VALIDATE_EVENT),
+    )
+    if reason:
+        log.warning("Lote %d: transferencia bloqueada: %s", batch_id, reason)
         return
 
-    # Evento on_transfer_validate
-    if "on_transfer_validate" in lifecycle_events:
-        result = script_engine.run_event(
-            "on_transfer_validate",
-            lifecycle_events["on_transfer_validate"],
-            app=app_ctx,
-            batch=batch_ctx,
-        )
-        if result is False:
-            log.info("Lote %d: transferencia rechazada por validación", batch_id)
-            return
-
-    # Preparar datos de páginas para TransferService
-    pages_db = batch_svc.get_pages(batch_id)
-    pages_data: list[dict[str, Any]] = []
-    for p in pages_db:
-        if p.is_excluded:
-            continue
-        pages_data.append(
-            {
-                "image_path": p.image_path,
-                "page_index": p.page_index,
-                "fields": json.loads(p.index_fields_json),
-                "ocr_text": p.ocr_text,
-            }
-        )
-
-    batch_fields = batch_svc.get_fields(batch_id)
-    transfer_result = transfer_svc.transfer(
-        pages_data,
-        config,
-        batch_fields,
-        batch_id,
+    pages_data = [
+        transfer_page_dict(p)
+        for p in batch_svc.get_pages(batch_id)
+        if not p.is_excluded
+    ]
+    transfer_result = execute_transfer(
+        transfer_service=transfer_svc,
+        config=config,
+        pages=pages_data,
+        batch_fields=batch_fields,
+        batch_id=batch_id,
+        script_engine=script_engine if ADVANCED_EVENT in lifecycle_events else None,
+        contexts=contexts,
+        advanced_entry_point=lifecycle_events.get(ADVANCED_EVENT),
     )
 
     # Config de notificaciones (webhook) cargada de la aplicación.
@@ -491,16 +520,6 @@ def _transfer_batch(
             transfer_result.files_transferred,
             transfer_result.output_path,
         )
-
-        # Evento on_transfer_advanced
-        if "on_transfer_advanced" in lifecycle_events:
-            script_engine.run_event(
-                "on_transfer_advanced",
-                lifecycle_events["on_transfer_advanced"],
-                app=app_ctx,
-                batch=batch_ctx,
-                result=transfer_result,
-            )
 
         # Notificaciones (BAT-11 / MLT-03)
         stats = batch_svc.get_stats(batch_id)

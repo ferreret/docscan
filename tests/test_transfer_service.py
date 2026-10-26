@@ -14,7 +14,9 @@ import pytest
 from app.services.transfer_service import (
     TransferConfig,
     TransferService,
+    UnsafePathError,
     parse_transfer_config,
+    safe_join,
 )
 
 
@@ -332,6 +334,75 @@ class TestFilenamePattern:
         output_dir = Path(result.output_path)
         files = list(output_dir.glob("ACME_0000.*"))
         assert len(files) == 1
+
+
+# ------------------------------------------------------------------
+# Rutas blindadas (paridad FlexibarNET10 v1.26)
+# ------------------------------------------------------------------
+
+
+class TestRutasBlindadas:
+    """Los valores interpolados vienen del papel: nunca salen del destino."""
+
+    @pytest.mark.parametrize(
+        ("barcode", "esperado"),
+        [
+            ("/tmp/evil", "_tmp_evil"),
+            ("a/../../x", "a_.._.._x"),
+            ("..\\..\\x", ".._.._x"),
+            ("CON", "_CON"),
+            ("nul.txt", "_nul.txt"),
+            ('x:y*?"<>|', "x_y______"),
+            ("valor.", "valor"),
+        ],
+    )
+    def test_barcode_se_sanea(self, service, barcode, esperado):
+        nombre = service._build_filename(
+            "{first_barcode}", {"first_barcode": barcode, "page_index": 0}, {}, 1
+        )
+        assert nombre == esperado
+
+    def test_barcode_vacio_usa_nombre_por_defecto(self, service):
+        nombre = service._build_filename(
+            "{first_barcode}", {"first_barcode": "", "page_index": 3}, {}, 9
+        )
+        assert nombre == "batch_9_page_0003"
+
+    def test_segmento_largo_se_trunca(self, service):
+        nombre = service._build_filename(
+            "{first_barcode}", {"first_barcode": "A" * 500, "page_index": 0}, {}, 1
+        )
+        assert len(nombre) == 200
+
+    def test_barras_del_patron_si_crean_subcarpetas(self, service):
+        nombre = service._build_filename(
+            "{cliente}/{first_barcode}",
+            {"first_barcode": "B/1", "page_index": 0},
+            {"cliente": "AC/ME"},
+            1,
+        )
+        assert nombre == "AC_ME/B_1"
+
+    def test_transferencia_con_barcode_absoluto_queda_en_destino(
+        self, service, sample_pages, tmp_path
+    ):
+        """Reproducción del fallo: antes escribía en /…/fuera.tiff."""
+        fuera = tmp_path / "fuera"
+        pages = [dict(sample_pages[0], first_barcode=str(fuera))]
+        config = TransferConfig(
+            mode="folder",
+            destination=str(tmp_path / "output"),
+            filename_pattern="{first_barcode}",
+            create_subdirs=False,
+        )
+        result = service.transfer(pages, config, batch_id=1)
+        assert result.success, result.errors
+        assert not any(tmp_path.glob("fuera*"))
+        assert len(list((tmp_path / "output").iterdir())) == 1
+
+    def test_safe_join_rechaza_salir_del_destino(self, tmp_path):
+        with pytest.raises(UnsafePathError):
+            safe_join(tmp_path / "dest", "../otra/x.pdf")
 
 
 # ------------------------------------------------------------------

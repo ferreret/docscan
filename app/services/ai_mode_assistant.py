@@ -426,22 +426,22 @@ Set `standard_enabled: false` in transfer config when using only advanced transf
   - `ImageLib.load(path)` — Load image(s), returns `list[np.ndarray]`. Works with multi-page TIFF/PDF.
 
 #### Contract of on_transfer_advanced (read before writing one):
-- Signature: `def on_transfer_advanced(app, batch, pages=None, result=None)`. Keep BOTH optional
-  parameters: the Workbench passes `pages`, the unattended worker passes `result` (a TransferResult).
+- Signature: `def on_transfer_advanced(app, batch, pages, result)`. It runs AFTER the simple transfer
+  (when `standard_enabled` is true) and receives the same arguments in the Workbench and in the
+  unattended worker. `result` is the TransferResult of the simple transfer.
 - Each item of `pages` has `.image_path`, `.page_index`, `.fields` (page fields dict), `.ocr_text`,
-  `.first_barcode` and `.image` (ndarray). There is NO `batch.pages` and pages have NO `.barcodes`:
-  use `.first_barcode`, or copy the values you need into `page.fields` from a ScriptStep.
-- Return False to report a failure. Do NOT rely on raising: today an exception is not reported
-  as a failed transfer.
+  `.first_barcode` and `.image` (ndarray, loaded on demand). There is NO `batch.pages` and pages have
+  NO `.barcodes`: use `.first_barcode`, or copy the values you need into `page.fields` from a ScriptStep.
+- Return False or raise an exception to make the transfer fail: the batch is then NOT marked as
+  exported and the operator sees the reason. If the script writes to an external system, make it
+  safe to repeat (the operator will retry).
 - Filenames built from barcodes or fields come from paper: sanitize them (no "/", "\\\\", "..").
 
 #### Example 1: Export with date subfolders and barcode filenames (simple copy):
 ```python
-def on_transfer_advanced(app, batch, pages=None, result=None):
+def on_transfer_advanced(app, batch, pages, result):
     import shutil
     from datetime import date
-    if pages is None:
-        return True
     dest_base = Path("/path/to/export")
     date_folder = dest_base / date.today().strftime("%Y%m%d")
     date_folder.mkdir(parents=True, exist_ok=True)
@@ -456,11 +456,9 @@ def on_transfer_advanced(app, batch, pages=None, result=None):
 #### Example 2: Append to existing file when duplicate (merge pages into multi-page TIFF):
 When the destination file already exists, APPEND the new page to it instead of overwriting or adding a counter.
 ```python
-def on_transfer_advanced(app, batch, pages=None, result=None):
+def on_transfer_advanced(app, batch, pages, result):
     from app.services.image_lib import ImageLib
     from datetime import date
-    if pages is None:
-        return True
     dest_base = Path("/path/to/export")
     date_folder = dest_base / date.today().strftime("%Y%m%d")
     date_folder.mkdir(parents=True, exist_ok=True)
@@ -481,11 +479,9 @@ def on_transfer_advanced(app, batch, pages=None, result=None):
 
 #### Example 3: Append to existing PDF:
 ```python
-def on_transfer_advanced(app, batch, pages=None, result=None):
+def on_transfer_advanced(app, batch, pages, result):
     from app.services.image_lib import ImageLib
     from datetime import date
-    if pages is None:
-        return True
     dest_base = Path("/path/to/export")
     date_folder = dest_base / date.today().strftime("%Y%m%d")
     date_folder.mkdir(parents=True, exist_ok=True)

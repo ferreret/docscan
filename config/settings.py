@@ -8,6 +8,8 @@ Las variables se cargan en este orden de prioridad (mayor a menor):
 
 from __future__ import annotations
 
+import logging
+import os
 import platform
 from pathlib import Path
 
@@ -86,11 +88,29 @@ class Settings(BaseSettings):
     secrets_key_file: Path = APP_CONFIG_DIR / ".secrets.key"
 
 
+def ensure_private_dir(path: Path) -> None:
+    """Crea ``path`` si no existe y lo deja legible solo por su usuario.
+
+    Las imágenes de los lotes pueden contener datos personales (en hospitales,
+    de pacientes). Con el umask por defecto (0755) cualquier otra cuenta del
+    equipo podía leerlas. En POSIX se fija 0700; en Windows los permisos los
+    gobierna la ACL del perfil del usuario y no se tocan.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    if os.name == "posix":
+        try:
+            path.chmod(0o700)
+        except OSError as e:
+            logging.getLogger(__name__).warning(
+                "No se pudieron restringir los permisos de %s: %s", path, e
+            )
+
+
 def get_settings() -> Settings:
     """Carga y devuelve la configuración.
 
-    Crea los directorios de datos y config si no existen.
+    Crea los directorios de datos y config si no existen, privados al usuario.
     """
-    APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    APP_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_private_dir(APP_DATA_DIR)
+    ensure_private_dir(APP_CONFIG_DIR)
     return Settings()

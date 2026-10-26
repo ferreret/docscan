@@ -80,13 +80,13 @@ class UpdateDownloadWorker(QThread):
                 on_progress=lambda d, t: self.progress.emit(d, t),
             )
 
-            if self._release.sha256:
-                if not self._service.verify_checksum(path, self._release.sha256):
-                    path.unlink(missing_ok=True)
-                    self.download_error.emit(
-                        "Error de integridad: el checksum no coincide"
-                    )
-                    return
+            if not self._service.verify_checksum(path, self._release.sha256):
+                path.unlink(missing_ok=True)
+                self.download_error.emit(
+                    "Error de integridad: el checksum no coincide o la "
+                    "release no publica SHA256SUMS.txt"
+                )
+                return
 
             self.download_finished.emit(str(path))
 

@@ -101,6 +101,13 @@ class PipelineExecutor:
             except StepError as e:
                 log.error("Error en paso %s (%s): %s", step.id, step.type, e)
                 self._record_processing_error(page, step, e)
+                # Paridad FlexibarNET10 v1.26: un paso que falla (motor no
+                # disponible, configuración inválida) deja la página a
+                # revisión; el pipeline continúa con el resto de pasos.
+                if hasattr(page, "flags"):
+                    page.flags.needs_review = True
+                    if not page.flags.review_reason:
+                        page.flags.review_reason = f"Ha fallado el paso {step.id}: {e}"
 
         # Propagar la imagen al page solo si alguien pidió persistirla: un
         # ImageOpStep con persist=True (que deja instantánea) o un script
@@ -180,8 +187,9 @@ class PipelineExecutor:
     ) -> Any:
         """Ejecuta lectura de barcodes."""
         if self._barcode_service is None:
-            log.warning("BarcodeService no configurado, saltando paso %s", step.id)
-            return None
+            # Antes se saltaba con un warning: el worker desatendido y el modo
+            # directo no leían ningún barcode y nadie se enteraba.
+            raise StepError("No hay servicio de barcodes configurado")
 
         image = self._get_image(page, ctx)
         results = self._barcode_service.read(
@@ -208,8 +216,7 @@ class PipelineExecutor:
     ) -> Any:
         """Ejecuta reconocimiento OCR."""
         if self._ocr_service is None:
-            log.warning("OcrService no configurado, saltando paso %s", step.id)
-            return None
+            raise StepError("No hay servicio de OCR configurado")
 
         image = self._get_image(page, ctx)
         result = self._ocr_service.recognize(

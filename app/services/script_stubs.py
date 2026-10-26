@@ -114,9 +114,9 @@ _EVENT_EXTRA_VARS: dict[str, str] = {
         "success: bool               # Si la copia fue correcta\n"
     ),
     "on_transfer_advanced": (
-        "pages: list[Any] | None     # Workbench: .image_path, .page_index, .fields,\n"
+        "pages: list[Any]            # .image_path, .page_index, .fields,\n"
         "                            #   .ocr_text, .first_barcode, .image\n"
-        "result: Any | None          # Worker desatendido: TransferResult\n"
+        "result: Any                 # TransferResult de la transferencia simple\n"
     ),
     "on_navigate_prev": ("current_page_index: int\ntotal_pages: int\n"),
     "on_navigate_next": ("current_page_index: int\ntotal_pages: int\n"),

@@ -47,6 +47,7 @@ from app.services.import_service import ImportService
 from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
 from app.models.image_config import ImageConfig, parse_image_config
+from app.services.transfer_flow import transfer_page_dict, validate_before_transfer
 from app.services.transfer_service import TransferService, parse_transfer_config
 from app.ui.workbench.barcode_panel import BarcodePanel
 from app.ui.workbench.document_viewer import DocumentViewer
@@ -1563,13 +1564,40 @@ class WorkbenchWindow(QMainWindow):
                 )
                 return
 
-        # 1b. Validación (on_transfer_validate)
-        result = self._fire_event("on_transfer_validate")
-        if result is False:
+        # 1b. Campos obligatorios y on_transfer_validate (falla cerrado).
+        # Los campos del panel se guardan ANTES de validar: el BatchContext
+        # que recibe el script se lee de la BD, y antes veía el valor del
+        # intento anterior.
+        batch_fields = self._metadata_panel.get_batch_fields()
+        if self._batch_id:
+            with self._session_factory() as session:
+                from app.db.repositories.batch_repo import BatchRepository
+
+                batch = BatchRepository(session).get_by_id(self._batch_id)
+                if batch:
+                    batch.fields_json = json.dumps(batch_fields, ensure_ascii=False)
+                    session.commit()
+        try:
+            fields_def = json.loads(
+                self._application.batch_fields_json if self._application else "[]"
+            )
+        except json.JSONDecodeError, TypeError:
+            fields_def = []
+        reason = validate_before_transfer(
+            script_engine=self._script_engine,
+            contexts={
+                "app": self._build_app_context(),
+                "batch": self._build_batch_context(),
+            },
+            fields_def=fields_def if isinstance(fields_def, list) else [],
+            batch_fields=batch_fields,
+        )
+        if reason:
+            log.warning("Transferencia bloqueada: %s", reason)
             QMessageBox.warning(
                 self,
                 self.tr("Transferencia cancelada"),
-                self.tr("La validaci\u00f3n pre-transferencia ha fallado."),
+                reason,
             )
             return
 
@@ -1589,55 +1617,23 @@ class WorkbenchWindow(QMainWindow):
         config = parse_transfer_config(
             self._application.transfer_json if self._application else "{}",
         )
-        # Leer campos actuales del panel (incluye valores por defecto no tocados)
-        batch_fields = self._metadata_panel.get_batch_fields()
-        # Persistir en BD por si no se habían guardado aún
-        if self._batch_id:
-            with self._session_factory() as session:
-                from app.db.repositories.batch_repo import BatchRepository
-
-                repo = BatchRepository(session)
-                batch = repo.get_by_id(self._batch_id)
-                if batch:
-                    batch.fields_json = json.dumps(batch_fields, ensure_ascii=False)
-                    session.commit()
-
         pages_data = []
         with self._session_factory() as session:
             page_repo = PageRepository(session)
             for page in self._pages:
                 if page.is_excluded:
                     continue
-                try:
-                    fields = json.loads(page.index_fields_json)
-                except json.JSONDecodeError, TypeError:
-                    fields = {}
-                # Obtener primer barcode para el patrón de nombre
                 db_page = page_repo.get_by_id(page.id)
-                barcodes = list(db_page.barcodes) if db_page else []
-                first_bc = barcodes[0].value if barcodes else ""
-                pages_data.append(
-                    {
-                        "image_path": page.image_path,
-                        "page_index": page.page_index,
-                        "fields": fields,
-                        "ocr_text": page.ocr_text,
-                        "first_barcode": first_bc,
-                    }
-                )
+                if db_page is not None:
+                    pages_data.append(transfer_page_dict(db_page))
 
-        # 4. Lanzar worker
-        # on_transfer_advanced se pasa si está compilado
-        # La transferencia estándar se ejecuta solo si standard_enabled
-        has_advanced = self._script_engine.is_compiled("on_transfer_advanced")
-        advanced_ctx = None
-        script_eng = None
-        if has_advanced:
-            script_eng = self._script_engine
-            advanced_ctx = {
-                "app": self._build_app_context(),
-                "batch": self._build_batch_context(),
-            }
+        # 4. Lanzar worker: transferencia estándar (si está activada) y
+        # después on_transfer_advanced (si está definido). Ver transfer_flow.
+        script_eng = self._script_engine
+        advanced_ctx = {
+            "app": self._build_app_context(),
+            "batch": self._build_batch_context(),
+        }
 
         self._transfer_worker = TransferWorker(
             transfer_service=self._transfer_service,

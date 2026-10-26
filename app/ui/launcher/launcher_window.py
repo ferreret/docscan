@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.services.app_export_service import copy_configuration
 from app.services.update_service import ReleaseInfo
 
 from app.ui.launcher.app_list_widget import AppListWidget
@@ -406,24 +407,8 @@ class LauncherWindow(QMainWindow):
                 clone_name = f"{original.name} (copia {counter})"
                 counter += 1
 
-            clone = Application(
-                name=clone_name,
-                description=original.description,
-                active=original.active,
-                pipeline_json=original.pipeline_json,
-                events_json=original.events_json,
-                transfer_json=original.transfer_json,
-                batch_fields_json=original.batch_fields_json,
-                index_fields_json=original.index_fields_json,
-                auto_transfer=original.auto_transfer,
-                close_after_transfer=original.close_after_transfer,
-                background_color=original.background_color,
-                output_format=original.output_format,
-                default_tab=original.default_tab,
-                scanner_backend=original.scanner_backend,
-                image_config_json=original.image_config_json,
-                ai_config_json=original.ai_config_json,
-            )
+            clone = Application(name=clone_name)
+            copy_configuration(original, clone)
             repo.save(clone)
             session.commit()
 

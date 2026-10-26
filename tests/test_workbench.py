@@ -1696,6 +1696,37 @@ class TestWorkbenchWindow:
         qtbot.addWidget(window)
         return window
 
+    def test_validacion_ve_los_campos_actuales_del_panel(
+        self, workbench, session_factory, tmp_path
+    ):
+        """on_transfer_validate recibe lo que hay en el panel, no lo del intento anterior.
+
+        Antes los campos se guardaban DESPUÉS de validar y el script decidía
+        con el valor viejo (hallado en el smoke del lote 3).
+        """
+        from app.services.batch_service import BatchService
+        from config.settings import APP_IMAGES_DIR
+
+        with session_factory() as s:
+            BatchService(s, APP_IMAGES_DIR).add_pages(
+                workbench._batch_id, [np.full((20, 20, 3), 255, np.uint8)]
+            )
+            s.commit()
+        workbench._reload_pages()
+        workbench._script_engine.compile_script(
+            "on_transfer_validate",
+            "def on_transfer_validate(app, batch):\n"
+            "    return batch.fields.get('cliente') != 'MALO'\n",
+        )
+        workbench._metadata_panel._batch_widgets["cliente"].setText("MALO")
+        with (
+            patch("app.ui.workbench.workbench_window.QMessageBox.warning") as aviso,
+            patch("app.ui.workbench.workbench_window.QMessageBox.question") as pregunta,
+        ):
+            workbench._on_transfer()
+        pregunta.assert_not_called()
+        assert "rechazado" in aviso.call_args.args[2]
+
     def test_window_title_contains_app_name(self, workbench, sample_app):
         assert sample_app.name in workbench.windowTitle()
         assert "DocScan Studio" in workbench.windowTitle()

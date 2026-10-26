@@ -56,9 +56,12 @@ def _read_motor1(
     try:
         from pyzbar import pyzbar
         from pyzbar.pyzbar import ZBarSymbol
-    except ImportError:
-        log.warning("pyzbar no disponible (¿falta libzbar?), saltando Motor 1")
-        return []
+    except ImportError as e:
+        # Paridad FlexibarNET10 v1.26: «motor no disponible» no es «página
+        # sin código». El executor deja la página a revisión con el motivo.
+        raise RuntimeError(
+            "Motor 1 de barcodes no disponible: falta pyzbar o libzbar"
+        ) from e
 
     # Filtrar simbologías si se especificaron
     zbar_symbols = None
@@ -134,9 +137,8 @@ def _read_motor2(
     """Lee barcodes con zxing-cpp (Motor 2)."""
     try:
         import zxingcpp
-    except ImportError:
-        log.warning("zxing-cpp no disponible, saltando Motor 2")
-        return []
+    except ImportError as e:
+        raise RuntimeError("Motor 2 de barcodes no disponible: falta zxing-cpp") from e
 
     # Construir formatos
     formats = None

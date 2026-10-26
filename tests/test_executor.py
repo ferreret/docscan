@@ -402,3 +402,79 @@ class TestConfiguracionPorPaso:
         assert recibidos[1]["engine"] == "motor1"
         assert recibidos[1]["regex"] == ""
         assert recibidos[1]["symbologies"] == []
+
+
+# ------------------------------------------------------------------
+# Nada falla en silencio (paridad FlexibarNET10 v1.20 / v1.26)
+# ------------------------------------------------------------------
+
+
+class TestFallosVisibles:
+    """Un fallo de script o de motor deja la página a revisión con el motivo."""
+
+    def _exec(self, steps, script_engine, **services):
+        for s in steps:
+            if isinstance(s, ScriptStep):
+                try:
+                    script_engine.compile_step(s)
+                except Exception:
+                    pass  # el executor debe reportarlo igualmente
+        return PipelineExecutor(
+            steps=steps,
+            image_service=ImagePipelineService(),
+            script_engine=script_engine,
+            **services,
+        )
+
+    def test_script_que_lanza_marca_revision(self, script_engine, page, batch):
+        step = ScriptStep(
+            id="s1",
+            entry_point="f",
+            script="def f(app, batch, page, pipeline):\n    1/0\n",
+        )
+        self._exec([step], script_engine).execute(page, batch, MockApp())
+        assert page.flags.needs_review is True
+        assert "s1" in page.flags.review_reason
+        assert page.flags.script_errors[0]["type"] == "ZeroDivisionError"
+
+    def test_script_que_no_compila_queda_registrado(self, script_engine, page, batch):
+        step = ScriptStep(id="s2", entry_point="f", script="def f(:\n")
+        self._exec([step], script_engine).execute(page, batch, MockApp())
+        assert page.flags.needs_review is True
+        assert page.flags.script_errors, "antes no dejaba ningún rastro en la página"
+
+    def test_script_sin_la_funcion_queda_registrado(self, script_engine, page, batch):
+        step = ScriptStep(id="s3", entry_point="no_existe", script="x = 1\n")
+        self._exec([step], script_engine).execute(page, batch, MockApp())
+        assert page.flags.needs_review is True
+        assert "no_existe" in page.flags.script_errors[0]["error"]
+
+    def test_motor_no_disponible_marca_revision(self, script_engine, page, batch):
+        from unittest.mock import MagicMock
+
+        from app.pipeline.steps import BarcodeStep
+
+        barcode_service = MagicMock()
+        barcode_service.read.side_effect = RuntimeError("Motor 1 no disponible")
+        executor = self._exec(
+            [BarcodeStep(id="b1")], script_engine, barcode_service=barcode_service
+        )
+        executor.execute(page, batch, MockApp())
+        assert page.flags.needs_review is True
+        assert "Motor 1 no disponible" in page.flags.review_reason
+        assert page.flags.processing_errors
+
+    def test_el_pipeline_sigue_tras_un_fallo(self, script_engine, page, batch):
+        """La regla del CLAUDE.md se mantiene: un fallo no detiene el pipeline."""
+        malo = ScriptStep(
+            id="m",
+            entry_point="f",
+            script="def f(app, batch, page, pipeline):\n    1/0\n",
+        )
+        bueno = ScriptStep(
+            id="b",
+            entry_point="f",
+            script="def f(app, batch, page, pipeline):\n    page.fields['ok'] = 'si'\n",
+        )
+        self._exec([malo, bueno], script_engine).execute(page, batch, MockApp())
+        assert page.fields["ok"] == "si"
