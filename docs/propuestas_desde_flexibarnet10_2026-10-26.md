@@ -151,6 +151,23 @@ Esfuerzo estimado: **1-2 sesiones**. Cambia el comportamiento en un punto: Apps 
 scripts de transferencia venían fallando sin que nadie lo viera pasarán a bloquear la
 transferencia. No hay instalaciones en producción, así que es el momento de hacerlo.
 
+✅ **Hecho el 2026-10-26** (rama `fix/lote3-nada-falla-en-silencio`). Detalle en el
+CHANGELOG `[Unreleased]`. Notas:
+
+- D1 y D2 se resolvieron con un **flujo de transferencia único**
+  (`app/services/transfer_flow.py`) para el Workbench y el worker, más
+  `ScriptEngine.run_event_checked`. Como en Flexibar, `on_transfer_advanced` corre
+  **después** de la transferencia simple y recibe `pages` y `result` en los dos
+  contextos.
+- De paso se cerraron tres divergencias del worker: ignoraba `standard_enabled`,
+  exigía destino aunque la App solo transfiriera por script y dejaba
+  `{first_barcode}` vacío.
+- Pendiente para el lote 4: D3, retirar lo ya escrito cuando la transferencia falla.
+  Hoy un fallo del script avanzado deja los ficheros de la transferencia simple en el
+  destino, aunque el lote no se marque.
+- D7 sin fichero de log: escribir logs a disco sin enmascarar antes los datos
+  personales (F6) sería un retroceso de privacidad. Va con F6 en el lote 5.
+
 ### Lote 4 — «El escáner no pierde páginas» (requiere probar con el DR-M160)
 
 E1-E6 y D3 (retirar la salida parcial de una transferencia fallida). E1 cambia el

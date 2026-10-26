@@ -32,11 +32,19 @@ lote_{batch_id}/{first_barcode}_{page_index:04d}
     Los campos de lote se referencian por su nombre tal como están definidos en la
     pestaña Campos, con los espacios convertidos en `_`.
 
-!!! warning "Valores que vienen del papel"
-    `{first_barcode}` y los campos rellenados por OCR o IA salen del documento
-    escaneado. Se eliminan los `..` y las barras invertidas, pero un valor que empiece
-    por `/` todavía puede crear la ruta fuera de la carpeta de destino. El blindaje
-    completo de rutas está pendiente.
+!!! info "Valores que vienen del papel"
+    `{first_barcode}` y los campos salen del documento escaneado, así que se sanean
+    antes de usarlos:
+
+    - Sus `/` y `\` se convierten en `_`: solo las barras escritas en el patrón crean
+      subcarpetas.
+    - Los caracteres no válidos (`<>:"|?*`) pasan a `_` y los nombres reservados de
+      Windows (`CON`, `NUL`, `COM1`…) llevan un `_` delante.
+    - Cada segmento se limita a 200 caracteres.
+    - La ruta final se comprueba: si quedara fuera de la carpeta de destino, la
+      transferencia falla en lugar de escribir.
+
+    Si el valor queda vacío, se usa `batch_<lote>_page_<índice>`.
 
 ## Pendiente: paridad con FlexibarNET 10
 

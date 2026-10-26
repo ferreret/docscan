@@ -67,11 +67,9 @@ def marcar_separador(app, batch, page, pipeline):
 (con la transferencia simple desactivada):
 
 ```python
-def on_transfer_advanced(app, batch, pages=None, result=None):
+def on_transfer_advanced(app, batch, pages, result):
     from app.services.image_lib import ImageLib
 
-    if pages is None:  # el worker desatendido no pasa las páginas
-        return True
     destino = Path(app.transfer_config["destination"])
     destino.mkdir(parents=True, exist_ok=True)
 
@@ -107,9 +105,9 @@ def on_transfer_validate(app, batch):
     return True
 ```
 
-!!! danger "Devuelve `False`; no lances una excepción"
-    Hoy una excepción en `on_transfer_validate` queda en el log y la
-    transferencia **sigue adelante**. Se corregirá para que falle cerrado.
+Una excepción en `on_transfer_validate` también cancela la transferencia.
+Para campos que solo tienen que estar rellenos no hace falta script: marca el
+campo como **obligatorio** en la pestaña Campos de Lote.
 
 ### Llamar a una API externa
 

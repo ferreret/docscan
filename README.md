@@ -180,8 +180,11 @@ python main.py "Facturas Proveedores"
 # 🤖 Modo headless — escanear y transferir sin UI
 python main.py --direct-mode "Facturas Proveedores"
 
-# ⚙️ Worker desatendido — procesar desde carpeta
-python -m docscan_worker --batch-path /ruta/a/documentos
+# ⚙️ Worker desatendido — vigilar una carpeta de entrada
+python -m docscan_worker --app-name "Facturas Proveedores" --watch /ruta/entrada
+
+# ⚙️ Worker desatendido — procesar lotes pendientes y salir
+python -m docscan_worker --app-name "Facturas Proveedores" --process-pending
 ```
 
 ---
@@ -393,7 +396,7 @@ está en `docs-web/reference/scripting-api.md`. **No existe `batch.pages`.**
 def on_scan_complete(app, batch):
     log.info(f"Lote {batch.id} procesado: {batch.page_count} páginas")
 
-# on_transfer_validate — devuelve False para cancelar (no lances excepción)
+# on_transfer_validate — devuelve False (o lanza) para cancelar
 def on_transfer_validate(app, batch):
     if not batch.fields.get("numero_factura"):
         log.warning("Falta el número de factura")
@@ -421,11 +424,9 @@ def marcar_separador(app, batch, page, pipeline):
             return
 
 
-def on_transfer_advanced(app, batch, pages=None, result=None):
+def on_transfer_advanced(app, batch, pages, result):
     from app.services.image_lib import ImageLib
 
-    if pages is None:  # el worker desatendido no pasa las páginas
-        return True
     destino = Path(app.transfer_config["destination"])
     destino.mkdir(parents=True, exist_ok=True)
 
@@ -636,7 +637,7 @@ pytest tests/ --cov=app --cov-report=html
 - [x] ~~🔄 Auto-actualización vía GitHub Releases~~
 - [x] ~~🌐 Documentación web (MkDocs, `docs-web/`)~~
 - [ ] 📄 Separación de documentos nativa (paridad FlexibarNET 10) — ver `docs/diseno_separadores_documento_2026-10-26.md`
-- [ ] 🛡️ Transferencia que falla cerrada y rutas blindadas — ver `docs/propuestas_desde_flexibarnet10_2026-10-26.md`
+- [x] ~~🛡️ Transferencia que falla cerrada y rutas blindadas~~ (lote 3 de `docs/propuestas_desde_flexibarnet10_2026-10-26.md`)
 
 ---
 

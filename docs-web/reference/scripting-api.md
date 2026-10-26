@@ -100,25 +100,35 @@ Todos los eventos reciben `app` y `batch`. Además reciben estos argumentos
 | `on_key_event` | `key` (str) | ignorado |
 | `on_navigate_prev`, `on_navigate_next` | `current_page_index`, `total_pages` | índice de página a la que ir (int) |
 | `on_navigate_script` | `current_page_index`, `total_pages`, `pages` (lista de dicts) | índice de página (int) |
-| `on_transfer_validate` | — | `False` cancela la transferencia |
-| `on_transfer_advanced` | Workbench: `pages`. Worker desatendido: `result` | `False` informa de un fallo |
+| `on_transfer_validate` | — | `False` (o una excepción) cancela la transferencia |
+| `on_transfer_advanced` | `pages`, `result` (en el Workbench y en el worker) | `False` (o una excepción) hace fallar la transferencia |
 | `on_transfer_page` | `page_index`, `success` | ignorado |
 | `init_global` | — (sin `app` ni `batch`) | ignorado |
 
-Cada elemento de `pages` en `on_transfer_advanced` tiene `image_path`,
-`page_index`, `fields`, `ocr_text`, `first_barcode` e `image`. **No** tiene
-`barcodes`: copia a `page.fields` desde un ScriptStep lo que necesites.
+## Orden de la transferencia
 
-Declara `on_transfer_advanced` con los dos argumentos opcionales para que
-funcione en los dos contextos:
+Igual en el Workbench y en el worker desatendido (lógica de FlexibarNET 10):
+
+1. **Campos de lote obligatorios**: si alguno está vacío, la transferencia no
+   empieza y el aviso nombra los campos.
+2. **`on_transfer_validate`**: si devuelve `False` **o lanza una excepción**, la
+   transferencia no empieza.
+3. **Transferencia simple**, si está activada (con «solo script» no hace falta
+   carpeta de destino).
+4. **`on_transfer_advanced`**, con `pages` y el `result` de la transferencia simple.
+   Si devuelve `False` **o lanza**, la transferencia falla y el lote **no** se
+   marca como exportado.
+
+Cada elemento de `pages` tiene `image_path`, `page_index`, `fields`, `ocr_text`,
+`first_barcode` e `image` (se lee del disco al pedirla). **No** tiene `barcodes`:
+copia a `page.fields` desde un ScriptStep lo que necesites.
 
 ```python
-def on_transfer_advanced(app, batch, pages=None, result=None):
+def on_transfer_advanced(app, batch, pages, result):
     ...
 ```
 
-!!! danger "Una excepción no cancela ni hace fallar la transferencia (pendiente de corregir)"
-    Hoy, si `on_transfer_validate` o `on_transfer_advanced` lanzan una
-    excepción, el error queda en el log y la transferencia **sigue como si
-    hubiera ido bien**. Para cancelar o informar de un fallo, **devuelve
-    `False`**. Se corregirá para que falle cerrado, como en FlexibarNET 10.
+!!! warning "Scripts que escriben en sistemas externos"
+    Si el script avanzado falla, el operador reintentará la transferencia. Si
+    escribe en un sistema externo (LIS, base de datos, API), haz que se pueda
+    repetir sin duplicar registros.

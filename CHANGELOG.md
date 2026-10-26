@@ -8,6 +8,84 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+Lote 3 de mejoras desde FlexibarNET 10: **nada falla en silencio**. La mayoría son
+errores que se trataban como si todo hubiera ido bien, o que solo quedaban en el log.
+Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
+(v1.20, v1.26 y v1.27).
+
+> **Cambios de comportamiento a revisar antes de actualizar**
+> - Un `on_transfer_advanced` que lanza una excepción o devuelve `False` hace fallar
+>   la transferencia y el lote no se marca como exportado. Si el script escribe en
+>   un sistema externo, debe poder repetirse sin duplicar registros.
+> - `on_transfer_advanced` corre ahora **después** de la transferencia simple, en el
+>   Workbench igual que en el worker desatendido, y recibe `pages` y `result`.
+> - Un `on_transfer_validate` que lanza una excepción cancela la transferencia.
+> - Un campo de lote marcado como obligatorio y vacío bloquea la transferencia.
+> - Un ScriptStep que falla, o un paso cuyo motor de barcode/OCR no está
+>   disponible, deja la página «a revisión» con el motivo.
+> - El Configurador no guarda una App si algún script no compila.
+> - El actualizador rechaza una descarga sin checksum publicado.
+
+### 🛡️ Seguridad
+
+- **Un código de barras ya no puede sacar la transferencia de la carpeta de
+  destino.** Con el patrón `{first_barcode}`, un código que empezara por `/` escribía
+  en esa ruta absoluta. Ahora los valores interpolados (barcodes y campos) se sanean
+  antes de usarlos: sus barras pasan a `_`, los caracteres no válidos y los nombres
+  reservados de Windows (`CON`, `NUL`…) se neutralizan y cada segmento se limita a
+  200 caracteres. Además, toda ruta final se comprueba contra la carpeta de destino.
+- **El actualizador falla cerrado**: una descarga sin checksum ya no se da por buena.
+  Las releases publican siempre `SHA256SUMS.txt`.
+- **Las carpetas de datos y de configuración quedan solo para el usuario** (0700 en
+  Linux). Con el umask por defecto, otras cuentas del equipo podían leer las
+  imágenes de los lotes.
+
+### 🐛 Corregido
+
+- **Un script de transferencia que falla ya no da la transferencia por hecha.**
+  `on_transfer_advanced` podía lanzar una excepción, incluida la de la firma que
+  enseñaba el asistente, y el lote se marcaba como exportado igualmente. En el worker
+  desatendido, además, el script se ejecutaba después de marcar el lote.
+- **La validación previa falla cerrada**: una excepción en `on_transfer_validate`
+  dejaba pasar la transferencia.
+- **Los campos de lote obligatorios bloquean la transferencia**, nombrando los que
+  faltan. Hasta ahora el asterisco era decorativo.
+- **El Workbench y el worker desatendido transfieren igual.** Los dos usan ahora el
+  mismo flujo (`app/services/transfer_flow.py`). El worker ignoraba la transferencia
+  simple desactivada, exigía carpeta de destino aunque la App solo transfiriera por
+  script y dejaba `{first_barcode}` vacío.
+- **Un script de pipeline que falla ya no es invisible**: si lanza, no compila o no
+  define su función, la página queda «a revisión» con el motivo y el error en
+  `script_errors`. Un script que no compila se intenta compilar una sola vez, no en
+  cada página.
+- **«Motor no disponible» ya no equivale a «página sin código».** Si falta pyzbar,
+  libzbar, zxing-cpp o el motor OCR, el paso falla y la página queda «a revisión», en
+  lugar de guardar un resultado vacío.
+- **El Configurador no guarda una App con scripts que no compilan** (pasos del
+  pipeline, eventos y panel de verificación): enumera el script y la línea.
+- **Duplicar una App ya no pierde la configuración de notificaciones.** El clon copia
+  ahora la misma lista de campos que la exportación, y un test impide que una columna
+  nueva quede fuera de las dos.
+- **Las excepciones no capturadas quedan en el log con su traza**, también las de los
+  slots de Qt y los hilos. En el binario sin consola se perdían.
+- **El worker desatendido y el modo directo leen barcodes.** No recibían el servicio
+  de barcodes (el worker tampoco el de OCR) y saltaban esos pasos con un aviso en el
+  log. Ahora un paso sin su servicio falla y deja la página «a revisión».
+- **El worker guarda los barcodes que lee.** No los persistía: el lote quedaba sin
+  rastro de lo leído y la transferencia, con `{first_barcode}` vacío.
+- **`on_transfer_validate` ve los campos de lote actuales.** El Workbench guardaba
+  los campos del panel después de validar, así que el script decidía con el valor del
+  intento anterior.
+- **El log registra versión, ejecutable y plataforma en cada arranque.**
+- El patrón de nombre ya no escribe en el log el valor del barcode ni de los campos
+  al fallar la interpolación: solo los nombres de las variables.
+
+### 📚 Documentación
+
+- Firmas reales de todos los eventos en la plantilla del Configurador, los asistentes
+  de IA, los stubs del editor externo, el README y docs-web, más la receta «Un PDF por
+  documento» (hojas separadoras).
+
 ## [0.1.6] - 2026-07-28
 
 ### ✨ Salto directo a página en el visor

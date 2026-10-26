@@ -32,15 +32,14 @@ Ver [Patrones de nombre](../reference/naming-patterns.md) para la lista completa
 Para necesidades complejas, usar el evento `on_transfer_advanced`:
 
 ```python
-def on_transfer_advanced(app, batch, pages=None, result=None):
-    # Workbench: recibe `pages`. Worker desatendido: recibe `result`.
-    if pages is None:
-        return True
+def on_transfer_advanced(app, batch, pages, result):
+    # Corre después de la transferencia simple (si está activada), igual en
+    # el Workbench y en el worker desatendido.
     for p in pages:
         destino = Path(f"/archivo/{batch.fields['cliente']}/{p.fields['id_doc']}.pdf")
         destino.parent.mkdir(parents=True, exist_ok=True)
         # ... lógica de exportación personalizada
-    return True  # False informa de un fallo
+    return True  # False (o una excepción) hace fallar la transferencia
 ```
 
 Cada página de `pages` tiene `image_path`, `page_index`, `fields`, `ocr_text`,

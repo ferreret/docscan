@@ -35,9 +35,11 @@ editor del Configurador.
 - ScriptEngine captura las excepciones de los scripts para que el proceso no caiga,
   pero **un fallo nunca se trata como éxito** (lógica de FlexibarNET10 v1.20/v1.26).
   Debe quedar a la vista: en page.flags.script_errors, en el panel Log o como fallo
-  de la transferencia. Un fallo de un evento de transferencia la hace fallar.
-  (Pendiente en el código: hoy run_event devuelve None y TransferWorker lo da por
-  bueno. Se corrige en el lote 3 de docs/propuestas_desde_flexibarnet10_2026-10-26.md.)
+  de la transferencia. Un ScriptStep que falla (excepción, no compila, falta la
+  función) o un paso cuyo motor no está disponible deja la página needs_review con
+  el motivo; el pipeline continúa. Los eventos cuyo fallo debe detener algo se
+  ejecutan con ScriptEngine.run_event_checked (validación y transferencia avanzada,
+  ver app/services/transfer_flow.py).
 - Las regex de usuario se evalúan con app/utils/safe_regex (acotadas en tiempo).
 
 ## Antipatrones prohibidos

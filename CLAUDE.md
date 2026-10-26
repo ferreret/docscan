@@ -45,7 +45,8 @@ uv pip install -r requirements-dev.txt     # runtime + test/lint tooling
 .venv/bin/python main.py                                 # Launcher
 .venv/bin/python main.py "App Name"                      # Direct app launch
 .venv/bin/python main.py --direct-mode "App Name"        # Headless mode
-.venv/bin/python -m docscan_worker --batch-path /path    # Unattended worker
+.venv/bin/python -m docscan_worker --app-name "App Name" --watch /in   # Unattended worker
+.venv/bin/python -m docscan_worker --app-name "App Name" --process-pending
 
 # Tests (offscreen: no window, no display needed)
 QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/ -q          # All tests
@@ -156,7 +157,7 @@ SQLite with **mandatory WAL mode** for UI + DocScanWorker concurrency. Repositor
 - **API keys encrypted with Fernet** in `secrets.enc` under the platformdirs config dir (`~/.config/docscan/` on Linux, `config/settings.py`), never in plaintext
 - **ScriptStep errors don't stop the pipeline**: log to `page.flags.script_errors`
 - **Scripts compile once at app load** (cached by source hash, not by step.id), not per page execution
-- **A script failure is never treated as success** (FlexibarNET10 parity): it must surface in `script_errors`, the Log panel or as a failed transfer. Known violation pending fix: `run_event` returns `None` on exception and `TransferWorker` counts it as success (lote 3 of `docs/propuestas_desde_flexibarnet10_2026-10-26.md`)
+- **A script failure is never treated as success** (FlexibarNET10 parity): it must surface in `script_errors`, the Log panel or as a failed transfer. Validation and advanced-transfer events run through `ScriptEngine.run_event_checked` in `app/services/transfer_flow.py`, shared by the Workbench and the unattended worker
 - **Functional parity with FlexibarNET10**: when DocScan and Flexibar solve the same problem, follow Flexibar's documented behaviour (manual), same config keys and tokens. Deviations only by explicit decision
 - **repeat_step has a max limit** (default 3, configurable): executor enforces it with PipelineAbortError
 - **BarcodeStep does not assign roles to barcodes**: it accumulates in `page.barcodes` without separator/content semantics. It may declare a separator condition (`separator_*` fields, FlexibarNET10 parity) that marks the **page** (`page.is_separator` / `page.separator_value`), never the barcode. Scripts can override `page.is_separator`. See `docs/diseno_separadores_documento_2026-10-26.md`

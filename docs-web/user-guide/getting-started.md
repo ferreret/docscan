@@ -39,16 +39,19 @@
 
 ```bash
 # Launcher — gestionar aplicaciones
-python3.14 main.py
+python main.py
 
 # Abrir directamente una aplicación
-python3.14 main.py "Facturas Proveedores"
+python main.py "Facturas Proveedores"
 
 # Modo headless — escanear y transferir sin UI
-python3.14 main.py --direct-mode "Facturas Proveedores"
+python main.py --direct-mode "Facturas Proveedores"
 
-# Worker desatendido
-python3.14 -m docscan_worker --batch-path /ruta/a/documentos
+# Worker desatendido — vigilar una carpeta de entrada
+python -m docscan_worker --app-name "Facturas Proveedores" --watch /ruta/entrada
+
+# Worker desatendido — procesar lotes pendientes y salir
+python -m docscan_worker --app-name "Facturas Proveedores" --process-pending
 ```
 
 ## Primer arranque
