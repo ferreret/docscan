@@ -36,11 +36,15 @@ La referencia es FlexibarNET10, por la regla de paridad
   - hover fila ↔ recuadro;
   - corregidos dos stubs vacíos: OCR y `default_tab`.
 - Miniatura seleccionada con marco macizo de acento.
+- **E4a** (2026-10-26, commit en `feat/rediseno-ui`, sin push): barra superior como Flexibar.
+  - Escanear F5, ⚙ (popover `scan_config_popup.py`: escáner + ↻, fuente, «mostrar
+    opciones»), distintivo «Escáner: …», Importar… Ctrl+I, Procesar F9 (todo el
+    lote, `_run_pipeline_on`), Transferir/Cerrar lote con contorno verde/rojo.
+  - Sin radio buttons. Los escáneres se enumeran al abrir ⚙ o al escanear sin
+    escáner, no al abrir el Workbench.
+  - DocScan no tiene perfiles de escaneo: desviación consciente de Flexibar.
 
 **Pendiente, en este orden:**
-- **E4a** — barra superior del Workbench: «Escanear» como botón primario, Importar y
-  Procesar con icono, Transferir en verde y Cerrar lote en rojo, y fuera los radio
-  buttons. Nicolás quiere ver antes cómo ha quedado lo hecho.
 - **E4c** — tarjetas del launcher (icono y acento derivados de la configuración,
   etiquetas, menú ⋮) y barra de estado.
 - **E4e/f** — panel derecho (barcodes como lista, campo de fecha) y lista de pasos del
