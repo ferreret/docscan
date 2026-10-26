@@ -77,7 +77,7 @@ Icons que usa Flexibar, que solo existen en Windows y no se pueden redistribuir.
 
 | Orden | Componente | Cambio (como Flexibar) |
 |---|---|---|
-| a | Toolbar del Workbench | «Escanear» como botón primario con icono, más ⚙ perfil. Además: «Importar…», «Procesar», **Transferir en verde** y **Cerrar lote en rojo**. Fuera los radio buttons (B5/B6) |
+| a | Toolbar del Workbench | «Escanear» como botón primario con icono, más ⚙ perfil. Además: «Importar…», «Procesar», **Transferir en verde** y **Cerrar lote en rojo**. Fuera los radio buttons (B5/B6). ✅ **Hecho** el 2026-10-26; como DocScan no tiene perfiles de escaneo, ⚙ lleva escáner, fuente y «mostrar opciones», y el distintivo dice «Escáner: …» |
 | b | Barra del visor | Iconos monocromos del mismo trazo, contador normal `1 / 5` y el color reservado al estado: banderita naranja de separador y papelera roja (B7) |
 | c | Tarjetas del launcher | Icono cuadrado con acento **derivado de la configuración** (12 iconos × 7 acentos, como el `AppIconCatalog` de Flexibar), hasta 3 etiquetas automáticas (`Códigos de barras`, `Scripts`, `PDF`), fecha localizada y menú ⋮ (B2) |
 | d | Barra de estado | Contador a la izquierda y «● Listo» a la derecha. En el Workbench, `Procesado 5/5` y `1240×1754 — 150 DPI` (B8) |

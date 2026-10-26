@@ -116,7 +116,7 @@ def process(app, batch, page, pipeline):
 **Prerrequisitos**: Pipeline con barcode + script configurado.
 
 **Pasos**:
-1. Workbench > Radio "Importar" > Click "Escanear / Importar"
+1. Workbench > Click "Importar…" (Ctrl+I)
 2. Seleccionar una imagen con barcode (o PDF)
 3. Esperar procesamiento
 
@@ -200,10 +200,10 @@ def on_transfer_advanced(app, batch, pages):
 **Prerrequisitos**: Escáner conectado, python-sane instalado.
 
 **Pasos**:
-1. Workbench > Radio "Escáner"
+1. Workbench > Click "⚙" (junto a "Escanear")
 2. Seleccionar dispositivo del combo
-3. Source type: "Flatbed"
-4. Click "Escanear / Importar"
+3. Fuente: "Flatbed"
+4. Click "Escanear" (F5)
 
 **Verificaciones**:
 - [x] Lista de escáneres se puebla
@@ -217,10 +217,9 @@ def on_transfer_advanced(app, batch, pages):
 **Prerrequisitos**: Escáner con ADF conectado.
 
 **Pasos**:
-1. Workbench > Radio "Escáner"
-2. Source type: "ADF"
-3. Colocar varias hojas en el alimentador
-4. Click "Escanear / Importar"
+1. Workbench > Click "⚙" > Fuente: "ADF"
+2. Colocar varias hojas en el alimentador
+3. Click "Escanear" (F5)
 
 **Verificaciones**:
 - [x] Múltiples páginas capturadas (una por hoja)

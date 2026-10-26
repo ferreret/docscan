@@ -109,6 +109,23 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
   `hide_add_barcode_button`. La migración `b4e2a7c9d1f3` las añade con
   `ADD COLUMN`, sin recrear la tabla, y se probó sobre una copia de una base de
   datos real con los recuentos intactos. Las dos viajan en la exportación.
+- **Barra superior del Workbench como la de FlexibarNET 10.**
+  - **Escanear** (botón primario, F5), **⚙** con el escáner y un distintivo
+    «Escáner: …», **Importar…** (Ctrl+I), **Procesar** (F9), **Transferir** con
+    contorno verde y **Cerrar lote** con contorno rojo, todos con icono.
+  - Fuera los radio buttons Escáner/Importar, el combo de origen y el botón
+    «Escanear / Importar»: escanear e importar son botones propios.
+  - El escáner, la fuente (Flatbed/ADF) y «Mostrar las opciones del escáner al
+    capturar» pasan al panel de ⚙, con ↻ para volver a buscar escáneres.
+  - La lista de escáneres ya no se busca al abrir el Workbench (en SANE tarda
+    segundos), sino al abrir ⚙ o al escanear sin escáner elegido. El elegido se
+    recuerda por aplicación, como antes.
+  - **Procesar es nuevo**: pasa el pipeline por todas las páginas del lote y
+    termina por el mismo camino que una captura, como en Flexibar.
+  - Mientras corre el pipeline, Escanear, Importar y Procesar se deshabilitan, y
+    sus atajos tampoco actúan.
+  - **Cambia un atajo:** F5 escanea (antes escaneaba o importaba según el radio).
+    Ctrl+W sigue cerrando el lote.
 - **Contadores del lote en la barra de estado** (páginas, con barcode, separadores y
   a revisión), como el «Procesado 5/5» de Flexibar. Antes ocupaban el panel derecho.
 - **Al abrir una página a revisión, la barra de estado dice por qué** y cuántos
@@ -142,6 +159,8 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 
 ### 📚 Documentación
 
+- La tabla de atajos (`docs-web/reference/shortcuts.md`) se rehízo contra el código:
+  decía `Ctrl+S`, `R` y `M`, que no existen (son `F5`, `Ctrl+R` y `Ctrl+M`).
 - **`tools/ui_snapshots.py`** regenera con un comando las 15 capturas de la
   documentación (`docs/screenshots/` y `docs-web/assets/screenshots/`) y, si se
   pide, la imagen del portfolio. Abre las ventanas reales sin mostrarlas, con datos
