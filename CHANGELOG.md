@@ -126,6 +126,22 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
     sus atajos tampoco actúan.
   - **Cambia un atajo:** F5 escanea (antes escaneaba o importaba según el radio).
     Ctrl+W sigue cerrando el lote.
+- **Tarjetas del launcher como las de FlexibarNET 10.**
+  - Cada aplicación lleva un **icono sobre un color**, deducidos de su
+    configuración: barcodes → OCR → salida PDF → escáner → documento. El color
+    sale del nombre con el mismo hash que Flexibar (FNV-1a), así que una
+    aplicación con el mismo nombre tiene el mismo color en los dos productos.
+  - Hasta **tres etiquetas** automáticas: «Códigos de barras», «OCR», «Scripts» y
+    el formato de salida («PDF», «PDF/A», «TIFF», «CSV»…), o «Digitalización».
+  - Fecha de la última modificación (dd/mm/aaaa) y botón **⋮** con Abrir,
+    Configurar, Clonar, Exportar y Eliminar. El botón derecho abre el mismo menú.
+  - Las tarjetas crecen con el tamaño de letra (A+/A−).
+  - Desaparece la línea de información bajo la lista: la tarjeta ya lo dice todo.
+- **Barra de estado del launcher**: «N aplicación(es)» a la izquierda, que ya no
+  desaparece a los 3 segundos, y «● Listo» a la derecha.
+- **Barra de estado del Workbench**: tamaño y DPI de la página del visor
+  («1240×1754 — 300 DPI»), barra de progreso fina de 120×3 px en verde y, al
+  terminar, «Procesado N/M (k errores)» en lugar de «Procesamiento completado».
 - **Contadores del lote en la barra de estado** (páginas, con barcode, separadores y
   a revisión), como el «Procesado 5/5» de Flexibar. Antes ocupaban el panel derecho.
 - **Al abrir una página a revisión, la barra de estado dice por qué** y cuántos
@@ -161,6 +177,8 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 
 - La tabla de atajos (`docs-web/reference/shortcuts.md`) se rehízo contra el código:
   decía `Ctrl+S`, `R` y `M`, que no existen (son `F5`, `Ctrl+R` y `Ctrl+M`).
+- Las aplicaciones de demostración de `tools/ui_snapshots.py` tienen ahora configuraciones
+  distintas, para que la captura del launcher enseñe iconos y etiquetas variados.
 - **`tools/ui_snapshots.py`** regenera con un comando las 15 capturas de la
   documentación (`docs/screenshots/` y `docs-web/assets/screenshots/`) y, si se
   pide, la imagen del portfolio. Abre las ventanas reales sin mostrarlas, con datos

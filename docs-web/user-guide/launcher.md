@@ -4,6 +4,25 @@ El Launcher es la ventana principal de DocScan Studio. Desde aquí se gestionan 
 
 ![Launcher de DocScan Studio](../assets/screenshots/launcher_dark.png)
 
+## Tarjetas de aplicación
+
+Cada aplicación es una tarjeta, como en FlexibarNET 10:
+
+- **Indicador** a la izquierda: verde si la aplicación está activa, gris si no.
+- **Icono sobre un color**, que se deducen de la configuración. No hay que elegirlos.
+  - El icono sigue este orden: lee códigos de barras → OCR → salida PDF → escáner
+    configurado → documento.
+  - El color sale del nombre: el mismo nombre da siempre el mismo color, también en
+    FlexibarNET 10.
+- **Nombre, descripción y hasta tres etiquetas**: «Códigos de barras», «OCR»,
+  «Scripts» y el formato de salida (`PDF`, `PDF/A`, `TIFF`, `CSV`…). Una aplicación
+  sin nada de eso muestra «Digitalización».
+- **Fecha** de la última modificación.
+- **⋮** abre el menú de la aplicación: Abrir, Configurar, Clonar, Exportar y
+  Eliminar. El botón derecho sobre la tarjeta abre el mismo menú.
+
+La barra de estado muestra cuántas aplicaciones hay y, a la derecha, «● Listo».
+
 ## Sidebar
 
 La sidebar izquierda proporciona acceso rápido a todas las acciones. Se puede expandir/colapsar haciendo clic en el icono de menú.
@@ -12,7 +31,7 @@ La sidebar izquierda proporciona acceso rápido a todas las acciones. Se puede e
 |-------|--------|-------------|
 | :material-plus: Nueva | Crear aplicación | Diálogo para nombre y descripción |
 | :material-folder-open: Abrir | Abrir workbench | Abre la aplicación seleccionada |
-| :material-cog: Configurar | Editar configuración | Abre el configurador con 6 pestañas |
+| :material-cog: Configurar | Editar configuración | Abre el configurador con 7 pestañas |
 | :material-content-copy: Clonar | Duplicar | Copia exacta de la aplicación |
 | :material-upload: Exportar | Fichero .docscan | Exporta como JSON portable |
 | :material-download: Importar | Desde .docscan | Carga aplicación desde fichero |

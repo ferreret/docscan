@@ -16,8 +16,10 @@ El Workbench se compone de cinco áreas:
    barra de herramientas debajo
 4. **Panel derecho** — Barcodes de la página, campos de lote y las pestañas
    Verificación / OCR / Log (ver más abajo)
-5. **Barra de estado** — Mensajes y contadores del lote (páginas, con barcode,
-   separadores y a revisión)
+5. **Barra de estado** — Mensajes, contadores del lote (páginas, con barcode,
+   separadores y a revisión), tamaño y DPI de la página del visor
+   (`1240×1754 — 300 DPI`) y una barra de progreso fina mientras corre el pipeline.
+   Al terminar dice `Procesado N/M`, con los errores si los hubo.
 
 ## Panel derecho
 
