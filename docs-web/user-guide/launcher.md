@@ -11,7 +11,7 @@ Cada aplicación es una tarjeta, como en FlexibarNET 10:
 - **Indicador** a la izquierda: verde si la aplicación está activa, gris si no.
 - **Icono sobre un color**, que se deducen de la configuración. No hay que elegirlos.
   - El icono sigue este orden: lee códigos de barras → OCR → salida PDF → escáner
-    configurado → documento.
+    elegido en el Workbench → documento.
   - El color sale del nombre: el mismo nombre da siempre el mismo color, también en
     FlexibarNET 10.
 - **Nombre, descripción y hasta tres etiquetas**: «Códigos de barras», «OCR»,

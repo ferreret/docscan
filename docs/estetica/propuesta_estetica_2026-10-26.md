@@ -81,8 +81,8 @@ Icons que usa Flexibar, que solo existen en Windows y no se pueden redistribuir.
 | b | Barra del visor | Iconos monocromos del mismo trazo, contador normal `1 / 5` y el color reservado al estado: banderita naranja de separador y papelera roja (B7) |
 | c | Tarjetas del launcher | Icono cuadrado con acento **derivado de la configuración** (12 iconos × 7 acentos, como el `AppIconCatalog` de Flexibar), hasta 3 etiquetas automáticas (`Códigos de barras`, `Scripts`, `PDF`), fecha localizada y menú ⋮ (B2). ✅ **Hecho** el 2026-10-26, con el mismo hash FNV-1a del nombre que Flexibar para el acento. Sin selector manual de icono (Flexibar lo tiene; aquí haría falta una columna nueva) |
 | d | Barra de estado | Contador a la izquierda y «● Listo» a la derecha. En el Workbench, `Procesado 5/5` y `1240×1754 — 150 DPI` (B8). ✅ **Hecho** el 2026-10-26. Los DPI solo se muestran si la imagen guarda un valor real (≥ 50) |
-| e | Panel derecho | Cabeceras en versalitas (`BARCODES DE LA PÁGINA · 1`), barcodes como lista con punto de color en lugar de tabla y campo fecha con su icono de calendario |
-| f | Configurador | Lista de pasos con icono y color por tipo y casilla real de activo, como paso previo al master-detail |
+| e | Panel derecho | Cabeceras en versalitas (`BARCODES DE LA PÁGINA · 1`), barcodes como lista con punto de color en lugar de tabla y campo fecha con su icono de calendario. ✅ **Hecho** el 2026-10-26 (el campo de fecha, en E4e) |
+| f | Configurador | Lista de pasos con icono y color por tipo y casilla real de activo, como paso previo al master-detail. ✅ **Hecho** el 2026-10-26; además se arregló que arrastrar un paso no cambiaba el orden guardado |
 
 ### Fuera de esta ronda
 

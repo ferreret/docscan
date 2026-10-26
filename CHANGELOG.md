@@ -42,6 +42,13 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 
 ### 🐛 Corregido
 
+- **Arrastrar un paso del pipeline ya cambia su orden.** La lista lo movía, pero el
+  orden guardado seguía siendo el anterior: el cambio se perdía al guardar.
+- **Las imágenes del tema ya no dependen del directorio de trabajo.** Las flechas de
+  los campos numéricos se cargaban con una ruta relativa
+  (`resources/icons/…`), que solo funcionaba arrancando desde la carpeta del
+  programa. Ahora el tema usa la ruta absoluta (`$icons_dir`).
+
 - **Un script de transferencia que falla ya no da la transferencia por hecha.**
   `on_transfer_advanced` podía lanzar una excepción, incluida la de la firma que
   enseñaba el asistente, y el lote se marcaba como exportado igualmente. En el worker
@@ -128,7 +135,8 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
     Ctrl+W sigue cerrando el lote.
 - **Tarjetas del launcher como las de FlexibarNET 10.**
   - Cada aplicación lleva un **icono sobre un color**, deducidos de su
-    configuración: barcodes → OCR → salida PDF → escáner → documento. El color
+    configuración: barcodes → OCR → salida PDF → escáner elegido en el
+    Workbench → documento. El color
     sale del nombre con el mismo hash que Flexibar (FNV-1a), así que una
     aplicación con el mismo nombre tiene el mismo color en los dos productos.
   - Hasta **tres etiquetas** automáticas: «Códigos de barras», «OCR», «Scripts» y
@@ -142,6 +150,14 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 - **Barra de estado del Workbench**: tamaño y DPI de la página del visor
   («1240×1754 — 300 DPI»), barra de progreso fina de 120×3 px en verde y, al
   terminar, «Procesado N/M (k errores)» en lugar de «Procesamiento completado».
+- **Lista de pasos del Configurador como la de Flexibar**: cada paso tiene una
+  **casilla real** de activo, el **icono de su tipo** con su color (imagen, barcode,
+  OCR, script) y su nombre. Un paso desactivado se ve atenuado. Desaparecen el
+  botón «On/Off» y la marca de texto `[✓]`/`[✗]`, y subir/bajar llevan icono.
+- **El campo de fecha lleva un icono de calendario**, como el DatePicker de
+  Flexibar. Antes el desplegable era un cuadrado con borde que parecía una casilla.
+- **Las casillas marcadas llevan tic.** Antes eran un cuadrado relleno sin marca.
+  También lo llevan las de la lista «Pestañas del Workbench».
 - **Contadores del lote en la barra de estado** (páginas, con barcode, separadores y
   a revisión), como el «Procesado 5/5» de Flexibar. Antes ocupaban el panel derecho.
 - **Al abrir una página a revisión, la barra de estado dice por qué** y cuántos
