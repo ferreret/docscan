@@ -14,6 +14,7 @@
 - ✅ [Lotes 1 y 2 cerrados 2026-07-28](project_lotes_flexibarnet_ejecutados.md) — mergeados vía PR #1 y publicados como **v0.1.6**; 937 tests; decisiones cerradas (dep `regex` aceptada, `replace_image` documentado sin tocar). Siguiente: lote «separación de documentos y launcher».
 
 ## Estado desktop
+- 🗂️ [Ficha de DocScan en el portfolio](project_ficha_portfolio.md) — replantear tras el rediseño; se puede nombrar Flexibar/Tecnomedia/hospitales; estado in-development.
 - 🎨 [Rediseño UI con estética FlexibarNET10](project_rediseno_ui.md) — rama `feat/rediseno-ui`: paleta, Inter, Lucide y barra del visor hechos (2026-10-26); pendientes E4a/E4c/E4e-f.
 - ⚠️ [Bug BD: no migraba al arrancar + `upgrade head` BORRABA datos](project_db_migration_bug.md) — **2 bugs distintos**. El 2º (2026-08-05): `batch_alter_table` + `PRAGMA foreign_keys=ON` vaciaba lotes/páginas/barcodes en silencio; **v0.1.5 y v0.1.6 publicadas lo tienen**. Arreglado en `82eeeb4`; no urgente porque no hay instalaciones en producción. Destapado en campo 2026-07-22 (`create_all` no añade columnas; falta `notifications_json`). BD del usuario **ya reparada** (quirúrgico + stamp head, backup hecho, app arranca). **Fix de fondo pendiente para v0.1.5**: `upgrade head` peta por migraciones web; hay que separar cadena desktop/web. v0.1.4 publicada CON este bug.
 - **Auditoría completa 2026-07-21** en `docs/auditoria_desktop_2026-07-21.md` — núcleo sano, cobertura 65%. Plan P0/P1/P2 en el doc.

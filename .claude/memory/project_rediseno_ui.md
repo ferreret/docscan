@@ -25,6 +25,18 @@ La referencia es FlexibarNET10, por la regla de paridad
 - Contador «N / M» ajustado a su texto y centrado entre las flechas. Un test mide el
   centrado en píxeles con el QSS real.
 
+- **Panel derecho como Flexibar** (2026-10-26). Diseño en
+  `docs/estetica/panel_derecho_workbench.md`:
+  - barcodes como lista de filas, panel de campos plegable, pestañas
+    Verificación/OCR/Log;
+  - visibilidad y orden por App, con las columnas `workbench_layout_json` y
+    `hide_add_barcode_button` (migración `b4e2a7c9d1f3`, con `add_column` sin batch);
+  - contadores del lote en la barra de estado;
+  - Ctrl+N/Insert/Supr/Ctrl+Z;
+  - hover fila ↔ recuadro;
+  - corregidos dos stubs vacíos: OCR y `default_tab`.
+- Miniatura seleccionada con marco macizo de acento.
+
 **Pendiente, en este orden:**
 - **E4a** — barra superior del Workbench: «Escanear» como botón primario, Importar y
   Procesar con icono, Transferir en verde y Cerrar lote en rojo, y fuera los radio
@@ -37,7 +49,9 @@ La referencia es FlexibarNET10, por la regla de paridad
   E4c) y en `document_viewer.py` (la paleta de los recuadros de barcode sobre el papel,
   que se deja así a propósito).
 
-**Herramienta:** las capturas offscreen de las ventanas reales se hacen con un script de
-captura en el scratchpad (un `QApplication` con datos XDG aislados y `grab()` de
-Launcher, Configurador y Workbench). La propuesta prevé llevarlo al repo como
-`tools/ui_snapshots.py`.
+**Herramienta de capturas:** `tools/ui_snapshots.py` (hecha el 2026-10-26).
+- Regenera las 15 capturas de `docs/screenshots` y `docs-web/assets/screenshots`, y con
+  `--portfolio RUTA` también el WebP del portfolio ([[project_ficha_portfolio]]).
+- Aísla XDG y QSettings, usa offscreen y datos neutros (Suministros Ejemplo S.L.).
+- **Pendiente:** ejecutarla **al terminar el rediseño**. Las capturas de la documentación
+  aún no se han regenerado.
