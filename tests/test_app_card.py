@@ -75,12 +75,30 @@ class TestIcono:
             ({"transfer_json": json.dumps({"mode": "pdf"})}, "pdf"),
             ({"transfer_json": json.dumps({"mode": "pdfa"})}, "pdf"),
             ({"transfer_json": json.dumps({"output_format": "pdf"})}, "pdf"),
-            ({"scanner_backend": "sane"}, "scanner"),
             ({}, "document"),
         ],
     )
-    def test_prioridad_barcode_ocr_pdf_escaner_documento(self, kw, esperado):
+    def test_prioridad_barcode_ocr_pdf_documento(self, kw, esperado):
         assert derive_icon_key(_app(**kw)) == esperado
+
+    def test_escaner_elegido_en_el_workbench(self):
+        """Como DefaultScannerDeviceName de Flexibar: el escáner recordado."""
+        from PySide6.QtCore import QSettings
+
+        s = QSettings("DocScanStudio", "Workbench")
+        s.setValue("source/77/scanner_name", "Canon DR-M160")
+        try:
+            assert derive_icon_key(_app(id=77)) == "scanner"
+            # Con OCR, el OCR manda
+            assert (
+                derive_icon_key(_app(id=77, pipeline_json=_pipeline("ocr"))) == "text"
+            )
+        finally:
+            s.remove("source/77")
+
+    def test_el_backend_del_configurador_no_cuenta(self):
+        """El Configurador siempre guarda un backend: no indica nada."""
+        assert derive_icon_key(_app(id=78, scanner_backend="sane")) == "document"
 
     def test_json_roto_cae_a_documento(self):
         app = _app(pipeline_json="[no es json", transfer_json="{roto")

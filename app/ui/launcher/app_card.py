@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication
+from PySide6.QtCore import QCoreApplication, QSettings
 
 from app.services.transfer_service import parse_transfer_config
 
@@ -120,8 +120,21 @@ def _outputs_pdf(app: Any) -> bool:
     return cfg.mode in ("pdf", "pdfa") or cfg.output_format.lower() == "pdf"
 
 
+def remembered_scanner(app_id: int) -> str:
+    """Escáner que el Workbench recuerda para la aplicación ("" si ninguno).
+
+    Es el equivalente de ``DefaultScannerDeviceName`` de Flexibar. No sirve
+    ``scanner_backend``: el Configurador siempre guarda uno (su combo no
+    tiene opción vacía), así que todas las aplicaciones parecerían de escáner.
+    """
+    value = QSettings("DocScanStudio", "Workbench").value(
+        f"source/{app_id}/scanner_name", ""
+    )
+    return value if isinstance(value, str) else ""
+
+
 def derive_icon_key(app: Any, steps: set[str] | None = None) -> str:
-    """Barcode > OCR > salida PDF > escáner configurado > documento."""
+    """Barcode > OCR > salida PDF > escáner elegido > documento."""
     steps = pipeline_step_types(app.pipeline_json, app.id) if steps is None else steps
     if "barcode" in steps:
         return "barcode"
@@ -129,7 +142,7 @@ def derive_icon_key(app: Any, steps: set[str] | None = None) -> str:
         return "text"
     if _outputs_pdf(app):
         return "pdf"
-    if (getattr(app, "scanner_backend", "") or "").strip():
+    if remembered_scanner(app.id).strip():
         return "scanner"
     return "document"
 

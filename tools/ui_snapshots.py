@@ -249,7 +249,7 @@ APPS = [
     (
         "Correspondencia entrante",
         "Cartas y notificaciones recibidas",
-        {"pipeline": PIPELINE[:1], "scanner_backend": "sane", "active": False},
+        {"pipeline": PIPELINE[:1], "scanner": "Canon DR-M160", "active": False},
     ),
 ]
 
@@ -271,13 +271,21 @@ def seed(session_factory, images_dir: Path) -> dict:
                     batch_fields_json=json.dumps(BATCH_FIELDS),
                     events_json=json.dumps(profile.get("events", {})),
                     transfer_json=json.dumps(profile.get("transfer", {})),
-                    scanner_backend=profile.get("scanner_backend", ""),
                     active=profile.get("active", True),
                 )
             )
         s.commit()
         apps = {a.name: a.id for a in s.query(Application).all()}
     ids["app"] = apps["Facturas de proveedores"]
+
+    # Escáner recordado por el Workbench (QSettings aislado): de él sale el
+    # icono de escáner de la tarjeta.
+    from PySide6.QtCore import QSettings  # ya sustituida por la aislada
+
+    settings = QSettings("DocScanStudio", "Workbench")
+    for name, _desc, profile in APPS:
+        if profile.get("scanner"):
+            settings.setValue(f"source/{apps[name]}/scanner_name", profile["scanner"])
 
     # Lotes para el gestor de lotes: varios estados.
     plan = [
