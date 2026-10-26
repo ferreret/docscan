@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app._version import __version__
 from app.services.app_export_service import copy_configuration
 from app.services.update_service import ReleaseInfo
 
@@ -59,7 +60,8 @@ class LauncherWindow(QMainWindow):
         self._load_apps()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle(self.tr("DocScan Studio"))
+        # Versión en el título, como el «FlexibarNET v1.30» de Flexibar
+        self.setWindowTitle(self.tr("DocScan Studio v{0}").format(__version__))
         self.setMinimumSize(900, 600)
 
         # --- Layout principal: sidebar + contenido ---
@@ -95,9 +97,16 @@ class LauncherWindow(QMainWindow):
 
         header_left = QVBoxLayout()
         header_left.setSpacing(2)
+        title_row = QHBoxLayout()
+        title_row.setSpacing(8)
         title_label = QLabel(self.tr("DocScan Studio"))
         title_label.setProperty("cssClass", "title")
-        header_left.addWidget(title_label)
+        title_row.addWidget(title_label)
+        self._version_label = QLabel(f"v{__version__}")
+        self._version_label.setObjectName("titleVersion")
+        title_row.addWidget(self._version_label, 0, Qt.AlignmentFlag.AlignBottom)
+        title_row.addStretch(1)
+        header_left.addLayout(title_row)
         subtitle_label = QLabel(self.tr("Selecciona una aplicación para comenzar"))
         subtitle_label.setProperty("cssClass", "subtitle")
         header_left.addWidget(subtitle_label)

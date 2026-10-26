@@ -210,7 +210,11 @@ class TestLauncherWindow:
     def test_window_creates(self, qtbot, session_factory, seed_apps):
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
-        assert window.windowTitle() == "DocScan Studio"
+        from app._version import __version__
+
+        # Como Flexibar («FlexibarNET v1.30»): la versión en el título
+        assert window.windowTitle() == f"DocScan Studio v{__version__}"
+        assert window._version_label.text() == f"v{__version__}"
         assert window._app_list.count() == 3
 
     def test_buttons_disabled_without_selection(

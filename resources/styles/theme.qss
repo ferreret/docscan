@@ -267,6 +267,13 @@ QLabel[cssClass="title"] {
     color: $text;
 }
 
+/* Versión junto al título del launcher */
+QLabel#titleVersion {
+    color: $text_subtle;
+    font-size: 12px;
+    padding-bottom: 3px;
+}
+
 QLabel[cssClass="subtitle"] {
     font-size: 13px;
     color: $text_subtle;
