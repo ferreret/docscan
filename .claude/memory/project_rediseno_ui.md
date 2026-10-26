@@ -64,8 +64,10 @@ La referencia es FlexibarNET10, por la regla de paridad
   si fuera real. Encaja con el lote 4 (escáner).
 
 **Pendiente:** con E4e/f, las fases de la propuesta están todas hechas.
-- Regenerar las capturas de la documentación con `tools/ui_snapshots.py` y rehacer la
-  ficha del portfolio ([[project_ficha_portfolio]]).
+- Capturas de la documentación **regeneradas el 2026-10-26** (15, en las dos carpetas).
+  La herramienta fija la estación de los lotes a `PUESTO-01`: antes salía el hostname real.
+- Falta rehacer la ficha del portfolio ([[project_ficha_portfolio]]), con
+  `--portfolio` para su imagen.
 - Quedan colores literales en `document_viewer.py` (la paleta de los recuadros de
   barcode sobre el papel), a propósito. Las tarjetas ya usan la paleta.
 
@@ -73,5 +75,5 @@ La referencia es FlexibarNET10, por la regla de paridad
 - Regenera las 15 capturas de `docs/screenshots` y `docs-web/assets/screenshots`, y con
   `--portfolio RUTA` también el WebP del portfolio ([[project_ficha_portfolio]]).
 - Aísla XDG y QSettings, usa offscreen y datos neutros (Suministros Ejemplo S.L.).
-- **Pendiente:** ejecutarla **al terminar el rediseño**. Las capturas de la documentación
-  aún no se han regenerado.
+- Ya se ejecutó al terminar el rediseño (2026-10-26). Volver a ejecutarla tras cambios
+  visibles de la interfaz.
