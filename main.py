@@ -27,6 +27,9 @@ from app.models.barcode import Barcode  # noqa: F401
 from app.models.template import Template  # noqa: F401
 from app.models.operation_history import OperationHistory  # noqa: F401
 
+# Nombre del .desktop (sin extensión): app_id de las ventanas en Wayland
+DESKTOP_FILE_NAME = "docscan"
+
 
 def setup_logging(settings) -> None:
     """Configura el logging según settings."""
@@ -283,6 +286,13 @@ def main() -> int:
     from PySide6.QtWidgets import QApplication
     from PySide6.QtGui import QIcon
 
+    # En Wayland el escritorio ignora setWindowIcon: busca el icono en el
+    # .desktop cuyo nombre coincide con el app_id de la ventana. Sin esto el
+    # app_id es el del intérprete y sale un icono genérico. «docscan» es el
+    # docscan.desktop del AppImage (y el de tools/install_desktop_entry.py).
+    # Antes de crear la aplicación: Qt registra el app_id en el portal al
+    # construirla, y cambiarlo después falla («Connection already associated»).
+    QApplication.setDesktopFileName(DESKTOP_FILE_NAME)
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName(settings.app_name)
 
