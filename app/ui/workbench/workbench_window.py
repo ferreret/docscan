@@ -14,11 +14,9 @@ from typing import Any
 
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt, Signal, QSettings
+from PySide6.QtCore import QSize, Qt, Signal, QSettings
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -26,7 +24,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QRadioButton,
     QSizePolicy,
     QSplitter,
     QStatusBar,
@@ -55,12 +52,14 @@ from app.services.transfer_service import TransferService, parse_transfer_config
 from app.ui.workbench.barcode_panel import BarcodePanel
 from app.ui.workbench.document_viewer import DocumentViewer
 from app.ui.workbench.metadata_panel import MetadataPanel
+from app.ui.workbench.scan_config_popup import ScanConfigPopup
 from app.ui.workbench.page_state import (
     PageState,
     determine_page_state,
 )
 from app.ui.workbench.thumbnail_panel import ThumbnailPanel
 from app.ui.workbench.viewer_overlay import ViewerOverlay
+from app.ui.icons import icon as lucide_icon
 from app.ui.palette import color as palette_color
 from app.workers.recognition_worker import (
     AppContext,
@@ -380,61 +379,98 @@ class WorkbenchWindow(QMainWindow):
             )
 
     def _create_toolbar(self) -> None:
-        """Crea la barra de herramientas: adquisición y transferencia."""
+        """Barra superior como la de FlexibarNET 10.
+
+        Escanear (F5) · ⚙ escáner · distintivo del escáner · Importar… (Ctrl+I)
+        | Procesar (F9) | Transferir (Ctrl+T) · Cerrar lote; a la derecha,
+        tema y tamaño de letra.
+        """
         toolbar = QToolBar(self.tr("Workbench"))
+        toolbar.setObjectName("workbenchToolbar")
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
+        # (botón, icono Lucide, rol de color) para repintar al cambiar de tema
+        self._toolbar_icons: list[tuple[QPushButton, str, str]] = []
 
-        # Origen: Escáner / Importar
-        self._radio_scanner = QRadioButton(self.tr("Esc\u00e1ner"))
-        self._radio_import = QRadioButton(self.tr("Importar"))
-        self._radio_import.setChecked(True)
-
-        self._combo_source = QComboBox()
-        self._combo_source.setMinimumWidth(180)
-        self._combo_source.setEditable(False)
-        self._combo_source.setPlaceholderText(self.tr("Seleccionar origen..."))
-
-        self._combo_source_type = QComboBox()
-        self._combo_source_type.addItem(self.tr("Flatbed"), "flatbed")
-        self._combo_source_type.addItem(self.tr("ADF"), "adf")
-        self._combo_source_type.setFixedWidth(90)
-
-        toolbar.addWidget(self._radio_scanner)
-        toolbar.addWidget(self._radio_import)
-        toolbar.addWidget(self._combo_source)
-        toolbar.addWidget(self._combo_source_type)
-
-        self._chk_scanner_config = QCheckBox(self.tr("Configurar"))
-        self._chk_scanner_config.setToolTip(
-            self.tr("Mostrar opciones del esc\u00e1ner antes de digitalizar")
+        self._btn_scan = self._toolbar_button(
+            self.tr("Escanear"),
+            "scan-line",
+            "on_accent",
+            self.tr("Escanear (F5)"),
+            css_class="primary",
         )
-        self._chk_scanner_config.setChecked(True)
-        toolbar.addWidget(self._chk_scanner_config)
+        toolbar.addWidget(self._btn_scan)
+
+        self._scan_popup = ScanConfigPopup(self)
+        self._combo_source = self._scan_popup.combo_source
+        self._combo_source_type = self._scan_popup.combo_source_type
+        self._chk_scanner_config = self._scan_popup.chk_show_options
+        self._btn_scan_config = self._toolbar_button(
+            "",
+            "settings",
+            "text",
+            self.tr("Configurar el escáner"),
+        )
+        self._btn_scan_config.setObjectName("scanConfigButton")
+        toolbar.addWidget(self._btn_scan_config)
+
+        # Indicador «Escáner: …» (el «Perfil: …» de Flexibar): una píldora
+        # pequeña centrada, no un botón más.
+        chip_box = QWidget()
+        chip_box.setObjectName("scannerChipBox")
+        chip_layout = QHBoxLayout(chip_box)
+        chip_layout.setContentsMargins(0, 0, 6, 0)
+        chip_layout.setSpacing(4)
+        lbl_chip_title = QLabel(self.tr("Esc\u00e1ner:"))
+        lbl_chip_title.setObjectName("scannerChipTitle")
+        chip_layout.addWidget(lbl_chip_title, 0, Qt.AlignmentFlag.AlignVCenter)
+        self._lbl_scanner = QLabel()
+        self._lbl_scanner.setObjectName("scannerChip")
+        self._lbl_scanner.setToolTip(
+            self.tr("Esc\u00e1ner y fuente con los que se captura")
+        )
+        chip_layout.addWidget(self._lbl_scanner, 0, Qt.AlignmentFlag.AlignVCenter)
+        toolbar.addWidget(chip_box)
+
+        self._btn_import = self._toolbar_button(
+            self.tr("Importar…"),
+            "download",
+            "text",
+            self.tr("Importar archivos al lote actual (Ctrl+I)"),
+        )
+        toolbar.addWidget(self._btn_import)
         toolbar.addSeparator()
 
-        # Botón principal de acción
-        self._btn_process = QPushButton(self.tr("Escanear / Importar"))
-        self._btn_process.setToolTip(self.tr("Escanear o importar documentos (F5)"))
-        self._btn_process.setProperty("cssClass", "primary")
+        self._btn_process = self._toolbar_button(
+            self.tr("Procesar"),
+            "play",
+            "text",
+            self.tr("Procesar todas las páginas del lote (F9)"),
+        )
         toolbar.addWidget(self._btn_process)
-
         toolbar.addSeparator()
 
-        # Transferir
-        self._btn_transfer = QPushButton(self.tr("Transferir"))
-        self._btn_transfer.setToolTip(self.tr("Transferir lote (Ctrl+T)"))
+        self._btn_transfer = self._toolbar_button(
+            self.tr("Transferir"),
+            "arrow-up-to-line",
+            "success",
+            self.tr("Transferir el lote (Ctrl+T)"),
+            css_class="success-outline",
+        )
         toolbar.addWidget(self._btn_transfer)
 
-        toolbar.addSeparator()
-
-        # Cerrar lote (sin transferir)
-        self._btn_close_batch = QPushButton(self.tr("Cerrar lote"))
-        self._btn_close_batch.setToolTip(self.tr("Cerrar lote sin transferir (Ctrl+W)"))
+        self._btn_close_batch = self._toolbar_button(
+            self.tr("Cerrar lote"),
+            "x",
+            "danger",
+            self.tr("Cerrar el lote sin transferir (Ctrl+W)"),
+            css_class="danger-outline",
+        )
         toolbar.addWidget(self._btn_close_batch)
 
         # Spacer
         spacer = QWidget()
+        spacer.setObjectName("toolbarSpacer")
         spacer.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Preferred,
@@ -465,6 +501,31 @@ class WorkbenchWindow(QMainWindow):
         toolbar.addWidget(self._btn_font_up)
         toolbar.addWidget(self._btn_font_down)
 
+    def _toolbar_button(
+        self,
+        text: str,
+        icon_name: str,
+        role: str,
+        tooltip: str,
+        *,
+        css_class: str = "",
+    ) -> QPushButton:
+        """Botón de la barra superior con icono Lucide del color ``role``."""
+        btn = QPushButton(text)
+        btn.setToolTip(tooltip)
+        btn.setIconSize(QSize(16, 16))
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        if css_class:
+            btn.setProperty("cssClass", css_class)
+        btn.setIcon(lucide_icon(icon_name, role, 16))
+        self._toolbar_icons.append((btn, icon_name, role))
+        return btn
+
+    def _update_toolbar_icons(self) -> None:
+        for btn, icon_name, role in self._toolbar_icons:
+            btn.setIcon(lucide_icon(icon_name, role, 16))
+        self._scan_popup.refresh_icons()
+
     def _update_theme_button(self) -> None:
         from app.ui.icon_factory import icon_moon, icon_sun
 
@@ -478,12 +539,16 @@ class WorkbenchWindow(QMainWindow):
     def _connect_signals(self) -> None:
         """Conecta todas las señales de la UI."""
         # Procesar / Transferir / Cerrar lote
-        self._btn_process.clicked.connect(self._on_process)
+        self._btn_scan.clicked.connect(self._on_scan)
+        self._btn_scan_config.clicked.connect(self._on_scan_config)
+        self._btn_import.clicked.connect(self._on_import)
+        self._btn_process.clicked.connect(self._on_process_all)
+        self._scan_popup.refresh_requested.connect(self._refresh_scanners)
+        self._scan_popup.config_changed.connect(self._update_scanner_chip)
         self._btn_transfer.clicked.connect(self._on_transfer)
         self._btn_close_batch.clicked.connect(self._on_close_batch)
 
         # Origen
-        self._radio_scanner.toggled.connect(self._on_source_changed)
 
         # Tema y fuente
         self._btn_theme.clicked.connect(self._on_toggle_theme)
@@ -564,7 +629,9 @@ class WorkbenchWindow(QMainWindow):
         _s("Ctrl+0", self._on_zoom_100)
 
         # Adquisición y transferencia
-        _s("F5", self._on_process)
+        _s("F5", self._on_scan)
+        _s("Ctrl+I", self._on_import)
+        _s("F9", self._on_process_all)
         _s("Ctrl+T", self._on_transfer)
         _s("Ctrl+W", self._on_close_batch)
 
@@ -805,6 +872,7 @@ class WorkbenchWindow(QMainWindow):
         self._update_theme_button()
         self._update_font_icons()
         self._update_overlay_icons()
+        self._update_toolbar_icons()
 
     def _update_font_icons(self) -> None:
         from app.ui.icon_factory import icon_font_decrease, icon_font_increase
@@ -919,20 +987,97 @@ class WorkbenchWindow(QMainWindow):
     # Escaneo / Importación (UI-05, UI-10, UI-13)
     # ==================================================================
 
-    def _on_process(self) -> None:
-        """Inicia el proceso de adquisición + reconocimiento."""
+    def _acquisition_running(self) -> bool:
+        """Avisa y devuelve True si ya hay una adquisición en curso."""
         if self._scan_worker and self._scan_worker.isRunning():
             QMessageBox.information(
                 self,
                 self.tr("En proceso"),
-                self.tr("Ya hay un proceso de adquisici\u00f3n en curso."),
+                self.tr("Ya hay un proceso de adquisición en curso."),
+            )
+            return True
+        return False
+
+    def _set_acquire_enabled(self, enabled: bool) -> None:
+        """Escanear, Importar y Procesar se bloquean mientras corre el pipeline."""
+        for btn in (self._btn_scan, self._btn_import, self._btn_process):
+            btn.setEnabled(enabled)
+
+    def _on_scan(self) -> None:
+        """Escanear (F5)."""
+        if not self._btn_scan.isEnabled() or self._acquisition_running():
+            return
+        self._start_scanner()
+
+    def _on_import(self) -> None:
+        """Importar… (Ctrl+I)."""
+        if not self._btn_import.isEnabled() or self._acquisition_running():
+            return
+        self._start_import()
+
+    def _on_scan_config(self) -> None:
+        """Abre el popover ⚙ con el escáner, la fuente y «mostrar opciones»."""
+        if not self._scan_popup.scanners_listed:
+            self._refresh_scanners()
+        self._scan_popup.show_below(self._btn_scan_config)
+
+    def _refresh_scanners(self) -> None:
+        """Enumera los escáneres disponibles (puede tardar unos segundos)."""
+        from PySide6.QtWidgets import QApplication
+
+        self._status_bar.showMessage(self.tr("Buscando escáneres…"))
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        QApplication.processEvents()
+        sources: list[str] = []
+        try:
+            sources = list(self._get_scanner().list_sources())
+            if sources:
+                self._status_bar.showMessage(
+                    self.tr("{0} escáner(es) encontrado(s)").format(len(sources)),
+                    3000,
+                )
+            else:
+                self._status_bar.showMessage(
+                    self.tr("No se encontraron escáneres"),
+                    5000,
+                )
+        except Exception as e:
+            log.warning("No se pudieron listar escáneres: %s", e)
+            self._status_bar.showMessage(
+                self.tr("Error al buscar escáneres"),
+                5000,
+            )
+        finally:
+            QApplication.restoreOverrideCursor()
+        self._scan_popup.set_scanners(sources)
+
+    def _update_scanner_chip(self) -> None:
+        self._lbl_scanner.setText(self._scan_popup.summary())
+
+    def _on_process_all(self) -> None:
+        """Procesar (F9): pasa el pipeline por todas las páginas del lote.
+
+        Como «Procesar» de Flexibar: reprocesa el lote entero, no solo lo
+        pendiente, y termina por el mismo camino que una captura.
+        """
+        if not self._btn_process.isEnabled():
+            return
+        if self._recognition_worker and self._recognition_worker.isRunning():
+            self._status_bar.showMessage(
+                self.tr("Ya hay un procesado en curso"),
+                3000,
             )
             return
-
-        if self._radio_scanner.isChecked():
-            self._start_scanner()
-        else:
-            self._start_import()
+        if not self._pages or self._executor is None:
+            self._status_bar.showMessage(
+                self.tr("No hay páginas que procesar"),
+                3000,
+            )
+            return
+        self._run_pipeline_on(
+            [(page.page_index, page) for page in self._pages],
+            self.tr("Procesando {0} página(s)…"),
+        )
 
     def _get_scanner(self) -> Any:
         """Devuelve la instancia reutilizable de escáner."""
@@ -947,12 +1092,18 @@ class WorkbenchWindow(QMainWindow):
     def _start_scanner(self) -> None:
         """Inicia adquisición desde escáner."""
         source = self._combo_source.currentText()
+        if not source and not self._scan_popup.scanners_listed:
+            self._refresh_scanners()
+            source = self._combo_source.currentText()
         if not source:
             QMessageBox.warning(
                 self,
-                self.tr("Sin fuente"),
-                self.tr("Selecciona un esc\u00e1ner primero."),
+                self.tr("Sin esc\u00e1ner"),
+                self.tr(
+                    "No hay ning\u00fan esc\u00e1ner seleccionado. Elige uno en \u2699."
+                ),
             )
+            self._scan_popup.show_below(self._btn_scan_config)
             return
 
         try:
@@ -1088,7 +1239,7 @@ class WorkbenchWindow(QMainWindow):
         # Mostrar progreso
         self._progress_bar.setValue(0)
         self._progress_bar.setVisible(True)
-        self._btn_process.setEnabled(False)
+        self._set_acquire_enabled(False)
 
         # Arrancar
         self._recognition_worker.start()
@@ -1199,7 +1350,7 @@ class WorkbenchWindow(QMainWindow):
         if self._script_engine is None:
             return  # Ventana cerrada, ignorar señales tardías
         self._progress_bar.setVisible(False)
-        self._btn_process.setEnabled(True)
+        self._set_acquire_enabled(True)
         self._reload_pages()
         self._update_lot_counters()
         log.warning("Procesamiento cancelado: %d de %d páginas", procesadas, totales)
@@ -1213,7 +1364,7 @@ class WorkbenchWindow(QMainWindow):
     def _on_scan_error(self, error: str) -> None:
         """Error durante la adquisición."""
         self._progress_bar.setVisible(False)
-        self._btn_process.setEnabled(True)
+        self._set_acquire_enabled(True)
         QMessageBox.critical(self, self.tr("Error de adquisici\u00f3n"), error)
 
     def _on_page_processed(self, page_index: int, page_ctx: Any) -> None:
@@ -1375,7 +1526,7 @@ class WorkbenchWindow(QMainWindow):
         if self._script_engine is None:
             return  # Ventana cerrada, ignorar señales tardías
         self._progress_bar.setVisible(False)
-        self._btn_process.setEnabled(True)
+        self._set_acquire_enabled(True)
         self._reload_pages()
         self._update_lot_counters()
 
@@ -1425,7 +1576,18 @@ class WorkbenchWindow(QMainWindow):
             "Reanudando pipeline para %d página(s) no procesada(s)",
             len(pending),
         )
+        self._run_pipeline_on(
+            pending,
+            self.tr("Procesando {0} p\u00e1gina(s) pendiente(s)..."),
+        )
 
+    def _run_pipeline_on(self, pages: list[tuple[int, Page]], message: str) -> None:
+        """Pasa el pipeline por ``pages`` y termina en ``_on_all_processed``.
+
+        Args:
+            pages: Pares (índice de página, página) a procesar, en orden.
+            message: Texto de la barra de estado; ``{0}`` es el número de páginas.
+        """
         app_ctx = self._build_app_context()
         batch_ctx = self._build_batch_context()
 
@@ -1446,21 +1608,17 @@ class WorkbenchWindow(QMainWindow):
 
         self._progress_bar.setValue(0)
         self._progress_bar.setVisible(True)
-        self._btn_process.setEnabled(False)
+        self._set_acquire_enabled(False)
 
         self._recognition_worker.start()
 
-        for page_index, page in pending:
+        for page_index, page in pages:
             img = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
             if img is not None:
                 self._recognition_worker.enqueue_page(page_index, img)
 
         self._recognition_worker.signal_no_more_pages()
-        self._status_bar.showMessage(
-            self.tr("Procesando {0} p\u00e1gina(s) pendiente(s)...").format(
-                len(pending)
-            ),
-        )
+        self._status_bar.showMessage(message.format(len(pages)))
 
     # ==================================================================
     # Navegación (UI-09)
@@ -2405,53 +2563,10 @@ class WorkbenchWindow(QMainWindow):
             )
         )
 
-    def _on_source_changed(self, scanner_checked: bool) -> None:
-        """Actualiza el combo de origen según escáner o importar."""
-        from PySide6.QtWidgets import QApplication
-        from PySide6.QtCore import Qt as QtCore_Qt
-
-        self._combo_source.clear()
-        if scanner_checked:
-            self._status_bar.showMessage(self.tr("Buscando esc\u00e1neres\u2026"))
-            QApplication.setOverrideCursor(QtCore_Qt.CursorShape.WaitCursor)
-            QApplication.processEvents()
-            try:
-                scanner = self._get_scanner()
-                sources = scanner.list_sources()
-                self._combo_source.addItems(sources)
-                if sources:
-                    self._status_bar.showMessage(
-                        self.tr("{0} esc\u00e1ner(es) encontrado(s)").format(
-                            len(sources)
-                        ),
-                        3000,
-                    )
-                else:
-                    self._status_bar.showMessage(
-                        self.tr("No se encontraron esc\u00e1neres"),
-                        5000,
-                    )
-            except Exception as e:
-                log.warning("No se pudieron listar escáneres: %s", e)
-                self._status_bar.showMessage(
-                    self.tr("Error al buscar esc\u00e1neres"),
-                    5000,
-                )
-            finally:
-                QApplication.restoreOverrideCursor()
-        else:
-            self._combo_source.setPlaceholderText(
-                self.tr("Usa el bot\u00f3n para seleccionar archivo..."),
-            )
-            self._status_bar.clearMessage()
-
     def _save_source_settings(self) -> None:
         """Persiste el estado del origen de documentos para esta app."""
         s = QSettings("DocScanStudio", "Workbench")
         prefix = f"source/{self._app_id}"
-        s.setValue(
-            f"{prefix}/mode", "scanner" if self._radio_scanner.isChecked() else "import"
-        )
         s.setValue(f"{prefix}/scanner_name", self._combo_source.currentText())
         s.setValue(
             f"{prefix}/source_type", self._combo_source_type.currentData() or "flatbed"
@@ -2465,7 +2580,6 @@ class WorkbenchWindow(QMainWindow):
         """Restaura el estado del origen de documentos para esta app."""
         s = QSettings("DocScanStudio", "Workbench")
         prefix = f"source/{self._app_id}"
-        mode = s.value(f"{prefix}/mode", "import")
         scanner_name = s.value(f"{prefix}/scanner_name", "")
         source_type = s.value(f"{prefix}/source_type", "flatbed")
         show_config = s.value(f"{prefix}/show_config", False)
@@ -2482,16 +2596,9 @@ class WorkbenchWindow(QMainWindow):
             except json.JSONDecodeError, TypeError:
                 self._last_scan_options = {}
 
-        if mode == "scanner":
-            self._radio_scanner.setChecked(True)
-            # _on_source_changed ya se dispara por toggled → llena el combo
-            # Restaurar escáner seleccionado
-            if scanner_name:
-                idx = self._combo_source.findText(scanner_name)
-                if idx >= 0:
-                    self._combo_source.setCurrentIndex(idx)
-        else:
-            self._radio_import.setChecked(True)
+        # Sin enumerar: el escáner de la sesión anterior queda elegido y la
+        # lista completa se pide al abrir ⚙ (en SANE tarda varios segundos).
+        self._scan_popup.preselect_scanner(scanner_name)
 
         # Restaurar tipo de fuente (flatbed/ADF)
         type_idx = self._combo_source_type.findData(source_type)
@@ -2499,6 +2606,7 @@ class WorkbenchWindow(QMainWindow):
             self._combo_source_type.setCurrentIndex(type_idx)
 
         self._chk_scanner_config.setChecked(bool(show_config))
+        self._update_scanner_chip()
 
     # ==================================================================
     # Teclado (UI-12)

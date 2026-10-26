@@ -37,6 +37,7 @@ _BASE_DARK: Final[dict[str, str]] = {
     "mauve": "#a78bfa",
     "hover": "#1a2538",
     "danger_hover": "#3a1b28",
+    "success_hover": "#15301f",
 }
 
 _BASE_LIGHT: Final[dict[str, str]] = {
@@ -58,6 +59,7 @@ _BASE_LIGHT: Final[dict[str, str]] = {
     "mauve": "#8839ef",
     "hover": "#d4d8e1",
     "danger_hover": "#fadde3",
+    "success_hover": "#e1f3dc",
 }
 
 
@@ -107,6 +109,8 @@ def _roles(b: dict[str, str], dark: bool) -> dict[str, str]:
         "warning": b["yellow"],
         "on_warning": b["base"] if dark else "white",
         "success_btn": "#40a02b",
+        "success": b["green"],
+        "success_bg": b["success_hover"],
         # Banner informativo (actualizaciones)
         "info_bg": "#1e2a3a" if dark else "#e7effd",
         "info_fg": "#89b4fa" if dark else "#1e40af",

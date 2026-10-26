@@ -1999,10 +1999,12 @@ class TestWorkbenchWindow:
         assert workbench._recognition_worker is None
         assert workbench._transfer_worker is None
 
-    def test_scan_source_radio_defaults_to_import(self, workbench):
-        """El radio button de importar está seleccionado por defecto."""
-        assert workbench._radio_import.isChecked()
-        assert not workbench._radio_scanner.isChecked()
+    def test_scan_and_import_are_separate_buttons(self, workbench):
+        """Escanear e Importar son botones propios: ya no hay radio de origen."""
+        assert not hasattr(workbench, "_radio_import")
+        assert not hasattr(workbench, "_radio_scanner")
+        assert workbench._btn_scan.isEnabled()
+        assert workbench._btn_import.isEnabled()
 
     def test_build_app_context_enriched(self, workbench):
         """_build_app_context devuelve campos enriquecidos."""
@@ -2027,11 +2029,167 @@ class TestWorkbenchWindow:
         assert result is None  # No hay script, pero no debe crashear
 
     def test_source_type_combo_exists(self, workbench):
-        """El combo de source_type (ADF/Flatbed) existe en la toolbar."""
+        """El combo de source_type (ADF/Flatbed) existe en el popover ⚙."""
         assert hasattr(workbench, "_combo_source_type")
         assert workbench._combo_source_type.count() == 2
         assert workbench._combo_source_type.itemData(0) == "flatbed"
         assert workbench._combo_source_type.itemData(1) == "adf"
+
+
+class TestBarraSuperior:
+    """Barra superior del Workbench como la de FlexibarNET 10 (fase E4a)."""
+
+    @pytest.fixture(autouse=True)
+    def _sin_origen_guardado(self):
+        """Cada ventana guarda su escáner al cerrarse: que no pase al test siguiente."""
+        from PySide6.QtCore import QSettings
+
+        QSettings("DocScanStudio", "Workbench").clear()
+
+    @pytest.fixture
+    def workbench(self, qtbot, session_factory, sample_app, tmp_path):
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id,
+                session_factory=session_factory,
+            )
+        qtbot.addWidget(window)
+        return window
+
+    @staticmethod
+    def _shortcuts(window) -> set[str]:
+        from PySide6.QtGui import QShortcut
+
+        return {sc.key().toString() for sc in window.findChildren(QShortcut)}
+
+    def test_orden_y_estilo_de_los_botones(self, workbench):
+        from PySide6.QtWidgets import QToolBar
+
+        toolbar = workbench.findChild(QToolBar, "workbenchToolbar")
+        widgets = [toolbar.widgetForAction(a) for a in toolbar.actions()]
+        orden = [
+            workbench._btn_scan,
+            workbench._btn_scan_config,
+            workbench._lbl_scanner.parentWidget(),
+            workbench._btn_import,
+            workbench._btn_process,
+            workbench._btn_transfer,
+            workbench._btn_close_batch,
+        ]
+        posiciones = [widgets.index(w) for w in orden]
+        assert posiciones == sorted(posiciones)
+        assert workbench._btn_scan.text() == "Escanear"
+        assert workbench._btn_import.text() == "Importar\u2026"
+        assert workbench._btn_process.text() == "Procesar"
+        assert workbench._btn_scan.property("cssClass") == "primary"
+        assert workbench._btn_transfer.property("cssClass") == "success-outline"
+        assert workbench._btn_close_batch.property("cssClass") == "danger-outline"
+        for btn in (orden[0], orden[1], *orden[3:]):  # sin el distintivo
+            assert not btn.icon().isNull()
+
+    def test_atajos_como_flexibar(self, workbench):
+        keys = self._shortcuts(workbench)
+        assert {"F5", "Ctrl+I", "F9", "Ctrl+T", "Ctrl+W"} <= keys
+
+    def test_abrir_no_enumera_escaneres(
+        self, qtbot, session_factory, sample_app, tmp_path
+    ):
+        """Enumerar en SANE tarda segundos: no se hace al abrir el Workbench."""
+        scanner = MagicMock()
+        with (
+            patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path),
+            patch("app.services.scanner_service.create_scanner", return_value=scanner),
+        ):
+            window = WorkbenchWindow(
+                app_id=sample_app.id,
+                session_factory=session_factory,
+            )
+        qtbot.addWidget(window)
+        scanner.list_sources.assert_not_called()
+        assert window._lbl_scanner.text() == "(sin esc\u00e1ner)"
+
+    def test_engranaje_enumera_una_vez_y_conserva_la_eleccion(self, workbench):
+        scanner = MagicMock()
+        scanner.list_sources.return_value = ["Canon DR-C225", "Fujitsu fi-7160"]
+        workbench._scan_popup.preselect_scanner("Fujitsu fi-7160")
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch.object(workbench._scan_popup, "show_below") as abrir,
+        ):
+            workbench._on_scan_config()
+            workbench._on_scan_config()
+        assert scanner.list_sources.call_count == 1
+        assert abrir.call_count == 2
+        assert workbench._combo_source.count() == 2
+        assert workbench._combo_source.currentText() == "Fujitsu fi-7160"
+        assert workbench._lbl_scanner.text() == "Fujitsu fi-7160 · Flatbed"
+
+    def test_distintivo_sigue_a_la_fuente(self, workbench):
+        workbench._scan_popup.preselect_scanner("Canon DR-C225")
+        workbench._combo_source_type.setCurrentIndex(
+            workbench._combo_source_type.findData("adf")
+        )
+        assert workbench._lbl_scanner.text() == "Canon DR-C225 · ADF"
+
+    def test_escanear_sin_escaner_avisa_y_abre_el_engranaje(self, workbench):
+        scanner = MagicMock()
+        scanner.list_sources.return_value = []
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch("app.ui.workbench.workbench_window.QMessageBox.warning") as aviso,
+            patch.object(workbench._scan_popup, "show_below") as abrir,
+            patch("app.ui.workbench.workbench_window.ScanWorker") as worker,
+        ):
+            workbench._on_scan()
+        scanner.list_sources.assert_called_once()
+        aviso.assert_called_once()
+        abrir.assert_called_once()
+        worker.assert_not_called()
+
+    def test_importar_lanza_la_importacion(self, workbench):
+        with patch.object(workbench, "_start_import") as importar:
+            workbench._on_import()
+        importar.assert_called_once()
+
+    def test_procesar_pasa_todas_las_paginas(self, workbench):
+        paginas = [MagicMock(page_index=i) for i in range(3)]
+        workbench._pages = paginas
+        with patch.object(workbench, "_run_pipeline_on") as correr:
+            workbench._on_process_all()
+        correr.assert_called_once()
+        assert correr.call_args.args[0] == [(i, p) for i, p in enumerate(paginas)]
+
+    def test_procesar_sin_paginas_no_hace_nada(self, workbench):
+        workbench._pages = []
+        with patch.object(workbench, "_run_pipeline_on") as correr:
+            workbench._on_process_all()
+        correr.assert_not_called()
+
+    def test_con_el_pipeline_en_marcha_se_bloquea_la_adquisicion(self, workbench):
+        workbench._set_acquire_enabled(False)
+        assert not workbench._btn_scan.isEnabled()
+        assert not workbench._btn_import.isEnabled()
+        assert not workbench._btn_process.isEnabled()
+        workbench._pages = [MagicMock(page_index=0)]
+        with (
+            patch.object(workbench, "_start_scanner") as escanear,
+            patch.object(workbench, "_start_import") as importar,
+            patch.object(workbench, "_run_pipeline_on") as correr,
+        ):
+            # Los atajos F5 / Ctrl+I / F9 tampoco deben colarse
+            workbench._on_scan()
+            workbench._on_import()
+            workbench._on_process_all()
+        escanear.assert_not_called()
+        importar.assert_not_called()
+        correr.assert_not_called()
+        workbench._set_acquire_enabled(True)
+        assert workbench._btn_scan.isEnabled()
+
+    def test_los_iconos_se_repintan_al_cambiar_de_tema(self, workbench):
+        antes = workbench._btn_transfer.icon().cacheKey()
+        workbench._update_toolbar_icons()
+        assert workbench._btn_transfer.icon().cacheKey() != antes
 
 
 class TestMiniaturaSeleccionada:

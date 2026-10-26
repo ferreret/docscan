@@ -66,6 +66,76 @@ QToolBar QPushButton[cssClass="danger"]:hover {
     color: $on_accent;
 }
 
+/* Transferir y Cerrar lote: contorno verde / rojo, como Flexibar */
+QToolBar QPushButton[cssClass="success-outline"] {
+    background-color: transparent;
+    color: $success;
+    border-color: $success;
+}
+
+QToolBar QPushButton[cssClass="success-outline"]:hover {
+    background-color: $success_bg;
+}
+
+QToolBar QPushButton[cssClass="danger-outline"] {
+    background-color: transparent;
+    color: $danger;
+    border-color: $danger;
+}
+
+QToolBar QPushButton[cssClass="danger-outline"]:hover {
+    background-color: $danger_bg;
+}
+
+QToolBar QPushButton[cssClass="success-outline"]:disabled,
+QToolBar QPushButton[cssClass="danger-outline"]:disabled {
+    color: $text_disabled;
+    border-color: $surface;
+}
+
+/* ⚙ junto a Escanear: solo icono */
+QToolBar QPushButton#scanConfigButton {
+    padding: 7px 9px;
+}
+
+/* Huecos de la barra: que se vea su fondo, no el de la ventana */
+QToolBar QWidget#toolbarSpacer,
+QToolBar QWidget#scannerChipBox,
+QLabel#scannerChipTitle {
+    background-color: transparent;
+}
+
+QLabel#scannerChipTitle {
+    color: $text_muted;
+    font-size: 11px;
+}
+
+/* Distintivo del escáner activo (el «Perfil:» de Flexibar) */
+QLabel#scannerChip {
+    background-color: $surface;
+    color: $text;
+    border: 1px solid $border_strong;
+    border-radius: 10px;
+    padding: 2px 9px;
+    font-size: 11px;
+}
+
+/* Popover de configuración del escáner */
+QFrame#scanConfigPopup {
+    background-color: $bg_raised;
+    border: 1px solid $border_strong;
+    border-radius: 8px;
+}
+
+QFrame#scanConfigPopup QLabel {
+    background-color: transparent;
+    color: $text_muted;
+}
+
+QFrame#scanConfigPopup QCheckBox {
+    background-color: transparent;
+}
+
 /* === Search bar === */
 QLineEdit {
     background-color: $field;
