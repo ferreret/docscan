@@ -72,13 +72,14 @@ class PageContext:
 
 class PipelineContext:
     \"\"\"Control de flujo del pipeline (solo disponible en ScriptStep).\"\"\"
-    def skip_step(self) -> None: ...                            # Salta el paso actual
+    def skip_step(self, step_id: str) -> None: ...              # Marca un paso para saltarlo
     def skip_to(self, step_id: str) -> None: ...                # Salta hasta el paso con este ID
-    def abort(self, reason: str) -> None: ...                   # Aborta el pipeline completo
-    def repeat_step(self) -> None: ...                          # Repite el paso actual (máx 3 veces)
+    def abort(self, reason: str = "") -> None: ...              # Aborta: la página queda a revisión
+    def repeat_step(self, step_id: str) -> None: ...            # Repite un paso (máx 3 veces)
     def replace_image(self, image: Any) -> None: ...            # Reemplaza la imagen de la página
-    def get_metadata(self, key: str) -> Any: ...                # Lee metadato del pipeline
-    def set_metadata(self, key: str, value: Any) -> None: ...   # Escribe metadato del pipeline
+    def get_step_result(self, step_id: str) -> Any: ...         # Resultado de un paso anterior
+    def get_metadata(self, key: str) -> Any: ...                # Lee metadato (SOLO de esta página)
+    def set_metadata(self, key: str, value: Any) -> None: ...   # Escribe metadato (SOLO de esta página)
 """
 
 _VARS_PIPELINE = """\
@@ -99,15 +100,31 @@ app: AppContext             # Aplicación activa (solo lectura)
 batch: BatchContext         # Lote activo
 """
 
-_VARS_EVENT_PAGE = """\
-page: PageContext           # Página actual
-"""
-
-# Eventos que reciben page como argumento
-_EVENTS_WITH_PAGE = {
-    "on_scan_complete",
-    "on_transfer_page",
-    "on_key_event",
+# Argumentos extra que recibe cada evento, además de app y batch. Debe
+# coincidir con lo que pasan de verdad WorkbenchWindow._fire_event y
+# TransferWorker; las firmas documentadas están en EVENT_SIGNATURES.
+_EVENT_EXTRA_VARS: dict[str, str] = {
+    "on_page_changed": (
+        "page: PageContext           # Página activa\n"
+        "page_index: int             # Índice de la página activa\n"
+    ),
+    "on_key_event": "key: str                    # Nombre de la tecla pulsada\n",
+    "on_transfer_page": (
+        "page_index: int             # Página recién copiada\n"
+        "success: bool               # Si la copia fue correcta\n"
+    ),
+    "on_transfer_advanced": (
+        "pages: list[Any] | None     # Workbench: .image_path, .page_index, .fields,\n"
+        "                            #   .ocr_text, .first_barcode, .image\n"
+        "result: Any | None          # Worker desatendido: TransferResult\n"
+    ),
+    "on_navigate_prev": ("current_page_index: int\ntotal_pages: int\n"),
+    "on_navigate_next": ("current_page_index: int\ntotal_pages: int\n"),
+    "on_navigate_script": (
+        "current_page_index: int\n"
+        "total_pages: int\n"
+        "pages: list[dict[str, Any]]  # page_index, barcodes, needs_review\n"
+    ),
 }
 
 
@@ -127,8 +144,8 @@ def generate_stubs(context_type: str, event_name: str = "") -> str:
         parts.append(_VARS_PIPELINE)
     else:
         parts.append(_VARS_EVENT_BASE)
-        if event_name in _EVENTS_WITH_PAGE:
-            parts.append(_VARS_EVENT_PAGE)
+        if event_name in _EVENT_EXTRA_VARS:
+            parts.append(_EVENT_EXTRA_VARS[event_name])
 
     parts.append(STUB_DELIMITER)
     parts.append("")

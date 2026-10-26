@@ -29,30 +29,41 @@ See `REQUIREMENTS.md` for full functional requirements and UI layout specs.
 
 ## Commands
 
+Python 3.14 is required. Always run through the project venv (`.venv/bin/python`
+or an activated `.venv`), never a bare `python3.14`: on the current Linux machine
+(minis-nick-linux, Ubuntu 26.04) there is no system Python 3.14, the interpreter
+comes from **uv**.
+
 ```bash
-# Environment setup (Python 3.14 required, invoke as python3.14 on Xubuntu)
-python3.14 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# Environment setup (uv-managed Python 3.14)
+uv venv --python 3.14 --managed-python
+uv pip install -r requirements-dev.txt     # runtime + test/lint tooling
+# System packages (Ubuntu): libzbar0t64 (pyzbar), libsane-dev (python-sane),
+# libxcb-cursor0 (Qt xcb), build-essential
 
 # Run
-python3.14 main.py                                    # Launcher
-python3.14 main.py "App Name"                         # Direct app launch
-python3.14 main.py --direct-mode "App Name"           # Headless mode
-python3.14 -m docscan_worker --batch-path /path        # Unattended worker
+.venv/bin/python main.py                                 # Launcher
+.venv/bin/python main.py "App Name"                      # Direct app launch
+.venv/bin/python main.py --direct-mode "App Name"        # Headless mode
+.venv/bin/python -m docscan_worker --batch-path /path    # Unattended worker
 
-# Tests
-pytest tests/ -v --tb=short                            # All tests
-pytest tests/test_foo.py -v                            # Single file
-pytest tests/test_foo.py::TestClass::test_method -v    # Single test
+# Tests (offscreen: no window, no display needed)
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/ -q          # All tests
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_foo.py  # Single file
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_foo.py::TestClass::test_method
 
-# Database migrations
-alembic upgrade head
-alembic revision --autogenerate -m "description"
+# Database migrations (the app applies them itself at startup via run_migrations)
+.venv/bin/alembic revision --autogenerate -m "description"
 
 # Lint
-ruff check app/
-ruff format app/
+.venv/bin/ruff check .
+.venv/bin/ruff format app/
 ```
+
+Desktop only: the web SaaS part (`web/`, Docker, PostgreSQL, MinIO, Redis, API,
+ARQ worker) is **archived and not set up on this machine**. Docker is not
+installed. Do not propose setting it up; the web tests auto-skip without their
+dependencies (`tests/conftest.py`).
 
 ### On Windows
 
@@ -61,7 +72,7 @@ The commands above assume Linux. On Windows the equivalents are:
 ```powershell
 py -3.14 -m venv .venv
 .venv\Scripts\activate          # instead of source .venv/bin/activate
-python main.py                  # `python`, not `python3.14`
+python main.py                  # i.e. .venv\Scripts\python.exe
 ```
 
 `requirements.txt` already has platform markers: `pytwain`/`pywin32` install only
@@ -142,42 +153,28 @@ SQLite with **mandatory WAL mode** for UI + DocScanWorker concurrency. Repositor
 - **Never block the UI thread**: all heavy work in QThread, communicate via Signal
 - **SQLite WAL mode is mandatory**: set on every engine connect event
 - **Sessions always in context manager**: never global Session objects
-- **API keys encrypted with Fernet** in `~/.docscan/secrets.enc`, never in plaintext
+- **API keys encrypted with Fernet** in `secrets.enc` under the platformdirs config dir (`~/.config/docscan/` on Linux, `config/settings.py`), never in plaintext
 - **ScriptStep errors don't stop the pipeline**: log to `page.flags.script_errors`
-- **Scripts compile once at app load** (cached by step.id), not per page execution
+- **Scripts compile once at app load** (cached by source hash, not by step.id), not per page execution
+- **A script failure is never treated as success** (FlexibarNET10 parity): it must surface in `script_errors`, the Log panel or as a failed transfer. Known violation pending fix: `run_event` returns `None` on exception and `TransferWorker` counts it as success (lote 3 of `docs/propuestas_desde_flexibarnet10_2026-10-26.md`)
+- **Functional parity with FlexibarNET10**: when DocScan and Flexibar solve the same problem, follow Flexibar's documented behaviour (manual), same config keys and tokens. Deviations only by explicit decision
 - **repeat_step has a max limit** (default 3, configurable): executor enforces it with PipelineAbortError
-- **BarcodeStep is role-agnostic**: accumulates in `page.barcodes` without separator/content semantics. Roles are assigned by a subsequent ScriptStep
+- **BarcodeStep does not assign roles to barcodes**: it accumulates in `page.barcodes` without separator/content semantics. It may declare a separator condition (`separator_*` fields, FlexibarNET10 parity) that marks the **page** (`page.is_separator` / `page.separator_value`), never the barcode. Scripts can override `page.is_separator`. See `docs/diseno_separadores_documento_2026-10-26.md`
 - **No business logic in PySide6 widgets**: keep it in services/pipeline
 - **Don't reference barcodes as standalone context object**: always `page.barcodes`
 
 ## Implementation order
 
-1. `app/pipeline/steps.py` (all step dataclasses including `condition` and `http_request`)
-2. `app/pipeline/context.py` (PipelineContext + repeat_step limit)
-3. `app/pipeline/serializer.py`
-4. `config/settings.py` + `config/secrets.py`
-5. `app/db/database.py` (WAL mode + repositories)
-6. `app/models/`
-7. `app/services/script_engine.py`
-8. `app/services/image_pipeline.py`
-9. `app/services/barcode_service.py`
-10. `app/services/ocr_service.py`
-11. `app/pipeline/executor.py`
-12. `app/services/scanner_service.py`
-13. `app/services/import_service.py`
-14. `app/services/batch_service.py` + `app/services/transfer_service.py`
-15. `app/services/notification_service.py`
-16. `app/ui/launcher/`
-17. `app/ui/configurator/tabs/tab_pipeline.py` + step dialogs
-18. `app/ui/configurator/tabs/tab_events.py`
-19. `app/ui/workbench/`
-20. `app/ui/batch_manager/`
-21. `docscan_worker/worker_main.py` + `docscan_worker/folder_watcher.py`
-22. `tests/`
+The original 22-step build order (pipeline → config → DB → services → UI →
+worker → tests) is **complete** (releases v0.1.0–v0.1.6). Current work is
+prioritised in `docs/propuestas_desde_flexibarnet10_2026-10-26.md` (lotes 3–6)
+and `docs/diseno_separadores_documento_2026-10-26.md`.
 
 ## Tool usage rules
 
-Always use context7 when generating code that uses any library from the stack
-(PySide6, SQLAlchemy, opencv, pyzbar, zxing-cpp, pymupdf, anthropic, openai,
-httpx, watchdog, APScheduler). Resolve the library id and fetch docs without
-waiting for me to ask explicitly.
+When generating code that uses any library from the stack (PySide6, SQLAlchemy,
+opencv, pyzbar, zxing-cpp, pymupdf, anthropic, openai, httpx, watchdog,
+APScheduler), check its real API first without waiting for me to ask: use
+context7 if it is configured in the session (it is not in `.mcp.json`), otherwise
+read the installed package in `.venv` (the pinned version in `requirements.txt` is
+the one that ships).

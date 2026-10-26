@@ -35,8 +35,28 @@ class TestGenerateStubs:
         assert "page: PageContext" not in result
 
     def test_event_stubs_with_page(self) -> None:
-        result = generate_stubs("event", "on_scan_complete")
+        result = generate_stubs("event", "on_page_changed")
         assert "page: PageContext" in result
+
+    def test_on_scan_complete_no_recibe_page(self) -> None:
+        """El Workbench dispara on_scan_complete solo con app y batch."""
+        result = generate_stubs("event", "on_scan_complete")
+        assert "page: PageContext" not in result
+
+    def test_stubs_coinciden_con_las_firmas_documentadas(self) -> None:
+        """Cada argumento extra del stub aparece en la firma de EVENT_SIGNATURES."""
+        import re
+
+        from app.services._assistant_constants import EVENT_SIGNATURES
+        from app.services.script_stubs import _EVENT_EXTRA_VARS
+
+        for event, extra in _EVENT_EXTRA_VARS.items():
+            firma = EVENT_SIGNATURES[event].splitlines()[0]
+            params = re.findall(r"(\w+)\s*(?:=[^,)]*)?\s*[,)]", firma)
+            for line in extra.splitlines():
+                nombre = line.split(":", 1)[0].strip()
+                if nombre and not nombre.startswith("#"):
+                    assert nombre in params, f"{event}: '{nombre}' no está en {firma}"
 
     def test_stubs_delimited(self) -> None:
         result = generate_stubs("pipeline")

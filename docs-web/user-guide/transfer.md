@@ -32,10 +32,17 @@ Ver [Patrones de nombre](../reference/naming-patterns.md) para la lista completa
 Para necesidades complejas, usar el evento `on_transfer_advanced`:
 
 ```python
-def on_transfer_advanced(app, batch, page):
-    # Control total del proceso de exportación
-    for p in batch.pages:
+def on_transfer_advanced(app, batch, pages=None, result=None):
+    # Workbench: recibe `pages`. Worker desatendido: recibe `result`.
+    if pages is None:
+        return True
+    for p in pages:
         destino = Path(f"/archivo/{batch.fields['cliente']}/{p.fields['id_doc']}.pdf")
         destino.parent.mkdir(parents=True, exist_ok=True)
         # ... lógica de exportación personalizada
+    return True  # False informa de un fallo
 ```
+
+Cada página de `pages` tiene `image_path`, `page_index`, `fields`, `ocr_text`,
+`first_barcode` e `image`. Para un PDF por documento (hojas separadoras), ver la
+receta [Un PDF por documento](scripting.md#un-pdf-por-documento).

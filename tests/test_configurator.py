@@ -242,7 +242,7 @@ class TestEventsTab:
         assert idx >= 0, "on_page_changed no está en el combo"
         tab._event_combo.setCurrentIndex(idx)
         ph = tab._code_edit.placeholderText()
-        assert "def on_page_changed(app, batch, page):" in ph
+        assert "def on_page_changed(app, batch, page, page_index):" in ph
         # Cambiar a on_key_event → debe llevar `key` en la firma.
         idx2 = tab._event_combo.findData("on_key_event")
         tab._event_combo.setCurrentIndex(idx2)
@@ -259,7 +259,7 @@ class TestEventsTab:
         assert "def on_batch_loaded(app, batch):" in EVENT_SIGNATURES["on_batch_loaded"]
         assert "on_page_changed" in EVENT_SIGNATURES
         assert (
-            "def on_page_changed(app, batch, page):"
+            "def on_page_changed(app, batch, page, page_index):"
             in EVENT_SIGNATURES["on_page_changed"]
         )
 

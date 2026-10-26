@@ -389,6 +389,8 @@ Controls how pages are exported. Two mechanisms: standard transfer (config-based
   - {{page_index}} — page number (use :04d for zero-padding)
   - {{first_barcode}} — value of the first barcode detected on the page
   - {{campo_nombre}} — any batch field value (spaces replaced by underscores)
+  - NO other variable exists ({{page_number}}, {{date}}, {{app_name}}… are NOT supported): an unknown
+    variable silently replaces the WHOLE name with batch_<id>_page_<index>.
   - Example: "{{first_barcode}}" → renames files to barcode value
   - Example: "{{batch_id}}/{{page_index:04d}}" → creates subdirectory per batch
 - create_subdirs (bool, default true): Create batch_ID subdirectories
@@ -423,36 +425,49 @@ Set `standard_enabled: false` in transfer config when using only advanced transf
   - `ImageLib.merge_to_tiff(images, output_path, compression="lzw", dpi=None)` — Create multi-page TIFF. To append to existing TIFF: load existing pages with `ImageLib.load(path)` first, then merge all together.
   - `ImageLib.load(path)` — Load image(s), returns `list[np.ndarray]`. Works with multi-page TIFF/PDF.
 
+#### Contract of on_transfer_advanced (read before writing one):
+- Signature: `def on_transfer_advanced(app, batch, pages=None, result=None)`. Keep BOTH optional
+  parameters: the Workbench passes `pages`, the unattended worker passes `result` (a TransferResult).
+- Each item of `pages` has `.image_path`, `.page_index`, `.fields` (page fields dict), `.ocr_text`,
+  `.first_barcode` and `.image` (ndarray). There is NO `batch.pages` and pages have NO `.barcodes`:
+  use `.first_barcode`, or copy the values you need into `page.fields` from a ScriptStep.
+- Return False to report a failure. Do NOT rely on raising: today an exception is not reported
+  as a failed transfer.
+- Filenames built from barcodes or fields come from paper: sanitize them (no "/", "\\\\", "..").
+
 #### Example 1: Export with date subfolders and barcode filenames (simple copy):
 ```python
-def on_transfer_advanced(app, batch, result):
+def on_transfer_advanced(app, batch, pages=None, result=None):
     import shutil
     from datetime import date
+    if pages is None:
+        return True
     dest_base = Path("/path/to/export")
     date_folder = dest_base / date.today().strftime("%Y%m%d")
     date_folder.mkdir(parents=True, exist_ok=True)
-    for page in batch.pages:
-        if page.barcodes:
-            barcode_val = page.barcodes[0].value
+    for page in pages:
+        if page.first_barcode:
+            name = page.first_barcode.replace("/", "_").replace("\\\\", "_")
             ext = Path(page.image_path).suffix
-            dest = date_folder / f"{{barcode_val}}{{ext}}"
-            shutil.copy2(page.image_path, dest)
-    result["exported_count"] = len(batch.pages)
+            shutil.copy2(page.image_path, date_folder / f"{{name}}{{ext}}")
+    return True
 ```
 
 #### Example 2: Append to existing file when duplicate (merge pages into multi-page TIFF):
 When the destination file already exists, APPEND the new page to it instead of overwriting or adding a counter.
 ```python
-def on_transfer_advanced(app, batch, result):
+def on_transfer_advanced(app, batch, pages=None, result=None):
     from app.services.image_lib import ImageLib
     from datetime import date
+    if pages is None:
+        return True
     dest_base = Path("/path/to/export")
     date_folder = dest_base / date.today().strftime("%Y%m%d")
     date_folder.mkdir(parents=True, exist_ok=True)
-    for page in batch.pages:
-        if page.barcodes:
-            barcode_val = page.barcodes[0].value
-            dest = date_folder / f"{{barcode_val}}.tiff"
+    for page in pages:
+        if page.first_barcode:
+            name = page.first_barcode.replace("/", "_").replace("\\\\", "_")
+            dest = date_folder / f"{{name}}.tiff"
             if dest.exists():
                 # Append: load existing pages + new page, merge all
                 existing = ImageLib.load(str(dest))
@@ -461,26 +476,27 @@ def on_transfer_advanced(app, batch, result):
             else:
                 import shutil
                 shutil.copy2(page.image_path, dest)
-    result["exported_count"] = len(batch.pages)
+    return True
 ```
 
 #### Example 3: Append to existing PDF:
 ```python
-def on_transfer_advanced(app, batch, result):
+def on_transfer_advanced(app, batch, pages=None, result=None):
     from app.services.image_lib import ImageLib
     from datetime import date
+    if pages is None:
+        return True
     dest_base = Path("/path/to/export")
     date_folder = dest_base / date.today().strftime("%Y%m%d")
     date_folder.mkdir(parents=True, exist_ok=True)
-    for page in batch.pages:
-        if page.barcodes:
-            barcode_val = page.barcodes[0].value
-            dest = date_folder / f"{{barcode_val}}.pdf"
+    for page in pages:
+        if page.first_barcode:
+            name = page.first_barcode.replace("/", "_").replace("\\\\", "_")
             # merge_to_pdf with append=True adds pages if file exists
             ImageLib.merge_to_pdf(
-                [page.image_path], str(dest), append=True,
+                [page.image_path], str(date_folder / f"{{name}}.pdf"), append=True,
             )
-    result["exported_count"] = len(batch.pages)
+    return True
 ```
 
 **IMPORTANT: When the user asks for "merge", "append", or "attach" when a file already exists, use `ImageLib.merge_to_tiff()` or `ImageLib.merge_to_pdf(append=True)`. Do NOT use a numeric counter suffix — that creates separate files instead of merging.**
