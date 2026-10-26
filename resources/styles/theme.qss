@@ -553,7 +553,15 @@ QComboBox:hover {
 
 QComboBox::drop-down {
     border: none;
-    width: 20px;
+    width: 24px;
+}
+
+/* Sin esta imagen, el estilo del drop-down quita la flecha nativa y el
+   desplegable parece un campo de texto. */
+QComboBox::down-arrow {
+    image: url($icons_dir/arrow-down-$arrow_variant.svg);
+    width: 10px;
+    height: 6px;
 }
 
 QComboBox QAbstractItemView {
