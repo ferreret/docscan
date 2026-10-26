@@ -321,8 +321,7 @@ class ViewerOverlay(QWidget):
         self._lbl_page_info.ensurePolished()
         text = self._edit_page.text() or "0"
         self._edit_page.setFixedWidth(
-            self._edit_page.fontMetrics().horizontalAdvance(text)
-            + _COUNTER_EDIT_CHROME
+            self._edit_page.fontMetrics().horizontalAdvance(text) + _COUNTER_EDIT_CHROME
         )
         self._lbl_page_info.setFixedWidth(
             self._lbl_page_info.fontMetrics().horizontalAdvance(

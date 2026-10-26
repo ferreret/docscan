@@ -1,237 +1,308 @@
-"""Panel de barcodes de la página actual (UI-08).
+"""Panel «Barcodes de la página» del Workbench (UI-08).
 
-Muestra lista de barcodes con valor, simbología, motor y rol.
-Incluye contadores del lote y opción de copiar al portapapeles.
+Paridad con FlexibarNET 10: una fila por código —no una tabla— con punto de
+color (el mismo que su recuadro en el visor), valor en monoespaciada,
+«simbología · motor · rol» debajo, distintivo MANUAL para los añadidos a mano
+y papelera por fila. Cabecera «BARCODES DE LA PÁGINA · N» con «+ Añadir» y
+chevron de plegar; el cuerpo crece hasta 280 px y después hace scroll.
+
+Pasar el ratón por una fila emite ``row_hovered`` para resaltar su recuadro
+en el visor, y ``highlight_row`` hace lo contrario. Supr sobre una fila con
+el foco la elimina (gana al atajo de ventana «borrar página»).
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-from PySide6.QtCore import QPoint, Qt, Signal
-from PySide6.QtGui import QColor, QPainter
+from PySide6.QtCore import QEvent, QSize, Qt, Signal
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
     QApplication,
-    QGroupBox,
+    QFrame,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QMenu,
     QPushButton,
-    QStyledItemDelegate,
-    QStyleOptionViewItem,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from app.ui.icons import icon
+from app.ui.palette import color
 from app.ui.workbench.document_viewer import _BARCODE_PALETTE
+from app.ui.workbench.section import CollapsibleSection
 
 log = logging.getLogger(__name__)
 
-_DOT_RADIUS = 6
+# Tope de alto de la lista (como Flexibar): a partir de ahí, scroll interno.
+BARCODES_MAX_HEIGHT = 280
+MANUAL_ENGINE = "manual"
 
 
-class _ColorDotDelegate(QStyledItemDelegate):
-    """Pinta un círculo de color en la celda usando el UserRole data."""
+def barcode_color(index: int) -> str:
+    """Color del código ``index``: el mismo que su recuadro en el visor."""
+    return _BARCODE_PALETTE[index % len(_BARCODE_PALETTE)][0]
 
-    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color_hex = index.data(Qt.ItemDataRole.UserRole)
-        if color_hex:
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(color_hex))
-            center = QPoint(
-                option.rect.center().x(),
-                option.rect.center().y(),
-            )
-            painter.drawEllipse(center, _DOT_RADIUS, _DOT_RADIUS)
-        painter.restore()
+
+class _BarcodeRow(QFrame):
+    """Fila de un código de barras."""
+
+    hovered = Signal(int)  # índice, o -1 al salir
+    clicked = Signal(int)
+    delete_requested = Signal(int)
+    context_requested = Signal(int, object)  # índice, posición global
+
+    def __init__(self, index: int, barcode: Any, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.index = index
+        self.value = getattr(barcode, "value", str(barcode))
+        self.barcode_id = getattr(barcode, "id", None)
+        self.setObjectName("barcodeRow")
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setProperty("highlighted", False)
+        self.setProperty("selected", False)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(8)
+
+        dot = QLabel()
+        dot.setObjectName("barcodeDot")
+        dot.setFixedSize(14, 14)
+        dot.setStyleSheet(
+            f"background-color: {barcode_color(index)}; border-radius: 7px;"
+        )
+        layout.addWidget(dot, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        text = QVBoxLayout()
+        text.setSpacing(2)
+        self._lbl_value = QLabel()
+        self._lbl_value.setObjectName("barcodeValue")
+        self._lbl_value.setToolTip(self.value)
+        self._lbl_value.setMinimumWidth(40)
+        text.addWidget(self._lbl_value)
+
+        meta = QHBoxLayout()
+        meta.setSpacing(6)
+        engine = getattr(barcode, "engine", "") or ""
+        parts = [getattr(barcode, "symbology", "") or ""]
+        if engine and engine != MANUAL_ENGINE:
+            parts.append(engine)
+        role = getattr(barcode, "role", "") or ""
+        meta_html = " · ".join(p for p in parts if p)
+        if role:
+            meta_html += f" · <span style='color:{color('blue')}'>{role}</span>"
+        lbl_meta = QLabel(meta_html)
+        lbl_meta.setObjectName("barcodeMeta")
+        lbl_meta.setTextFormat(Qt.TextFormat.RichText)
+        meta.addWidget(lbl_meta)
+        if engine == MANUAL_ENGINE:
+            badge = QLabel(self.tr("MANUAL"))
+            badge.setObjectName("badgeManual")
+            meta.addWidget(badge)
+        meta.addStretch(1)
+        text.addLayout(meta)
+        layout.addLayout(text, 1)
+
+        self._btn_delete = QPushButton()
+        self._btn_delete.setObjectName("rowDeleteButton")
+        self._btn_delete.setIcon(icon("trash-2", "red", 16))
+        self._btn_delete.setIconSize(QSize(16, 16))
+        self._btn_delete.setFixedSize(26, 24)
+        self._btn_delete.setToolTip(self.tr("Eliminar este código (Supr)"))
+        self._btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_delete.clicked.connect(lambda: self.delete_requested.emit(self.index))
+        layout.addWidget(self._btn_delete, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        self._elide_value()
+
+    # -- presentación -----------------------------------------------------
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 — API de Qt
+        super().resizeEvent(event)
+        self._elide_value()
+
+    def _elide_value(self) -> None:
+        width = max(40, self._lbl_value.width())
+        metrics = QFontMetrics(self._lbl_value.font())
+        self._lbl_value.setText(
+            metrics.elidedText(self.value, Qt.TextElideMode.ElideRight, width)
+        )
+
+    def _set_flag(self, name: str, on: bool) -> None:
+        if self.property(name) != on:
+            self.setProperty(name, on)
+            self.style().unpolish(self)
+            self.style().polish(self)
+
+    def set_highlighted(self, on: bool) -> None:
+        self._set_flag("highlighted", on)
+
+    def set_selected(self, on: bool) -> None:
+        self._set_flag("selected", on)
+
+    # -- eventos ------------------------------------------------------------
+
+    def enterEvent(self, event) -> None:  # noqa: N802
+        super().enterEvent(event)
+        self.hovered.emit(self.index)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        super().leaveEvent(event)
+        self.hovered.emit(-1)
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+            self.clicked.emit(self.index)
+        super().mousePressEvent(event)
+
+    def contextMenuEvent(self, event) -> None:  # noqa: N802
+        self.clicked.emit(self.index)
+        self.context_requested.emit(self.index, event.globalPos())
+
+    def event(self, event) -> bool:
+        # Supr con la fila enfocada borra el código, no la página: se
+        # reclama la tecla antes de que llegue al atajo de la ventana.
+        if event.type() == QEvent.Type.ShortcutOverride and event.key() in (
+            Qt.Key.Key_Delete,
+            Qt.Key.Key_Backspace,
+        ):
+            event.accept()
+            return True
+        return super().event(event)
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            self.delete_requested.emit(self.index)
+            return
+        super().keyPressEvent(event)
 
 
 class BarcodePanel(QWidget):
-    """Panel derecho superior: barcodes y contadores.
+    """Panel «Barcodes de la página».
 
     Signals:
-        insert_barcode_requested: Solicita añadir barcode manual.
-        delete_barcode_requested: Solicita eliminar barcode seleccionado.
+        insert_barcode_requested: Pide añadir un código manual.
+        delete_barcode_requested: Pide borrar el código de la fila (índice).
+        row_hovered: Índice de la fila bajo el ratón, o -1.
     """
 
     insert_barcode_requested = Signal()
-    delete_barcode_requested = Signal()
+    delete_barcode_requested = Signal(int)
+    row_hovered = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._rows: list[_BarcodeRow] = []
+        self._selected = -1
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        # Tabla de barcodes
-        group = QGroupBox(self.tr("Barcodes de la p\u00e1gina"))
-        group_layout = QVBoxLayout(group)
+        self._list = QWidget()
+        self._list.setObjectName("barcodeList")
+        self._list_layout = QVBoxLayout(self._list)
+        self._list_layout.setContentsMargins(0, 0, 4, 0)
+        self._list_layout.setSpacing(0)
+        self._empty = QLabel(self.tr("Sin códigos en esta página"))
+        self._empty.setObjectName("emptyHint")
+        self._list_layout.addWidget(self._empty)
 
-        self._table = QTableWidget(0, 5)
-        self._table.setHorizontalHeaderLabels(
-            [
-                "",
-                self.tr("Valor"),
-                self.tr("Simbolog\u00eda"),
-                self.tr("Motor"),
-                self.tr("Rol"),
-            ],
+        self._section = CollapsibleSection(
+            self.tr("Barcodes de la página"),
+            self._list,
+            max_body_height=BARCODES_MAX_HEIGHT,
         )
-        header = self._table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        header.setStretchLastSection(True)
-        header.setDefaultSectionSize(100)
-        header.resizeSection(0, 28)  # Columna de color (estrecha)
-        header.resizeSection(1, 180)  # Valor
-        self._table.setSelectionBehavior(
-            QTableWidget.SelectionBehavior.SelectRows,
-        )
-        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self._table.setContextMenuPolicy(
-            Qt.ContextMenuPolicy.CustomContextMenu,
-        )
-        self._table.customContextMenuRequested.connect(self._on_context_menu)
-        self._table.setItemDelegateForColumn(0, _ColorDotDelegate(self._table))
-
-        group_layout.addWidget(self._table)
-
-        # Botones de barcode
-        bc_buttons = QHBoxLayout()
-        self._btn_insert_bc = QPushButton(self.tr("+ Barcode manual"))
-        self._btn_insert_bc.setToolTip(
-            self.tr("Añadir un código de barras manualmente a esta página")
-        )
-        self._btn_delete_bc = QPushButton(self.tr("\u2212 Barcode"))
-        self._btn_delete_bc.setToolTip(
-            self.tr("Eliminar el código de barras seleccionado")
-        )
-        self._btn_insert_bc.clicked.connect(self.insert_barcode_requested)
-        self._btn_delete_bc.clicked.connect(self.delete_barcode_requested)
-        bc_buttons.addWidget(self._btn_insert_bc)
-        bc_buttons.addWidget(self._btn_delete_bc)
-        group_layout.addLayout(bc_buttons)
-
-        layout.addWidget(group)
-
-        # Contadores del lote
-        counters_group = QGroupBox(self.tr("Contadores del lote"))
-        counters_layout = QVBoxLayout(counters_group)
-
-        self._lbl_total = QLabel(self.tr("Total p\u00e1ginas: {0}").format(0))
-        self._lbl_with_barcode = QLabel(self.tr("Con barcode: {0}").format(0))
-        self._lbl_separators = QLabel(self.tr("Separadores: {0}").format(0))
-        self._lbl_review = QLabel(self.tr("Revisi\u00f3n: {0}").format(0))
-
-        counters_layout.addWidget(self._lbl_total)
-        counters_layout.addWidget(self._lbl_with_barcode)
-        counters_layout.addWidget(self._lbl_separators)
-        counters_layout.addWidget(self._lbl_review)
-        layout.addWidget(counters_group)
+        self._btn_add = QPushButton(self.tr("+ Añadir"))
+        self._btn_add.setObjectName("addBarcodeButton")
+        self._btn_add.setToolTip(self.tr("Añadir un código a mano (Ctrl+N / Insert)"))
+        self._btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_add.clicked.connect(self.insert_barcode_requested)
+        self._section.add_header_widget(self._btn_add)
+        layout.addWidget(self._section)
+        self._section.fit_body()
 
     # ------------------------------------------------------------------
     # API pública
     # ------------------------------------------------------------------
 
     def set_page_barcodes(self, barcodes: list) -> None:
-        """Muestra los barcodes de la página actual con indicador de color."""
-        self._table.setRowCount(0)
+        """Muestra los códigos de la página enfocada."""
+        for row in self._rows:
+            # Ocultar y soltar ya: deleteLater solo borra en la siguiente
+            # vuelta del bucle y, mientras, la fila vieja se pintaba encima.
+            self._list_layout.removeWidget(row)
+            row.hide()
+            row.setParent(None)
+            row.deleteLater()
+        self._rows = []
+        self._selected = -1
         for idx, bc in enumerate(barcodes):
-            row = self._table.rowCount()
-            self._table.insertRow(row)
+            row = _BarcodeRow(idx, bc, self._list)
+            row.hovered.connect(self.row_hovered)
+            row.clicked.connect(self._select)
+            row.delete_requested.connect(self.delete_barcode_requested)
+            row.context_requested.connect(self._on_context_menu)
+            self._list_layout.addWidget(row)
+            # Visible ya: añadida a un panel que ya se ve, Qt la mostraría en
+            # la siguiente vuelta del bucle y el layout no la mediría ahora.
+            row.setVisible(True)
+            self._rows.append(row)
+        self._empty.setVisible(not self._rows)
+        self._section.set_count(len(self._rows))
+        self._section.fit_body()
 
-            # Columna 0: círculo de color (mismo que el overlay del visor)
-            pen_hex, _fill_hex = _BARCODE_PALETTE[idx % len(_BARCODE_PALETTE)]
-            color_item = QTableWidgetItem()
-            color_item.setData(Qt.ItemDataRole.UserRole, pen_hex)
-            color_item.setFlags(Qt.ItemFlag.NoItemFlags)
-            self._table.setItem(row, 0, color_item)
+    def row_count(self) -> int:
+        return len(self._rows)
 
-            self._table.setItem(
-                row,
-                1,
-                QTableWidgetItem(getattr(bc, "value", str(bc))),
-            )
-            self._table.setItem(
-                row,
-                2,
-                QTableWidgetItem(getattr(bc, "symbology", "")),
-            )
-            self._table.setItem(
-                row,
-                3,
-                QTableWidgetItem(getattr(bc, "engine", "")),
-            )
-            self._table.setItem(
-                row,
-                4,
-                QTableWidgetItem(getattr(bc, "role", "")),
-            )
-
-    def set_lot_counters(self, stats: dict) -> None:
-        """Actualiza los contadores del lote."""
-        self._lbl_total.setText(
-            self.tr("Total p\u00e1ginas: {0}").format(stats.get("total_pages", 0))
-        )
-        self._lbl_with_barcode.setText(
-            self.tr("Con barcode: {0}").format(stats.get("with_barcode", 0))
-        )
-        self._lbl_separators.setText(
-            self.tr("Separadores: {0}").format(stats.get("separators", 0))
-        )
-        self._lbl_review.setText(
-            self.tr("Revisi\u00f3n: {0}").format(stats.get("needs_review", 0))
-        )
+    def row_value(self, index: int) -> str:
+        return self._rows[index].value if 0 <= index < len(self._rows) else ""
 
     def selected_row(self) -> int:
-        """Devuelve el índice de la fila seleccionada, o -1."""
-        return self._table.currentRow()
+        """Índice de la fila seleccionada, o -1."""
+        return self._selected
 
     def selected_value(self) -> str:
-        """Devuelve el valor del barcode seleccionado, o cadena vacía."""
-        row = self._table.currentRow()
-        if row < 0:
-            return ""
-        item = self._table.item(row, 1)
-        return item.text() if item else ""
+        """Valor de la fila seleccionada, o cadena vacía."""
+        return self.row_value(self._selected)
+
+    def highlight_row(self, index: int) -> None:
+        """Resalta la fila ``index`` (-1 quita el resaltado)."""
+        for row in self._rows:
+            row.set_highlighted(row.index == index)
+
+    def set_add_button_visible(self, visible: bool) -> None:
+        """La aplicación puede ocultar «+ Añadir» (paridad Flexibar)."""
+        self._btn_add.setVisible(visible)
+
+    def refresh_icons(self) -> None:
+        """Repinta los iconos con la paleta del tema activo."""
+        self._section.refresh_icons()
 
     def clear(self) -> None:
-        """Limpia tabla y contadores."""
-        self._table.setRowCount(0)
-        self._lbl_total.setText(self.tr("Total p\u00e1ginas: {0}").format(0))
-        self._lbl_with_barcode.setText(self.tr("Con barcode: {0}").format(0))
-        self._lbl_separators.setText(self.tr("Separadores: {0}").format(0))
-        self._lbl_review.setText(self.tr("Revisi\u00f3n: {0}").format(0))
+        self.set_page_barcodes([])
 
     # ------------------------------------------------------------------
-    # Menú contextual
-    # ------------------------------------------------------------------
 
-    def _on_context_menu(self, pos) -> None:
+    def _select(self, index: int) -> None:
+        self._selected = index
+        for row in self._rows:
+            row.set_selected(row.index == index)
+
+    def _on_context_menu(self, index: int, global_pos) -> None:
         """Menú contextual: copiar valor / copiar todos."""
         menu = QMenu(self)
         act_copy = menu.addAction(self.tr("Copiar valor"))
         act_copy_all = menu.addAction(self.tr("Copiar todos"))
-
-        action = menu.exec(self._table.viewport().mapToGlobal(pos))
+        action = menu.exec(global_pos)
         clipboard = QApplication.clipboard()
-
         if action == act_copy:
-            row = self._table.currentRow()
-            if row >= 0:
-                item = self._table.item(row, 1)
-                if item:
-                    clipboard.setText(item.text())
+            clipboard.setText(self.row_value(index))
         elif action == act_copy_all:
-            values = []
-            for r in range(self._table.rowCount()):
-                item = self._table.item(r, 1)
-                if item:
-                    values.append(item.text())
-            clipboard.setText("\n".join(values))
+            clipboard.setText("\n".join(r.value for r in self._rows))

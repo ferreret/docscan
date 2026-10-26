@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QProgressBar,
@@ -48,6 +49,7 @@ from app.services.import_service import ImportService
 from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
 from app.models.image_config import ImageConfig, parse_image_config
+from app.models.workbench_layout import BARCODES, WorkbenchLayout
 from app.services.transfer_flow import transfer_page_dict, validate_before_transfer
 from app.services.transfer_service import TransferService, parse_transfer_config
 from app.ui.workbench.barcode_panel import BarcodePanel
@@ -73,6 +75,69 @@ from app.workers.transfer_worker import TransferWorker
 from config.settings import APP_DATA_DIR, APP_IMAGES_DIR  # noqa: F401  # APP_DATA_DIR parcheado por tests
 
 log = logging.getLogger(__name__)
+
+
+def format_lot_counters(stats: dict[str, int], tr: Any = lambda t: t) -> str:
+    """Texto de los contadores del lote para la barra de estado."""
+    return tr(
+        "{0} páginas · {1} con barcode · {2} separadores · {3} a revisión"
+    ).format(
+        stats.get("total_pages", 0),
+        stats.get("with_barcode", 0),
+        stats.get("separators", 0),
+        stats.get("needs_review", 0),
+    )
+
+
+def page_review_message(
+    needs_review: bool,
+    review_reason: str,
+    processing_errors_json: str,
+    script_errors_json: str,
+    tr: Any = lambda t: t,
+) -> str:
+    """Motivo de revisión y errores de una página, para la barra de estado."""
+
+    def _count(raw: str) -> int:
+        try:
+            data = json.loads(raw or "[]")
+        except json.JSONDecodeError, TypeError:
+            return 0
+        return len(data) if isinstance(data, list) else 0
+
+    errors = _count(processing_errors_json) + _count(script_errors_json)
+    if not needs_review and not errors:
+        return ""
+    parts = []
+    if needs_review:
+        parts.append(
+            tr("A revisión: {0}").format(review_reason)
+            if review_reason
+            else tr("Página a revisión")
+        )
+    if errors:
+        parts.append(tr("{0} error(es) de procesado; detalle en el Log").format(errors))
+    return " · ".join(parts)
+
+
+def _barcode_snapshot(barcode: Barcode) -> dict[str, Any]:
+    """Datos de un barcode para recrearlo al deshacer su borrado."""
+    return {
+        name: getattr(barcode, name)
+        for name in (
+            "page_id",
+            "value",
+            "symbology",
+            "engine",
+            "step_id",
+            "quality",
+            "pos_x",
+            "pos_y",
+            "pos_w",
+            "pos_h",
+            "role",
+        )
+    }
 
 
 class WorkbenchWindow(QMainWindow):
@@ -107,6 +172,9 @@ class WorkbenchWindow(QMainWindow):
         self._batch_id: int | None = None
         self._pages: list[Page] = []
         self._current_page_index: int = -1
+        # Pila de deshacer de la edición de barcodes (Ctrl+Z), por sesión de
+        # lote, como el BarcodeSession de FlexibarNET10.
+        self._barcode_undo: list[dict[str, Any]] = []
 
         # Servicios
         self._script_engine = ScriptEngine()
@@ -257,16 +325,20 @@ class WorkbenchWindow(QMainWindow):
         bar_layout.addStretch(1)
         center_layout.addWidget(viewer_bar)
 
-        # Panel derecho: barcodes + metadatos
+        # Panel derecho (paridad FlexibarNET10): barcodes de la página y
+        # campos de lote arriba, con alto según contenido y tope; las
+        # pestañas Verificación / OCR / Log ocupan el resto.
         right_widget = QWidget()
+        right_widget.setObjectName("rightPanel")
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
 
         self._barcode_panel = BarcodePanel()
         self._metadata_panel = MetadataPanel()
 
-        right_layout.addWidget(self._barcode_panel, stretch=1)
-        right_layout.addWidget(self._metadata_panel, stretch=2)
+        right_layout.addWidget(self._barcode_panel)
+        right_layout.addWidget(self._metadata_panel, stretch=1)
 
         # Armar splitter
         self._splitter.addWidget(self._thumbnail_panel)
@@ -288,6 +360,12 @@ class WorkbenchWindow(QMainWindow):
         self._progress_bar.setMaximumWidth(200)
         self._progress_bar.setVisible(False)
         self._status_bar.addPermanentWidget(self._progress_bar)
+
+        # Contadores del lote: antes ocupaban un grupo del panel derecho; van
+        # a la barra de estado, como el «Procesado 5/5» de FlexibarNET10.
+        self._lbl_counters = QLabel()
+        self._lbl_counters.setObjectName("statusCounters")
+        self._status_bar.addPermanentWidget(self._lbl_counters)
 
         # Configurar metadatos
         self._configure_metadata()
@@ -455,6 +533,9 @@ class WorkbenchWindow(QMainWindow):
         self._barcode_panel.delete_barcode_requested.connect(
             self._on_delete_barcode,
         )
+        # Fila ↔ recuadro del visor, en los dos sentidos.
+        self._barcode_panel.row_hovered.connect(self._viewer.highlight_barcode)
+        self._viewer.barcode_hovered.connect(self._barcode_panel.highlight_row)
 
     def _setup_shortcuts(self) -> None:
         """Atajos de teclado del workbench."""
@@ -492,7 +573,13 @@ class WorkbenchWindow(QMainWindow):
         _s("Ctrl+M", self._on_mark_page)
         _s("Delete", self._typing_guard(self._on_delete_current_page))
         _s("Ctrl+P", self._on_reprocess_page)
-        _s("Ctrl+B", self._on_insert_barcode)
+        # Barcodes (paridad FlexibarNET10): añadir con Ctrl+N / Insert,
+        # deshacer con Ctrl+Z. Supr sobre una fila enfocada la borra (lo
+        # gestiona la propia fila). Ctrl+B se conserva por compatibilidad.
+        _s("Ctrl+B", self._not_typing(self._on_insert_barcode))
+        _s("Ctrl+N", self._not_typing(self._on_insert_barcode))
+        _s("Insert", self._not_typing(self._on_insert_barcode))
+        _s("Ctrl+Z", self._not_typing(self._on_undo_barcode))
 
     def _typing_guard(self, slot: Any) -> Any:
         """Envuelve un slot para que no se dispare mientras se escribe.
@@ -507,6 +594,26 @@ class WorkbenchWindow(QMainWindow):
 
         def _guarded() -> None:
             if self._viewer_overlay.is_editing_page():
+                return
+            slot()
+
+        return _guarded
+
+    def _not_typing(self, slot: Any) -> Any:
+        """Envuelve un atajo para que no actúe mientras se escribe en un campo."""
+        from PySide6.QtWidgets import (
+            QAbstractSpinBox,
+            QApplication,
+            QLineEdit,
+            QPlainTextEdit,
+            QTextEdit,
+        )
+
+        def _guarded() -> None:
+            focus = QApplication.focusWidget()
+            if isinstance(
+                focus, (QLineEdit, QPlainTextEdit, QTextEdit, QAbstractSpinBox)
+            ):
                 return
             slot()
 
@@ -656,6 +763,18 @@ class WorkbenchWindow(QMainWindow):
 
         self._metadata_panel.configure(batch_fields, index_fields)
 
+        # Orden y visibilidad del panel derecho, por aplicación.
+        layout = WorkbenchLayout.from_json(
+            getattr(self._application, "workbench_layout_json", "") or ""
+        )
+        self._metadata_panel.apply_layout(layout)
+        self._barcode_panel.setVisible(layout.is_visible(BARCODES))
+        self._barcode_panel.set_add_button_visible(not self._add_barcode_hidden())
+
+    def _add_barcode_hidden(self) -> bool:
+        """¿La aplicación oculta «+ Añadir» barcode (y sus atajos)?"""
+        return bool(getattr(self._application, "hide_add_barcode_button", False))
+
     def _on_batch_field_changed(self, field_name: str, value: str) -> None:
         """Persiste un campo de lote editado en BD."""
         if not self._batch_id:
@@ -727,6 +846,7 @@ class WorkbenchWindow(QMainWindow):
             batch = svc.create_batch(application_id=self._app_id)
             session.commit()
             self._batch_id = batch.id
+            self._barcode_undo.clear()
 
         self._pages = []
         self._current_page_index = -1
@@ -747,6 +867,7 @@ class WorkbenchWindow(QMainWindow):
                 self._create_new_batch()
                 return
             self._batch_id = batch.id
+            self._barcode_undo.clear()
             batch_fields = json.loads(batch.fields_json or "{}")
 
         self._metadata_panel.set_batch_fields(batch_fields)
@@ -1393,8 +1514,18 @@ class WorkbenchWindow(QMainWindow):
                 errors_json=page.processing_errors_json,
                 script_errors_json=page.script_errors_json,
             )
+            review_message = page_review_message(
+                page.needs_review,
+                page.review_reason,
+                page.processing_errors_json,
+                page.script_errors_json,
+                self.tr,
+            )
 
         self._thumbnail_panel.set_current(page_index)
+        if review_message:
+            # El borde rojo dice que hay que revisar; aquí, por qué.
+            self._status_bar.showMessage(review_message, 8000)
         self._update_page_info()
 
         self._call_verification_hook("on_page_changed", page_index)
@@ -1957,7 +2088,7 @@ class WorkbenchWindow(QMainWindow):
 
     def _on_insert_barcode(self) -> None:
         """Inserta un barcode manual en la página actual."""
-        if self._current_page_index < 0:
+        if self._current_page_index < 0 or self._add_barcode_hidden():
             return
 
         page = self._pages[self._current_page_index]
@@ -2011,6 +2142,7 @@ class WorkbenchWindow(QMainWindow):
             )
             session.add(barcode)
             session.commit()
+            self._push_barcode_undo({"op": "add", "id": barcode.id})
 
         # Refrescar la vista
         self._navigate_to(self._current_page_index)
@@ -2018,15 +2150,15 @@ class WorkbenchWindow(QMainWindow):
             self.tr("Barcode manual a\u00f1adido: {0}").format(value), 3000
         )
 
-    def _on_delete_barcode(self) -> None:
-        """Elimina el barcode seleccionado de la página actual."""
+    def _on_delete_barcode(self, row: int | None = None) -> None:
+        """Elimina un barcode de la página actual (papelera de la fila o Supr).
+
+        Sin confirmación, como en FlexibarNET10: Ctrl+Z lo recupera.
+        """
         if self._current_page_index < 0:
             return
-
-        page = self._pages[self._current_page_index]
-
-        # Obtener fila seleccionada del panel
-        row = self._barcode_panel.selected_row()
+        if row is None or row < 0:
+            row = self._barcode_panel.selected_row()
         if row < 0:
             self._status_bar.showMessage(
                 self.tr("Selecciona un barcode para eliminar"),
@@ -2034,32 +2166,49 @@ class WorkbenchWindow(QMainWindow):
             )
             return
 
-        bc_value = self._barcode_panel.selected_value()
-
-        reply = QMessageBox.question(
-            self,
-            self.tr("Eliminar barcode"),
-            self.tr("\u00bfEliminar el barcode '{0}'?").format(bc_value),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-
-        # Eliminar de BD (por posición en la lista)
+        page = self._pages[self._current_page_index]
+        bc_value = ""
         with self._session_factory() as session:
             page_repo = PageRepository(session)
             db_page = page_repo.get_by_id(page.id)
-            if db_page:
-                barcodes = list(db_page.barcodes)
-                if 0 <= row < len(barcodes):
-                    session.delete(barcodes[row])
-                    session.commit()
+            barcodes = list(db_page.barcodes) if db_page else []
+            if not 0 <= row < len(barcodes):
+                return
+            target = barcodes[row]
+            bc_value = target.value
+            self._push_barcode_undo({"op": "delete", "data": _barcode_snapshot(target)})
+            session.delete(target)
+            session.commit()
 
-        # Refrescar la vista
         self._navigate_to(self._current_page_index)
         self._status_bar.showMessage(
-            self.tr("Barcode eliminado: {0}").format(bc_value), 3000
+            self.tr("Barcode eliminado: {0} (Ctrl+Z para deshacer)").format(bc_value),
+            5000,
         )
+
+    def _push_barcode_undo(self, entry: dict[str, Any]) -> None:
+        """Apila una edición de barcodes para poder deshacerla."""
+        entry["page_index"] = self._current_page_index
+        self._barcode_undo.append(entry)
+        del self._barcode_undo[:-50]
+
+    def _on_undo_barcode(self) -> None:
+        """Deshace la última edición de barcodes (Ctrl+Z)."""
+        if not self._barcode_undo:
+            self._status_bar.showMessage(self.tr("Nada que deshacer"), 2000)
+            return
+        entry = self._barcode_undo.pop()
+        with self._session_factory() as session:
+            if entry["op"] == "add":
+                added = session.get(Barcode, entry["id"])
+                if added is not None:
+                    session.delete(added)
+            else:
+                session.add(Barcode(**entry["data"]))
+            session.commit()
+        target = entry.get("page_index", self._current_page_index)
+        self._navigate_to(target if 0 <= target < len(self._pages) else 0)
+        self._status_bar.showMessage(self.tr("Edición de barcodes deshecha"), 3000)
 
     # ==================================================================
     # Re-procesamiento (UI-11)
@@ -2225,7 +2374,7 @@ class WorkbenchWindow(QMainWindow):
     # ==================================================================
 
     def _update_lot_counters(self) -> None:
-        """Actualiza los contadores del panel de barcodes."""
+        """Actualiza los contadores del lote en la barra de estado."""
         if self._batch_id is None:
             return
         with self._session_factory() as session:
@@ -2244,13 +2393,16 @@ class WorkbenchWindow(QMainWindow):
                     total_barcodes += len(p.barcodes)
                     separators += sum(1 for b in p.barcodes if b.role == "separator")
 
-        self._barcode_panel.set_lot_counters(
-            {
-                "total_pages": stats.get("total_pages", 0),
-                "with_barcode": pages_with_bc,
-                "separators": separators,
-                "needs_review": stats.get("needs_review", 0),
-            }
+        self._lbl_counters.setText(
+            format_lot_counters(
+                {
+                    "total_pages": stats.get("total_pages", 0),
+                    "with_barcode": pages_with_bc,
+                    "separators": separators,
+                    "needs_review": stats.get("needs_review", 0),
+                },
+                self.tr,
+            )
         )
 
     def _on_source_changed(self, scanner_checked: bool) -> None:

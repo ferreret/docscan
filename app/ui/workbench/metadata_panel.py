@@ -1,6 +1,8 @@
-"""Panel de metadatos — pestaña de índices de lote.
+"""Parte inferior del panel derecho del Workbench.
 
-Muestra y edita campos de lote definidos por la aplicación.
+Paridad con FlexibarNET 10: el panel plegable «Campos de lote» (antes una
+pestaña) y, debajo, el bloque de pestañas Verificación / OCR / Log, cuyo orden
+y visibilidad decide cada aplicación (``app/models/workbench_layout.py``).
 """
 
 from __future__ import annotations
@@ -13,24 +15,44 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDateEdit,
-    QFormLayout,
     QLabel,
     QLineEdit,
-    QScrollArea,
     QSizePolicy,
     QSpinBox,
+    QPlainTextEdit,
     QTabWidget,
     QVBoxLayout,
     QWidget,
+    QGridLayout,
 )
 
+from app.models.workbench_layout import (
+    LOG,
+    OCR,
+    VERIFICACION,
+    WorkbenchLayout,
+)
 from app.ui.workbench.log_panel import LogPanel
+from app.ui.workbench.section import CollapsibleSection
+
+# Tope de alto del panel de campos (como Flexibar): con muchos campos hace
+# scroll y no empuja las pestañas fuera de la pantalla.
+FIELDS_MAX_HEIGHT = 180
+
+# Nombre visible del tipo de campo, bajo su etiqueta.
+_TYPE_LABELS = {
+    "Texto": "texto",
+    "Fecha": "fecha",
+    "Número": "número",
+    "Lista": "lista",
+    "Booleano": "sí/no",
+}
 
 log = logging.getLogger(__name__)
 
 
 class MetadataPanel(QWidget):
-    """Panel derecho inferior con pestañas de metadatos.
+    """Panel de campos de lote y pestañas Verificación / OCR / Log.
 
     Signals:
         batch_field_changed: (nombre_campo, nuevo_valor).
@@ -48,32 +70,104 @@ class MetadataPanel(QWidget):
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
+        # --- Panel «Campos de lote» ---
+        self._fields_body = QWidget()
+        self._lote_layout = QGridLayout(self._fields_body)
+        self._lote_layout.setContentsMargins(0, 0, 4, 0)
+        self._lote_layout.setHorizontalSpacing(10)
+        self._lote_layout.setVerticalSpacing(10)
+        self._lote_layout.setColumnStretch(1, 1)
+        self._fields_section = CollapsibleSection(
+            self.tr("Campos de lote"),
+            self._fields_body,
+            max_body_height=FIELDS_MAX_HEIGHT,
+        )
+        layout.addWidget(self._fields_section)
+
+        # --- Pestañas ---
         self._tabs = QTabWidget()
+        self._tabs.setObjectName("infoTabs")
+        # Las tres pestañas caben en el ancho del panel: sin flechas de
+        # desplazamiento que escondan «Log».
+        self._tabs.tabBar().setExpanding(True)
+        self._tabs.tabBar().setUsesScrollButtons(False)
 
-        # Pestaña Lote (única pestaña activa por ahora)
-        self._tab_lote = QWidget()
-        self._lote_layout = QFormLayout(self._tab_lote)
-        self._lote_layout.setLabelAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        self._verification_page = QWidget()
+        verif_layout = QVBoxLayout(self._verification_page)
+        verif_layout.setContentsMargins(0, 0, 0, 0)
+        self._verification_hint = QLabel(
+            self.tr("Verificación avanzada no configurada en esta aplicación")
         )
-        self._lote_layout.setFormAlignment(Qt.AlignmentFlag.AlignTop)
-        self._lote_layout.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
-        self._lote_layout.setVerticalSpacing(8)
-        self._lote_layout.setContentsMargins(6, 8, 6, 8)
-        lote_scroll = QScrollArea()
-        lote_scroll.setWidgetResizable(True)
-        lote_scroll.setWidget(self._tab_lote)
-        self._tabs.addTab(lote_scroll, self.tr("Lote"))
+        self._verification_hint.setObjectName("emptyHint")
+        self._verification_hint.setWordWrap(True)
+        self._verification_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        verif_layout.addWidget(self._verification_hint)
+        self._verification_tab: QWidget | None = None
 
-        # Pestaña Log
+        self._ocr_text = QPlainTextEdit()
+        self._ocr_text.setObjectName("ocrText")
+        self._ocr_text.setReadOnly(True)
+        self._ocr_text.setPlaceholderText(self.tr("Esta página no tiene texto OCR"))
+
         self._log_panel = LogPanel()
-        self._tabs.addTab(self._log_panel, self.tr("Log"))
 
-        layout.addWidget(self._tabs)
+        self._tab_pages: dict[str, tuple[QWidget, str]] = {
+            VERIFICACION: (self._verification_page, self.tr("Verificación")),
+            OCR: (self._ocr_text, self.tr("OCR")),
+            LOG: (self._log_panel, self.tr("Log")),
+        }
+        self._layout = WorkbenchLayout.default()
+        self._has_fields = False
+        self._rebuild_tabs()
+        self._refresh_fields_visibility()
+        layout.addWidget(self._tabs, stretch=1)
+
+    # ------------------------------------------------------------------
+    # Disposición (paridad FlexibarNET10)
+    # ------------------------------------------------------------------
+
+    def apply_layout(self, workbench_layout: WorkbenchLayout) -> None:
+        """Aplica el orden y la visibilidad configurados en la aplicación."""
+        self._layout = workbench_layout
+        self._rebuild_tabs()
+        self._refresh_fields_visibility()
+
+    def _rebuild_tabs(self) -> None:
+        current = self.current_tab()
+        self._tabs.clear()
+        for tab_id in self._layout.visible_tabs():
+            page, title = self._tab_pages[tab_id]
+            self._tabs.addTab(page, title)
+        # Sin pestañas visibles no queda una caja vacía ocupando sitio.
+        self._tabs.setVisible(self._tabs.count() > 0)
+        if current:
+            self.select_tab(current)
+
+    def _refresh_fields_visibility(self) -> None:
+        from app.models.workbench_layout import CAMPOS
+
+        self._fields_section.setVisible(
+            self._has_fields and self._layout.is_visible(CAMPOS)
+        )
+
+    def current_tab(self) -> str | None:
+        """Id de la pestaña activa (``"ocr"``, ``"log"``…), o None."""
+        widget = self._tabs.currentWidget()
+        for tab_id, (page, _title) in self._tab_pages.items():
+            if page is widget:
+                return tab_id
+        return None
+
+    def select_tab(self, tab_id: str) -> bool:
+        """Activa la pestaña ``tab_id`` si está visible."""
+        page = self._tab_pages.get(tab_id, (None, ""))[0]
+        idx = self._tabs.indexOf(page) if page is not None else -1
+        if idx >= 0:
+            self._tabs.setCurrentIndex(idx)
+        return idx >= 0
 
     # ------------------------------------------------------------------
     # Configuración de campos
@@ -94,21 +188,27 @@ class MetadataPanel(QWidget):
             self._batch_widgets,
             self.batch_field_changed,
         )
+        self._has_fields = bool(batch_fields_def)
+        self._fields_section.set_count(len(batch_fields_def))
+        self._fields_section.fit_body()
+        self._refresh_fields_visibility()
 
     def _build_fields(
         self,
         fields_def: list[dict[str, Any]],
-        form_layout: QFormLayout,
+        grid: QGridLayout,
         widgets: dict[str, QWidget],
         signal: Signal,
     ) -> None:
         """Genera widgets dinámicos para cada campo."""
         # Limpiar existentes
-        while form_layout.rowCount() > 0:
-            form_layout.removeRow(0)
+        while grid.count():
+            item = grid.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
         widgets.clear()
 
-        for fdef in fields_def:
+        for row, fdef in enumerate(fields_def):
             name = fdef.get("name", "")
             ftype = fdef.get("type", "Texto")
             choices = fdef.get("choices", [])
@@ -143,12 +243,21 @@ class MetadataPanel(QWidget):
                     ),
                 )
 
-            lbl = QLabel(label_text)
-            lbl.setAlignment(
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            )
-            lbl.setMinimumWidth(80)
-            form_layout.addRow(lbl, widget)
+            # Etiqueta como en Flexibar: nombre en seminegrita y, debajo, el
+            # tipo en pequeño.
+            label_box = QWidget()
+            label_layout = QVBoxLayout(label_box)
+            label_layout.setContentsMargins(0, 0, 0, 0)
+            label_layout.setSpacing(0)
+            lbl_name = QLabel(label_text)
+            lbl_name.setObjectName("fieldName")
+            lbl_type = QLabel(_TYPE_LABELS.get(ftype, ftype.lower()))
+            lbl_type.setObjectName("fieldType")
+            label_layout.addWidget(lbl_name)
+            label_layout.addWidget(lbl_type)
+            label_box.setMinimumWidth(100)
+            grid.addWidget(label_box, row, 0, Qt.AlignmentFlag.AlignVCenter)
+            grid.addWidget(widget, row, 1)
 
     def _create_field_widget(
         self,
@@ -227,12 +336,26 @@ class MetadataPanel(QWidget):
         errors_json: str = "[]",
         script_errors_json: str = "[]",
     ) -> None:
-        """Stub — verificación desactivada temporalmente."""
-        pass
+        """Muestra los datos de la página enfocada (pestaña OCR).
+
+        Era un stub vacío: el texto OCR no se veía en ningún sitio. Los
+        errores de la página los resume el Workbench en la barra de estado.
+        """
+        self._ocr_text.setPlainText(ocr_text or "")
+
+    def ocr_text(self) -> str:
+        """Texto que muestra la pestaña OCR."""
+        return self._ocr_text.toPlainText()
 
     def set_default_tab(self, tab_name: str) -> None:
-        """Selecciona la pestaña por defecto."""
-        self._tabs.setCurrentIndex(0)
+        """Activa la pestaña inicial configurada en la aplicación.
+
+        Si no está configurada o está oculta, la primera visible (Flexibar
+        ``ResolveInitialTab``). Antes se ignoraba y siempre era la primera.
+        """
+        target = self._layout.initial_tab(tab_name)
+        if target:
+            self.select_tab(target)
 
     def clear(self) -> None:
         """Limpia todos los campos."""
@@ -240,18 +363,20 @@ class MetadataPanel(QWidget):
             self._set_widget_value(widget, "")
 
     def add_verification_tab(self, widget: QWidget) -> None:
-        """Inserta la pestaña de verificación entre Lote y Log."""
+        """Coloca el panel de verificación de la aplicación en su pestaña."""
+        self.remove_verification_tab()
         self._verification_tab = widget
-        self._tabs.insertTab(1, widget, self.tr("Verificación"))
+        self._verification_hint.setVisible(False)
+        self._verification_page.layout().addWidget(widget)
 
     def remove_verification_tab(self) -> None:
-        """Elimina la pestaña de verificación si existe."""
-        tab = getattr(self, "_verification_tab", None)
+        """Quita el panel de verificación y vuelve a mostrar el aviso."""
+        tab = self._verification_tab
         if tab is not None:
-            idx = self._tabs.indexOf(tab)
-            if idx >= 0:
-                self._tabs.removeTab(idx)
+            self._verification_page.layout().removeWidget(tab)
+            tab.setParent(None)
             self._verification_tab = None
+        self._verification_hint.setVisible(True)
 
     def cleanup(self) -> None:
         """Libera recursos (handler de logging + panel verificación)."""

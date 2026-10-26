@@ -104,6 +104,8 @@ _APP_CONFIG_PROPERTIES = {
             "default_tab": {"type": "string"},
             "scanner_backend": {"type": "string"},
             "background_color": {"type": "string"},
+            "workbench_layout_json": {"type": "string"},
+            "hide_add_barcode_button": {"type": "boolean"},
         },
     },
     "ai_config": {
@@ -351,7 +353,9 @@ Example: If BarcodeStep uses regex "^[A-Z]\\d{{8}}$", set ai_config.barcode_rege
 - auto_transfer (bool, default FALSE): Automatically start transfer after pipeline completes. Usually false.
 - close_after_transfer (bool, default false): Close workbench after successful transfer.
 - output_format (str, default "tiff"): Default image format for the workbench.
-- default_tab (str, default "lote"): Default tab shown when workbench opens ("lote" or "log").
+- default_tab (str): Tab active when the workbench opens: "verificacion", "ocr" or "log" (empty = first visible tab).
+- workbench_layout_json (str): JSON list [{{"id": ..., "visible": bool}}] with ids "barcodes", "campos" (fixed panels) and "verificacion", "ocr", "log" (tabs, in display order). Empty = all visible.
+- hide_add_barcode_button (bool, default false): Hide the "+ Añadir" barcode button and its shortcuts.
 - scanner_backend (str): "sane" (Linux), "twain" (Windows), "wia" (Windows). Empty = auto-detect by platform.
 - background_color (str): Hex color for workbench background (e.g., "#1e1e2e").
 

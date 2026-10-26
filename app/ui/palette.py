@@ -119,6 +119,8 @@ def _roles(b: dict[str, str], dark: bool) -> dict[str, str]:
         "arrow_variant": "dark" if dark else "light",
         # Segoe UI en Windows (como Flexibar); Inter, empaquetada, en el resto.
         "font_family": '"Segoe UI", "Inter", sans-serif',
+        # Valores de barcodes y log, como Flexibar (Cascadia Mono / Consolas).
+        "font_mono": '"Cascadia Mono", "Consolas", "DejaVu Sans Mono", monospace',
     }
 
 

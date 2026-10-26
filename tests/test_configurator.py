@@ -665,3 +665,52 @@ class TestFindScriptErrors:
         from app.services.script_engine import find_script_errors
 
         assert find_script_errors("[]", "{}") == []
+
+
+class TestPestanasDelWorkbench:
+    """Configurador → General → «Pestañas del Workbench» (paridad Flexibar)."""
+
+    def test_lista_con_las_cinco_entradas_y_guardado(self, qtbot, sample_app):
+        import json
+
+        from app.ui.configurator.tabs.tab_general import GeneralTab
+
+        tab = GeneralTab(sample_app)
+        qtbot.addWidget(tab)
+        lista = tab._layout_list
+        from PySide6.QtCore import Qt
+
+        ids = [
+            lista.item(i).data(Qt.ItemDataRole.UserRole) for i in range(lista.count())
+        ]
+        assert ids == ["barcodes", "campos", "verificacion", "ocr", "log"]
+
+        # Ocultar OCR y subir Log por encima de él
+        lista.item(3).setCheckState(Qt.CheckState.Unchecked)
+        lista.setCurrentRow(4)
+        tab._move_layout_entry(-1)
+        tab._hide_add_barcode.setChecked(True)
+        tab.apply_to(sample_app)
+
+        guardado = json.loads(sample_app.workbench_layout_json)
+        assert [e["id"] for e in guardado] == [
+            "barcodes",
+            "campos",
+            "verificacion",
+            "log",
+            "ocr",
+        ]
+        assert next(e for e in guardado if e["id"] == "ocr")["visible"] is False
+        assert sample_app.hide_add_barcode_button is True
+
+    def test_los_paneles_fijos_no_se_reordenan(self, qtbot, sample_app):
+        from app.ui.configurator.tabs.tab_general import GeneralTab
+
+        tab = GeneralTab(sample_app)
+        qtbot.addWidget(tab)
+        tab._layout_list.setCurrentRow(1)  # «Campos de lote»
+        assert not tab._btn_layout_up.isEnabled()
+        assert not tab._btn_layout_down.isEnabled()
+        tab._layout_list.setCurrentRow(2)  # primera pestaña: no sube
+        assert not tab._btn_layout_up.isEnabled()
+        assert tab._btn_layout_down.isEnabled()

@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QWheelEvent
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem,
+    QGraphicsRectItem,
     QGraphicsScene,
     QGraphicsView,
     QWidget,
@@ -44,6 +45,24 @@ _BARCODE_PALETTE = [
 ]
 
 
+class _BarcodeRectItem(QGraphicsRectItem):
+    """Recuadro de un barcode que avisa al pasar el ratón por encima."""
+
+    def __init__(self, index: int, on_hover, *args) -> None:
+        super().__init__(*args)
+        self.index = index
+        self._on_hover = on_hover
+        self.setAcceptHoverEvents(True)
+
+    def hoverEnterEvent(self, event) -> None:  # noqa: N802 — API de Qt
+        self._on_hover(self.index)
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event) -> None:  # noqa: N802
+        self._on_hover(-1)
+        super().hoverLeaveEvent(event)
+
+
 class DocumentViewer(QGraphicsView):
     """Visor de documentos con zoom, arrastre y overlays.
 
@@ -54,6 +73,9 @@ class DocumentViewer(QGraphicsView):
 
     rotation_requested = Signal()
     viewer_resized = Signal()
+    # Índice del barcode bajo el ratón (-1 al salir): enlaza con su fila del
+    # panel de barcodes, como en FlexibarNET10.
+    barcode_hovered = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -62,6 +84,8 @@ class DocumentViewer(QGraphicsView):
 
         self._pixmap_item: QGraphicsPixmapItem | None = None
         self._overlay_items: list = []
+        self._barcode_rects: dict[int, _BarcodeRectItem] = {}
+        self._barcode_pen_width = 4
         self._current_zoom: float = 1.0
 
         # Configurar vista
@@ -139,6 +163,7 @@ class DocumentViewer(QGraphicsView):
         img_diag = max(1, (scene_rect.width() ** 2 + scene_rect.height() ** 2) ** 0.5)
         pen_width = max(4, int(img_diag / 500))
         margin = pen_width * 2
+        self._barcode_pen_width = pen_width
 
         # --- Barcodes ---
         for idx, bc in enumerate(barcodes):
@@ -162,15 +187,12 @@ class DocumentViewer(QGraphicsView):
             rw = w + margin * 2
             rh = h + margin * 2
 
-            rect = self._scene.addRect(
-                rx,
-                ry,
-                rw,
-                rh,
-                pen,
-                QBrush(fill_color),
-            )
+            rect = _BarcodeRectItem(idx, self.barcode_hovered.emit, rx, ry, rw, rh)
+            rect.setPen(pen)
+            rect.setBrush(QBrush(fill_color))
+            self._scene.addItem(rect)
             self._overlay_items.append(rect)
+            self._barcode_rects[idx] = rect
 
         # --- Fields con coordenadas ---
         font_size = max(12, int(img_diag / 120))
@@ -224,6 +246,21 @@ class DocumentViewer(QGraphicsView):
         for item in self._overlay_items:
             self._scene.removeItem(item)
         self._overlay_items.clear()
+        self._barcode_rects.clear()
+
+    def highlight_barcode(self, index: int) -> None:
+        """Engrosa el recuadro del barcode ``index`` (-1 quita el resaltado)."""
+        for idx, rect in self._barcode_rects.items():
+            pen = rect.pen()
+            pen.setWidthF(self._barcode_pen_width * (2.5 if idx == index else 1.0))
+            rect.setPen(pen)
+
+    def highlighted_barcode(self) -> int:
+        """Índice del recuadro resaltado, o -1."""
+        for idx, rect in self._barcode_rects.items():
+            if rect.pen().widthF() > self._barcode_pen_width:
+                return idx
+        return -1
 
     # ------------------------------------------------------------------
     # Zoom y navegación

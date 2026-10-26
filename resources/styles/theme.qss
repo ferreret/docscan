@@ -933,3 +933,126 @@ QInputDialog QComboBox {
 #updateBanner QPushButton[cssClass="banner-btn-primary"]:hover {
     background-color: $banner_btn_strong;
 }
+
+
+/* ==========================================================
+   Panel derecho del Workbench (paridad FlexibarNET10)
+   ========================================================== */
+
+#rightPanel {
+    background-color: $bg_alt;
+}
+
+#panelSection {
+    background-color: $bg_alt;
+    border: none;
+}
+
+#sectionTitle {
+    color: $text_muted;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+#sectionBody, #barcodeList {
+    background-color: transparent;
+}
+
+#sectionToggle, #rowDeleteButton {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0px;
+}
+
+#sectionToggle:hover {
+    background-color: $hover_strong;
+}
+
+#rowDeleteButton:hover {
+    background-color: $danger_bg;
+}
+
+#addBarcodeButton {
+    background-color: $green;
+    color: $on_accent;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#barcodeRow {
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid $surface;
+}
+
+#barcodeRow:hover,
+#barcodeRow[highlighted="true"] {
+    background-color: $surface;
+}
+
+#barcodeRow[selected="true"] {
+    background-color: $selection_bg;
+}
+
+#barcodeRow:focus {
+    border-bottom: 1px solid $accent;
+}
+
+#barcodeValue {
+    color: $text;
+    font-family: $font_mono;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#barcodeMeta {
+    color: $text_muted;
+    font-size: 12px;
+}
+
+#badgeManual {
+    background-color: $orange;
+    color: $on_accent;
+    border-radius: 3px;
+    padding: 0px 4px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+#fieldName {
+    color: $text;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#fieldType {
+    color: $text_subtle;
+    font-size: 11px;
+}
+
+#emptyHint {
+    color: $text_subtle;
+    padding: 6px 0px;
+}
+
+#ocrText {
+    background-color: transparent;
+    border: none;
+    padding: 6px;
+}
+
+#statusCounters {
+    color: $text_muted;
+    padding: 0px 8px;
+}
+
+/* Pestañas del panel derecho: compactas para que las tres quepan */
+#infoTabs QTabBar::tab {
+    padding: 7px 10px;
+    min-width: 40px;
+}

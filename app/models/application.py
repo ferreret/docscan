@@ -49,6 +49,16 @@ class Application(Base):
     default_tab: Mapped[str] = mapped_column(String(20), default="lote")
     scanner_backend: Mapped[str] = mapped_column(String(10), default="")
 
+    # Panel derecho del Workbench (paridad FlexibarNET10): orden y
+    # visibilidad de paneles y pestañas (app/models/workbench_layout.py) y
+    # si se oculta el botón «+ Añadir» barcode (también sus atajos).
+    workbench_layout_json: Mapped[str] = mapped_column(
+        Text, default="", server_default=""
+    )
+    hide_add_barcode_button: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
+
     # Configuración de imagen (formato, DPI, compresión)
     image_config_json: Mapped[str] = mapped_column(Text, default="{}")
 

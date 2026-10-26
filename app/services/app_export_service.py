@@ -40,6 +40,8 @@ _EXPORTABLE_FIELDS: list[str] = [
     "output_format",
     "default_tab",
     "scanner_backend",
+    "workbench_layout_json",
+    "hide_add_barcode_button",
 ]
 
 # Campos JSON que se parsean a objeto para legibilidad del export.
@@ -200,6 +202,8 @@ def import_application(
         "output_format",
         "default_tab",
         "scanner_backend",
+        "workbench_layout_json",
+        "hide_add_barcode_button",
     ):
         value = app_data.get(field_name)
         if value is not None:

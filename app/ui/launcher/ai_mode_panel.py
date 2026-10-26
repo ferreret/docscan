@@ -550,24 +550,15 @@ class AiModePanel(QWidget):
                 self._add_message("error", f"Ya existe una aplicacion '{new_name}'.")
                 return
 
-            clone = Application(
-                name=new_name,
-                description=ti.get("description", source.description),
-                active=ti.get("active", source.active),
-                pipeline_json=source.pipeline_json,
-                events_json=source.events_json,
-                transfer_json=source.transfer_json,
-                batch_fields_json=source.batch_fields_json,
-                index_fields_json=source.index_fields_json,
-                auto_transfer=source.auto_transfer,
-                close_after_transfer=source.close_after_transfer,
-                background_color=source.background_color,
-                output_format=source.output_format,
-                default_tab=source.default_tab,
-                scanner_backend=source.scanner_backend,
-                image_config_json=source.image_config_json,
-                ai_config_json=source.ai_config_json,
-            )
+            # Misma lista de campos que la exportación: enumerarlos a mano
+            # perdía la configuración de notificaciones (y la del panel
+            # derecho del Workbench).
+            from app.services.app_export_service import copy_configuration
+
+            clone = Application(name=new_name)
+            copy_configuration(source, clone)
+            clone.description = ti.get("description", source.description)
+            clone.active = ti.get("active", source.active)
 
             # Aplicar modificaciones
             self._apply_config_to_app(clone, ti)
@@ -666,6 +657,10 @@ class AiModePanel(QWidget):
             app.scanner_backend = general["scanner_backend"]
         if "background_color" in general:
             app.background_color = general["background_color"]
+        if "workbench_layout_json" in general:
+            app.workbench_layout_json = general["workbench_layout_json"]
+        if "hide_add_barcode_button" in general:
+            app.hide_add_barcode_button = bool(general["hide_add_barcode_button"])
 
     # ------------------------------------------------------------------
     # Mensajes UI
