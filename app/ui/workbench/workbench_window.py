@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
+    QHBoxLayout,
     QMainWindow,
     QMessageBox,
     QProgressBar,
@@ -58,6 +59,7 @@ from app.ui.workbench.page_state import (
 )
 from app.ui.workbench.thumbnail_panel import ThumbnailPanel
 from app.ui.workbench.viewer_overlay import ViewerOverlay
+from app.ui.palette import color as palette_color
 from app.workers.recognition_worker import (
     AppContext,
     BatchContext,
@@ -232,7 +234,7 @@ class WorkbenchWindow(QMainWindow):
         # Panel izquierdo: miniaturas
         self._thumbnail_panel = ThumbnailPanel()
 
-        # Panel central: visor con overlay
+        # Panel central: visor y, debajo, su barra de herramientas
         center_widget = QWidget()
         center_layout = QVBoxLayout(center_widget)
         center_layout.setContentsMargins(0, 0, 0, 0)
@@ -241,9 +243,19 @@ class WorkbenchWindow(QMainWindow):
         self._viewer = DocumentViewer()
         center_layout.addWidget(self._viewer, stretch=1)
 
-        # Overlay flotante sobre el visor
-        self._viewer_overlay = ViewerOverlay(self._viewer)
-        self._viewer_overlay.setVisible(True)
+        # La barra va en su propia franja bajo el visor, no flotando sobre
+        # él: encima tapaba la parte inferior de la página (como en
+        # FlexibarNET10, la barra del visor queda siempre fuera de la imagen).
+        viewer_bar = QWidget()
+        viewer_bar.setObjectName("viewerBar")
+        viewer_bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        bar_layout = QHBoxLayout(viewer_bar)
+        bar_layout.setContentsMargins(0, 4, 0, 4)
+        self._viewer_overlay = ViewerOverlay()
+        bar_layout.addStretch(1)
+        bar_layout.addWidget(self._viewer_overlay)
+        bar_layout.addStretch(1)
+        center_layout.addWidget(viewer_bar)
 
         # Panel derecho: barcodes + metadatos
         right_widget = QWidget()
@@ -362,7 +374,7 @@ class WorkbenchWindow(QMainWindow):
 
         from app.ui.icon_factory import icon_font_decrease, icon_font_increase
 
-        icon_color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+        icon_color = palette_color("text")
 
         self._btn_font_up = QPushButton()
         self._btn_font_up.setIcon(icon_font_increase(icon_color, 32))
@@ -383,7 +395,7 @@ class WorkbenchWindow(QMainWindow):
             self._btn_theme.setIcon(icon_sun())
         else:
             self._btn_theme.setText("")
-            self._btn_theme.setIcon(icon_moon("#5c5f77"))
+            self._btn_theme.setIcon(icon_moon(palette_color("subtext0")))
 
     def _connect_signals(self) -> None:
         """Conecta todas las señales de la UI."""
@@ -394,9 +406,6 @@ class WorkbenchWindow(QMainWindow):
 
         # Origen
         self._radio_scanner.toggled.connect(self._on_source_changed)
-
-        # Visor resize → reposicionar overlay
-        self._viewer.viewer_resized.connect(self._reposition_overlay)
 
         # Tema y fuente
         self._btn_theme.clicked.connect(self._on_toggle_theme)
@@ -681,12 +690,12 @@ class WorkbenchWindow(QMainWindow):
     def _update_font_icons(self) -> None:
         from app.ui.icon_factory import icon_font_decrease, icon_font_increase
 
-        color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+        color = palette_color("text")
         self._btn_font_up.setIcon(icon_font_increase(color, 32))
         self._btn_font_down.setIcon(icon_font_decrease(color, 32))
 
     def _update_overlay_icons(self) -> None:
-        color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+        color = palette_color("text")
         self._viewer_overlay.update_icon_color(color)
 
     # ==================================================================
@@ -2358,33 +2367,6 @@ class WorkbenchWindow(QMainWindow):
             key_str = event.keyCombination().key().name.decode()
             self._fire_event("on_key_event", key=key_str)
         super().keyPressEvent(event)
-
-    # ==================================================================
-    # Resize — reposicionar overlay
-    # ==================================================================
-
-    def resizeEvent(self, event) -> None:
-        """Reposiciona el overlay del visor al redimensionar."""
-        super().resizeEvent(event)
-        self._reposition_overlay()
-
-    def showEvent(self, event) -> None:
-        """Posiciona el overlay cuando la ventana se muestra."""
-        super().showEvent(event)
-        self._reposition_overlay()
-
-    def _reposition_overlay(self) -> None:
-        """Centra el overlay en la parte inferior del visor."""
-        viewer = self._viewer
-        overlay = self._viewer_overlay
-        overlay.adjustSize()
-        ow = overlay.sizeHint().width()
-        oh = overlay.sizeHint().height()
-        vw = viewer.width()
-        vh = viewer.height()
-        x = max(0, (vw - ow) // 2)
-        y = max(0, vh - oh - 10)
-        overlay.move(x, y)
 
     # ==================================================================
     # Drag & drop

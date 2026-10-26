@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from app.ui.workbench.page_state import (
     PageState,
-    STATE_COLORS,
+    state_color,
     ndarray_to_qpixmap,
 )
 
@@ -46,7 +46,7 @@ class ThumbnailItem(QLabel):
 
     def set_state(self, state: PageState) -> None:
         """Actualiza el color del borde según el estado."""
-        color = STATE_COLORS[state]
+        color = state_color(state)
         border_w = 4 if self._selected else 3
         self.setStyleSheet(
             f"QLabel {{ border: {border_w}px solid {color}; padding: 2px; }}"
@@ -55,7 +55,7 @@ class ThumbnailItem(QLabel):
     def set_selected(self, selected: bool, state: PageState) -> None:
         """Marca o desmarca la miniatura como seleccionada."""
         self._selected = selected
-        color = STATE_COLORS[state]
+        color = state_color(state)
         if selected:
             self.setStyleSheet(
                 f"QLabel {{ border: 4px solid {color}; "

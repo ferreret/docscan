@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from app.ui.workbench.page_state import (
     PageState,
-    STATE_COLORS,
+    state_color,
     ndarray_to_qpixmap,
 )
 
@@ -278,5 +278,5 @@ class DocumentViewer(QGraphicsView):
 
     def _set_border_color(self, state: PageState) -> None:
         """Establece el borde coloreado de la vista (UI-03)."""
-        color = STATE_COLORS[state]
+        color = state_color(state)
         self.setStyleSheet(f"QGraphicsView {{ border: 4px solid {color}; }}")

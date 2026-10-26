@@ -286,6 +286,10 @@ def main() -> int:
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName(settings.app_name)
 
+    from app.ui.fonts import register_fonts
+
+    register_fonts()
+
     icon_path = Path(__file__).parent / "resources" / "icons" / "docscan.svg"
     if icon_path.exists():
         qt_app.setWindowIcon(QIcon(str(icon_path)))

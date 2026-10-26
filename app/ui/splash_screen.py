@@ -9,10 +9,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from app.ui.fonts import ui_font_family
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import QSplashScreen, QProgressBar
 
 from app._version import __version__ as _VERSION
+from app.ui.palette import DARK as _P  # el splash es siempre oscuro
 
 _SPLASH_W = 480
 _SPLASH_H = 320
@@ -37,7 +39,7 @@ class SplashScreen(QSplashScreen):
         self._progress.setGeometry(0, _SPLASH_H - 4, _SPLASH_W, 4)
         self._progress.setStyleSheet(
             "QProgressBar { background: transparent; border: none; }"
-            "QProgressBar::chunk { background: #89b4fa; border-radius: 2px; }"
+            f"QProgressBar::chunk {{ background: {_P['blue']}; border-radius: 2px; }}"
         )
 
     def _build_pixmap(self) -> QPixmap:
@@ -51,13 +53,13 @@ class SplashScreen(QSplashScreen):
         from PySide6.QtGui import QLinearGradient
 
         grad = QLinearGradient(0, 0, 0, _SPLASH_H)
-        grad.setColorAt(0, QColor("#1e1e2e"))
-        grad.setColorAt(1, QColor("#11111b"))
+        grad.setColorAt(0, QColor(_P["base"]))
+        grad.setColorAt(1, QColor(_P["crust"]))
         p.fillRect(0, 0, _SPLASH_W, _SPLASH_H, grad)
 
         # Linea decorativa superior
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#89b4fa"))
+        p.setBrush(QColor(_P["blue"]))
         p.drawRect(0, 0, _SPLASH_W, 3)
 
         # Logo SVG si existe
@@ -78,8 +80,8 @@ class SplashScreen(QSplashScreen):
             text_y = 80
 
         # Titulo
-        p.setPen(QColor("#cdd6f4"))
-        font_title = QFont("Segoe UI", 28)
+        p.setPen(QColor(_P["text"]))
+        font_title = QFont(ui_font_family(), 28)
         font_title.setWeight(QFont.Weight.Bold)
         p.setFont(font_title)
         p.drawText(
@@ -87,16 +89,16 @@ class SplashScreen(QSplashScreen):
         )
 
         # Version
-        p.setPen(QColor("#6c7086"))
-        font_ver = QFont("Segoe UI", 12)
+        p.setPen(QColor(_P["overlay0"]))
+        font_ver = QFont(ui_font_family(), 12)
         p.setFont(font_ver)
         p.drawText(
             0, text_y + 42, _SPLASH_W, 25, Qt.AlignmentFlag.AlignCenter, f"v{_VERSION}"
         )
 
         # Subtitulo
-        p.setPen(QColor("#585b70"))
-        font_sub = QFont("Segoe UI", 10)
+        p.setPen(QColor(_P["surface2"]))
+        font_sub = QFont(ui_font_family(), 10)
         p.setFont(font_sub)
         p.drawText(
             0,
@@ -108,8 +110,8 @@ class SplashScreen(QSplashScreen):
         )
 
         # Copyright
-        p.setPen(QColor("#45475a"))
-        font_copy = QFont("Segoe UI", 8)
+        p.setPen(QColor(_P["surface1"]))
+        font_copy = QFont(ui_font_family(), 8)
         p.setFont(font_copy)
         p.drawText(
             0,
@@ -132,5 +134,5 @@ class SplashScreen(QSplashScreen):
         self.showMessage(
             text,
             Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter,
-            QColor("#6c7086"),
+            QColor(_P["overlay0"]),
         )

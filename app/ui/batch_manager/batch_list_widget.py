@@ -17,18 +17,20 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.theme_manager import ThemeManager
+from app.ui.palette import palette
 
 log = logging.getLogger(__name__)
 
 # Colores por estado: (dark, light)
 STATE_COLORS_THEMED: dict[str, tuple[str, str]] = {
-    "created": ("#585b70", "#E0E0E0"),
-    "read": ("#3b5998", "#BBDEFB"),
-    "verified": ("#2e7d32", "#C8E6C9"),
-    "ready_to_export": ("#8d6e00", "#FFF9C4"),
-    "exported": ("#1b5e20", "#A5D6A7"),
-    "error_read": ("#b71c1c", "#FFCDD2"),
-    "error_export": ("#c62828", "#EF9A9A"),
+    # Claves de app/ui/palette.py (oscuro, claro): tinte de fondo de la fila.
+    "created": ("overlay0", "overlay0"),
+    "read": ("blue", "blue"),
+    "verified": ("green", "green"),
+    "ready_to_export": ("yellow", "yellow"),
+    "exported": ("green", "green"),
+    "error_read": ("red", "red"),
+    "error_export": ("red", "red"),
 }
 
 _STATE_LABELS_SRC: dict[str, str] = {
@@ -125,7 +127,9 @@ class BatchListWidget(QTableWidget):
             state = batch.get("state", "created")
             # Fondo sutil para la fila según estado
             state_bg = QColor(
-                STATE_COLORS_THEMED.get(state, ("#313244", "#FFFFFF"))[theme_idx]
+                palette(is_dark)[
+                    STATE_COLORS_THEMED.get(state, ("surface0", "surface0"))[theme_idx]
+                ]
             )
             state_bg.setAlpha(40 if is_dark else 60)
 

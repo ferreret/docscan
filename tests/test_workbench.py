@@ -30,7 +30,8 @@ from app.workers.scan_worker import ScanWorker
 from app.workers.transfer_worker import TransferWorker
 from app.ui.workbench.page_state import (
     PageState,
-    STATE_COLORS,
+    STATE_COLOR_KEYS,
+    state_color,
     determine_page_state,
     ndarray_to_qpixmap,
 )
@@ -967,10 +968,10 @@ class TestDeterminePageState:
         assert state is PageState.SEPARATOR_BARCODE
 
     def test_all_states_have_colors(self):
-        """Todos los estados tienen un color definido en STATE_COLORS."""
+        """Todos los estados tienen un color de la paleta."""
         for state in PageState:
-            assert state in STATE_COLORS
-            assert STATE_COLORS[state].startswith("#")
+            assert state in STATE_COLOR_KEYS
+            assert state_color(state).startswith("#")
 
 
 # ==================================================================
@@ -1193,7 +1194,7 @@ class TestDocumentViewer:
 
         viewer.set_image(color_image, PageState.NEEDS_REVIEW)
         style = viewer.styleSheet()
-        assert "#e53935" in style  # rojo para NEEDS_REVIEW
+        assert state_color(PageState.NEEDS_REVIEW) in style  # rojo
 
     def test_set_state_changes_border_color(self, qtbot, color_image):
         viewer = DocumentViewer()
@@ -1202,7 +1203,7 @@ class TestDocumentViewer:
         viewer.set_image(color_image, PageState.NO_RECOGNITION)
         viewer.set_state(PageState.HAS_FIELDS)
         style = viewer.styleSheet()
-        assert "#1e88e5" in style  # azul para HAS_FIELDS
+        assert state_color(PageState.HAS_FIELDS) in style  # azul
 
     def test_clear_removes_pixmap(self, qtbot, color_image):
         viewer = DocumentViewer()
@@ -1726,6 +1727,23 @@ class TestWorkbenchWindow:
             workbench._on_transfer()
         pregunta.assert_not_called()
         assert "rechazado" in aviso.call_args.args[2]
+
+    def test_barra_del_visor_queda_debajo_de_la_imagen(self, workbench, qtbot):
+        """La barra no puede tapar la página: va bajo el visor, no encima."""
+        from PySide6.QtCore import QPoint, QRect
+
+        workbench.resize(1280, 800)
+        workbench.show()
+        qtbot.waitExposed(workbench)
+        viewer, barra = workbench._viewer, workbench._viewer_overlay
+        assert barra.parent() is not viewer
+
+        def rect_en_ventana(w):
+            return QRect(w.mapTo(workbench, QPoint(0, 0)), w.size())
+
+        r_visor, r_barra = rect_en_ventana(viewer), rect_en_ventana(barra)
+        assert not r_visor.intersects(r_barra)
+        assert r_barra.top() >= r_visor.bottom()
 
     def test_window_title_contains_app_name(self, workbench, sample_app):
         assert sample_app.name in workbench.windowTitle()

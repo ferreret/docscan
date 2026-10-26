@@ -328,10 +328,15 @@ class TestThemeManagerScaleFontSizes:
         tm._font_size = BASE_FONT_SIZE
         from pathlib import Path
 
+        from app.ui.theme_manager import render_stylesheet
+
         qss_path = (
-            Path(__file__).resolve().parent.parent / "resources" / "styles" / "dark.qss"
+            Path(__file__).resolve().parent.parent
+            / "resources"
+            / "styles"
+            / "theme.qss"
         )
-        qss = qss_path.read_text(encoding="utf-8")
+        qss = render_stylesheet(qss_path.read_text(encoding="utf-8"), dark=True)
         result = tm._scale_font_sizes(qss)
         assert isinstance(result, str)
         assert len(result) > 0
@@ -481,7 +486,7 @@ class TestViewerOverlayConstruction:
         overlay = ViewerOverlay()
         qtbot.addWidget(overlay)
         assert overlay._edit_page.text() == "0"
-        assert overlay._lbl_page_info.text() == "/ 0 "
+        assert overlay._lbl_page_info.text() == "/ 0"
 
 
 class TestViewerOverlayUpdatePageInfo:
@@ -493,7 +498,7 @@ class TestViewerOverlayUpdatePageInfo:
         qtbot.addWidget(overlay)
         overlay.update_page_info(3, 10)
         assert overlay._edit_page.text() == "3"
-        assert overlay._lbl_page_info.text() == "/ 10 "
+        assert overlay._lbl_page_info.text() == "/ 10"
 
     def test_update_page_info_with_zero_total(self, qtbot):
         """Con total=0 el campo se deshabilita."""
@@ -501,7 +506,7 @@ class TestViewerOverlayUpdatePageInfo:
         qtbot.addWidget(overlay)
         overlay.update_page_info(0, 0)
         assert overlay._edit_page.text() == "0"
-        assert overlay._lbl_page_info.text() == "/ 0 "
+        assert overlay._lbl_page_info.text() == "/ 0"
         assert not overlay._edit_page.isEnabled()
 
     def test_update_page_info_with_large_values(self, qtbot):
@@ -510,7 +515,7 @@ class TestViewerOverlayUpdatePageInfo:
         qtbot.addWidget(overlay)
         overlay.update_page_info(999, 1000)
         assert overlay._edit_page.text() == "999"
-        assert overlay._lbl_page_info.text() == "/ 1000 "
+        assert overlay._lbl_page_info.text() == "/ 1000"
 
     def test_update_page_info_multiple_calls(self, qtbot):
         """Llamadas sucesivas a update_page_info actualizan el contador."""
@@ -520,7 +525,7 @@ class TestViewerOverlayUpdatePageInfo:
         overlay.update_page_info(2, 5)
         overlay.update_page_info(5, 5)
         assert overlay._edit_page.text() == "5"
-        assert overlay._lbl_page_info.text() == "/ 5 "
+        assert overlay._lbl_page_info.text() == "/ 5"
 
 
 class TestViewerOverlaySaltoDirecto:
@@ -764,3 +769,155 @@ class TestViewerOverlaySignalNotEmittedWithoutClick:
         overlay.zoom_in_requested.connect(lambda: received.append(True))
         qtbot.wait(50)
         assert received == []
+
+
+class TestPlantillaDeTema:
+    """La plantilla y la paleta tienen que encajar en los dos temas."""
+
+    def _plantilla(self) -> str:
+        from pathlib import Path
+
+        return (
+            Path(__file__).resolve().parent.parent
+            / "resources"
+            / "styles"
+            / "theme.qss"
+        ).read_text(encoding="utf-8")
+
+    def test_todos_los_tokens_existen_en_ambas_paletas(self):
+        import re
+
+        from app.ui.palette import DARK, LIGHT
+
+        tokens = set(re.findall(r"\$([a-z_][a-z0-9_]*)", self._plantilla()))
+        assert tokens, "la plantilla no tiene tokens"
+        assert tokens <= DARK.keys(), tokens - DARK.keys()
+        assert tokens <= LIGHT.keys(), tokens - LIGHT.keys()
+
+    def test_render_no_deja_tokens_ni_colores_catppuccin(self):
+        from app.ui.theme_manager import render_stylesheet
+
+        for dark in (True, False):
+            qss = render_stylesheet(self._plantilla(), dark=dark).lower()
+            assert "$" not in qss
+            assert "#1e1e2e" not in qss and "#eff1f5" not in qss
+
+    def test_ambas_paletas_tienen_las_mismas_claves(self):
+        from app.ui.palette import DARK, LIGHT
+
+        assert DARK.keys() == LIGHT.keys()
+
+
+class TestIconosLucide:
+    """Los iconos salen de los SVG de Lucide y se recolorean con la paleta."""
+
+    def test_iconos_empaquetados_y_licencia(self):
+        from pathlib import Path
+
+        from app.ui.icons import available_icons
+
+        nombres = available_icons()
+        assert {"chevron-left", "trash-2", "sun", "menu"} <= set(nombres)
+        lic = (
+            Path(__file__).resolve().parent.parent
+            / "resources"
+            / "icons"
+            / "lucide"
+            / "LICENSE"
+        )
+        assert "ISC" in lic.read_text(encoding="utf-8")
+
+    def test_icono_toma_el_color_pedido(self, qapp):
+        from app.ui.icons import svg_icon
+
+        icono = svg_icon("menu", "#ff0000", 24)
+        imagen = icono.pixmap(48, 48).toImage()
+        colores = {
+            imagen.pixelColor(x, y).name()
+            for x in range(imagen.width())
+            for y in range(imagen.height())
+            if imagen.pixelColor(x, y).alpha() == 255
+        }
+        assert colores == {"#ff0000"}
+
+    def test_icono_inexistente_falla_claramente(self, qapp):
+        import pytest
+
+        from app.ui.icons import svg_icon
+
+        with pytest.raises(FileNotFoundError):
+            svg_icon("no-existe", "#000000")
+
+    def test_todos_los_iconos_usados_existen(self):
+        """Ningún nombre de icono del código apunta a un SVG que no está."""
+        import re
+        from pathlib import Path
+
+        from app.ui.icons import available_icons
+
+        raiz = Path(__file__).resolve().parent.parent / "app" / "ui"
+        usados = set()
+        for py in raiz.rglob("*.py"):
+            texto = py.read_text(encoding="utf-8")
+            usados |= set(re.findall(r'_lucide\("([a-z0-9-]+)"', texto))
+            usados |= set(re.findall(r'svg_icon\("([a-z0-9-]+)"', texto))
+            usados |= set(re.findall(r'\bicon\("([a-z0-9-]+)"', texto))
+        usados.discard("no-existe")
+        faltan = usados - set(available_icons())
+        assert not faltan, faltan
+
+
+class TestContadorCentrado:
+    """El «N / M» queda centrado entre las flechas, tenga las cifras que tenga."""
+
+    @staticmethod
+    def _huecos(bar) -> tuple[int, int]:
+        import numpy as np
+        from PySide6.QtGui import QImage
+
+        img = bar.grab().toImage().convertToFormat(QImage.Format.Format_RGB888)
+        w, h = img.width(), img.height()
+        arr = (
+            np.frombuffer(img.constBits(), np.uint8, img.bytesPerLine() * h)
+            .reshape(h, img.bytesPerLine())[:, : w * 3]
+            .reshape(h, w, 3)
+            .astype(int)
+        )
+        tinta = (np.abs(arr - arr[2, 2]).sum(axis=2) > 60).any(axis=0)
+        x0, x1 = bar._btn_prev.geometry().left(), bar._btn_next.geometry().right()
+        grupos: list[list[int]] = []
+        for x in range(x0, x1 + 1):
+            if not tinta[x]:
+                continue
+            if grupos and x - grupos[-1][1] <= 6:
+                grupos[-1][1] = x
+            else:
+                grupos.append([x, x])
+        return grupos[1][0] - grupos[0][1], grupos[-1][0] - grupos[-2][1]
+
+    def test_centrado_con_distintas_cifras(self, qtbot):
+        from app.ui.palette import DARK
+        from app.ui.theme_manager import Theme, ThemeManager
+        from app.ui.workbench.viewer_overlay import ViewerOverlay
+
+        # Con el QSS real: la compensación depende del padding del campo.
+        ThemeManager().apply_theme(Theme.DARK)
+        for actual, total in ((1, 3), (7, 12), (42, 600), (600, 600)):
+            bar = ViewerOverlay()
+            bar.setStyleSheet(f"#viewerOverlay {{ background: {DARK['bg']}; }}")
+            qtbot.addWidget(bar)
+            bar.update_page_info(actual, total)
+            bar.adjustSize()
+            bar.show()
+            izq, der = self._huecos(bar)
+            assert abs(izq - der) <= 2, (actual, total, izq, der)
+
+    def test_el_campo_se_ajusta_al_numero(self, qtbot):
+        from app.ui.workbench.viewer_overlay import ViewerOverlay
+
+        bar = ViewerOverlay()
+        qtbot.addWidget(bar)
+        bar.update_page_info(1, 600)
+        estrecho = bar._edit_page.width()
+        bar.update_page_info(600, 600)
+        assert bar._edit_page.width() > estrecho

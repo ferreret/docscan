@@ -30,6 +30,7 @@ from app.services.update_service import ReleaseInfo
 
 from app.ui.launcher.app_list_widget import AppListWidget
 from app.ui.theme_manager import ThemeManager
+from app.ui.palette import color as palette_color
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ class LauncherWindow(QMainWindow):
         self._update_theme_button()
         header_row.addWidget(self._btn_theme)
 
-        icon_color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+        icon_color = palette_color("text")
 
         self._btn_font_up = QPushButton()
         self._btn_font_up.setIcon(icon_font_increase(icon_color, 32))
@@ -293,12 +294,12 @@ class LauncherWindow(QMainWindow):
             self._btn_theme.setIcon(icon_sun())
         else:
             self._btn_theme.setText("")
-            self._btn_theme.setIcon(icon_moon("#5c5f77"))
+            self._btn_theme.setIcon(icon_moon(palette_color("subtext0")))
 
     def _update_font_icons(self) -> None:
         from app.ui.icon_factory import icon_font_decrease, icon_font_increase
 
-        color = "#cdd6f4" if self._theme_manager.is_dark else "#4c4f69"
+        color = palette_color("text")
         self._btn_font_up.setIcon(icon_font_increase(color, 32))
         self._btn_font_down.setIcon(icon_font_decrease(color, 32))
 
