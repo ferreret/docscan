@@ -56,6 +56,11 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_foo.py::TestClas
 # Database migrations (the app applies them itself at startup via run_migrations)
 .venv/bin/alembic revision --autogenerate -m "description"
 
+# UI screenshots for docs (docs/screenshots + docs-web) and the portfolio.
+# Isolated (temp data/QSettings, offscreen, no network), neutral demo data.
+.venv/bin/python tools/ui_snapshots.py [--theme light] [--only NAME ...] [--out DIR]
+.venv/bin/python tools/ui_snapshots.py --portfolio ../portfolio/public/docscan-studio.webp
+
 # Lint
 .venv/bin/ruff check .
 .venv/bin/ruff format app/
