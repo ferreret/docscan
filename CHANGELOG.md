@@ -80,6 +80,29 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 - El patrón de nombre ya no escribe en el log el valor del barcode ni de los campos
   al fallar la interpolación: solo los nombres de las variables.
 
+### 🎨 Interfaz
+
+- **Paleta de FlexibarNET 10**: navy profundo en el tema oscuro y el claro de
+  Flexibar en el claro. Hay una única fuente de color (`app/ui/palette.py`) y una
+  sola plantilla de estilos (`resources/styles/theme.qss`, con tokens) para los dos
+  temas, en lugar de dos QSS copiados. Los colores de estado de página, del log y
+  del gestor de lotes salen de la paleta y cambian con el tema: el texto INFO del
+  log ya se lee en el tema claro.
+- **Iconos Lucide** (ISC, `resources/icons/lucide`, paquete `lucide-static` 1.55.0
+  verificado por su hash SHA-512): un único juego de trazo fino, recoloreado con la
+  paleta del tema (`app/ui/icons.py`). Sustituye a los ~30 iconos dibujados a mano en
+  la barra lateral, la barra superior y la barra del visor. La barra del visor tiene
+  ahora botones planos y monocromos, con el rojo reservado para borrar, y el contador
+  de página a tamaño normal en lugar de 36 px en rosa, ajustado a su texto y
+  centrado entre las flechas (antes un campo de ancho fijo dejaba un hueco a la
+  izquierda del número).
+- **Tipografía Inter** empaquetada (OFL, `resources/fonts/inter`) y registrada al
+  arrancar. En Windows se usa «Segoe UI», como Flexibar. Antes se pedía «Segoe UI»
+  también en Linux y se caía en la fuente que hubiera.
+- **La barra de herramientas del visor ya no tapa la página.** Antes flotaba sobre la
+  parte inferior de la imagen y ocultaba lo que hubiera allí (a menudo, el código de
+  barras). Ahora ocupa su propia franja bajo el visor, como en FlexibarNET 10.
+
 ### 📚 Documentación
 
 - Firmas reales de todos los eventos en la plantilla del Configurador, los asistentes
