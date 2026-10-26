@@ -181,6 +181,15 @@ QListWidget::item:hover:!selected {
     border-color: $border_strong;
 }
 
+/* Lista del launcher: la tarjeta la dibuja AppCardDelegate entera */
+QListWidget#appList::item,
+QListWidget#appList::item:selected,
+QListWidget#appList::item:hover:!selected {
+    background-color: transparent;
+    border: none;
+    margin: 0px;
+}
+
 /* === Scroll bars === */
 QScrollBar:vertical {
     background-color: $bg;
@@ -229,6 +238,21 @@ QStatusBar {
     border-top: 1px solid $surface;
     font-size: 12px;
     padding: 2px 8px;
+}
+
+QStatusBar QLabel#statusText {
+    color: $text_subtle;
+    padding: 0px 6px;
+}
+
+/* «● Listo» del launcher, como Flexibar */
+QStatusBar QLabel#statusDot {
+    background-color: $success;
+    border-radius: 4px;
+}
+
+QStatusBar QWidget#statusReady {
+    background-color: transparent;
 }
 
 /* === Labels === */
@@ -1119,6 +1143,25 @@ QInputDialog QComboBox {
 #statusCounters {
     color: $text_muted;
     padding: 0px 8px;
+}
+
+#statusImageInfo {
+    color: $text_muted;
+    font-size: 11px;
+    padding: 0px 8px;
+}
+
+/* Barra de progreso fina de la barra de estado, verde como Flexibar */
+QProgressBar#statusProgress {
+    background-color: $surface;
+    border: none;
+    border-radius: 1px;
+    margin-right: 8px;
+}
+
+QProgressBar#statusProgress::chunk {
+    background-color: $success;
+    border-radius: 1px;
 }
 
 /* Pestañas del panel derecho: compactas para que las tres quepan */

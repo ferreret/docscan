@@ -204,12 +204,53 @@ EVENTS = {
     )
 }
 
+_TRANSFER_PDF = {
+    "mode": "pdf",
+    "destination": "/archivo/facturas",
+    "filename_pattern": "{first_barcode}_{batch_id}",
+}
+
+# Cada aplicación con su configuración, para que las tarjetas del launcher
+# (icono, acento y etiquetas se derivan de ella) enseñen la variedad real.
 APPS = [
-    ("Facturas de proveedores", "Un PDF por factura, separado por su código Code128"),
-    ("Albaranes de entrada", "Albaranes de mercancía recibida en almacén"),
-    ("Expedientes de personal", "Contratos y documentación de RR. HH."),
-    ("Contratos de alquiler", "Contratos firmados y sus anexos"),
-    ("Correspondencia entrante", "Cartas y notificaciones recibidas"),
+    (
+        "Facturas de proveedores",
+        "Un PDF por factura, separado por su código Code128",
+        {"pipeline": PIPELINE, "events": EVENTS, "transfer": _TRANSFER_PDF},
+    ),
+    (
+        "Albaranes de entrada",
+        "Albaranes de mercancía recibida en almacén",
+        {
+            "pipeline": PIPELINE[:2],
+            "transfer": {
+                "mode": "folder",
+                "destination": "/archivo/albaranes",
+                "output_format": "tiff",
+            },
+        },
+    ),
+    (
+        "Expedientes de personal",
+        "Contratos y documentación de RR. HH.",
+        {
+            "pipeline": [PIPELINE[0], PIPELINE[2]],
+            "transfer": {"mode": "pdfa", "destination": "/archivo/rrhh"},
+        },
+    ),
+    (
+        "Contratos de alquiler",
+        "Contratos firmados y sus anexos",
+        {
+            "pipeline": PIPELINE[:1],
+            "transfer": {"mode": "pdf", "destination": "/archivo/contratos"},
+        },
+    ),
+    (
+        "Correspondencia entrante",
+        "Cartas y notificaciones recibidas",
+        {"pipeline": PIPELINE[:1], "scanner_backend": "sane", "active": False},
+    ),
 ]
 
 
@@ -221,21 +262,17 @@ def seed(session_factory, images_dir: Path) -> dict:
 
     ids: dict = {}
     with session_factory() as s:
-        for name, desc in APPS:
+        for name, desc, profile in APPS:
             s.add(
                 Application(
                     name=name,
                     description=desc,
-                    pipeline_json=json.dumps(PIPELINE),
+                    pipeline_json=json.dumps(profile["pipeline"]),
                     batch_fields_json=json.dumps(BATCH_FIELDS),
-                    events_json=json.dumps(EVENTS),
-                    transfer_json=json.dumps(
-                        {
-                            "mode": "pdf",
-                            "destination": "/archivo/facturas",
-                            "filename_pattern": "{first_barcode}_{batch_id}",
-                        }
-                    ),
+                    events_json=json.dumps(profile.get("events", {})),
+                    transfer_json=json.dumps(profile.get("transfer", {})),
+                    scanner_backend=profile.get("scanner_backend", ""),
+                    active=profile.get("active", True),
                 )
             )
         s.commit()

@@ -2192,6 +2192,82 @@ class TestBarraSuperior:
         assert workbench._btn_transfer.icon().cacheKey() != antes
 
 
+class TestBarraDeEstado:
+    """Barra de estado del Workbench como la de Flexibar (fase E4c)."""
+
+    def test_procesado(self):
+        from app.ui.workbench.workbench_window import format_processed
+
+        assert format_processed(5, 5, 0) == "Procesado 5/5"
+        assert format_processed(4, 5, 1) == "Procesado 4/5 (1 errores)"
+
+    def test_info_de_imagen(self):
+        from app.ui.workbench.workbench_window import format_image_info
+
+        assert format_image_info(1240, 1754, 150) == "1240\u00d71754 \u2014 150 DPI"
+        assert format_image_info(1240, 1754, None) == "1240\u00d71754"
+
+    def test_lee_los_dpi_de_la_cabecera(self, tmp_path):
+        from PIL import Image
+
+        from app.ui.workbench.workbench_window import read_dpi
+
+        con = tmp_path / "con.png"
+        Image.new("L", (10, 10)).save(con, dpi=(300, 300))
+        sin = tmp_path / "sin.png"
+        Image.new("L", (10, 10)).save(sin)
+        assert read_dpi(con) == 300
+        assert read_dpi(sin) is None
+        basura = tmp_path / "basura.tif"
+        import cv2
+
+        cv2.imwrite(str(basura), np.zeros((10, 10, 3), np.uint8))  # deja «1 DPI»
+        assert read_dpi(basura) is None
+        assert read_dpi(tmp_path / "no_existe.png") is None
+
+    @pytest.fixture
+    def workbench(self, qtbot, session_factory, sample_app, tmp_path):
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id,
+                session_factory=session_factory,
+            )
+        qtbot.addWidget(window)
+        return window
+
+    def test_barra_de_progreso_fina(self, workbench):
+        bar = workbench._progress_bar
+        assert (bar.width(), bar.height()) == (120, 3)
+        assert not bar.isTextVisible()
+
+    def test_al_terminar_dice_procesado_con_errores(self, workbench):
+        workbench._run_errors = 0
+        workbench._on_progress(2, 3)
+        workbench._on_page_error(1, "fallo")
+        workbench._on_progress(3, 3)
+        workbench._on_all_processed()
+        assert workbench._status_bar.currentMessage() == "Procesado 3/3 (1 errores)"
+
+    def test_info_de_la_pagina_del_visor(
+        self, workbench, session_factory, tmp_path, color_image
+    ):
+        from PIL import Image
+
+        from app.services.batch_service import BatchService
+
+        with session_factory() as session:
+            svc = BatchService(session, tmp_path / "images")
+            (page,) = svc.add_pages(workbench._batch_id, [color_image])
+            session.commit()
+            ruta = page.image_path
+            session.expunge(page)
+        # La imagen guardada lleva sus DPI en la cabecera, como la del escáner
+        Image.new("RGB", (80, 100), "white").save(ruta, dpi=(200, 200))
+        workbench._pages.append(page)
+        workbench._navigate_to(0)
+        assert workbench._lbl_image_info.text() == "80\u00d7100 \u2014 200 DPI"
+
+
 class TestMiniaturaSeleccionada:
     """La miniatura de la página del visor se distingue claramente."""
 

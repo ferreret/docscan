@@ -88,6 +88,38 @@ def format_lot_counters(stats: dict[str, int], tr: Any = lambda t: t) -> str:
     )
 
 
+def format_processed(done: int, total: int, errors: int, tr: Any = lambda t: t) -> str:
+    """«Procesado N/M» al terminar el pipeline, como Flexibar."""
+    suffix = tr(" ({0} errores)").format(errors) if errors else ""
+    return tr("Procesado {0}/{1}{2}").format(done, total, suffix)
+
+
+def format_image_info(width: int, height: int, dpi: int | None) -> str:
+    """Tamaño y resolución de la página del visor («1240×1754 — 150 DPI»)."""
+    size = f"{width}\u00d7{height}"
+    return f"{size} \u2014 {dpi} DPI" if dpi else size
+
+
+MIN_PLAUSIBLE_DPI = 50
+
+
+def read_dpi(image_path: str | Path) -> int | None:
+    """DPI guardados en la imagen, o None. Solo lee la cabecera."""
+    try:
+        from PIL import Image
+
+        with Image.open(image_path) as img:
+            dpi = img.info.get("dpi")
+    except (OSError, ValueError) as e:
+        log.debug("Sin DPI para %s: %s", image_path, e)
+        return None
+    if not dpi:
+        return None
+    value = round(float(dpi[0]))
+    # cv2.imwrite deja los TIFF con resolución 1: eso no es un dato real.
+    return value if value >= MIN_PLAUSIBLE_DPI else None
+
+
 def page_review_message(
     needs_review: bool,
     review_reason: str,
@@ -355,16 +387,27 @@ class WorkbenchWindow(QMainWindow):
         self._status_bar = QStatusBar()
         self.setStatusBar(self._status_bar)
 
-        self._progress_bar = QProgressBar()
-        self._progress_bar.setMaximumWidth(200)
-        self._progress_bar.setVisible(False)
-        self._status_bar.addPermanentWidget(self._progress_bar)
-
         # Contadores del lote: antes ocupaban un grupo del panel derecho; van
         # a la barra de estado, como el «Procesado 5/5» de FlexibarNET10.
         self._lbl_counters = QLabel()
         self._lbl_counters.setObjectName("statusCounters")
         self._status_bar.addPermanentWidget(self._lbl_counters)
+
+        # Tamaño y DPI de la página del visor, y barra de progreso fina de
+        # 120×3 px a la derecha, como Flexibar.
+        self._lbl_image_info = QLabel()
+        self._lbl_image_info.setObjectName("statusImageInfo")
+        self._status_bar.addPermanentWidget(self._lbl_image_info)
+
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setObjectName("statusProgress")
+        self._progress_bar.setFixedSize(120, 3)
+        self._progress_bar.setTextVisible(False)
+        self._progress_bar.setVisible(False)
+        self._status_bar.addPermanentWidget(self._progress_bar)
+        # Progreso y errores de la pasada del pipeline en curso
+        self._run_progress: tuple[int, int] = (0, 0)
+        self._run_errors = 0
 
         # Configurar metadatos
         self._configure_metadata()
@@ -1238,6 +1281,8 @@ class WorkbenchWindow(QMainWindow):
 
         # Mostrar progreso
         self._progress_bar.setValue(0)
+        self._run_progress = (0, 0)
+        self._run_errors = 0
         self._progress_bar.setVisible(True)
         self._set_acquire_enabled(False)
 
@@ -1516,6 +1561,7 @@ class WorkbenchWindow(QMainWindow):
     def _on_page_error(self, page_index: int, error: str) -> None:
         """Error procesando una página."""
         log.error("Error en página %d: %s", page_index, error)
+        self._run_errors += 1
         self._thumbnail_panel.update_thumbnail_state(
             page_index,
             PageState.NEEDS_REVIEW,
@@ -1537,7 +1583,10 @@ class WorkbenchWindow(QMainWindow):
                 session.commit()
 
         self._fire_event("on_scan_complete")
-        self._status_bar.showMessage(self.tr("Procesamiento completado"), 5000)
+        done, total = self._run_progress
+        self._status_bar.showMessage(
+            format_processed(done, total, self._run_errors, self.tr)
+        )
 
         # Auto-transferencia (APP-02)
         if self._application and self._application.auto_transfer:
@@ -1545,6 +1594,7 @@ class WorkbenchWindow(QMainWindow):
 
     def _on_progress(self, completed: int, total: int) -> None:
         """Actualiza la barra de progreso."""
+        self._run_progress = (completed, total)
         if total > 0:
             self._progress_bar.setMaximum(total)
             self._progress_bar.setValue(completed)
@@ -1607,6 +1657,8 @@ class WorkbenchWindow(QMainWindow):
         self._recognition_worker.progress.connect(self._on_progress)
 
         self._progress_bar.setValue(0)
+        self._run_progress = (0, 0)
+        self._run_errors = 0
         self._progress_bar.setVisible(True)
         self._set_acquire_enabled(False)
 
@@ -1660,6 +1712,11 @@ class WorkbenchWindow(QMainWindow):
                 idx_fields = {}
 
             self._viewer.set_image(image, state)
+            self._lbl_image_info.setText(
+                format_image_info(
+                    image.shape[1], image.shape[0], read_dpi(page.image_path)
+                )
+            )
             self._viewer.set_overlays(
                 barcodes=barcodes,
                 fields=idx_fields,
@@ -2013,6 +2070,7 @@ class WorkbenchWindow(QMainWindow):
 
         self._thumbnail_panel.clear()
         self._viewer.clear()
+        self._lbl_image_info.clear()
         self._barcode_panel.clear()
 
         self._create_new_batch()
@@ -2194,6 +2252,7 @@ class WorkbenchWindow(QMainWindow):
         else:
             self._current_page_index = -1
             self._viewer.clear()
+            self._lbl_image_info.clear()
         self._update_page_info()
 
     def _on_delete_from_current(self) -> None:
@@ -2238,6 +2297,7 @@ class WorkbenchWindow(QMainWindow):
         else:
             self._current_page_index = -1
             self._viewer.clear()
+            self._lbl_image_info.clear()
         self._update_page_info()
 
     # ==================================================================

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QPoint, Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QSplitter,
@@ -30,6 +31,7 @@ from app.services.update_service import ReleaseInfo
 
 from app.ui.launcher.app_list_widget import AppListWidget
 from app.ui.theme_manager import ThemeManager
+from app.ui.icons import icon as lucide_icon
 from app.ui.palette import color as palette_color
 
 log = logging.getLogger(__name__)
@@ -181,12 +183,6 @@ class LauncherWindow(QMainWindow):
         self._app_list = AppListWidget()
         layout.addWidget(self._app_list, stretch=1)
 
-        # Info de la app seleccionada
-        self._info_label = QLabel("")
-        self._info_label.setProperty("cssClass", "info")
-        self._info_label.setWordWrap(True)
-        layout.addWidget(self._info_label)
-
         self._splitter.addWidget(left_panel)
 
         # Panel AI MODE (oculto por defecto)
@@ -200,9 +196,27 @@ class LauncherWindow(QMainWindow):
         self._splitter.setStretchFactor(0, 3)
         self._splitter.setStretchFactor(1, 2)
 
-        # Status bar
+        # Barra de estado como la de Flexibar: número de aplicaciones a la
+        # izquierda (los avisos de las acciones lo tapan unos segundos) y
+        # «● Listo» a la derecha.
         self._status_bar = QStatusBar()
         self.setStatusBar(self._status_bar)
+        self._lbl_app_count = QLabel()
+        self._lbl_app_count.setObjectName("statusText")
+        self._status_bar.addWidget(self._lbl_app_count, 1)
+        ready = QWidget()
+        ready.setObjectName("statusReady")
+        ready_layout = QHBoxLayout(ready)
+        ready_layout.setContentsMargins(0, 0, 4, 0)
+        ready_layout.setSpacing(7)
+        dot = QLabel()
+        dot.setObjectName("statusDot")
+        dot.setFixedSize(8, 8)
+        ready_layout.addWidget(dot, 0, Qt.AlignmentFlag.AlignVCenter)
+        lbl_ready = QLabel(self.tr("Listo"))
+        lbl_ready.setObjectName("statusText")
+        ready_layout.addWidget(lbl_ready)
+        self._status_bar.addPermanentWidget(ready)
 
         # Estado inicial de botones
         self._update_button_state()
@@ -216,6 +230,7 @@ class LauncherWindow(QMainWindow):
         self._filter_edit.textChanged.connect(self._app_list.filter_apps)
         self._app_list.currentItemChanged.connect(self._on_selection_changed)
         self._app_list.itemDoubleClicked.connect(self._on_open_app)
+        self._app_list.menu_requested.connect(self._show_card_menu)
         self._theme_manager.theme_changed.connect(self._on_theme_changed)
 
     # ------------------------------------------------------------------
@@ -316,10 +331,8 @@ class LauncherWindow(QMainWindow):
             apps = repo.get_all()
             self._app_list.populate(apps)
 
-        count = self._app_list.count()
-        self._status_bar.showMessage(
-            self.tr("{0} aplicación(es) disponible(s)").format(count),
-            3000,
+        self._lbl_app_count.setText(
+            self.tr("{0} aplicación(es)").format(self._app_list.count())
         )
         self._update_button_state()
 
@@ -556,21 +569,31 @@ class LauncherWindow(QMainWindow):
 
     def _on_selection_changed(self) -> None:
         self._update_button_state()
-        app_data = self._app_list.selected_app_data()
-        if app_data:
-            desc = app_data.get("description", "")
-            desc_text = f" — {desc}" if desc else ""
-            created = app_data.get("created_at", "")[:10]
-            status = (
-                self.tr("Activa")
-                if app_data.get("active", True)
-                else self.tr("Inactiva")
-            )
-            self._info_label.setText(
-                f"<b>{app_data['name']}</b>{desc_text} · {status} · Creada: {created}"
-            )
-        else:
-            self._info_label.setText("")
+
+    def _show_card_menu(self, global_pos: QPoint) -> None:
+        """Menú ⋮ de la tarjeta seleccionada (las mismas acciones que el sidebar)."""
+        if self._app_list.selected_app_id() is None:
+            return
+        menu = QMenu(self)
+        menu.setObjectName("cardMenu")
+        entries = (
+            ("play", "text", self.tr("Abrir"), self._on_open_app),
+            None,
+            ("settings", "text", self.tr("Configurar"), self._on_configure_app),
+            ("copy", "text", self.tr("Clonar"), self._on_clone_app),
+            ("upload", "text", self.tr("Exportar"), self._on_export_app),
+            None,
+            ("trash-2", "danger", self.tr("Eliminar"), self._on_delete_app),
+        )
+        for entry in entries:
+            if entry is None:
+                menu.addSeparator()
+                continue
+            icon_name, role, text, slot = entry
+            action = menu.addAction(lucide_icon(icon_name, role, 16), text)
+            action.triggered.connect(slot)
+        menu.popup(global_pos)
+        self._card_menu = menu
 
     def _update_button_state(self) -> None:
         has_selection = self._app_list.selected_app_id() is not None
