@@ -44,9 +44,18 @@ La referencia es FlexibarNET10, por la regla de paridad
     escáner, no al abrir el Workbench.
   - DocScan no tiene perfiles de escaneo: desviación consciente de Flexibar.
 
+- **E4c** (2026-10-26, commit en `feat/rediseno-ui`, sin push): tarjetas del launcher y barras de estado.
+  - `app/ui/launcher/app_card.py` deriva icono, acento y etiquetas con las reglas de
+    `AppIconCatalog`/`AppCardTagDeriver` de Flexibar; el acento usa su mismo FNV-1a
+    sobre UTF-16. Sin selector manual de icono (haría falta columna nueva).
+  - Menú ⋮ / botón derecho; fuera la línea `_info_label` bajo la lista.
+  - Workbench: «1240×1754 — N DPI», progreso 120×3 verde, «Procesado N/M (k errores)».
+- **Hallazgo (no arreglado):** las páginas no guardan los DPI reales del escáner.
+  `BatchService.add_pages` guarda con `cv2.imwrite` (los TIFF quedan con «1 DPI») o con
+  `ImageLib.save(dpi=300)` fijo. `read_dpi` ignora < 50, pero el 300 fijo se muestra como
+  si fuera real. Encaja con el lote 4 (escáner).
+
 **Pendiente, en este orden:**
-- **E4c** — tarjetas del launcher (icono y acento derivados de la configuración,
-  etiquetas, menú ⋮) y barra de estado.
 - **E4e/f** — panel derecho (barcodes como lista, campo de fecha) y lista de pasos del
   Configurador.
 - Quedan colores literales en `app_list_widget.py` (las tarjetas, que se rehacen en
