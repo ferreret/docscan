@@ -42,6 +42,14 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 
 ### 🐛 Corregido
 
+- **Icono de DocScan en Linux con Wayland.** El escritorio ignora el icono que
+  pone la aplicación y lo busca en el `.desktop` cuyo nombre coincide con el
+  identificador de la ventana, que era el del intérprete de Python: salía un icono
+  genérico. La aplicación se declara ahora como `docscan`, el nombre del
+  `.desktop` del AppImage. Para ejecutar desde el código,
+  `tools/install_desktop_entry.py` instala (o quita, con `--uninstall`) esa
+  entrada en `~/.local/share/applications`.
+
 - **Arrastrar un paso del pipeline ya cambia su orden.** La lista lo movía, pero el
   orden guardado seguía siendo el anterior: el cambio se perdía al guardar.
 - **Las imágenes del tema ya no dependen del directorio de trabajo.** Las flechas de
@@ -158,6 +166,12 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
   Flexibar. Antes el desplegable era un cuadrado con borde que parecía una casilla.
 - **Las casillas marcadas llevan tic.** Antes eran un cuadrado relleno sin marca.
   También lo llevan las de la lista «Pestañas del Workbench».
+- **Los desplegables vuelven a tener flecha.** El estilo del tema quitaba la nativa
+  sin poner otra, y parecían campos de texto. El de idioma del launcher es un poco
+  más ancho para que quepan el código y la flecha.
+- **La versión se ve en el título del launcher**: en la barra de la ventana
+  («DocScan Studio v0.1.6», como el «FlexibarNET v1.30» de Flexibar) y junto al
+  encabezado.
 - **Contadores del lote en la barra de estado** (páginas, con barcode, separadores y
   a revisión), como el «Procesado 5/5» de Flexibar. Antes ocupaban el panel derecho.
 - **Al abrir una página a revisión, la barra de estado dice por qué** y cuántos
@@ -193,6 +207,9 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
 
 - La tabla de atajos (`docs-web/reference/shortcuts.md`) se rehízo contra el código:
   decía `Ctrl+S`, `R` y `M`, que no existen (son `F5`, `Ctrl+R` y `Ctrl+M`).
+- **Capturas regeneradas** con la interfaz nueva: las 15 de `docs/screenshots/` y
+  `docs-web/assets/screenshots/`. Los lotes de la demo usan una estación neutra
+  (`PUESTO-01`) en lugar del nombre del equipo en el que se generan.
 - Las aplicaciones de demostración de `tools/ui_snapshots.py` tienen ahora configuraciones
   distintas, para que la captura del launcher enseñe iconos y etiquetas variados.
 - **`tools/ui_snapshots.py`** regenera con un comando las 15 capturas de la

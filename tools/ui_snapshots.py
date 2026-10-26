@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import sys
 import tempfile
 import time
@@ -57,6 +58,9 @@ def _isolate(workdir: Path, visible: bool) -> None:
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
     # Sin escáner real: create_scanner() no debe enumerar dispositivos USB.
     sys.modules.setdefault("sane", types.ModuleType("sane"))
+    # Los lotes guardan el nombre del equipo como estación: que no salga el
+    # del equipo real en las capturas públicas.
+    platform.node = lambda: DEMO_STATION
     sys.path.insert(0, str(ROOT))
 
     # QSettings («DocScanStudio») usa el backend nativo: el registro en Windows.
@@ -83,6 +87,7 @@ def _isolate(workdir: Path, visible: bool) -> None:
 
 COMPANY = "Suministros Ejemplo S.L."
 COMPANY_ADDR = "Calle Mayor 1 · 28000 Ciudad Ejemplo"
+DEMO_STATION = "PUESTO-01"  # nombre de equipo neutro para los lotes
 
 
 def _font(size: int, bold: bool = False):

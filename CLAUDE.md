@@ -61,6 +61,10 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_foo.py::TestClas
 .venv/bin/python tools/ui_snapshots.py [--theme light] [--only NAME ...] [--out DIR]
 .venv/bin/python tools/ui_snapshots.py --portfolio ../portfolio/public/docscan-studio.webp
 
+# Linux/Wayland: icon in the dock when running from source (writes
+# ~/.local/share/applications/docscan.desktop; --uninstall removes it)
+.venv/bin/python tools/install_desktop_entry.py
+
 # Lint
 .venv/bin/ruff check .
 .venv/bin/ruff format app/
