@@ -76,6 +76,10 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
 
 ### 🎨 Configurador
 
+- **El script de nombre de fichero se puede editar en VS Code**, con el botón
+  «Abrir en VS Code» como en Eventos y en los pasos Script. El fichero lleva
+  los tipos de `page` y `document` para el autocompletado, y los eventos de
+  transferencia, los de `pages` y `documents`.
 - **Editor de scripts con colores, números de línea y sangría automática** en
   los eventos, los pasos Script, el script de nombre y las vistas previas de
   los asistentes. Antes los scripts salían en la fuente proporcional del tema:

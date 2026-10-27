@@ -136,7 +136,9 @@ Ver [Scripting](scripting.md) para los eventos del ciclo de vida.
 Todos los scripts (eventos, pasos Script, script de nombre de fichero y las
 vistas previas de los asistentes) se editan con el mismo editor: fuente
 monoespaciada, colores de Python según el tema, números de línea y resaltado
-de la línea actual. **Tab** inserta cuatro espacios (o sangra la selección),
+de la línea actual. Con VS Code instalado, «Abrir en VS Code» abre el script
+allí, también el de nombre de fichero, y lo recoge al cerrar la pestaña.
+**Tab** inserta cuatro espacios (o sangra la selección),
 **Mayús+Tab** quita un nivel e **Intro** mantiene la sangría y añade un nivel
 después de `:`.
 
