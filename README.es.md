@@ -346,8 +346,8 @@ def mi_paso(app, batch, page, pipeline):
 | `batch` | Lote actual y sus campos | Todos |
 | `page` | Página: imagen, `barcodes`, `ocr_text`, `fields`, separador | Pasos y eventos de página |
 | `pipeline` | Control de flujo | Solo pasos Script |
-| `log`, `http` | Registro y cliente httpx | Todos |
-| `re`, `json`, `datetime`, `Path` | Módulos estándar | Todos |
+| `log` | Logger del script | Todos |
+| `re`, `json`, `datetime`, `Path`, `ImageLib` | Módulos estándar y utilidades de imagen | Todos |
 
 **14 eventos** fuera del pipeline: `on_app_start`, `on_app_end`, `on_import`,
 `on_scan_complete`, `on_batch_loaded`, `on_page_changed`, `on_transfer_validate`,
@@ -432,7 +432,7 @@ La lista completa está en el [manual](https://ferreret.github.io/docscan/refere
   configuración del usuario.
 - **SQLite en modo WAL** para que la interfaz y el worker trabajen a la vez; las
   migraciones se aplican solas al arrancar.
-- **Timeout de scripts** configurable (30 s por defecto).
+- **Límite de tiempo** de 30 s para los pasos Script del pipeline.
 
 ---
 

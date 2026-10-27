@@ -347,8 +347,8 @@ def my_step(app, batch, page, pipeline):
 | `batch` | Current batch and its fields | All |
 | `page` | Page: image, `barcodes`, `ocr_text`, `fields`, separator | Steps and page events |
 | `pipeline` | Flow control | Script steps only |
-| `log`, `http` | Logger and httpx client | All |
-| `re`, `json`, `datetime`, `Path` | Standard modules | All |
+| `log` | Script logger | All |
+| `re`, `json`, `datetime`, `Path`, `ImageLib` | Standard modules and image utilities | All |
 
 **14 events** outside the pipeline: `on_app_start`, `on_app_end`, `on_import`,
 `on_scan_complete`, `on_batch_loaded`, `on_page_changed`, `on_transfer_validate`,
@@ -434,7 +434,7 @@ The full list is in the [manual](https://ferreret.github.io/docscan/reference/sh
   directory.
 - **SQLite in WAL mode**, so the UI and the worker can run at the same time;
   migrations apply themselves at startup.
-- **Script timeout**, configurable (30 s by default).
+- **Time limit** of 30 s for pipeline Script steps.
 
 ---
 
