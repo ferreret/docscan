@@ -355,4 +355,33 @@ nombre del fichero sale del papel.
 
 ---
 
+## 8. Estado (2026-10-27, rama `feat/lote6-separadores`)
+
+**Hecho: S1 y S2, más el script de nombre.** El caso de aceptación son las seis Apps de
+archivo del Arnau (`tools/arnau_apps.py`), que pasan de extremo a extremo por el worker
+real con lectura real de códigos (`tests/test_arnau_e2e.py`).
+
+| Pieza | Estado |
+|---|---|
+| Columnas, migración `d3f8a1c6e2b7` y `role="separator"` → marca de página | Hecho |
+| `split_documents` / `LogicalDocument` (`app/models/document.py`) | Hecho |
+| Condición en `BarcodeStep`, decisión única por página, autoritativa | Hecho (`app/pipeline/separator.py`) |
+| Leyenda legacy «NN» de simbologías | Hecho; corrige además el filtro general, que anteponía dos letras |
+| Marca manual (Ctrl+D) con diálogo validado, zona del panel derecho, marco naranja | Hecho |
+| Reordenar con Alt+↑/↓ | Hecho. **Falta arrastrar miniaturas** |
+| `grouping` y `separator_page` en PDF, PDF/A y TIFF multipágina (modo nuevo) | Hecho |
+| `{separator}`, `{document_index}`, `{document_id}` | Hecho |
+| Script de nombre (`name_mode` / `file_name_script`) | Hecho. No estaba en este diseño: lo exige el Arnau |
+| Validaciones antes de transferir (§5.4) | Hecho |
+| `pages` y `documents` en `on_transfer_validate` / `on_transfer_advanced` | Hecho (era S3) |
+| `{pagefield:}`, API del panel de verificación, «cada fichero es un documento» al importar | **Pendiente (S3)** |
+| Cabeceras de tramo en las miniaturas, «Documentos: N» | **Pendiente (S4)** |
+| Familia eCAP del Arnau (04 y 08): secretos en scripts + ODBC | **Pendiente** |
+
+**Desviación del script de nombre respecto a Flexibar:** si el script lanza, Flexibar cae
+al patrón y lo deja en el log. DocScan no transfiere nada y da el motivo, por la regla
+«un fallo de script nunca se da por bueno» (lote 3).
+
+---
+
 *Análisis generado el 2026-10-26 contra FlexibarNET10 @ `f3ed0383` (v1.30.0).*

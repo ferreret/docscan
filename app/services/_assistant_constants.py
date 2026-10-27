@@ -58,6 +58,8 @@ Scripts (ScriptStep and lifecycle events) receive these objects:
 - page.ocr_text — str, full OCR text of the page
 - page.ocr_regions — list of OcrRegion with word-level bounding boxes
 - page.fields — dict[str, str], key-value fields for indexing
+- page.is_separator — bool, the page opens a new logical document (read/write)
+- page.separator_value — str, value that identifies that document (read/write)
 - page.flags:
     .needs_review (bool), .review_reason (str),
     .script_errors (list[dict]), .processing_errors (list[str])
@@ -93,15 +95,18 @@ Scripts (ScriptStep and lifecycle events) receive these objects:
 
 ### Common script patterns
 
-**Classify barcodes as separator/content:**
+**Document separators:** prefer the declarative condition of the BarcodeStep
+(`separator_enabled`, `separator_by`, `separator_regex`…). A script only for
+conditions it cannot express; a script after the BarcodeStep has the last word:
 ```python
 def process(app, batch, page, pipeline):
-    for bc in page.barcodes:
-        if bc.value.startswith("SEP"):
-            page.fields["separator"] = bc.value
-        else:
-            page.fields["content_barcode"] = bc.value
+    seps = [bc for bc in page.barcodes if bc.value.startswith("SEP-")]
+    page.is_separator = bool(seps)
+    page.separator_value = seps[0].value[4:] if seps else ""
 ```
+A document is the run of pages from one separator page to the next (pages
+before the first separator form an implicit document). Never mark barcodes
+with a role to separate documents: the separator belongs to the PAGE.
 
 **Conditional skip:**
 ```python
@@ -136,13 +141,22 @@ EVENT_SIGNATURES: dict[str, str] = {
     "on_app_end": 'def on_app_end(app, batch):\n    """Runs when the application closes."""',
     "on_import": 'def on_import(app, batch):\n    """Runs when the operator starts an import. Return any non-None value to replace the standard import; return None to keep it."""',
     "on_scan_complete": 'def on_scan_complete(app, batch):\n    """Runs ONCE after the pipeline finishes for ALL pages in the batch. Receives no pages."""',
-    "on_transfer_validate": 'def on_transfer_validate(app, batch) -> bool:\n    """Runs before transfer, after the required batch fields are checked.\n    Return False to cancel. An exception also cancels it (fails closed)."""',
+    "on_transfer_validate": (
+        "def on_transfer_validate(app, batch, pages, documents) -> bool:\n"
+        '    """Runs before transfer, after the required batch fields are checked.\n'
+        "    `pages` and `documents` are optional parameters (declare only what you use).\n"
+        "    pages: .page_index, .fields, .barcodes (.value, .symbology), .is_separator,\n"
+        "    .separator_value. documents: .index, .separator_value, .pages, .fields.\n"
+        '    Return False to cancel. An exception also cancels it and its message reaches the operator."""'
+    ),
     "on_transfer_advanced": (
         "def on_transfer_advanced(app, batch, pages, result):\n"
         '    """Runs AFTER the simple transfer (if enabled), in the Workbench and in the\n'
         "    unattended worker alike. `pages`: list with .image_path, .page_index, .fields,\n"
-        "    .ocr_text, .first_barcode, .image (loaded on demand). `result`: TransferResult\n"
-        "    of the simple transfer. There is NO batch.pages and pages have NO .barcodes.\n"
+        "    .ocr_text, .first_barcode, .barcodes (.value, .symbology), .is_separator,\n"
+        "    .separator_value, .image (loaded on demand). Optional `documents` (logical\n"
+        "    documents: .index, .separator_value, .pages). `result`: TransferResult of the\n"
+        "    simple transfer. There is NO batch.pages.\n"
         '    Return False or raise to make the transfer fail: the batch is NOT marked as exported."""'
     ),
     "on_transfer_page": 'def on_transfer_page(app, batch, page_index, success):\n    """Runs after each page is copied by the simple transfer (Workbench only)."""',

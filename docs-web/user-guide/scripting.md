@@ -43,69 +43,75 @@ están en la [referencia de la API](../reference/scripting-api.md#argumentos-de-
 
 ## Recetas
 
-### Un PDF por documento
+### Un fichero por documento
 
-Un **documento** es el tramo de páginas que va desde una hoja separadora hasta
-la siguiente; las páginas anteriores a la primera separadora forman un
-documento implícito. Es el mismo modelo que FlexibarNET 10.
+Un **documento** es el tramo de páginas que va desde una página separadora
+hasta la siguiente; las páginas anteriores a la primera separadora forman un
+documento implícito. Es el mismo modelo que FlexibarNET 10, y no necesita
+scripts:
 
-Hasta que la separación sea una función nativa (está diseñada en
-`docs/diseno_separadores_documento_2026-10-26.md`), se monta en dos piezas.
+1. En el paso **Barcode**, activa *Separador de documento* con su condición
+   (ver [Pipeline](pipeline.md#separador-de-documento)). La página que la
+   cumple queda marcada como separadora (`page.is_separator`) con el valor del
+   código (`page.separator_value`).
+2. En **Transferencia**, elige un modo multipágina (`pdf`, `pdfa` o `tiff`),
+   *Un fichero por documento* y un patrón con `{separator}`, por ejemplo
+   `{separator}_{batch_id}` (ver [Transferencia](transfer.md)).
 
-**1. Un ScriptStep detrás del paso Barcode** marca la separadora:
-
-```python
-def marcar_separador(app, batch, page, pipeline):
-    for bc in page.barcodes:
-        if bc.symbology == "Code39":          # condición de separador
-            bc.role = "separator"             # la miniatura se pinta como separadora
-            page.fields["separator"] = bc.value
-            return
-```
-
-**2. `on_transfer_advanced`** agrupa por tramos y escribe un PDF por documento
-(con la transferencia simple desactivada):
+Si la condición no se puede expresar en el paso Barcode, un **ScriptStep
+posterior** tiene la última palabra y puede escribir la marca:
 
 ```python
-def on_transfer_advanced(app, batch, pages, result):
-    from app.services.image_lib import ImageLib
-
-    destino = Path(app.transfer_config["destination"])
-    destino.mkdir(parents=True, exist_ok=True)
-
-    # Documento = tramo desde una separadora hasta la siguiente. Las páginas
-    # previas a la primera separadora forman un documento implícito.
-    documentos = []
-    for p in pages:  # llegan en orden de lote, sin las excluidas
-        valor = p.fields.get("separator")
-        if valor or not documentos:
-            documentos.append({"separator": valor or "", "paginas": []})
-        documentos[-1]["paginas"].append(p.image_path)
-
-    for i, doc in enumerate(documentos, start=1):
-        # El valor viene del papel: nada de rutas ni caracteres reservados.
-        nombre = re.sub(r'[\\/:*?"<>|.]', "_", doc["separator"]) or f"documento_{i}"
-        ImageLib.merge_to_pdf(doc["paginas"], destino / f"{nombre}_{batch.id}.pdf")
-    return True
+def marcar(app, batch, page, pipeline):
+    seps = [bc for bc in page.barcodes if bc.value.startswith("SEP-")]
+    page.is_separator = bool(seps)
+    page.separator_value = seps[0].value[4:] if seps else ""
 ```
 
-!!! warning "Por qué no `pipeline.set_metadata`"
-    El pipeline crea un contexto nuevo para cada página, así que el metadata no
-    pasa de una página a la siguiente: un adjunto nunca vería el id de su
-    separadora. La agrupación tiene que hacerse donde se ven todas las páginas
-    a la vez, que es la transferencia.
+El separador es de la **página**, no del barcode: poner `role = "separator"` a
+un código ya no separa documentos.
+
+### Script de nombre de fichero
+
+Cuando el patrón no basta (recortar el código, una fecha sacada de un campo de
+lote…), en Transferencia → *Nombre por: Script* se define:
+
+```python
+def file_name(page, document, batch, app):
+    from datetime import datetime
+
+    fecha = datetime.strptime(batch.fields["Data"], "%d/%m/%Y")
+    codigo = document.separator_value[-9:]       # los 9 últimos dígitos
+    return f"{fecha:%Y%m%d}/{codigo}"            # subruta SIN extensión
+```
+
+- Devuelve la subruta **sin extensión**; las `/` crean subcarpetas y cada
+  segmento se sanea igual que con el patrón (nunca sale de la carpeta de
+  destino).
+- Si devuelve `None` o una cadena vacía, se usa el patrón.
+- Si **lanza**, la transferencia no se hace y no queda nada escrito: los
+  nombres se calculan todos antes de escribir el primer fichero.
+- `page` es la primera página del fichero (en modo carpeta, cada página) y
+  `document` su documento (`index`, `separator_value`, `pages`, `fields`).
 
 ### Validar antes de transferir
 
 ```python
-def on_transfer_validate(app, batch):
-    if not batch.fields.get("numero_factura"):
-        log.warning("Falta el número de factura")
-        return False  # cancela la transferencia
+def on_transfer_validate(app, batch, pages):
+    sin_codigo = [p.page_index + 1 for p in pages if not p.is_separator]
+    if sin_codigo:
+        raise ValueError(
+            f"Hay páginas sin código de barras. La primera es la {sin_codigo[0]}"
+        )
     return True
 ```
 
-Una excepción en `on_transfer_validate` también cancela la transferencia.
+`pages` y `documents` son parámetros **opcionales**: declara solo los que uses
+(`def on_transfer_validate(app, batch)` sigue funcionando). Devolver `False`
+cancela la transferencia; una excepción también, y su mensaje es lo que ve el
+operador. Es la validación de las Apps de archivo del Hospital Arnau de
+Vilanova: toda página tiene que llevar su código.
+
 Para campos que solo tienen que estar rellenos no hace falta script: marca el
 campo como **obligatorio** en la pestaña Campos de Lote.
 

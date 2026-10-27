@@ -372,3 +372,47 @@ class TestValidateEvent:
             )
             is None
         )
+
+
+class TestNadaAMedias:
+    """Revisión del lote 6: ningún fallo previsible deja salida parcial."""
+
+    def test_imagen_ausente_no_escribe_nada_en_carpeta(self, tmp_path):
+        pages = _pages(tmp_path, ["A", None])
+        Path(pages[1]["image_path"]).unlink()
+        config = TransferConfig(
+            destination=str(tmp_path / "out"), filename_pattern="{page_index}"
+        )
+        result = TransferService().transfer(pages, config)
+        assert not result.success
+        assert "Faltan las imágenes de las páginas 2" in result.errors[0]
+        assert not (tmp_path / "out").exists()
+
+    def test_imagen_ausente_no_escribe_nada_en_multipagina(self, tmp_path):
+        pages = _pages(tmp_path, ["A", "B"])
+        Path(pages[1]["image_path"]).unlink()
+        config = TransferConfig(
+            mode="tiff",
+            grouping="document",
+            destination=str(tmp_path / "out"),
+            filename_pattern="{separator}",
+            collision_policy="merge",
+        )
+        assert not TransferService().transfer(pages, config).success
+        assert not (tmp_path / "out").exists()
+
+    def test_lote_sin_paginas_no_es_un_exito(self, tmp_path):
+        config = TransferConfig(destination=str(tmp_path / "out"))
+        result = TransferService().transfer([], config)
+        assert not result.success
+
+    def test_csv_no_se_bloquea_por_opciones_de_documento(self, tmp_path):
+        reason = validate_before_transfer(
+            script_engine=None,
+            contexts={},
+            fields_def=[],
+            batch_fields={},
+            pages=_pages(tmp_path, ["A"]),
+            config=TransferConfig(mode="csv", separator_page="exclude"),
+        )
+        assert reason is None

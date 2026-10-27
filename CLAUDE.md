@@ -61,6 +61,10 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_foo.py::TestClas
 .venv/bin/python tools/ui_snapshots.py [--theme light] [--only NAME ...] [--out DIR]
 .venv/bin/python tools/ui_snapshots.py --portfolio ../portfolio/public/docscan-studio.webp
 
+# Hospital Arnau archive apps (ported from FlexibarNET10) into a test DB, plus
+# synthetic pages with real barcodes. Never seeds the user's DB by default.
+.venv/bin/python tools/seed_apps_arnau.py --db /tmp/arnau.db --export-base /tmp/out --paginas /tmp/pages
+
 # Linux/Wayland: icon in the dock when running from source (writes
 # ~/.local/share/applications/docscan.desktop; --uninstall removes it)
 .venv/bin/python tools/install_desktop_entry.py
@@ -125,6 +129,7 @@ Key files:
 - `app/pipeline/context.py` -- PipelineContext with flow control (skip_step, skip_to, abort, repeat_step, replace_image, get/set_metadata)
 - `app/pipeline/executor.py` -- PipelineExecutor (stateless between pages, one instance per app)
 - `app/pipeline/serializer.py` -- JSON <-> list[PipelineStep] (serialize/deserialize)
+- `app/pipeline/separator.py` + `app/models/document.py` -- document separator condition and logical documents (`split_documents`): a document is the run of pages from one separator page to the next, computed on the fly, never stored
 
 Pipeline JSON is stored in `pipeline_json` column of `applications` table.
 
@@ -176,9 +181,10 @@ SQLite with **mandatory WAL mode** for UI + DocScanWorker concurrency. Repositor
 ## Implementation order
 
 The original 22-step build order (pipeline → config → DB → services → UI →
-worker → tests) is **complete** (releases v0.1.0–v0.1.6). Current work is
-prioritised in `docs/propuestas_desde_flexibarnet10_2026-10-26.md` (lotes 3–6)
-and `docs/diseno_separadores_documento_2026-10-26.md`.
+worker → tests) is **complete** (releases v0.1.0–v0.1.7). Current work is
+prioritised in `docs/propuestas_desde_flexibarnet10_2026-10-26.md` (lote 3 done
+in v0.1.7; lotes 4–5 pending; lote 6 slices S1–S2 done, status in §8 of
+`docs/diseno_separadores_documento_2026-10-26.md`).
 
 ## Tool usage rules
 

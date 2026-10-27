@@ -25,6 +25,10 @@ El Workbench se compone de cinco áreas:
 
 Funciona como en FlexibarNET 10. De arriba abajo:
 
+- **SEPARADOR DE DOCUMENTO** — solo si la página del visor es separadora: una
+  tarjeta con borde naranja que dice qué documento abre y cuántas páginas
+  tiene, el valor del separador en monoespaciada y el botón **Editar valor**
+  (abre el mismo diálogo que al marcar, con el valor actual).
 - **BARCODES DE LA PÁGINA · N** — una fila por código: punto de color (el mismo que
   su recuadro en el visor), valor, «simbología · motor · rol» y el distintivo
   **MANUAL** si se añadió a mano. Crece hasta 280 px y luego hace scroll.
@@ -51,7 +55,7 @@ Las miniaturas muestran el estado mediante bordes de color:
 | Color | Estado |
 |-------|--------|
 | :material-circle:{ style="color: #f0718c" } Rojo | A revisión o excluida |
-| :material-circle:{ style="color: #f97316" } Naranja | Página separadora |
+| :material-circle:{ style="color: #f97316" } Naranja | Página separadora (abre un documento) |
 | :material-circle:{ style="color: #60a5fa" } Azul | Con campos de indexación |
 | :material-circle:{ style="color: #4ade80" } Verde | Con códigos de barras |
 | :material-circle:{ style="color: #9fadc7" } Gris | Sin reconocimiento |
@@ -65,6 +69,29 @@ El visor central permite:
 - **Ajustar a ventana**: Ctrl+F
 - **Rotar**: Ctrl+R (90° a la derecha) o los botones de la barra del visor
 - **Overlays**: Visualización de barcodes y regiones OCR sobre la imagen
+
+## Separadores de documento
+
+Un **documento** es el tramo de páginas que va de una página separadora a la
+siguiente. Las separadoras las marca el paso Barcode (ver
+[Pipeline](pipeline.md#separador-de-documento)) o el operador:
+
+- **Marcar**: el botón de separador de la barra del visor (icono de capas) o
+  **Ctrl+D**. Un diálogo pide el valor, pre-rellenado con el código que cumple
+  la condición del paso Barcode; si no hay, con el primer código de la
+  página; si tampoco, con el valor por defecto del paso. Si el paso define
+  una regex para el valor manual, se valida mientras escribes y **Aceptar**
+  no se habilita hasta que cumple. Se admite dejarlo vacío. **Cancelar** no
+  marca nada.
+- **Desmarcar**: el mismo botón o **Ctrl+D** sobre una separadora. Quita la
+  marca y el valor; los códigos de barras de la página no se tocan.
+- **Reordenar**: **Alt+↑** / **Alt+↓** mueven la página una posición. La
+  página viaja con todos sus datos, marca incluida, así que los documentos se
+  recalculan solos. No se puede reordenar mientras corre el pipeline.
+
+El botón de separador se pone naranja cuando la página es separadora. Si el
+paso Barcode tiene la detección activa, reprocesar la página recalcula la
+marca y pisa la manual.
 
 ## Barra de herramientas
 

@@ -157,14 +157,14 @@ def test_01_un_tiff_por_codigo_y_el_repetido_se_anexa(entorno):
 def test_01_una_pagina_sin_codigo_bloquea_sin_escribir(entorno):
     antes = sorted((entorno["salida"]).rglob("*.tif"))
     state, pages = _procesar(entorno, "01 Arxiu de Peticions", ["01", "04"])
-    assert state == "ready_to_export"  # no exportado
+    assert state == "error_export"  # bloqueado: no se exporta
     assert pages[1] == (False, "")
     assert sorted((entorno["salida"]).rglob("*.tif")) == antes
 
 
 def test_01_code39_no_es_separador(entorno):
     state, pages = _procesar(entorno, "01 Arxiu de Peticions", ["05"])
-    assert state == "ready_to_export"
+    assert state == "error_export"
     assert pages == [(False, "")]
 
 
@@ -190,7 +190,7 @@ def test_05_diez_digitos_se_archiva_por_los_nueve_ultimos(entorno):
 def test_05_solo_lee_itf(entorno):
     # Code128 no está entre sus simbologías: la página queda sin separador
     state, pages = _procesar(entorno, "05 Arxiu de Peticions 10 DIGITS", ["01"])
-    assert state == "ready_to_export"
+    assert state == "error_export"
     assert pages == [(False, "")]
 
 

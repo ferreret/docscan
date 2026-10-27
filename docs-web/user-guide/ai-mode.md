@@ -28,9 +28,9 @@ AI Mode es un asistente conversacional integrado en el Launcher para crear y con
    un barcode Code128 con el número de pedido.
 
 🤖 He creado "Albaranes" con:
-   - Pipeline: AutoDeskew → Barcode Motor 2 → Script separador
+   - Pipeline: AutoDeskew → Barcode Motor 2 con separador de documento (Code128)
    - Campo de lote: "numero_pedido"
-   - Transferencia: /salida/{numero_pedido}/
+   - Transferencia: un PDF por documento, /salida/{separator}.pdf
 ```
 
 ## Pipeline Assistant

@@ -182,6 +182,8 @@ def file_name(page, document, batch, app):
             f"La página {{page.page_index + 1}} no tiene valor de separador: "
             "no se puede componer el nombre del fichero."
         )
+    # Una "/" leída del papel crearía subcarpetas dentro del día
+    codigo = codigo.replace("/", "_").replace("\\\\", "_")
     if MAX_DIGITOS > 0 and len(codigo) > MAX_DIGITOS:
         codigo = codigo[-MAX_DIGITOS:]
     fecha = _fecha_de_lote(batch)

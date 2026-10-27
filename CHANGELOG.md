@@ -8,6 +8,103 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+Lote 6 de mejoras desde FlexibarNET 10: **separador de documento nativo**, con
+la misma lógica que FlexibarNET 10. El caso de aceptación son las seis Apps de
+archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
+
+> **Cambios de comportamiento a revisar antes de actualizar**
+> - «Incluir simbología en regex» del paso Barcode antepone ahora el número
+>   legacy de la simbología (Code128 = `02`, ITF = `10`), como Flexibar. Antes
+>   anteponía las dos primeras letras del nombre («Co»). Una regex escrita para
+>   ese prefijo deja de casar.
+> - Las páginas con un barcode `role="separator"` (puesto por script) pasan a
+>   estar marcadas como separador al migrar. El rol se sigue respetando, pero ya
+>   no es lo que manda.
+> - En el worker desatendido, un lote cuya validación bloquea la transferencia
+>   pasa a `error_export` y se notifica. Antes se quedaba en `ready_to_export`
+>   con un aviso en el log que nadie veía.
+
+### ✨ Separador de documento
+
+- **El separador es una propiedad de la página** (`is_separator` y
+  `separator_value`) y el **documento** es el tramo hasta el siguiente
+  separador. Se calcula al vuelo y no se guarda. Las páginas anteriores al
+  primer separador forman un documento implícito. La migración `d3f8a1c6e2b7`
+  solo añade columnas.
+- **Detección automática en el paso Barcode**, con las mismas claves que
+  Flexibar (`separator_enabled`, `separator_by`, `separator_regex`…). Admite
+  regex (opcionalmente sobre «NN + valor»), simbología o valor fijo. Es
+  autoritativa: al reprocesar pisa la marca manual. Con varios pasos, la
+  página es separador si casa cualquiera; en Flexibar el último pisaba al
+  anterior. Un ScriptStep posterior puede cambiar `page.is_separator`.
+- **Marca manual en el Workbench**: botón en la barra del visor y **Ctrl+D**.
+  El diálogo propone el código que cumple la condición (o el primero de la
+  página, o el valor por defecto) y lo valida en vivo contra la regex manual
+  del paso. Desmarcar no toca los barcodes.
+- **Zona «Separador de documento»** en el panel derecho, con el valor, el
+  documento y «Editar valor». La miniatura y el visor de una página separadora
+  van en naranja.
+- **Reordenar páginas** con **Alt+↑ / Alt+↓**: la página viaja con su marca y
+  los documentos se recalculan.
+
+### ✨ Transferencia por documento
+
+- **Modo TIFF multipágina** (`tiff`), además de PDF y PDF/A.
+- **Un fichero por lote o por documento** (`grouping`).
+- **La página separadora es portada o se descarta** (`separator_page`). Con
+  hojas separadoras se bloquea la transferencia si un documento queda vacío o
+  hay páginas antes de la primera hoja.
+- **Tokens `{separator}`, `{document_index}` y `{document_id}`**, resueltos
+  sobre el documento de cada página. En Flexibar, `{separator}` salía vacío en
+  las páginas que no eran la separadora y `{document_id}` siempre vacío.
+- **Nombre por script** (`name_mode` / `file_name_script`, claves de Flexibar):
+  `def file_name(page, document, batch, app)` devuelve la subruta sin
+  extensión. `None` usa el patrón. Si el script lanza, la transferencia no se
+  hace; Flexibar caía en silencio al patrón.
+- **Los nombres se calculan antes de escribir nada**: un script de nombre que
+  falla o un documento sin valor con `{separator}` no dejan salida a medias.
+  Los PDF y TIFF se escriben en un temporal y se renombran.
+- Con la colisión **Fusionar**, un documento cuyo fichero ya existe se añade al
+  final, también entre lotes.
+- `on_transfer_validate` recibe `pages` y `documents`, y `on_transfer_advanced`
+  también `documents`. Sus páginas traen `barcodes`, `is_separator` y
+  `separator_value`. Son parámetros opcionales: las firmas anteriores siguen
+  funcionando.
+
+### 🐛 Corregido
+
+- **Borrar una página y capturar otra sobrescribía una imagen.** El índice de
+  la página nueva salía del número de páginas, así que repetía el de la
+  última y su fichero `page_NNNN` pisaba al de esa página. Además, el hueco
+  hacía que el resultado del pipeline se guardara en otra página. Ahora se
+  renumera al borrar y nunca se reutiliza un nombre de fichero.
+- **Ninguna causa previsible deja la transferencia a medias**: una imagen que
+  falta o una ruta no válida se detectan antes de escribir. Antes, con
+  «Fusionar», el reintento anexaba otra vez las páginas ya archivadas. Un lote
+  sin páginas ya no se da por transferido.
+- **Un error del escáner dejaba el reconocimiento esperando para siempre**, y
+  con él bloqueados reordenar y cerrar el lote.
+- **La detección de blancos ya no excluye una página separadora** ni una con
+  códigos: fundía dos documentos sin avisar.
+- **Guardar en TIFF Group4 tumbaba la aplicación** (segfault de libtiff) si la
+  imagen no era de 1 bit, por ejemplo una captura en B/N guardada en escala de
+  grises. Ahora se binariza antes.
+- **Los scripts de transferencia del worker desatendido no veían los campos
+  del lote**: un script que leyera la fecha del lote recibía siempre la de hoy.
+- **El modo directo** (`--direct-mode`) transfiere por el mismo camino que el
+  Workbench y el worker, con el script de nombre. Antes transfería también
+  las páginas excluidas.
+- Un campo de lote que se llamara como una variable del sistema (`batch_id`,
+  `page_index`…) hacía fallar el nombre del fichero.
+
+### 🧰 Herramientas
+
+- `tools/seed_apps_arnau.py` siembra las seis Apps de archivo del Arnau
+  (01, 02, 03, 05, 06 y 07), exporta sus packs y genera páginas de prueba con
+  códigos reales. Las dos de control eCAP (04 y 08) quedan para después.
+- `tests/test_arnau_e2e.py` pasa esas Apps por el worker real de extremo a
+  extremo, con lectura real de códigos.
+
 ## [0.1.7] - 2026-10-27
 
 Dos bloques: el lote 3 de mejoras desde FlexibarNET 10 y el rediseño visual con la

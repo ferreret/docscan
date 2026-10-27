@@ -120,9 +120,16 @@ _APP_CONFIG_PROPERTIES = {
         "description": "Transfer configuration.",
         "properties": {
             "standard_enabled": {"type": "boolean", "default": True},
-            "mode": {"type": "string", "enum": ["folder", "pdf", "pdfa", "csv"]},
+            "mode": {
+                "type": "string",
+                "enum": ["folder", "pdf", "pdfa", "tiff", "csv"],
+            },
             "destination": {"type": "string"},
             "filename_pattern": {"type": "string"},
+            "name_mode": {"type": "string", "enum": ["pattern", "script"]},
+            "file_name_script": {"type": "string"},
+            "grouping": {"type": "string", "enum": ["batch", "document"]},
+            "separator_page": {"type": "string", "enum": ["include", "exclude"]},
             "create_subdirs": {"type": "boolean", "default": True},
             "collision_policy": {
                 "type": "string",
@@ -386,17 +393,25 @@ Controls how pages are exported. Two mechanisms: standard transfer (config-based
 
 ### Standard transfer (config-based, NO scripting needed):
 - standard_enabled (bool, default true): Enable standard transfer. If false, only on_transfer_advanced runs.
-- mode: "folder" (copy files), "pdf" (single PDF), "pdfa" (PDF/A archival), "csv" (export metadata)
+- mode: "folder" (one file per page), "pdf" / "pdfa" (multi-page PDF), "tiff" (multi-page TIFF), "csv" (export metadata)
+- grouping (pdf, pdfa, tiff): "batch" (one file per batch, default) or "document" (one file per logical document)
+- separator_page: "include" (the separator page is the document cover, default) or "exclude" (a separator sheet that is not exported)
 - destination: path string, e.g., "/media/user/export/"
 - filename_pattern: template for file names. Variables:
   - {{batch_id}} — batch number
   - {{page_index}} — page number (use :04d for zero-padding)
   - {{first_barcode}} — value of the first barcode detected on the page
   - {{campo_nombre}} — any batch field value (spaces replaced by underscores)
+  - {{separator}} — separator value of the page's document (for every page of the document)
+  - {{document_index}} / {{document_id}} — 1-based number of the page's document
   - NO other variable exists ({{page_number}}, {{date}}, {{app_name}}… are NOT supported): an unknown
     variable silently replaces the WHOLE name with batch_<id>_page_<index>.
   - Example: "{{first_barcode}}" → renames files to barcode value
   - Example: "{{batch_id}}/{{page_index:04d}}" → creates subdirectory per batch
+- name_mode: "pattern" (default) or "script". With "script", `file_name_script` defines
+  `def file_name(page, document, batch, app)` returning the relative path WITHOUT extension
+  (e.g. f"{{fecha:%Y%m%d}}/{{document.separator_value}}"); None falls back to the pattern and an
+  exception makes the whole transfer fail before anything is written.
 - create_subdirs (bool, default true): Create batch_ID subdirectories
 - collision_policy: "suffix" (default), "overwrite", "merge". What to do when destination file already exists:
   - "suffix": add numeric suffix (file_1.tiff, file_2.tiff…)

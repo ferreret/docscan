@@ -20,6 +20,8 @@ Los de captura son los de FlexibarNET 10.
 | `Ctrl+N` / `Insert` | Añadir un código de barras a mano (también `Ctrl+B`) |
 | `Supr` sobre una fila de barcode | Eliminar ese código |
 | `Ctrl+Z` | Deshacer la última edición de códigos |
+| `Ctrl+D` | Marcar / desmarcar la página como separador de documento |
+| `Alt+↑` / `Alt+↓` | Mover la página una posición arriba / abajo |
 
 !!! tip "Ir a una página concreta"
 

@@ -154,6 +154,15 @@ def _uses_token(pattern: str, token: str) -> bool:
     return "{" + token + "}" in pattern or "{" + token + ":" in pattern
 
 
+def missing_images(pages: list[dict[str, Any]]) -> list[int]:
+    """Índices de las páginas cuya imagen no está en disco."""
+    return [
+        page.get("page_index", 0)
+        for page in pages
+        if not Path(page.get("image_path") or "").is_file()
+    ]
+
+
 def document_problems(pages: list[dict[str, Any]], config: TransferConfig) -> str | None:
     """Comprueba los documentos del lote antes de transferir.
 
@@ -232,9 +241,26 @@ class TransferService:
         batch_fields = batch_fields or {}
 
         if config.mode in ("folder", *MULTIPAGE_MODES):
+            if not pages:
+                return TransferResult(
+                    success=False, errors=["No hay páginas que transferir"]
+                )
             problem = document_problems(pages, config)
             if problem:
                 return TransferResult(success=False, errors=[problem])
+            # Una imagen que falta se detecta antes de escribir nada: un
+            # fallo a mitad dejaría salida parcial y, con «Fusionar», el
+            # reintento anexaría otra vez las páginas ya archivadas.
+            missing = missing_images(pages)
+            if missing:
+                return TransferResult(
+                    success=False,
+                    errors=[
+                        "Faltan las imágenes de las páginas "
+                        + ", ".join(str(i + 1) for i in missing[:10])
+                        + ("…" if len(missing) > 10 else "")
+                    ],
+                )
 
         try:
             if config.mode == "folder":
@@ -368,6 +394,12 @@ class TransferService:
                     name_resolver,
                 )
                 planned.append((page, name))
+
+        for page, name in planned:
+            try:
+                safe_join(dest, name)
+            except UnsafePathError as e:
+                raise TransferAbortedError(str(e)) from e
 
         dest.mkdir(parents=True, exist_ok=True)
         result = TransferResult(output_path=str(dest))
@@ -531,14 +563,10 @@ class TransferService:
                         append = True
                     elif config.collision_policy != "overwrite":
                         path = self._next_free_path(path)
-                written = self._write_multipage(unit_pages, path, config, append)
-                result.files_transferred += written
-                ok = written == len(unit_pages)
-                if not ok:
-                    result.errors.append(
-                        f"'{path.name}': {len(unit_pages) - written} página(s) "
-                        "sin imagen legible"
-                    )
+                result.files_transferred += self._write_multipage(
+                    unit_pages, path, config, append
+                )
+                ok = True
             except Exception as e:
                 ok = False
                 result.errors.append(f"Error generando '{path.name}': {e}")
@@ -579,13 +607,11 @@ class TransferService:
             src = Path(page["image_path"])
             loaded = ImageLib.load(src) if src.exists() else []
             if not loaded:
-                log.error("No se pudo leer la imagen %s", src)
-                continue
+                # Nunca un fichero con menos páginas de las debidas.
+                raise ValueError(f"no se pudo leer la imagen {src.name}")
             if not source_dpi:
                 source_dpi = int(ImageLib.get_dpi(src)[0] or 0)
             images.append(self._apply_output_transforms(loaded[0], src, config))
-        if not images:
-            raise ValueError("ninguna página tiene imagen legible")
 
         tmp = path.with_name(f".{path.name}.tmp")
         try:

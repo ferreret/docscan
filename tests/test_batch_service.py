@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pytest
 from sqlalchemy import create_engine, event
@@ -331,3 +332,27 @@ class TestFieldsAndDeletion:
 
         assert image_path.exists()
         assert service.get_batch(batch.id) is not None
+
+
+class TestBorrarYAnadir:
+    """Borrar una página intermedia y capturar otra no pisa ninguna imagen."""
+
+    def test_no_sobrescribe_ni_deja_huecos(
+        self, service: BatchService, session: Session, app_id: int
+    ):
+        batch = service.create_batch(app_id)
+        imgs = [np.full((10, 10, 3), v, np.uint8) for v in (10, 20, 30, 40)]
+        pages = service.add_pages(batch.id, imgs)
+        session.commit()
+        last_path = pages[-1].image_path
+
+        service.remove_page(pages[1].id)
+        session.commit()
+        assert [p.page_index for p in service.get_pages(batch.id)] == [0, 1, 2]
+
+        nueva = service.add_pages(batch.id, [np.full((10, 10, 3), 99, np.uint8)])[0]
+        session.commit()
+        assert nueva.page_index == 3
+        assert nueva.image_path != last_path
+        assert int(cv2.imread(last_path)[0, 0, 0]) == 40  # intacta
+        assert [p.page_index for p in service.get_pages(batch.id)] == [0, 1, 2, 3]

@@ -501,7 +501,23 @@ def _transfer_batch(
         config=config,
     )
     if reason:
+        # Sin operador delante, un bloqueo que solo queda en el log pasa
+        # desapercibido: el lote queda en error y se notifica.
         log.warning("Lote %d: transferencia bloqueada: %s", batch_id, reason)
+        batch_svc.transition_state(batch_id, "error_export")
+        notif_cfg = parse_notification_config(app_record.notifications_json)
+        notification_svc.notify_error(
+            webhook=(
+                notif_cfg.webhook
+                if notif_cfg.webhook_enabled and notif_cfg.webhook.url
+                else None
+            ),
+            email=None,
+            batch_id=batch_id,
+            app_name=app_record.name,
+            error=reason,
+        )
+        session.commit()
         return
 
     transfer_result = execute_transfer(

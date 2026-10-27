@@ -39,7 +39,7 @@ ALL_SYMBOLOGIES = [
     "DataMatrix",
     "PDF417",
     "Aztec",
-    "MicroQR",
+    "MicroQRCode",
 ]
 
 ALL_ORIENTATIONS = ["horizontal", "vertical", "diagonal"]

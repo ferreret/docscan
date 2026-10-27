@@ -183,11 +183,18 @@ def build_name_resolver(
     # El script siempre recibe app y batch, aunque el llamador no los pase.
     contexts = {"app": AppContext(), "batch": BatchContext(), **(contexts or {})}
 
+    # Un documento se convierte una sola vez aunque se pidan nombres para
+    # todas sus páginas (modo carpeta): si no, un lote grande sin
+    # separadores costaría O(n²).
+    converted: dict[int, LogicalDocument] = {}
+
     def resolve(page: dict[str, Any], document: LogicalDocument | None) -> str | None:
         script_page = TransferPage.from_dict(page)
         script_document = None
-        if document is not None:
-            script_document = LogicalDocument(
+        if document is not None and id(document) in converted:
+            script_document = converted[id(document)]
+        elif document is not None:
+            script_document = converted[id(document)] = LogicalDocument(
                 index=document.index,
                 separator_page=(
                     TransferPage.from_dict(document.separator_page)
@@ -279,7 +286,12 @@ def validate_before_transfer(
     if missing:
         return "Faltan campos obligatorios: " + ", ".join(missing)
 
-    if pages is not None and config is not None and config.standard_enabled:
+    if (
+        pages is not None
+        and config is not None
+        and config.standard_enabled
+        and config.mode != "csv"
+    ):
         problem = document_problems(pages, config)
         if problem:
             return problem

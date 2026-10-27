@@ -50,6 +50,12 @@ Cada fila de la lista es un paso, como en FlexibarNET 10:
 Doble clic para editar un paso. Para cambiar el orden, arrástralo o usa los botones
 de subir y bajar.
 
+El diálogo del paso **Barcode** tiene la sección **Separador de documento**
+(casilla para activarla): condición (expresión regular, simbología o valor
+fijo), *Evaluar sobre NN + valor* (el tooltip lista los números de
+simbología) y, para la marca manual del Workbench, la regex del valor y el
+valor por defecto. Ver [Separador de documento](pipeline.md#separador-de-documento).
+
 Ver [Pipeline](pipeline.md) para la documentación completa.
 
 ## Pestaña Eventos
@@ -58,7 +64,15 @@ Ver [Scripting](scripting.md) para los eventos del ciclo de vida.
 
 ## Pestaña Transferencia
 
-Ver [Transferencia](transfer.md) para las opciones de exportación.
+Ver [Transferencia](transfer.md) para las opciones de exportación. Además del
+destino y el patrón:
+
+- **Modo**: `folder`, `pdf`, `pdfa`, `tiff` (multipágina) o `csv`.
+- **Nombre por**: *Patrón* o *Script*. Con *Script* aparece un editor con la
+  plantilla de `file_name(page, document, batch, app)`; la aplicación **no se
+  guarda** si el script no compila.
+- Grupo **Documentos**: agrupación (un fichero por lote o por documento, en
+  los modos multipágina) y si la página separadora se incluye o se descarta.
 
 ## Pestaña Notificaciones
 

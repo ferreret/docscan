@@ -1435,6 +1435,11 @@ class WorkbenchWindow(QMainWindow):
     def _on_scan_error(self, error: str) -> None:
         """Error durante la adquisición."""
         self._progress_bar.setVisible(False)
+        # El reconocimiento de las páginas ya capturadas termina: sin esto se
+        # quedaba esperando más páginas para siempre (y bloqueaba reordenar y
+        # cerrar el lote).
+        if self._recognition_worker and self._recognition_worker.isRunning():
+            self._recognition_worker.signal_no_more_pages()
         self._set_acquire_enabled(True)
         QMessageBox.critical(self, self.tr("Error de adquisici\u00f3n"), error)
 
@@ -1531,7 +1536,9 @@ class WorkbenchWindow(QMainWindow):
                         white_tolerance=blank_config.get("blank_white_tolerance", 245),
                     )
                     page.is_blank = is_blank
-                    if is_blank:
+                    # Una hoja separadora con un código pequeño puede parecer
+                    # en blanco: excluirla fundiría dos documentos sin avisar.
+                    if is_blank and not page_ctx.is_separator and not page_ctx.barcodes:
                         page.is_excluded = True
 
             page.pipeline_processed = True
@@ -2217,15 +2224,23 @@ class WorkbenchWindow(QMainWindow):
         if not self._pages or self._current_page_index < 0:
             return
         page = self._pages[self._current_page_index]
-        if page.is_separator:
+        # La marca se lee de la BD: mientras corre el pipeline la lista en
+        # memoria puede ir por detrás.
+        with self._session_factory() as session:
+            db_page = PageRepository(session).get_by_id(page.id)
+            if db_page is None:
+                return
+            if db_page.is_separator:
+                is_separator = True
+            else:
+                is_separator = False
+                barcodes = list(db_page.barcodes)
+                step = self._separator_step()
+                suggestion = separator.suggest_manual_value(step, barcodes)
+        if is_separator:
             self._set_separator(page, False, "")
             return
 
-        with self._session_factory() as session:
-            db_page = PageRepository(session).get_by_id(page.id)
-            barcodes = list(db_page.barcodes) if db_page else []
-            step = self._separator_step()
-            suggestion = separator.suggest_manual_value(step, barcodes)
         dialog = SeparatorValueDialog(suggestion, step, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._set_separator(page, True, dialog.value())
@@ -2394,7 +2409,11 @@ class WorkbenchWindow(QMainWindow):
         """
         if self._batch_id is None or not self._pages:
             return
-        if self._recognition_worker and self._recognition_worker.isRunning():
+        busy = any(
+            w is not None and w.isRunning()
+            for w in (self._recognition_worker, self._scan_worker)
+        )
+        if busy:
             self._status_bar.showMessage(
                 self.tr("No se puede reordenar mientras se procesan páginas"), 3000
             )
@@ -2409,7 +2428,16 @@ class WorkbenchWindow(QMainWindow):
             BatchService(session, APP_IMAGES_DIR).reorder_pages(self._batch_id, ids)
             session.commit()
         self._reload_pages()
-        self._rebuild_thumbnails()
+        # Solo cambian las dos miniaturas: releer todas las imágenes del lote
+        # en cada pulsación congelaba la ventana con lotes grandes.
+        for index in (src, dst):
+            page = self._pages[index]
+            img = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
+            if img is not None:
+                self._thumbnail_panel.update_thumbnail_image(index, img)
+            self._thumbnail_panel.update_thumbnail_state(
+                index, self._determine_current_state(page)
+            )
         self._navigate_to(dst)
         self._update_lot_counters()
 
@@ -2701,6 +2729,7 @@ class WorkbenchWindow(QMainWindow):
                         needs_review=page.needs_review,
                         review_reason=page.review_reason or "",
                     ),
+                    **separator_state(page),
                 )
         except Exception:
             return PageContext(page_index=page_index)
