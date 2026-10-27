@@ -8,6 +8,13 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🧹 Retirado
+
+- **Pipeline Assistant**: el asistente de IA por aplicación (`pipeline_assistant.py`,
+  su panel, el asistente de eventos y su worker) se añadió en marzo pero nunca se
+  conectó a la interfaz. Se retira el código y sus 30 tests; crear y modificar
+  aplicaciones con IA sigue disponible en el **AI Mode** del launcher.
+
 ### 🏷️ Autoría
 
 - DocScan Studio figura como **desarrollado por Nicolás Barceló**: README, «Acerca

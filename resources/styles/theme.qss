@@ -968,12 +968,7 @@ QInputDialog QComboBox {
     background-color: $surface;
 }
 
-/* ---- Asistente IA: Panel de chat ---- */
-#pipelineAssistantPanel {
-    background-color: $bg;
-    border-left: 1px solid $border;
-}
-
+/* ---- Asistente IA (AI Mode): chat ---- */
 #chatBubbleUser {
     background-color: $surface_btn;
     border-radius: 8px;
@@ -994,12 +989,6 @@ QInputDialog QComboBox {
     border-radius: 8px;
     margin-left: 4px;
     margin-right: 4px;
-}
-
-#chatCodePreview {
-    background-color: $code_bg;
-    border: 1px solid $border;
-    border-radius: 6px;
 }
 
 #assistantInput {

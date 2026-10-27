@@ -31,7 +31,7 @@
 - Tests desktop: **1256 passing** en `main` tras PR #7 (2026-10-27, ~35 s); 1240 en v0.1.8.
 - Rama de trabajo desktop: partir de `main` (incluye la web mergeada, pero `app/` intacto desde v0.1.2).
 - [Progreso instaladores + auto-update](project_release2_progress.md) — releases 1-3, docs, empaquetado, auto-update completados.
-- [Ideas de roadmap 2026-03-20](project_upcoming.md) — el asistente IA de pipelines está en el código (`pipeline_assistant.py`, `PipelineAssistantPanel`) pero **nunca se conectó a la interfaz** (comprobado 2026-10-27); solo el AI Mode es accesible.
+- [Ideas de roadmap 2026-03-20](project_upcoming.md) — el asistente IA de pipelines nunca se conectó a la interfaz y **se retiró del código el 2026-10-27** (decisión de Nicolás); la IA vive solo en el AI Mode.
 - Pendientes menores desktop: verificación visual de la release instalada (versión en "Acerca de", eventos nuevos en catálogo, `page.id` en scripts); barridos globales ruff format y prettier (hacerlos aparte para no contaminar commits funcionales).
 
 ## Web SaaS — archivado (referencia)

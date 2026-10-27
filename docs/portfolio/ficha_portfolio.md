@@ -65,9 +65,8 @@ lenguas y borrar la antigua.
 - **IA generativa para configurar**: AI Mode crea, modifica, duplica o elimina
   aplicaciones completas en lenguaje natural con *tool calling*, y escribe el código
   de sus eventos; cada cambio se enseña antes de aplicarlo (aceptar / rechazar).
-- Existe además un *Pipeline Assistant* en el código (`app/services/pipeline_assistant.py`,
-  con su panel), pero **nunca se ha conectado a la interfaz**: no debe aparecer en la
-  ficha como función disponible.
+- Hubo un *Pipeline Assistant* en el código que nunca llegó a conectarse a la interfaz;
+  se retiró el 2026-10-27. No debe aparecer en la ficha.
 - **Worker desatendido** (carpeta vigilada) con el mismo flujo que la interfaz.
 - Instaladores (AppImage, setup.exe) con actualización automática desde GitHub.
 

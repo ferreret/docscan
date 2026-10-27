@@ -1,6 +1,6 @@
 """Constantes compartidas para los asistentes IA.
 
-Usadas por pipeline_assistant.py y ai_mode_assistant.py.
+Usadas por ai_mode_assistant.py y por el Configurador (firmas de los eventos).
 """
 
 from __future__ import annotations
