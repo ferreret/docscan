@@ -16,7 +16,7 @@ metadata:
   setup.exe y SHA256SUMS.txt). Las ramas `docs/paridad-flexibarnet10`,
   `fix/lote3-nada-falla-en-silencio` y `feat/rediseno-ui` están subsumidas en main
   (borrables).
-- **Rama `feat/lote6-separadores`** (solo local: el push quedó pendiente de permiso, sin PR): lote 6 S1+S2 + nombre por
+- **Rama `feat/lote6-separadores`** (pusheada, **PR #3** abierto contra main el 2026-10-27): lote 6 S1+S2 + nombre por
   script + Apps de archivo del Arnau. 1172 tests verdes. Estado detallado en §8 de
   `docs/diseno_separadores_documento_2026-10-26.md`. Ver [[project-apps-arnau]].
 

@@ -17,7 +17,7 @@ desplegadas en el Hospital Arnau de Vilanova**. Es el caso de aceptación del lo
 del Flexibar.NET legacy. Se clona con `gh repo clone Tecnomedia/FlexibarNET10 -- --depth=50`
 en el scratchpad.
 
-**Hecho (rama `feat/lote6-separadores`, sin mergear):** las 6 Apps de archivo simple
+**Hecho (rama `feat/lote6-separadores`, PR #3, sin mergear):** las 6 Apps de archivo simple
 (01, 02, 03, 05, 06, 07) en `tools/arnau_apps.py`; sembrador `tools/seed_apps_arnau.py`
 (`--db`, `--export-base`, `--packs`, `--paginas`); smoke `tests/test_arnau_e2e.py` por el
 worker real con códigos reales generados con zxing-cpp.
