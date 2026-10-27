@@ -13,7 +13,6 @@
       "args": [
         "-y",
         "mcp-sqlite",
-        "--db-path",
         "${DOCSCAN_DB_PATH:-/home/nicolas/.local/share/docscan/docscan.db}"
       ]
     },

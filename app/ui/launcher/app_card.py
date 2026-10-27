@@ -19,6 +19,7 @@ from typing import Any
 
 from PySide6.QtCore import QCoreApplication, QSettings
 
+from app.services.event_config import has_code
 from app.services.transfer_service import parse_transfer_config
 
 log = logging.getLogger(__name__)
@@ -159,7 +160,7 @@ def _has_scripts(app: Any, steps: set[str]) -> bool:
         return True  # hay algo escrito, aunque no se pueda leer
     if not isinstance(data, dict):
         return False
-    return any(isinstance(v, str) and v.strip() for v in data.values())
+    return any(has_code(v) for v in data.values())
 
 
 def format_tag(app: Any) -> str | None:
@@ -205,7 +206,12 @@ def card_info(app: Any) -> AppCardInfo:
     steps = pipeline_step_types(app.pipeline_json, app.id)
     return AppCardInfo(
         icon_key=derive_icon_key(app, steps),
-        accent=resolve_accent(app.name),
+        # Un color fijado en el Configurador gana al automático por el nombre
+        accent=(
+            app.icon_accent
+            if getattr(app, "icon_accent", "") in ACCENTS
+            else resolve_accent(app.name)
+        ),
         tags=derive_tags(app, steps),
         updated=format_date(getattr(app, "updated_at", None) or app.created_at),
     )

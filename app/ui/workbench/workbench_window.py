@@ -17,6 +17,7 @@ import numpy as np
 from PySide6.QtCore import QSize, Qt, Signal, QSettings
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QDialog,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -39,7 +40,15 @@ from app.models.barcode import Barcode
 from app.models.page import Page
 from app.pipeline.executor import PipelineExecutor
 from app.pipeline.serializer import deserialize
+from app.models.document import split_documents
+from app.pipeline import separator
+from app.pipeline.page_context import (
+    MAX_SEPARATOR_VALUE_LENGTH,
+    persist_separator,
+    separator_state,
+)
 from app.services.barcode_service import BarcodeService
+from app.services.event_config import active_event_sources
 from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
@@ -47,7 +56,11 @@ from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
 from app.models.image_config import ImageConfig, parse_image_config
 from app.models.workbench_layout import BARCODES, WorkbenchLayout
-from app.services.transfer_flow import transfer_page_dict, validate_before_transfer
+from app.services.transfer_flow import (
+    compile_transfer_scripts,
+    transfer_page_dict,
+    validate_before_transfer,
+)
 from app.services.transfer_service import TransferService, parse_transfer_config
 from app.ui.workbench.barcode_panel import BarcodePanel
 from app.ui.workbench.document_viewer import DocumentViewer
@@ -58,6 +71,7 @@ from app.ui.workbench.page_state import (
     determine_page_state,
 )
 from app.ui.workbench.thumbnail_panel import ThumbnailPanel
+from app.ui.workbench.separator_widgets import SeparatorValueDialog, SeparatorZone
 from app.ui.workbench.viewer_overlay import ViewerOverlay
 from app.ui.icons import icon as lucide_icon
 from app.ui.palette import color as palette_color
@@ -284,25 +298,27 @@ class WorkbenchWindow(QMainWindow):
 
     def _compile_events(self) -> None:
         """Pre-compila los scripts de eventos del ciclo de vida."""
-        try:
-            events = json.loads(self._application.events_json)
-        except json.JSONDecodeError, TypeError:
-            events = {}
-
+        # Solo los activados: un evento «PAUSADO» no se compila y, por tanto,
+        # no corre (ni aquí ni en transfer_flow, que mira is_compiled).
+        events = active_event_sources(self._application.events_json)
         for event_name, source in events.items():
-            if source and source.strip():
-                try:
-                    self._script_engine.compile_script(
-                        event_name,
-                        source,
-                        label=event_name,
-                    )
-                except Exception as e:
-                    log.warning(
-                        "Error compilando evento '%s': %s",
-                        event_name,
-                        e,
-                    )
+            try:
+                self._script_engine.compile_script(
+                    event_name,
+                    source,
+                    label=event_name,
+                )
+            except Exception as e:
+                log.warning(
+                    "Error compilando evento '%s': %s",
+                    event_name,
+                    e,
+                )
+
+        compile_transfer_scripts(
+            self._script_engine,
+            parse_transfer_config(self._application.transfer_json or "{}"),
+        )
 
     def _setup_ui(self) -> None:
         """Construye toda la interfaz gráfica."""
@@ -368,6 +384,8 @@ class WorkbenchWindow(QMainWindow):
         self._barcode_panel = BarcodePanel()
         self._metadata_panel = MetadataPanel()
 
+        self._separator_zone = SeparatorZone()
+        right_layout.addWidget(self._separator_zone)
         right_layout.addWidget(self._barcode_panel)
         right_layout.addWidget(self._metadata_panel, stretch=1)
 
@@ -620,6 +638,8 @@ class WorkbenchWindow(QMainWindow):
         # Overlay: herramientas
         self._viewer_overlay.rotate_requested.connect(self._on_rotate_90)
         self._viewer_overlay.mark_requested.connect(self._on_mark_page)
+        self._viewer_overlay.separator_requested.connect(self._on_toggle_separator)
+        self._separator_zone.edit_requested.connect(self._on_edit_separator_value)
         self._viewer_overlay.delete_current_requested.connect(
             self._on_delete_current_page,
         )
@@ -681,6 +701,9 @@ class WorkbenchWindow(QMainWindow):
         # Manipulación de página
         _s("Ctrl+R", self._on_rotate_90)
         _s("Ctrl+M", self._on_mark_page)
+        _s("Ctrl+D", self._on_toggle_separator)
+        _s("Alt+Up", self._typing_guard(lambda: self._on_move_page(-1)))
+        _s("Alt+Down", self._typing_guard(lambda: self._on_move_page(1)))
         _s("Delete", self._typing_guard(self._on_delete_current_page))
         _s("Ctrl+P", self._on_reprocess_page)
         # Barcodes (paridad FlexibarNET10): añadir con Ctrl+N / Insert,
@@ -743,11 +766,7 @@ class WorkbenchWindow(QMainWindow):
         """Carga e instancia el panel de verificación si está definido."""
         if self._application is None:
             return
-        try:
-            events = json.loads(self._application.events_json or "{}")
-        except json.JSONDecodeError, TypeError:
-            return
-
+        events = active_event_sources(self._application.events_json)
         source = events.get("verification_panel", "").strip()
         if not source:
             return
@@ -860,6 +879,7 @@ class WorkbenchWindow(QMainWindow):
                 "name": f.get("label", ""),
                 "type": type_map.get(f.get("type", "texto"), "Texto"),
                 "required": f.get("required", False),
+                "default": f.get("default", ""),
             }
             if f.get("type") == "lista":
                 entry["choices"] = cfg.get("values", [])
@@ -959,6 +979,8 @@ class WorkbenchWindow(QMainWindow):
             self._batch_id = batch.id
             self._barcode_undo.clear()
 
+        # Lote nuevo: los campos arrancan con su valor por defecto
+        self._metadata_panel.set_batch_fields({})
         self._pages = []
         self._current_page_index = -1
         self._update_page_info()
@@ -992,6 +1014,7 @@ class WorkbenchWindow(QMainWindow):
                     needs_review=page.needs_review,
                     fields_json=page.index_fields_json,
                     is_excluded=page.is_excluded,
+                    is_separator=page.is_separator,
                 )
                 self._thumbnail_panel.add_thumbnail(i, img, state)
 
@@ -1409,6 +1432,11 @@ class WorkbenchWindow(QMainWindow):
     def _on_scan_error(self, error: str) -> None:
         """Error durante la adquisición."""
         self._progress_bar.setVisible(False)
+        # El reconocimiento de las páginas ya capturadas termina: sin esto se
+        # quedaba esperando más páginas para siempre (y bloqueaba reordenar y
+        # cerrar el lote).
+        if self._recognition_worker and self._recognition_worker.isRunning():
+            self._recognition_worker.signal_no_more_pages()
         self._set_acquire_enabled(True)
         QMessageBox.critical(self, self.tr("Error de adquisici\u00f3n"), error)
 
@@ -1422,6 +1450,7 @@ class WorkbenchWindow(QMainWindow):
             needs_review=page_ctx.flags.needs_review,
             barcodes=page_ctx.barcodes,
             fields_json=json.dumps(page_ctx.fields) if page_ctx.fields else "{}",
+            is_separator=page_ctx.is_separator,
         )
         self._thumbnail_panel.update_thumbnail_state(page_index, state)
 
@@ -1504,7 +1533,9 @@ class WorkbenchWindow(QMainWindow):
                         white_tolerance=blank_config.get("blank_white_tolerance", 245),
                     )
                     page.is_blank = is_blank
-                    if is_blank:
+                    # Una hoja separadora con un código pequeño puede parecer
+                    # en blanco: excluirla fundiría dos documentos sin avisar.
+                    if is_blank and not page_ctx.is_separator and not page_ctx.barcodes:
                         page.is_excluded = True
 
             page.pipeline_processed = True
@@ -1519,6 +1550,7 @@ class WorkbenchWindow(QMainWindow):
             )
             page.needs_review = page_ctx.flags.needs_review
             page.review_reason = page_ctx.flags.review_reason
+            persist_separator(page_ctx, page)
             page.processing_errors_json = json.dumps(
                 page_ctx.flags.processing_errors,
                 ensure_ascii=False,
@@ -1667,7 +1699,9 @@ class WorkbenchWindow(QMainWindow):
         for page_index, page in pages:
             img = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
             if img is not None:
-                self._recognition_worker.enqueue_page(page_index, img)
+                self._recognition_worker.enqueue_page(
+                    page_index, img, separator_state(page)
+                )
 
         self._recognition_worker.signal_no_more_pages()
         self._status_bar.showMessage(message.format(len(pages)))
@@ -1704,6 +1738,7 @@ class WorkbenchWindow(QMainWindow):
                 barcodes=barcodes,
                 fields_json=page.index_fields_json,
                 is_excluded=page.is_excluded,
+                is_separator=page.is_separator,
             )
 
             try:
@@ -1738,6 +1773,7 @@ class WorkbenchWindow(QMainWindow):
             )
 
         self._thumbnail_panel.set_current(page_index)
+        self._refresh_separator_ui()
         if review_message:
             # El borde rojo dice que hay que revisar; aquí, por qué.
             self._status_bar.showMessage(review_message, 8000)
@@ -1938,6 +1974,18 @@ class WorkbenchWindow(QMainWindow):
             )
         except json.JSONDecodeError, TypeError:
             fields_def = []
+        config = parse_transfer_config(
+            self._application.transfer_json if self._application else "{}",
+        )
+        pages_data = []
+        with self._session_factory() as session:
+            page_repo = PageRepository(session)
+            for page in self._pages:
+                if page.is_excluded:
+                    continue
+                db_page = page_repo.get_by_id(page.id)
+                if db_page is not None:
+                    pages_data.append(transfer_page_dict(db_page))
         reason = validate_before_transfer(
             script_engine=self._script_engine,
             contexts={
@@ -1946,6 +1994,8 @@ class WorkbenchWindow(QMainWindow):
             },
             fields_def=fields_def if isinstance(fields_def, list) else [],
             batch_fields=batch_fields,
+            pages=pages_data,
+            config=config,
         )
         if reason:
             log.warning("Transferencia bloqueada: %s", reason)
@@ -1967,20 +2017,6 @@ class WorkbenchWindow(QMainWindow):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-
-        # 3. Preparar datos
-        config = parse_transfer_config(
-            self._application.transfer_json if self._application else "{}",
-        )
-        pages_data = []
-        with self._session_factory() as session:
-            page_repo = PageRepository(session)
-            for page in self._pages:
-                if page.is_excluded:
-                    continue
-                db_page = page_repo.get_by_id(page.id)
-                if db_page is not None:
-                    pages_data.append(transfer_page_dict(db_page))
 
         # 4. Lanzar worker: transferencia estándar (si está activada) y
         # después on_transfer_advanced (si está definido). Ver transfer_flow.
@@ -2165,6 +2201,107 @@ class WorkbenchWindow(QMainWindow):
         status = self.tr("excluida") if page.is_excluded else self.tr("incluida")
         self._status_bar.showMessage(self.tr("P\u00e1gina {0}").format(status), 2000)
 
+    # ------------------------------------------------------------------
+    # Separador de documento (paridad FlexibarNET10)
+    # ------------------------------------------------------------------
+
+    def _separator_step(self) -> Any | None:
+        """Primer BarcodeStep con detección: da la regex y el valor por defecto."""
+        try:
+            steps = deserialize(self._application.pipeline_json or "[]")
+        except Exception:
+            return None
+        return separator.detection_step(steps)
+
+    def _on_toggle_separator(self) -> None:
+        """Marca la página actual como separador (pidiendo el valor) o la desmarca.
+
+        Desmarcar solo quita la marca y el valor: los barcodes no se tocan.
+        """
+        if not self._pages or self._current_page_index < 0:
+            return
+        page = self._pages[self._current_page_index]
+        # La marca se lee de la BD: mientras corre el pipeline la lista en
+        # memoria puede ir por detrás.
+        with self._session_factory() as session:
+            db_page = PageRepository(session).get_by_id(page.id)
+            if db_page is None:
+                return
+            if db_page.is_separator:
+                is_separator = True
+            else:
+                is_separator = False
+                barcodes = list(db_page.barcodes)
+                step = self._separator_step()
+                suggestion = separator.suggest_manual_value(step, barcodes)
+        if is_separator:
+            self._set_separator(page, False, "")
+            return
+
+        dialog = SeparatorValueDialog(suggestion, step, parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._set_separator(page, True, dialog.value())
+
+    def _on_edit_separator_value(self) -> None:
+        """Cambia el valor del separador de la página actual."""
+        if not self._pages or self._current_page_index < 0:
+            return
+        page = self._pages[self._current_page_index]
+        if not page.is_separator:
+            return
+        dialog = SeparatorValueDialog(
+            page.separator_value or "",
+            self._separator_step(),
+            editing=True,
+            parent=self,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._set_separator(page, True, dialog.value())
+
+    def _set_separator(self, page: Any, is_separator: bool, value: str) -> None:
+        """Guarda la marca de separador y refresca miniatura, visor y panel."""
+        with self._session_factory() as session:
+            db_page = PageRepository(session).get_by_id(page.id)
+            if db_page is None:
+                return
+            db_page.is_separator = is_separator
+            db_page.separator_value = value[:MAX_SEPARATOR_VALUE_LENGTH]
+            session.commit()
+        page.is_separator = is_separator
+        page.separator_value = value[:MAX_SEPARATOR_VALUE_LENGTH]
+
+        state = self._determine_current_state(page)
+        self._thumbnail_panel.update_thumbnail_state(self._current_page_index, state)
+        self._viewer.set_state(state)
+        self._refresh_separator_ui()
+        self._update_lot_counters()
+        self._status_bar.showMessage(
+            self.tr("Separador marcado: {0}").format(value or self.tr("(sin valor)"))
+            if is_separator
+            else self.tr("Separador desmarcado"),
+            3000,
+        )
+
+    def _refresh_separator_ui(self) -> None:
+        """Zona del panel derecho y botón del visor según la página actual."""
+        if not self._pages or not (0 <= self._current_page_index < len(self._pages)):
+            self._separator_zone.setVisible(False)
+            self._viewer_overlay.set_separator_active(False)
+            return
+        page = self._pages[self._current_page_index]
+        self._viewer_overlay.set_separator_active(bool(page.is_separator))
+        if not page.is_separator:
+            self._separator_zone.setVisible(False)
+            return
+        visible = [p for p in self._pages if not p.is_excluded] or self._pages
+        for doc in split_documents(visible):
+            if doc.separator_page is page:
+                self._separator_zone.show_separator(
+                    page.separator_value or "", doc.index, len(doc.pages)
+                )
+                return
+        self._separator_zone.show_separator(page.separator_value or "", 0, 1)
+
     def _on_rotate_90(self) -> None:
         """Rota la página actual 90° en sentido horario y ajusta coords de barcodes."""
         if self._current_page_index < 0:
@@ -2210,6 +2347,7 @@ class WorkbenchWindow(QMainWindow):
             barcodes=barcodes,
             fields_json=page.index_fields_json,
             is_excluded=page.is_excluded,
+            is_separator=page.is_separator,
         )
 
     def _on_delete_current_page(self) -> None:
@@ -2235,16 +2373,7 @@ class WorkbenchWindow(QMainWindow):
             session.commit()
 
         self._reload_pages()
-        self._thumbnail_panel.clear()
-        for i, p in enumerate(self._pages):
-            img = cv2.imread(p.image_path, cv2.IMREAD_UNCHANGED)
-            if img is not None:
-                state = determine_page_state(
-                    needs_review=p.needs_review,
-                    fields_json=p.index_fields_json,
-                    is_excluded=p.is_excluded,
-                )
-                self._thumbnail_panel.add_thumbnail(i, img, state)
+        self._rebuild_thumbnails()
 
         if self._pages:
             idx = min(self._current_page_index, len(self._pages) - 1)
@@ -2254,6 +2383,60 @@ class WorkbenchWindow(QMainWindow):
             self._viewer.clear()
             self._lbl_image_info.clear()
         self._update_page_info()
+
+    def _rebuild_thumbnails(self) -> None:
+        """Vuelve a pintar todas las miniaturas a partir de ``self._pages``."""
+        self._thumbnail_panel.clear()
+        for i, p in enumerate(self._pages):
+            img = cv2.imread(p.image_path, cv2.IMREAD_UNCHANGED)
+            if img is not None:
+                state = determine_page_state(
+                    needs_review=p.needs_review,
+                    fields_json=p.index_fields_json,
+                    is_excluded=p.is_excluded,
+                    is_separator=p.is_separator,
+                )
+                self._thumbnail_panel.add_thumbnail(i, img, state)
+
+    def _on_move_page(self, delta: int) -> None:
+        """Mueve la página actual una posición (Alt+↑ / Alt+↓).
+
+        La página viaja con todos sus datos, marca de separador incluida,
+        así que los documentos se recalculan solos (paridad FlexibarNET10).
+        """
+        if self._batch_id is None or not self._pages:
+            return
+        busy = any(
+            w is not None and w.isRunning()
+            for w in (self._recognition_worker, self._scan_worker)
+        )
+        if busy:
+            self._status_bar.showMessage(
+                self.tr("No se puede reordenar mientras se procesan páginas"), 3000
+            )
+            return
+        src = self._current_page_index
+        dst = src + delta
+        if not (0 <= src < len(self._pages)) or not (0 <= dst < len(self._pages)):
+            return
+        ids = [p.id for p in self._pages]
+        ids[src], ids[dst] = ids[dst], ids[src]
+        with self._session_factory() as session:
+            BatchService(session, APP_IMAGES_DIR).reorder_pages(self._batch_id, ids)
+            session.commit()
+        self._reload_pages()
+        # Solo cambian las dos miniaturas: releer todas las imágenes del lote
+        # en cada pulsación congelaba la ventana con lotes grandes.
+        for index in (src, dst):
+            page = self._pages[index]
+            img = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
+            if img is not None:
+                self._thumbnail_panel.update_thumbnail_image(index, img)
+            self._thumbnail_panel.update_thumbnail_state(
+                index, self._determine_current_state(page)
+            )
+        self._navigate_to(dst)
+        self._update_lot_counters()
 
     def _on_delete_from_current(self) -> None:
         """Elimina páginas desde la actual hasta el final."""
@@ -2288,6 +2471,7 @@ class WorkbenchWindow(QMainWindow):
                     needs_review=page.needs_review,
                     fields_json=page.index_fields_json,
                     is_excluded=page.is_excluded,
+                    is_separator=page.is_separator,
                 )
                 self._thumbnail_panel.add_thumbnail(i, img, state)
 
@@ -2469,6 +2653,7 @@ class WorkbenchWindow(QMainWindow):
         self._recognition_worker.enqueue_page(
             self._current_page_index,
             image,
+            separator_state(page),
         )
         self._recognition_worker.signal_no_more_pages()
         self._status_bar.showMessage(self.tr("Re-procesando p\u00e1gina..."))
@@ -2541,6 +2726,7 @@ class WorkbenchWindow(QMainWindow):
                         needs_review=page.needs_review,
                         review_reason=page.review_reason or "",
                     ),
+                    **separator_state(page),
                 )
         except Exception:
             return PageContext(page_index=page_index)
@@ -2606,10 +2792,11 @@ class WorkbenchWindow(QMainWindow):
             pages = page_repo.get_by_batch(self._batch_id)
             pages_with_bc = 0
             for p in pages:
+                if p.is_separator:
+                    separators += 1
                 if p.barcodes:
                     pages_with_bc += 1
                     total_barcodes += len(p.barcodes)
-                    separators += sum(1 for b in p.barcodes if b.role == "separator")
 
         self._lbl_counters.setText(
             format_lot_counters(
@@ -2642,7 +2829,14 @@ class WorkbenchWindow(QMainWindow):
         prefix = f"source/{self._app_id}"
         scanner_name = s.value(f"{prefix}/scanner_name", "")
         source_type = s.value(f"{prefix}/source_type", "flatbed")
-        show_config = s.value(f"{prefix}/show_config", False)
+        # Sin preferencia guardada en este equipo manda la de la App
+        # (FlexibarNET10 ShowScannerUi).
+        app_default = bool(
+            getattr(self._application, "show_scanner_ui", False)
+            if self._application
+            else False
+        )
+        show_config = s.value(f"{prefix}/show_config", app_default)
         scan_options_json = s.value(f"{prefix}/scan_options", "")
 
         # Convertir string "true"/"false" de QSettings a bool

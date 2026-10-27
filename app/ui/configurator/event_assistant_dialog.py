@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 from app.services.pipeline_assistant import AssistantResponse
 from app.workers.pipeline_assistant_worker import PipelineAssistantWorker
 from config.secrets import SecretsManager
+from app.ui.widgets.code_editor import CodeEditor
 
 log = logging.getLogger(__name__)
 
@@ -313,10 +314,8 @@ class EventAssistantDialog(QDialog):
         flayout = QVBoxLayout(frame)
         flayout.setContentsMargins(4, 4, 4, 4)
 
-        code_edit = QPlainTextEdit()
-        code_edit.setReadOnly(True)
+        code_edit = CodeEditor(read_only=True)
         code_edit.setPlainText(code)
-        code_edit.setFont(QFont("monospace", 9))
         code_edit.setMaximumHeight(200)
         flayout.addWidget(code_edit)
 

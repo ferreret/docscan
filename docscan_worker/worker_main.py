@@ -41,6 +41,12 @@ from app.pipeline.serializer import deserialize
 from app.pipeline.steps import ScriptStep
 from app.services.barcode_service import BarcodeService
 from app.services.batch_service import BatchService
+from app.services.event_config import (
+    event_enabled,
+    event_entry_point,
+    event_source,
+    parse_events,
+)
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
 from app.services.notification_service import (
@@ -54,6 +60,7 @@ from app.services.transfer_flow import (
     ADVANCED_EVENT,
     VALIDATE_EVENT,
     execute_transfer,
+    compile_transfer_scripts,
     transfer_page_dict,
     validate_before_transfer,
 )
@@ -66,6 +73,7 @@ from app.workers.recognition_worker import (
     BatchContext,
     PageContext,
 )
+from app.pipeline.page_context import persist_separator, separator_state
 
 log = logging.getLogger(__name__)
 
@@ -188,25 +196,13 @@ def _compile_lifecycle_events(
         Diccionario {event_name: entry_point_name} de eventos compilados.
     """
     events: dict[str, str] = {}
-    try:
-        events_data = json.loads(app_record.events_json)
-    except json.JSONDecodeError, TypeError:
-        return events
-
-    for event_name, event_config in events_data.items():
-        # Soportar ambos formatos:
-        #   - str: código fuente directo (formato de tab_events.py)
-        #   - dict: {"script": "...", "entry_point": "..."} (formato extendido)
-        if isinstance(event_config, str):
-            source = event_config
-            entry_point = event_name
-        elif isinstance(event_config, dict):
-            source = event_config.get("script", "")
-            entry_point = event_config.get("entry_point", event_name)
-        else:
+    # Ambos formatos: str (código directo) o dict {"script", "entry_point",
+    # "enabled"}. Un evento desactivado («PAUSADO») no se compila: no corre.
+    for event_name, event_config in parse_events(app_record.events_json).items():
+        source = event_source(event_config)
+        if not source.strip() or not event_enabled(event_config):
             continue
-        if not source or not source.strip():
-            continue
+        entry_point = event_entry_point(event_name, event_config)
         try:
             script_engine.compile_script(event_name, source, label=event_name)
             events[event_name] = entry_point
@@ -347,7 +343,10 @@ def _process_files(
                 break
 
             page_ctx = PageContext(
-                page_index=page_db.page_index, id=page_db.id, image=image
+                page_index=page_db.page_index,
+                id=page_db.id,
+                image=image,
+                **separator_state(page_db),
             )
             try:
                 executor.execute(page=page_ctx, batch=batch_ctx, app=app_ctx)
@@ -368,6 +367,7 @@ def _process_files(
             page_db.ocr_text = page_ctx.ocr_text
             page_db.index_fields_json = json.dumps(page_ctx.fields)
             page_db.needs_review = page_ctx.flags.needs_review
+            persist_separator(page_ctx, page_db)
             page_db.review_reason = page_ctx.flags.review_reason
             page_db.processing_errors_json = json.dumps(
                 page_ctx.flags.processing_errors,
@@ -475,24 +475,45 @@ def _transfer_batch(
         fields_def = json.loads(app_record.batch_fields_json or "[]")
     except json.JSONDecodeError, TypeError:
         fields_def = []
+    # Los scripts de transferencia leen batch.fields (p. ej. la fecha del
+    # lote); el BatchContext del worker se crea sin ellos.
+    batch_ctx.fields = dict(batch_fields)
     contexts = {"app": app_ctx, "batch": batch_ctx}
-
-    reason = validate_before_transfer(
-        script_engine=script_engine if VALIDATE_EVENT in lifecycle_events else None,
-        contexts=contexts,
-        fields_def=fields_def if isinstance(fields_def, list) else [],
-        batch_fields=batch_fields,
-        validate_entry_point=lifecycle_events.get(VALIDATE_EVENT),
-    )
-    if reason:
-        log.warning("Lote %d: transferencia bloqueada: %s", batch_id, reason)
-        return
 
     pages_data = [
         transfer_page_dict(p)
         for p in batch_svc.get_pages(batch_id)
         if not p.is_excluded
     ]
+    reason = validate_before_transfer(
+        script_engine=script_engine if VALIDATE_EVENT in lifecycle_events else None,
+        contexts=contexts,
+        fields_def=fields_def if isinstance(fields_def, list) else [],
+        batch_fields=batch_fields,
+        validate_entry_point=lifecycle_events.get(VALIDATE_EVENT),
+        pages=pages_data,
+        config=config,
+    )
+    if reason:
+        # Sin operador delante, un bloqueo que solo queda en el log pasa
+        # desapercibido: el lote queda en error y se notifica.
+        log.warning("Lote %d: transferencia bloqueada: %s", batch_id, reason)
+        batch_svc.transition_state(batch_id, "error_export")
+        notif_cfg = parse_notification_config(app_record.notifications_json)
+        notification_svc.notify_error(
+            webhook=(
+                notif_cfg.webhook
+                if notif_cfg.webhook_enabled and notif_cfg.webhook.url
+                else None
+            ),
+            email=None,
+            batch_id=batch_id,
+            app_name=app_record.name,
+            error=reason,
+        )
+        session.commit()
+        return
+
     transfer_result = execute_transfer(
         transfer_service=transfer_svc,
         config=config,
@@ -502,6 +523,7 @@ def _transfer_batch(
         script_engine=script_engine if ADVANCED_EVENT in lifecycle_events else None,
         contexts=contexts,
         advanced_entry_point=lifecycle_events.get(ADVANCED_EVENT),
+        name_engine=script_engine,
     )
 
     # Config de notificaciones (webhook) cargada de la aplicación.
@@ -600,6 +622,7 @@ def _process_pending_batches(
                     page_index=page_db.page_index,
                     id=page_db.id,
                     image=image,
+                    **separator_state(page_db),
                 )
                 try:
                     executor.execute(
@@ -620,6 +643,7 @@ def _process_pending_batches(
                 page_db.ocr_text = page_ctx.ocr_text
                 page_db.index_fields_json = json.dumps(page_ctx.fields)
                 page_db.needs_review = page_ctx.flags.needs_review
+                persist_separator(page_ctx, page_db)
                 page_db.review_reason = page_ctx.flags.review_reason
                 page_db.processing_errors_json = json.dumps(
                     page_ctx.flags.processing_errors,
@@ -753,6 +777,9 @@ def main(argv: list[str] | None = None) -> int:
     # Servicios
     script_engine = ScriptEngine()
     lifecycle_events = _compile_lifecycle_events(app_record, script_engine)
+    compile_transfer_scripts(
+        script_engine, parse_transfer_config(app_record.transfer_json)
+    )
     executor = _build_executor(app_record, script_engine)
     import_service = ImportService()
     images_dir = APP_IMAGES_DIR

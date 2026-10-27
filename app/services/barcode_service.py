@@ -17,6 +17,7 @@ import numpy as np
 
 from app.pipeline.page_context import BarcodeResult  # noqa: F401 — re-export
 from app.utils import safe_regex
+from app.utils.symbology_numbers import symbology_prefix
 
 log = logging.getLogger(__name__)
 
@@ -375,8 +376,10 @@ class BarcodeService:
         for r in results:
             test_value = r.value
             if include_symbology:
-                # Prefijo de 2 caracteres con el tipo de simbología
-                test_value = f"{r.symbology[:2]}{r.value}"
+                # Número legacy de la simbología (Code128 = "02"), como en
+                # FlexibarNET10. Antes se anteponían las dos primeras letras
+                # del nombre ("Co"), con lo que una regex legacy no casaba.
+                test_value = f"{symbology_prefix(r.symbology)}{r.value}"
             if safe_regex.search(regex, test_value):
                 filtered.append(r)
 

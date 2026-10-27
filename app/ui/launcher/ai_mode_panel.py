@@ -37,6 +37,7 @@ from app.services.ai_mode_assistant import (
     AiModeToolCall,
     validate_pipeline,
 )
+from app.services.event_config import event_enabled, has_code, make_event_entry
 from app.ui.launcher.app_change_preview import AppChangePreview
 from app.workers.ai_mode_worker import AiModeWorker
 from config.secrets import SecretsManager
@@ -231,7 +232,7 @@ class AiModePanel(QWidget):
                     # Eventos con codigo
                     try:
                         events = json.loads(app.events_json) if app.events_json else {}
-                        event_names = [k for k, v in events.items() if v.strip()]
+                        event_names = [k for k, v in events.items() if has_code(v)]
                     except Exception:
                         event_names = []
 
@@ -603,7 +604,11 @@ class AiModePanel(QWidget):
             except Exception:
                 events = {}
 
-            events[event_name] = code
+            # Conserva la casilla «Activado» y las demás claves del evento.
+            previous = events.get(event_name)
+            events[event_name] = make_event_entry(
+                previous, code, event_enabled(previous)
+            )
             app.events_json = json.dumps(events, ensure_ascii=False)
             session.commit()
 

@@ -46,11 +46,14 @@ class EventOutcome:
         ran: False si el evento no está definido en la aplicación.
         value: Valor devuelto por la función del script.
         error: Descripción del fallo; vacío si terminó bien.
+        rejected: El script rechazó la operación a propósito (lanzó una de
+            las excepciones de rechazo): ``error`` es solo su mensaje.
     """
 
     ran: bool
     value: Any = None
     error: str = ""
+    rejected: bool = False
 
     @property
     def failed(self) -> bool:
@@ -382,6 +385,8 @@ class ScriptEngine:
         self,
         script_id: str,
         entry_point: str | None = None,
+        *,
+        rejection_types: tuple[type[BaseException], ...] = (),
         **kwargs: Any,
     ) -> EventOutcome:
         """Ejecuta un evento distinguiendo «no definido», «falló» y «devolvió».
@@ -395,6 +400,10 @@ class ScriptEngine:
         Args:
             script_id: ID del script compilado.
             entry_point: Función a llamar (por defecto, ``script_id``).
+            rejection_types: Excepciones que el script lanza a propósito para
+                rechazar (p. ej. ``ValueError`` en la validación). Se
+                registran como aviso, sin traza: son una regla de negocio, no
+                un fallo del programa.
             **kwargs: Argumentos para la función (app, batch, pages…).
 
         Returns:
@@ -405,6 +414,9 @@ class ScriptEngine:
             return EventOutcome(ran=False)
         try:
             value = self.run_event_raw(script_id, entry_point or script_id, **kwargs)
+        except rejection_types as e:
+            log.warning("Evento '%s' rechazado: %s", script_id, e)
+            return EventOutcome(ran=True, error=str(e), rejected=True)
         except Exception as e:
             log.exception("Error ejecutando evento '%s'", script_id)
             return EventOutcome(ran=True, error=f"{type(e).__name__}: {e}")
@@ -512,7 +524,11 @@ class ScriptEngine:
                 flags.review_reason = f"Ha fallado el script del paso {step_id}"
 
 
-def find_script_errors(pipeline_json: str, events_json: str) -> list[str]:
+def find_script_errors(
+    pipeline_json: str,
+    events_json: str,
+    transfer_json: str = "{}",
+) -> list[str]:
     """Errores de sintaxis de todos los scripts de una aplicación.
 
     Lo usa el Configurador para no guardar una App con scripts que no
@@ -524,6 +540,7 @@ def find_script_errors(pipeline_json: str, events_json: str) -> list[str]:
         pipeline_json: JSON de pasos del pipeline.
         events_json: JSON de eventos (``{nombre: código}`` o
             ``{nombre: {"script": código}}``), incluido el panel de verificación.
+        transfer_json: JSON de transferencia (script de nombre de fichero).
 
     Returns:
         Un mensaje por script que no compila, con su origen y la línea.
@@ -559,4 +576,12 @@ def find_script_errors(pipeline_json: str, events_json: str) -> list[str]:
         source = config.get("script", "") if isinstance(config, dict) else config
         if isinstance(source, str):
             check(source, f"Evento {name}")
+
+    try:
+        transfer = json.loads(transfer_json or "{}")
+    except json.JSONDecodeError as e:
+        errors.append(f"Transferencia: no se puede leer la configuración ({e})")
+        transfer = {}
+    if isinstance(transfer, dict) and transfer.get("name_mode") == "script":
+        check(transfer.get("file_name_script", ""), "Script de nombre de fichero")
     return errors

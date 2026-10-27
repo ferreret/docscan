@@ -49,6 +49,9 @@ class PipelineContext:
         self._image_replaced: bool = False
         self._aborted: bool = False
         self._abort_reason: str = ""
+        # Algún BarcodeStep con detección de separador ya ha casado en esta
+        # página: los siguientes no la desmarcan (decisión única por página).
+        self.separator_matched: bool = False
 
     # ------------------------------------------------------------------
     # Iteración

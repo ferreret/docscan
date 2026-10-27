@@ -4,24 +4,52 @@ from __future__ import annotations
 
 import json
 
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from app.models.application import Application
+from app.services.external_editor_service import detect_editor, edit_script
+from app.ui.widgets.code_editor import CodeEditor
 
 _SENTINEL_ORIGINAL = "(original)"
+
+# Plantilla del script de nombre de fichero (TransferConfig.file_name_script)
+FILE_NAME_TEMPLATE = """def file_name(page, document, batch, app):
+    # page: página (page_index, fields, barcodes, is_separator, separator_value)
+    # document: documento de la página (index, separator_value, pages, fields)
+    # batch.fields: campos del lote
+    # Devuelve la subruta SIN extensión ("20261027/12345678"),
+    # o None para usar el patrón.
+    return None
+"""
+
+
+class _EditorWorker(QThread):
+    """Edición bloqueante en VS Code (espera a que se cierre la pestaña)."""
+
+    finished = Signal(object)  # str | None
+
+    def __init__(self, code: str) -> None:
+        super().__init__()
+        self._code = code
+
+    def run(self) -> None:
+        self.finished.emit(edit_script(self._code, "file_name"))
 
 
 class TransferTab(QWidget):
@@ -33,7 +61,17 @@ class TransferTab(QWidget):
         self._load_from_app(app)
 
     def _setup_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
+        # Con scroll, como la pestaña General: con el script de nombre la
+        # pestaña no cabe y Qt aplastaba los controles unos sobre otros.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+        main_layout = QVBoxLayout(content)
 
         # ── Grupo: Configuración general ──
         general_group = QGroupBox(self.tr("Configuración general"))
@@ -54,12 +92,13 @@ class TransferTab(QWidget):
         gen_form.addRow("", self._enabled_check)
 
         self._mode_combo = QComboBox()
-        self._mode_combo.addItems(["folder", "pdf", "pdfa", "csv"])
+        self._mode_combo.addItems(["folder", "pdf", "pdfa", "tiff", "csv"])
         self._mode_combo.setToolTip(
             self.tr(
-                "folder = copia imágenes a carpeta destino\n"
-                "pdf = genera un PDF por lote\n"
-                "pdfa = genera un PDF/A (archivable)\n"
+                "folder = un fichero por página en la carpeta destino\n"
+                "pdf = PDF multipágina (por lote o por documento)\n"
+                "pdfa = PDF/A (archivable)\n"
+                "tiff = TIFF multipágina (por lote o por documento)\n"
                 "csv = exporta índices a fichero CSV"
             )
         )
@@ -81,23 +120,6 @@ class TransferTab(QWidget):
         btn_browse.clicked.connect(self._browse_destination)
         dest_layout.addWidget(btn_browse)
         gen_form.addRow(self.tr("Destino:"), dest_row)
-
-        self._pattern_edit = QLineEdit()
-        self._pattern_edit.setPlaceholderText("{batch_id}_{page_index:04d}")
-        self._pattern_edit.setToolTip(
-            self.tr(
-                "Plantilla para nombrar los archivos.\n"
-                "Variables disponibles:\n"
-                "  {batch_id} — ID del lote\n"
-                "  {page_index} — Índice de página (base 0)\n"
-                "  {first_barcode} — Valor del primer barcode detectado\n"
-                "  {nombre_campo} — Campo de lote (espacios → guiones bajos)\n"
-                "  :04d — Rellena con ceros (ej: 0001)\n"
-                "  / — Crea subdirectorios\n\n"
-                "Ejemplo: {fecha_lote}/{first_barcode}_{page_index:04d}"
-            )
-        )
-        gen_form.addRow(self.tr("Patrón nombre:"), self._pattern_edit)
 
         self._subdirs = QCheckBox(self.tr("Crear subdirectorios por lote"))
         self._subdirs.setToolTip(
@@ -140,10 +162,105 @@ class TransferTab(QWidget):
 
         main_layout.addWidget(general_group)
 
-        # ── Grupo: Formato de salida (solo modo carpeta) ──
-        self._output_group = QGroupBox(
-            self.tr("Conversión al transferir (modo carpeta)")
+        # ── Grupo: Nombre de los ficheros (patrón o script) ──
+        name_group = QGroupBox(self.tr("Nombre de los ficheros"))
+        name_form = QFormLayout(name_group)
+        name_form.setVerticalSpacing(8)
+        name_form.setContentsMargins(12, 12, 12, 12)
+        # Primero cómo se nombra; debajo, el patrón o el script.
+        self._pattern_edit = QLineEdit()
+        self._pattern_edit.setPlaceholderText("{batch_id}_{page_index:04d}")
+        self._pattern_edit.setToolTip(
+            self.tr(
+                "Plantilla para nombrar los archivos.\n"
+                "Variables disponibles:\n"
+                "  {batch_id} — ID del lote\n"
+                "  {page_index} — Índice de página (base 0)\n"
+                "  {first_barcode} — Valor del primer barcode detectado\n"
+                "  {nombre_campo} — Campo de lote (espacios → guiones bajos)\n"
+                "  :04d — Rellena con ceros (ej: 0001)\n"
+                "  / — Crea subdirectorios\n\n"
+                "Ejemplo: {fecha_lote}/{first_barcode}_{page_index:04d}"
+            )
         )
+
+        self._name_mode_combo = QComboBox()
+        self._name_mode_combo.addItem(self.tr("Patrón"), "pattern")
+        self._name_mode_combo.addItem(self.tr("Script"), "script")
+        self._name_mode_combo.setToolTip(
+            self.tr(
+                "Script: una función file_name(page, document, batch, app) "
+                "calcula la subruta y el nombre. Si devuelve None se usa el "
+                "patrón; si falla, la transferencia no se hace."
+            )
+        )
+        name_form.addRow(self.tr("Nombre por:"), self._name_mode_combo)
+        name_form.addRow(self.tr("Patrón:"), self._pattern_edit)
+
+        # «Abrir en VS Code», como en Eventos y en los pasos Script
+        self._btn_vscode = QPushButton(self.tr("Abrir en VS Code"))
+        self._btn_vscode.setToolTip(
+            self.tr("Editar el script en VS Code con autocompletado y sintaxis")
+        )
+        self._btn_vscode.clicked.connect(self._open_in_vscode)
+        self._editor_worker: _EditorWorker | None = None
+        vscode_bar = QHBoxLayout()
+        vscode_bar.addStretch()
+        vscode_bar.addWidget(self._btn_vscode)
+        self._vscode_bar = QWidget()
+        self._vscode_bar.setLayout(vscode_bar)
+        vscode_bar.setContentsMargins(0, 0, 0, 0)
+        name_form.addRow(self._vscode_bar)
+
+        self._name_script_edit = CodeEditor()
+        self._name_script_edit.setMinimumHeight(320)
+        self._name_script_edit.setPlaceholderText(FILE_NAME_TEMPLATE)
+        name_form.addRow(self._name_script_edit)
+        self._name_mode_combo.currentIndexChanged.connect(self._on_name_mode_changed)
+
+        main_layout.addWidget(name_group)
+
+        # ── Grupo: Documentos (separadores) ──
+        self._documents_group = QGroupBox(self.tr("Documentos"))
+        doc_form = QFormLayout(self._documents_group)
+        doc_form.setVerticalSpacing(8)
+        doc_form.setContentsMargins(12, 12, 12, 12)
+
+        self._grouping_combo = QComboBox()
+        self._grouping_combo.addItem(self.tr("Un fichero por lote"), "batch")
+        self._grouping_combo.addItem(self.tr("Un fichero por documento"), "document")
+        self._grouping_combo.setToolTip(
+            self.tr(
+                "Un documento va de una página separadora a la siguiente. "
+                "Sin separadores, el lote entero es un documento."
+            )
+        )
+        self._grouping_label = QLabel(self.tr("Agrupación:"))
+        doc_form.addRow(self._grouping_label, self._grouping_combo)
+
+        self._separator_page_combo = QComboBox()
+        self._separator_page_combo.addItem(
+            self.tr("Se incluye (es la portada del documento)"), "include"
+        )
+        self._separator_page_combo.addItem(
+            self.tr("Se descarta (hoja separadora)"), "exclude"
+        )
+        doc_form.addRow(self.tr("Página separadora:"), self._separator_page_combo)
+
+        tokens_hint = QLabel(
+            self.tr(
+                "Variables de documento en el patrón: {separator}, "
+                "{document_index} y {document_id}."
+            )
+        )
+        tokens_hint.setObjectName("hint_label")
+        tokens_hint.setWordWrap(True)
+        doc_form.addRow(tokens_hint)
+
+        main_layout.addWidget(self._documents_group)
+
+        # ── Grupo: Formato de salida (solo modo carpeta) ──
+        self._output_group = QGroupBox(self.tr("Imágenes de salida"))
         out_form = QFormLayout(self._output_group)
         out_form.setVerticalSpacing(8)
         out_form.setContentsMargins(12, 12, 12, 12)
@@ -167,7 +284,8 @@ class TransferTab(QWidget):
             )
         )
         self._out_format_combo.currentTextChanged.connect(self._on_out_format_changed)
-        out_form.addRow(self.tr("Formato:"), self._out_format_combo)
+        self._out_format_label = QLabel(self.tr("Formato:"))
+        out_form.addRow(self._out_format_label, self._out_format_combo)
 
         self._out_dpi_spin = QSpinBox()
         self._out_dpi_spin.setRange(0, 1200)
@@ -280,8 +398,11 @@ class TransferTab(QWidget):
 
         # Conectar visibilidad según modo
         self._mode_combo.currentTextChanged.connect(self._on_mode_changed)
+        self._out_format_combo.currentTextChanged.connect(
+            lambda _t: self._on_mode_changed(self._mode_combo.currentText())
+        )
         self._on_mode_changed(self._mode_combo.currentText())
-        self._on_out_format_changed(self._out_format_combo.currentText())
+        self._on_name_mode_changed()
 
     def _on_enabled_changed(self, enabled: bool) -> None:
         """Habilita/deshabilita los controles de transferencia estándar."""
@@ -293,15 +414,51 @@ class TransferTab(QWidget):
         self._output_group.setEnabled(enabled)
         self._pdf_group.setEnabled(enabled)
         self._csv_group.setEnabled(enabled)
+        self._documents_group.setEnabled(enabled)
+        self._name_mode_combo.setEnabled(enabled)
+        self._name_script_edit.setEnabled(enabled)
+        self._btn_vscode.setEnabled(enabled)
 
     def _on_mode_changed(self, mode: str) -> None:
         """Muestra/oculta grupos según el modo de transferencia."""
         is_folder = mode == "folder"
         is_pdf = mode in ("pdf", "pdfa")
+        is_tiff = mode == "tiff"
         is_csv = mode == "csv"
-        self._output_group.setVisible(is_folder)
+        # En TIFF multipágina valen color, DPI y compresión, no el formato.
+        self._output_group.setVisible(is_folder or is_tiff)
+        self._out_format_combo.setVisible(is_folder)
+        self._out_format_label.setVisible(is_folder)
         self._pdf_group.setVisible(is_pdf)
         self._csv_group.setVisible(is_csv)
+        self._documents_group.setVisible(not is_csv)
+        self._grouping_combo.setVisible(is_pdf or is_tiff)
+        self._grouping_label.setVisible(is_pdf or is_tiff)
+        self._on_out_format_changed(
+            "tiff" if is_tiff else self._out_format_combo.currentText()
+        )
+
+    def _on_name_mode_changed(self) -> None:
+        is_script = self._name_mode_combo.currentData() == "script"
+        self._name_script_edit.setVisible(is_script)
+        self._vscode_bar.setVisible(is_script and detect_editor() is not None)
+        if is_script and not self._name_script_edit.toPlainText().strip():
+            self._name_script_edit.setPlainText(FILE_NAME_TEMPLATE)
+
+    def _open_in_vscode(self) -> None:
+        """Abre el script de nombre en VS Code, en un hilo aparte."""
+        self._btn_vscode.setEnabled(False)
+        self._btn_vscode.setText(self.tr("Editando en VS Code..."))
+        self._editor_worker = _EditorWorker(self._name_script_edit.toPlainText())
+        self._editor_worker.finished.connect(self._on_editor_done)
+        self._editor_worker.start()
+
+    def _on_editor_done(self, result: str | None) -> None:
+        """Recoge el script al cerrar la pestaña de VS Code."""
+        self._btn_vscode.setEnabled(True)
+        self._btn_vscode.setText(self.tr("Abrir en VS Code"))
+        if result is not None:
+            self._name_script_edit.setPlainText(result)
 
     def _on_out_format_changed(self, fmt: str) -> None:
         """Muestra/oculta opciones de formato de salida."""
@@ -339,6 +496,24 @@ class TransferTab(QWidget):
             config.get("filename_pattern", "{batch_id}_{page_index:04d}")
         )
         self._subdirs.setChecked(config.get("create_subdirs", True))
+        name_mode = config.get("name_mode") or (
+            "script" if str(config.get("file_name_script", "")).strip() else "pattern"
+        )
+        self._name_mode_combo.setCurrentIndex(
+            max(self._name_mode_combo.findData(name_mode), 0)
+        )
+        self._name_script_edit.setPlainText(config.get("file_name_script", ""))
+        self._grouping_combo.setCurrentIndex(
+            max(self._grouping_combo.findData(config.get("grouping", "batch")), 0)
+        )
+        self._separator_page_combo.setCurrentIndex(
+            max(
+                self._separator_page_combo.findData(
+                    config.get("separator_page", "include")
+                ),
+                0,
+            )
+        )
         self._pdf_dpi.setValue(config.get("pdf_dpi", 200))
         self._csv_sep.setText(config.get("csv_separator", ";"))
         self._csv_fields_edit.setText(", ".join(config.get("csv_fields", [])))
@@ -392,6 +567,10 @@ class TransferTab(QWidget):
             "mode": self._mode_combo.currentText(),
             "destination": self._dest_edit.text().strip(),
             "filename_pattern": self._pattern_edit.text().strip(),
+            "name_mode": self._name_mode_combo.currentData(),
+            "file_name_script": self._name_script_edit.toPlainText(),
+            "grouping": self._grouping_combo.currentData(),
+            "separator_page": self._separator_page_combo.currentData(),
             "create_subdirs": self._subdirs.isChecked(),
             "pdf_dpi": self._pdf_dpi.value(),
             "csv_separator": self._csv_sep.text(),

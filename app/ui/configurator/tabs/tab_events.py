@@ -1,29 +1,46 @@
 """Pestaña Eventos — entry points de ciclo de vida.
 
-Cada evento tiene un nombre, un entry point y un editor de código.
-Se almacenan en ``Application.events_json``.
+Presentación de FlexibarNET10: lista de eventos a la izquierda, con punto de
+estado (vacío, ACTIVO o PAUSADO), nombre legible y nombre canónico; a la
+derecha, el detalle del evento seleccionado con la casilla «Activado», el
+resumen del código y el botón «Editar script…», que abre el editor con el
+panel de variables disponibles.
+
+Se almacenan en ``Application.events_json`` con las formas que describe
+``app.services.event_config``: texto si el evento está activado y
+``{"script", "enabled": false}`` si está pausado.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
-from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, QThread, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QCoreApplication, QSize, QT_TRANSLATE_NOOP, Qt
 from PySide6.QtWidgets import (
-    QComboBox,
+    QCheckBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
-    QPlainTextEdit,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
 from app.models.application import Application
 from app.services._assistant_constants import EVENT_SIGNATURES
-from app.services.external_editor_service import detect_editor, edit_script
+from app.services.event_config import (
+    event_enabled,
+    event_source,
+    make_event_entry,
+    parse_events,
+)
+from app.ui.configurator.event_script_dialog import EventScriptDialog
+from app.ui.widgets.code_editor import CodeEditor
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +62,25 @@ EVENT_NAMES = [
     "init_global",
     "verification_panel",
 ]
+
+# Nombre legible de cada evento (la lista y la cabecera del detalle)
+_EVENT_TITLES_SRC = {
+    "on_app_start": QT_TRANSLATE_NOOP("EventsTab", "Al abrir la aplicación"),
+    "on_app_end": QT_TRANSLATE_NOOP("EventsTab", "Al cerrar la aplicación"),
+    "on_import": QT_TRANSLATE_NOOP("EventsTab", "Al importar"),
+    "on_scan_complete": QT_TRANSLATE_NOOP("EventsTab", "Al terminar el proceso"),
+    "on_transfer_validate": QT_TRANSLATE_NOOP("EventsTab", "Antes de transferir"),
+    "on_transfer_advanced": QT_TRANSLATE_NOOP("EventsTab", "Transferencia avanzada"),
+    "on_transfer_page": QT_TRANSLATE_NOOP("EventsTab", "Al transferir cada página"),
+    "on_navigate_prev": QT_TRANSLATE_NOOP("EventsTab", "Navegar a la anterior"),
+    "on_navigate_next": QT_TRANSLATE_NOOP("EventsTab", "Navegar a la siguiente"),
+    "on_navigate_script": QT_TRANSLATE_NOOP("EventsTab", "Botón de navegación"),
+    "on_key_event": QT_TRANSLATE_NOOP("EventsTab", "Al pulsar una tecla"),
+    "on_batch_loaded": QT_TRANSLATE_NOOP("EventsTab", "Al abrir un lote"),
+    "on_page_changed": QT_TRANSLATE_NOOP("EventsTab", "Al cambiar de página"),
+    "init_global": QT_TRANSLATE_NOOP("EventsTab", "Al iniciar el programa"),
+    "verification_panel": QT_TRANSLATE_NOOP("EventsTab", "Panel de verificación"),
+}
 
 _EVENT_DESCRIPTIONS_SRC = {
     "on_app_start": QT_TRANSLATE_NOOP("EventsTab", "Al abrir la aplicación"),
@@ -86,25 +122,73 @@ _EVENT_DESCRIPTIONS_SRC = {
 
 _tr_evt = lambda s: QCoreApplication.translate("EventsTab", s)
 
+# Alto de cada fila de la lista de eventos
+ROW_HEIGHT = 48
+
+# Estados del punto y de la píldora de cada evento
+STATE_EMPTY = "empty"
+STATE_ACTIVE = "active"
+STATE_PAUSED = "paused"
+
 
 def EVENT_DESCRIPTIONS() -> dict[str, str]:
     """Devuelve descripciones de eventos traducidas."""
     return {k: _tr_evt(v) for k, v in _EVENT_DESCRIPTIONS_SRC.items()}
 
 
-class _EditorWorker(QThread):
-    """Hilo para edición bloqueante en VS Code."""
+def EVENT_TITLES() -> dict[str, str]:
+    """Devuelve los nombres legibles de los eventos, traducidos."""
+    return {k: _tr_evt(v) for k, v in _EVENT_TITLES_SRC.items()}
 
-    finished = Signal(object)  # str | None
 
-    def __init__(self, code: str, event_name: str) -> None:
-        super().__init__()
-        self._code = code
-        self._event_name = event_name
+def _repolish(widget: QWidget) -> None:
+    """Reaplica el QSS tras cambiar una propiedad dinámica."""
+    widget.style().unpolish(widget)
+    widget.style().polish(widget)
 
-    def run(self) -> None:
-        result = edit_script(self._code, "event", self._event_name)
-        self.finished.emit(result)
+
+class _EventRow(QWidget):
+    """Fila de la lista: punto de estado, nombres y píldora ACTIVO/PAUSADO."""
+
+    def __init__(self, name: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("eventRow")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(8)
+
+        self._dot = QLabel()
+        self._dot.setObjectName("eventDot")
+        self._dot.setFixedSize(10, 10)
+        layout.addWidget(self._dot, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        names = QVBoxLayout()
+        names.setSpacing(0)
+        self._lbl_title = QLabel(EVENT_TITLES().get(name, name))
+        self._lbl_title.setObjectName("eventRowName")
+        names.addWidget(self._lbl_title)
+        lbl_canonical = QLabel(name)
+        lbl_canonical.setObjectName("eventCanonical")
+        names.addWidget(lbl_canonical)
+        layout.addLayout(names, 1)
+
+        self._pill = QLabel()
+        self._pill.setObjectName("eventPill")
+        layout.addWidget(self._pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.set_state(STATE_EMPTY)
+
+    def set_state(self, state: str) -> None:
+        self.state = state
+        for w in (self._dot, self._lbl_title, self._pill):
+            w.setProperty("state", state)
+            _repolish(w)
+        self._pill.setText(
+            {
+                STATE_ACTIVE: self.tr("ACTIVO"),
+                STATE_PAUSED: self.tr("PAUSADO"),
+            }.get(state, "")
+        )
+        self._pill.setVisible(state != STATE_EMPTY)
 
 
 class EventsTab(QWidget):
@@ -112,57 +196,105 @@ class EventsTab(QWidget):
 
     def __init__(self, app: Application, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._events: dict[str, str] = {}
+        # Entradas tal cual vienen de events_json (str o dict), para
+        # conservar al guardar las claves que esta pestaña no edita.
+        self._events: dict[str, Any] = {}
+        self._codes: dict[str, str] = {}
+        self._enabled: dict[str, bool] = {}
         self._current_event: str = ""
-        self._editor_worker: _EditorWorker | None = None
+        self._rows: dict[str, _EventRow] = {}
         self._setup_ui()
         self._load_from_app(app)
 
-    def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
+    # ------------------------------------------------------------------
+    # Interfaz
+    # ------------------------------------------------------------------
 
-        # Selector de evento
-        top = QHBoxLayout()
-        top.addWidget(QLabel(self.tr("Evento:")))
-        self._event_combo = QComboBox()
-        self._event_combo.setToolTip(
+    def _setup_ui(self) -> None:
+        layout = QHBoxLayout(self)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        layout.addWidget(splitter)
+
+        # --- Lista de eventos ---
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(6)
+        lbl_list = QLabel(self.tr("EVENTOS DEL CICLO DE VIDA"))
+        lbl_list.setObjectName("sectionTitle")
+        left_layout.addWidget(lbl_list)
+        self._event_list = QListWidget()
+        self._event_list.setObjectName("eventList")
+        self._event_list.setToolTip(
             self.tr("Seleccionar el evento del ciclo de vida a editar")
         )
         for name in EVENT_NAMES:
-            desc = EVENT_DESCRIPTIONS().get(name, "")
-            self._event_combo.addItem(f"{name} — {desc}", name)
-        top.addWidget(self._event_combo, 1)
-        layout.addLayout(top)
+            item = QListWidgetItem()
+            item.setData(Qt.ItemDataRole.UserRole, name)
+            row = _EventRow(name)
+            # Alto fijo: el sizeHint previo al QSS se queda corto y corta
+            # los guiones bajos del nombre canónico
+            item.setSizeHint(QSize(0, ROW_HEIGHT))
+            self._event_list.addItem(item)
+            self._event_list.setItemWidget(item, row)
+            self._rows[name] = row
+        left_layout.addWidget(self._event_list)
+        splitter.addWidget(left)
 
-        # Barra con botón VS Code
-        code_bar = QHBoxLayout()
-        code_bar.addStretch()
-        self._btn_vscode = QPushButton(self.tr("Abrir en VS Code"))
-        self._btn_vscode.setToolTip(
-            self.tr("Editar el código en VS Code con autocompletado y sintaxis")
-        )
-        self._btn_vscode.setVisible(detect_editor() is not None)
-        self._btn_vscode.clicked.connect(self._open_in_vscode)
-        code_bar.addWidget(self._btn_vscode)
-        layout.addLayout(code_bar)
+        # --- Detalle del evento ---
+        detail = QFrame()
+        detail.setObjectName("eventDetail")
+        dl = QVBoxLayout(detail)
+        dl.setContentsMargins(12, 4, 4, 4)
+        dl.setSpacing(6)
 
-        # Editor de código
-        self._code_edit = QPlainTextEdit()
-        self._code_edit.setToolTip(
+        self._lbl_title = QLabel()
+        self._lbl_title.setObjectName("eventTitle")
+        dl.addWidget(self._lbl_title)
+        self._lbl_description = QLabel()
+        self._lbl_description.setProperty("cssClass", "subtitle")
+        self._lbl_description.setWordWrap(True)
+        dl.addWidget(self._lbl_description)
+        self._lbl_canonical = QLabel()
+        self._lbl_canonical.setObjectName("eventCanonical")
+        dl.addWidget(self._lbl_canonical)
+
+        self._chk_enabled = QCheckBox(self.tr("Activado"))
+        self._chk_enabled.setToolTip(
             self.tr(
-                "Código Python para este evento. Variables: app, batch, page, log, http"
+                "Si se desactiva, el script no se ejecuta aunque tenga código "
+                "(evento PAUSADO). Útil para depurar sin borrarlo"
             )
         )
-        font = QFont("Monospace", 10)
-        font.setStyleHint(QFont.StyleHint.Monospace)
-        self._code_edit.setFont(font)
-        self._code_edit.setTabStopDistance(
-            self._code_edit.fontMetrics().horizontalAdvance(" ") * 4
-        )
-        layout.addWidget(self._code_edit)
+        self._chk_enabled.toggled.connect(self._on_enabled_toggled)
+        dl.addWidget(self._chk_enabled)
 
-        # Conexiones
-        self._event_combo.currentIndexChanged.connect(self._on_event_changed)
+        code_bar = QHBoxLayout()
+        lbl_code = QLabel(self.tr("CÓDIGO PYTHON"))
+        lbl_code.setObjectName("sectionTitle")
+        code_bar.addWidget(lbl_code)
+        code_bar.addStretch(1)
+        self._btn_edit = QPushButton(self.tr("Editar script…"))
+        self._btn_edit.setProperty("cssClass", "primary")
+        self._btn_edit.setToolTip(
+            self.tr("Abrir el editor del script con las variables disponibles")
+        )
+        self._btn_edit.clicked.connect(self._open_script_dialog)
+        code_bar.addWidget(self._btn_edit)
+        dl.addLayout(code_bar)
+
+        # Resumen de solo lectura: el código se edita en el diálogo
+        self._code_edit = CodeEditor(read_only=True)
+        self._code_edit.setToolTip(self.tr("Doble clic para editar el script"))
+        self._code_edit.mouseDoubleClickEvent = lambda _e: self._open_script_dialog()
+        dl.addWidget(self._code_edit, 1)
+        splitter.addWidget(detail)
+
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
+        splitter.setSizes([340, 560])
+
+        self._event_list.currentItemChanged.connect(self._on_current_item_changed)
 
     def _placeholder_for(self, event_name: str | None) -> str:
         """Esqueleto Python a mostrar como placeholder para ``event_name``.
@@ -178,73 +310,104 @@ class EventsTab(QWidget):
         head = sig.split("\n", 1)[0]
         return f"{head}\n    pass"
 
+    # ------------------------------------------------------------------
+    # Datos
+    # ------------------------------------------------------------------
+
     def _load_from_app(self, app: Application) -> None:
-        try:
-            self._events = json.loads(app.events_json) if app.events_json else {}
-        except Exception:
-            self._events = {}
+        self._events = parse_events(app.events_json)
+        for name, config in self._events.items():
+            self._codes[name] = event_source(config)
+            self._enabled[name] = event_enabled(config)
+        for name in EVENT_NAMES:
+            self._refresh_row(name)
 
-        self._refresh_combo_labels()
-
-        if EVENT_NAMES:
-            self._current_event = EVENT_NAMES[0]
-            self._code_edit.setPlainText(self._events.get(self._current_event, ""))
-            self._code_edit.setPlaceholderText(
-                self._placeholder_for(self._current_event)
-            )
-
-    def _on_event_changed(self, index: int) -> None:
-        # Guardar el código del evento anterior
-        if self._current_event:
-            code = self._code_edit.toPlainText()
-            if code.strip():
-                self._events[self._current_event] = code
-            else:
-                self._events.pop(self._current_event, None)
-            self._refresh_combo_labels()
-
-        # Cargar el nuevo
-        self._current_event = self._event_combo.currentData()
-        self._code_edit.setPlainText(self._events.get(self._current_event, ""))
-        self._code_edit.setPlaceholderText(self._placeholder_for(self._current_event))
-
-    def _refresh_combo_labels(self) -> None:
-        """Actualiza las etiquetas del combo marcando los eventos con código."""
-        self._event_combo.blockSignals(True)
-        for i in range(self._event_combo.count()):
-            name = self._event_combo.itemData(i)
-            desc = EVENT_DESCRIPTIONS().get(name, "")
-            has_code = bool(self._events.get(name, "").strip())
-            marker = "[*] " if has_code else ""
-            self._event_combo.setItemText(i, f"{marker}{name} — {desc}")
-        self._event_combo.blockSignals(False)
-
-    def _open_in_vscode(self) -> None:
-        """Lanza VS Code para editar el evento actual."""
-        self._btn_vscode.setEnabled(False)
-        self._btn_vscode.setText(self.tr("Editando en VS Code..."))
-        self._editor_worker = _EditorWorker(
-            self._code_edit.toPlainText(),
-            self._current_event,
+        # Se abre en el primer evento con código: una App que solo define
+        # on_transfer_validate se abría en on_app_start, vacío.
+        first = next(
+            (n for n in EVENT_NAMES if self._codes.get(n, "").strip()),
+            EVENT_NAMES[0],
         )
-        self._editor_worker.finished.connect(self._on_editor_done)
-        self._editor_worker.start()
+        self.select_event(first)
 
-    def _on_editor_done(self, result: str | None) -> None:
-        """Actualiza el código al volver de VS Code."""
-        self._btn_vscode.setEnabled(True)
-        self._btn_vscode.setText(self.tr("Abrir en VS Code"))
-        if result is not None:
-            self._code_edit.setPlainText(result)
+    def state_of(self, name: str) -> str:
+        """Estado del evento: sin script, ACTIVO o PAUSADO."""
+        if not self._codes.get(name, "").strip():
+            return STATE_EMPTY
+        return STATE_ACTIVE if self._enabled.get(name, True) else STATE_PAUSED
+
+    def _refresh_row(self, name: str) -> None:
+        row = self._rows.get(name)
+        if row is not None:
+            row.set_state(self.state_of(name))
+
+    def select_event(self, name: str) -> None:
+        """Selecciona ``name`` en la lista y carga su detalle."""
+        for i in range(self._event_list.count()):
+            item = self._event_list.item(i)
+            if item.data(Qt.ItemDataRole.UserRole) == name:
+                self._event_list.setCurrentItem(item)
+                return
+
+    def _on_current_item_changed(self, current: QListWidgetItem | None, _prev) -> None:
+        if current is None:
+            return
+        name = current.data(Qt.ItemDataRole.UserRole)
+        self._current_event = name
+        self._lbl_title.setText(EVENT_TITLES().get(name, name))
+        self._lbl_description.setText(EVENT_DESCRIPTIONS().get(name, ""))
+        self._lbl_canonical.setText(name)
+        self._show_code(name)
+
+    def _show_code(self, name: str) -> None:
+        code = self._codes.get(name, "")
+        self._code_edit.setPlainText(code)
+        self._code_edit.setPlaceholderText(self._placeholder_for(name))
+        self._chk_enabled.blockSignals(True)
+        self._chk_enabled.setChecked(self._enabled.get(name, True))
+        self._chk_enabled.blockSignals(False)
+        # Sin código no hay nada que activar o pausar
+        self._chk_enabled.setEnabled(bool(code.strip()))
+
+    def set_event_code(self, name: str, code: str) -> None:
+        """Cambia el código de un evento (lo que hace «Guardar» del diálogo)."""
+        self._codes[name] = code
+        self._enabled.setdefault(name, True)
+        self._refresh_row(name)
+        if name == self._current_event:
+            self._show_code(name)
+
+    def _on_enabled_toggled(self, checked: bool) -> None:
+        if not self._current_event:
+            return
+        self._enabled[self._current_event] = checked
+        self._refresh_row(self._current_event)
+
+    def _open_script_dialog(self) -> None:
+        name = self._current_event
+        if not name:
+            return
+        dialog = EventScriptDialog(
+            name,
+            EVENT_TITLES().get(name, name),
+            self._codes.get(name, ""),
+            self._placeholder_for(name),
+            parent=self,
+        )
+        if dialog.exec():
+            self.set_event_code(name, dialog.code())
 
     def apply_to(self, app: Application) -> None:
         """Guarda los eventos en el JSON de la aplicación."""
-        # Guardar el evento actual antes de serializar
-        if self._current_event:
-            code = self._code_edit.toPlainText()
-            if code.strip():
-                self._events[self._current_event] = code
-            else:
-                self._events.pop(self._current_event, None)
-
-        app.events_json = json.dumps(self._events)
+        events: dict[str, Any] = {}
+        # Las claves que esta pestaña no muestra se conservan tal cual
+        names = list(self._events) + [n for n in self._codes if n not in self._events]
+        for name in names:
+            previous = self._events.get(name)
+            code = self._codes.get(name, event_source(previous))
+            if not code.strip():
+                continue
+            events[name] = make_event_entry(
+                previous, code, self._enabled.get(name, True)
+            )
+        app.events_json = json.dumps(events)

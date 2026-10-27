@@ -38,6 +38,7 @@
 ## 🎯 ¿Qué es DocScan Studio?
 
 DocScan Studio es una aplicación de escritorio **multi-aplicación** para la captura por lotes, procesamiento e indexación de documentos. Cada "aplicación" es un perfil de procesamiento completamente independiente con su propio pipeline, scripts, campos y configuración de transferencia.
+En el launcher se pueden **agrupar** por cliente o departamento bajo cabeceras plegables, como en FlexibarNET 10.
 
 > **Inspirado en Flexibar.NET** — reimaginado desde cero con Python, IA generativa y un pipeline completamente composable.
 
@@ -87,7 +88,7 @@ DocScan Studio es una aplicación de escritorio **multi-aplicación** para la ca
 ### 📊 Indexación
 - Campos de lote (texto, fecha, número, booleano, desplegable)
 - Campos de documento/página con expresiones calculadas
-- Separación de documentos por código de barras (hoy por script; nativa en diseño)
+- Separación de documentos por código de barras, automática o manual (Ctrl+D)
 - Panel de verificación personalizable por script
 
 </td>
@@ -396,11 +397,16 @@ está en `docs-web/reference/scripting-api.md`. **No existe `batch.pages`.**
 def on_scan_complete(app, batch):
     log.info(f"Lote {batch.id} procesado: {batch.page_count} páginas")
 
-# on_transfer_validate — devuelve False (o lanza) para cancelar
-def on_transfer_validate(app, batch):
+# on_transfer_validate — devuelve False (o lanza) para cancelar. pages y
+# documents son opcionales: declara solo los que uses.
+def on_transfer_validate(app, batch, pages):
     if not batch.fields.get("numero_factura"):
         log.warning("Falta el número de factura")
         return False
+    sin_codigo = [p.page_index + 1 for p in pages if not p.is_separator]
+    if sin_codigo:
+        # ValueError = rechazo: el operador ve solo este mensaje
+        raise ValueError(f"La página {sin_codigo[0]} no tiene código")
     return True
 
 # on_transfer_page — tras copiar cada página en la transferencia simple
@@ -409,44 +415,47 @@ def on_transfer_page(app, batch, page_index, success):
         log.warning(f"La página {page_index} no se ha copiado")
 ```
 
-### Ejemplo: un PDF por documento (hojas separadoras)
+### Ejemplo: un fichero por documento (separadores)
 
-Un **documento** es el tramo desde una hoja separadora hasta la siguiente, como
-en FlexibarNET 10. Un ScriptStep marca la separadora y `on_transfer_advanced`
-agrupa los tramos:
+Un **documento** es el tramo de páginas que va de una página separadora a la
+siguiente, como en FlexibarNET 10. El separador es una propiedad de la
+**página** (`page.is_separator` y `page.separator_value`), no de un barcode.
+Las páginas anteriores al primer separador forman un documento implícito.
+
+No hace falta ningún script:
+
+1. En el paso **Barcode** se activa *Separador de documento* con su condición.
+   Por ejemplo, la regex `^(02|10)` con *Evaluar sobre NN + valor* marca como
+   separadora toda página con un Code128 o un Interleaved 2 of 5 (los números
+   de simbología son los del Flexibar legacy). Al reprocesar, la detección
+   manda sobre la marca manual.
+2. En **Transferencia**: modo `pdf`, `pdfa` o `tiff`, *Un fichero por
+   documento* y un patrón con `{separator}`, `{document_index}` o
+   `{document_id}`. La página separadora puede ir dentro del documento
+   (portada) o descartarse (hoja separadora).
+3. Con la colisión *Fusionar*, un documento cuyo nombre ya existe se añade al
+   final del fichero: las páginas con el mismo código acaban juntas aunque no
+   sean consecutivas o lleguen en otro lote.
+
+En el Workbench, **Ctrl+D** marca o desmarca la página como separador (con su
+valor, validado contra la regex manual del paso) y **Alt+↑ / Alt+↓** la
+mueven con su marca.
+
+Si el nombre necesita lógica (recortes, fechas de un campo de lote…), el
+**script de nombre** la pone:
 
 ```python
-def marcar_separador(app, batch, page, pipeline):
-    for bc in page.barcodes:
-        if bc.symbology == "Code39":          # condición de separador
-            bc.role = "separator"             # la miniatura se pinta como separadora
-            page.fields["separator"] = bc.value
-            return
+def file_name(page, document, batch, app):
+    from datetime import datetime
 
-
-def on_transfer_advanced(app, batch, pages, result):
-    from app.services.image_lib import ImageLib
-
-    destino = Path(app.transfer_config["destination"])
-    destino.mkdir(parents=True, exist_ok=True)
-
-    documentos = []
-    for p in pages:  # en orden de lote; las previas a la 1.ª separadora = documento implícito
-        valor = p.fields.get("separator")
-        if valor or not documentos:
-            documentos.append({"separator": valor or "", "paginas": []})
-        documentos[-1]["paginas"].append(p.image_path)
-
-    for i, doc in enumerate(documentos, start=1):
-        nombre = re.sub(r'[\\/:*?"<>|.]', "_", doc["separator"]) or f"documento_{i}"
-        ImageLib.merge_to_pdf(doc["paginas"], destino / f"{nombre}_{batch.id}.pdf")
-    return True
+    fecha = datetime.strptime(batch.fields["Data"], "%d/%m/%Y")
+    return f"{fecha:%Y%m%d}/{document.separator_value[-9:]}"  # sin extensión
 ```
 
-> `pipeline.set_metadata()` **no** sirve para esto: el contexto del pipeline es
-> nuevo en cada página. La separación nativa (separador como propiedad de la
-> página, transferencia por documento) está diseñada en
-> `docs/diseno_separadores_documento_2026-10-26.md`.
+Devolver `None` usa el patrón; si el script lanza, la transferencia no se hace
+y no queda nada escrito. Las Apps de archivo del Hospital Arnau de Vilanova
+portadas de FlexibarNET 10 son un ejemplo completo:
+`tools/arnau_apps.py` y `tools/seed_apps_arnau.py`.
 
 ---
 
@@ -636,7 +645,7 @@ pytest tests/ --cov=app --cov-report=html
 - [x] ~~📦 Instaladores Linux (AppImage) + Windows (Inno Setup)~~
 - [x] ~~🔄 Auto-actualización vía GitHub Releases~~
 - [x] ~~🌐 Documentación web (MkDocs, `docs-web/`)~~
-- [ ] 📄 Separación de documentos nativa (paridad FlexibarNET 10) — ver `docs/diseno_separadores_documento_2026-10-26.md`
+- [x] ~~📄 Separación de documentos nativa (paridad FlexibarNET 10)~~ (lote 6, `docs/diseno_separadores_documento_2026-10-26.md`)
 - [x] ~~🛡️ Transferencia que falla cerrada y rutas blindadas~~ (lote 3 de `docs/propuestas_desde_flexibarnet10_2026-10-26.md`)
 
 ---

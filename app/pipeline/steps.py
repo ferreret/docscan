@@ -55,8 +55,14 @@ class ImageOpStep(PipelineStep):
 class BarcodeStep(PipelineStep):
     """Lectura de códigos de barras.
 
-    Acumula resultados en ``page.barcodes`` sin semántica de rol.
-    La distinción separador/contenido la decide un ScriptStep posterior.
+    Acumula resultados en ``page.barcodes`` sin semántica de rol: los
+    barcodes no se marcan nunca como separador o contenido.
+
+    Puede declarar una condición de separador de documento (campos
+    ``separator_*``, mismas claves que FlexibarNET10). Si está activa, la
+    condición marca la **página** (``page.is_separator`` y
+    ``page.separator_value``) y es autoritativa: al reprocesar pisa la marca
+    manual. Un ScriptStep posterior puede sobrescribirla.
     """
 
     type: Literal["barcode"] = "barcode"
@@ -67,6 +73,19 @@ class BarcodeStep(PipelineStep):
     orientations: list[str] = field(default_factory=lambda: ["horizontal", "vertical"])
     quality_threshold: float = 0.0
     window: tuple[int, int, int, int] | None = None  # None = página completa
+
+    # Separador de documento (paridad FlexibarNET10)
+    separator_enabled: bool = False
+    separator_by: Literal["symbology", "regex", "fixed_value"] = "regex"
+    separator_symbology: str = ""
+    separator_regex: str = ""
+    separator_fixed_value: str = ""
+    # Evalúa la regex sobre "NN"+valor (NN = número legacy de la simbología)
+    separator_regex_include_symbology: bool = False
+    # Valida lo que teclea el operador al marcar a mano (no la detección)
+    separator_manual_regex: str = ""
+    # Valor con el que se pre-rellena la marca manual si la página no tiene código
+    separator_default_value: str = ""
 
 
 @dataclass

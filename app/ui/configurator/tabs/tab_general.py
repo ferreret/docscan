@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -39,15 +40,47 @@ from app.models.workbench_layout import (
 from app.services.scanner_service import get_available_backends
 from app.ui.icons import icon
 
+# (clave de la paleta, etiqueta) de los colores de icono, en el orden de
+# FlexibarNET10 (app_card.ACCENTS)
+_ACCENT_LABELS = (
+    ("blue", "Azul"),
+    ("green", "Verde"),
+    ("mauve", "Malva"),
+    ("peach", "Melocotón"),
+    ("yellow", "Amarillo"),
+    ("red", "Rojo"),
+    ("orange", "Naranja"),
+)
+
+
+def _accent_swatch(key: str) -> QIcon:
+    """Círculo del color de la paleta, para el desplegable."""
+    from app.ui.palette import color
+
+    pixmap = QPixmap(14, 14)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setBrush(QColor(color(key)))
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.drawEllipse(1, 1, 12, 12)
+    painter.end()
+    return QIcon(pixmap)
+
 
 class GeneralTab(QWidget):
     """Pestaña de configuración general de la aplicación."""
 
-    def __init__(self, app: Application, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        app: Application,
+        existing_groups: list[str] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
-        self._setup_ui(app)
+        self._setup_ui(app, existing_groups or [])
 
-    def _setup_ui(self, app: Application) -> None:
+    def _setup_ui(self, app: Application, existing_groups: list[str]) -> None:
         # Con scroll: la pestaña ya no cabe a la altura del diálogo y, sin él,
         # Qt aplastaba los campos (Nombre, Descripción) y la lista de pestañas.
         outer = QVBoxLayout(self)
@@ -75,6 +108,23 @@ class GeneralTab(QWidget):
         self._desc_edit.setMaximumHeight(80)
         main_form.addRow(self.tr("Descripción:"), self._desc_edit)
 
+        # Grupo del launcher (FlexibarNET10 «Grupo (Launcher)»): combo
+        # editable con los grupos en uso; escribir uno nuevo lo crea.
+        self._group_combo = QComboBox()
+        self._group_combo.setEditable(True)
+        self._group_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self._group_combo.addItems(existing_groups)
+        self._group_combo.setCurrentIndex(-1)
+        self._group_combo.setEditText(getattr(app, "group", "") or "")
+        self._group_combo.lineEdit().setPlaceholderText(self.tr("Sin grupo"))
+        self._group_combo.setToolTip(
+            self.tr(
+                "Agrupa la aplicación bajo una cabecera en el launcher.\n"
+                "Vacío = sin grupo."
+            )
+        )
+        main_form.addRow(self.tr("Grupo (launcher):"), self._group_combo)
+
         self._active_check = QCheckBox(self.tr("Activa"))
         self._active_check.setChecked(app.active)
         main_form.addRow("", self._active_check)
@@ -83,10 +133,41 @@ class GeneralTab(QWidget):
         self._scanner_combo.addItems(
             get_available_backends() or ["sane", "twain", "wia"]
         )
+        # Un backend de otra plataforma (twain en una App preparada para
+        # Windows) se conserva: si no, guardar en Linux lo cambiaba a sane.
+        if (
+            app.scanner_backend
+            and self._scanner_combo.findText(app.scanner_backend) < 0
+        ):
+            self._scanner_combo.addItem(app.scanner_backend)
         idx = self._scanner_combo.findText(app.scanner_backend)
         if idx >= 0:
             self._scanner_combo.setCurrentIndex(idx)
         main_form.addRow(self.tr("Backend escáner:"), self._scanner_combo)
+
+        self._show_scanner_ui = QCheckBox(
+            self.tr("Mostrar el diálogo del escáner al capturar")
+        )
+        self._show_scanner_ui.setToolTip(
+            self.tr(
+                "Valor por defecto para los equipos donde el operador aún no lo "
+                "ha cambiado (en ⚙, junto a Escanear)."
+            )
+        )
+        self._show_scanner_ui.setChecked(bool(getattr(app, "show_scanner_ui", False)))
+        main_form.addRow("", self._show_scanner_ui)
+
+        self._accent_combo = QComboBox()
+        self._accent_combo.addItem(self.tr("Automático (según el nombre)"), "")
+        for key, label in _ACCENT_LABELS:
+            self._accent_combo.addItem(_accent_swatch(key), self.tr(label), key)
+        self._accent_combo.setCurrentIndex(
+            max(self._accent_combo.findData(getattr(app, "icon_accent", "") or ""), 0)
+        )
+        self._accent_combo.setToolTip(
+            self.tr("Color del icono de la aplicación en el launcher")
+        )
+        main_form.addRow(self.tr("Color del icono:"), self._accent_combo)
 
         self._auto_transfer = QCheckBox(self.tr("Transferir automáticamente"))
         self._auto_transfer.setChecked(app.auto_transfer)
@@ -338,8 +419,11 @@ class GeneralTab(QWidget):
         """Aplica los valores del formulario al objeto Application."""
         app.name = self._name_edit.text().strip()
         app.description = self._desc_edit.toPlainText().strip()
+        app.group = self._group_combo.currentText().strip()
         app.active = self._active_check.isChecked()
         app.scanner_backend = self._scanner_combo.currentText()
+        app.show_scanner_ui = self._show_scanner_ui.isChecked()
+        app.icon_accent = self._accent_combo.currentData() or ""
         app.auto_transfer = self._auto_transfer.isChecked()
         app.close_after_transfer = self._close_after.isChecked()
         app.hide_add_barcode_button = self._hide_add_barcode.isChecked()

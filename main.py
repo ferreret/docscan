@@ -85,6 +85,7 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
         BatchContext,
         PageContext,
     )
+    from app.pipeline.page_context import persist_separator, separator_state
 
     # Cargar aplicación
     with session_factory() as session:
@@ -157,7 +158,11 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
 
         t_start = time.monotonic()
         for page_db, image in zip(pages_db, images):
-            page_ctx = PageContext(page_index=page_db.page_index, image=image)
+            page_ctx = PageContext(
+                page_index=page_db.page_index,
+                image=image,
+                **separator_state(page_db),
+            )
             try:
                 executor.execute(page=page_ctx, batch=batch_ctx, app=app_ctx)
             except Exception as exc:
@@ -166,6 +171,7 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
             page_db.ocr_text = page_ctx.ocr_text
             page_db.index_fields_json = json.dumps(page_ctx.fields)
             page_db.needs_review = page_ctx.flags.needs_review
+            persist_separator(page_ctx, page_db)
             page_db.processing_errors_json = json.dumps(
                 page_ctx.flags.processing_errors,
             )
@@ -183,21 +189,22 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
         # Transferir
         config = parse_transfer_config(app_record.transfer_json)
         if config.destination:
-            transfer_svc = TransferService()
-            pages_data = [
-                {
-                    "image_path": p.image_path,
-                    "page_index": p.page_index,
-                    "fields": json.loads(p.index_fields_json),
-                    "ocr_text": p.ocr_text,
-                }
-                for p in pages_db
-            ]
-            result = transfer_svc.transfer(
-                pages_data,
-                config,
+            from app.services.transfer_flow import (
+                compile_transfer_scripts,
+                execute_transfer,
+                transfer_page_dict,
+            )
+
+            compile_transfer_scripts(script_engine, config)
+            pages_data = [transfer_page_dict(p) for p in pages_db if not p.is_excluded]
+            result = execute_transfer(
+                transfer_service=TransferService(),
+                config=config,
+                pages=pages_data,
                 batch_fields=batch_svc.get_fields(batch.id),
                 batch_id=batch.id,
+                contexts={"app": app_ctx, "batch": batch_ctx},
+                name_engine=script_engine,
             )
             if result.success:
                 batch_svc.transition_state(batch.id, "exported")
@@ -216,6 +223,7 @@ def _run_init_global(session_factory) -> None:
     """Busca y ejecuta init_global en las aplicaciones configuradas."""
     _log = logging.getLogger(__name__)
     from app.db.repositories.application_repo import ApplicationRepository
+    from app.services.event_config import active_event_sources
     from app.services.script_engine import ScriptEngine
 
     with session_factory() as session:
@@ -224,10 +232,7 @@ def _run_init_global(session_factory) -> None:
         for app_record in apps:
             if not app_record.active:
                 continue
-            try:
-                events = json.loads(app_record.events_json or "{}")
-            except Exception:
-                continue
+            events = active_event_sources(app_record.events_json)
             source = events.get("init_global", "")
             if source and source.strip():
                 engine = ScriptEngine()

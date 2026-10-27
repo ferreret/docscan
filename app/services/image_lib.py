@@ -25,6 +25,52 @@ _TIFF_COMPRESSION = {
     "group4": "group4",
 }
 
+# Compresiones que solo admiten imágenes de 1 bit. Con otra profundidad,
+# libtiff no lanza una excepción: tumba el proceso (segfault).
+_BILEVEL_ONLY = frozenset({"group4"})
+# Lo que se usa en su lugar para las páginas en gris o en color
+_NON_BILEVEL_FALLBACK = "lzw"
+
+
+_BILEVEL_VALUES = {0, 255, (0, 0, 0), (255, 255, 255)}
+
+
+def _is_bilevel(pil_img: Image.Image) -> bool:
+    """¿La imagen es blanco y negro puro?
+
+    Cuenta el contenido, no el modo: una página B/N guardada en gris o en RGB
+    (solo negro y blanco) también lo es.
+    """
+    if pil_img.mode == "1":
+        return True
+    if pil_img.mode not in ("L", "RGB"):
+        return False
+    colors = pil_img.getcolors(maxcolors=2)
+    return colors is not None and all(value in _BILEVEL_VALUES for _, value in colors)
+
+
+def _plan_tiff(
+    pil_images: list[Image.Image], compression: str
+) -> tuple[list[Image.Image], str]:
+    """Imágenes y compresión efectivas para guardar un TIFF.
+
+    Group4 es solo para blanco y negro, como el ExportConfig de FlexibarNET10
+    (B/N en CCITT G4, gris y color en LZW): si todas las páginas son B/N se
+    pasan a 1 bit y van en Group4; si alguna es gris o color, el fichero va
+    en LZW y nada se binariza.
+    """
+    if compression not in _BILEVEL_ONLY:
+        return pil_images, compression
+    if all(_is_bilevel(img) for img in pil_images):
+        return [
+            img
+            if img.mode == "1"
+            else img.convert("L").convert("1", dither=Image.Dither.NONE)
+            for img in pil_images
+        ], compression
+    log.debug("Hay páginas en gris o color: TIFF en LZW en lugar de Group4")
+    return pil_images, _NON_BILEVEL_FALLBACK
+
 
 class ImageLib:
     """Librería de tratamiento de imágenes con métodos estáticos.
@@ -108,6 +154,7 @@ class ImageLib:
             pil_img.save(str(path), "JPEG", **save_kwargs)
 
         elif suffix in (".tiff", ".tif"):
+            [pil_img], compression = _plan_tiff([pil_img], compression)
             tiff_comp = _TIFF_COMPRESSION.get(compression)
             if tiff_comp:
                 save_kwargs["compression"] = tiff_comp
@@ -249,6 +296,7 @@ class ImageLib:
 
         if not pil_images:
             raise ValueError("No hay imágenes para combinar")
+        pil_images, compression = _plan_tiff(pil_images, compression)
 
         save_kwargs: dict = {}
         tiff_comp = _TIFF_COMPRESSION.get(compression)
@@ -267,7 +315,9 @@ class ImageLib:
             **save_kwargs,
         )
 
-        log.info("TIFF generado: %s (%d páginas)", output_path, len(images))
+        # DEBUG: la transferencia escribe en un temporal y registra ella el
+        # nombre final; en INFO el log enseñaba ".nombre.tif.tmp".
+        log.debug("TIFF generado: %s (%d páginas)", output_path, len(images))
         return output_path
 
     @staticmethod

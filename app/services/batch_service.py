@@ -106,6 +106,10 @@ class BatchService:
         batch_dir.mkdir(parents=True, exist_ok=True)
 
         existing_count = self._page_repo.count_by_batch(batch_id)
+        # Tras borrar una página intermedia, el recuento repite el índice de
+        # la última: la página nueva compartía índice con ella y su fichero
+        # page_NNNN la sobrescribía.
+        first_index = self._page_repo.next_index(batch_id)
         pages: list[Page] = []
 
         if image_config:
@@ -116,9 +120,14 @@ class BatchService:
             ext = ".jpg"
 
         for i, img in enumerate(images):
-            page_index = existing_count + i
-            filename = f"page_{page_index:04d}{ext}"
-            filepath = batch_dir / filename
+            page_index = first_index + i
+            filepath = batch_dir / f"page_{page_index:04d}{ext}"
+            # Reordenar cambia índices pero no nombres de fichero: nunca se
+            # reutiliza uno que ya existe.
+            suffix = 1
+            while filepath.exists():
+                filepath = batch_dir / f"page_{page_index:04d}_{suffix}{ext}"
+                suffix += 1
 
             if image_config:
                 self._save_with_config(img, filepath, image_config)
@@ -184,7 +193,15 @@ class BatchService:
         if page is None:
             return
         image_path = page.image_path
+        batch_id = page.batch_id
         self._page_repo.delete(page_id)
+        self._session.flush()
+        # Índices contiguos: el Workbench usa la posición en la lista como
+        # índice de página, y un hueco hacía que el resultado del pipeline o
+        # la marca de separador se guardaran en otra página.
+        for new_index, remaining in enumerate(self._page_repo.get_by_batch(batch_id)):
+            remaining.page_index = new_index
+        self._session.flush()
         if image_path:
             self._delete_after_commit([Path(image_path)])
 

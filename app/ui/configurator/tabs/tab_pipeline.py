@@ -79,6 +79,13 @@ def _step_display_text(step: PipelineStep) -> str:
     elif isinstance(step, BarcodeStep):
         symb = ", ".join(step.symbologies[:3]) or _tr("todas")
         detail = f"{step.engine} · {symb}"
+        if step.separator_enabled:
+            condition = {
+                "regex": step.separator_regex,
+                "symbology": step.separator_symbology,
+                "fixed_value": step.separator_fixed_value,
+            }.get(step.separator_by, "")
+            detail += " · " + _tr("separador") + (f" {condition}" if condition else "")
     elif isinstance(step, OcrStep):
         langs = ", ".join(step.languages)
         detail = f"{step.engine} [{langs}]"

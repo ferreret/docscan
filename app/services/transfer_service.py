@@ -14,11 +14,14 @@ import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any
 
 import cv2
 import numpy as np
 import pymupdf
+
+from app.models.document import LogicalDocument, split_documents
 
 log = logging.getLogger(__name__)
 
@@ -88,9 +91,20 @@ class TransferConfig:
     """
 
     standard_enabled: bool = True  # False = solo on_transfer_advanced
-    mode: str = "folder"  # "folder", "pdf", "pdfa", "csv"
+    # "folder" (un fichero por página), "pdf", "pdfa", "tiff" (multipágina), "csv"
+    mode: str = "folder"
     destination: str = ""  # Ruta destino o patrón
     filename_pattern: str = "{batch_id}_{page_index:04d}"
+    # Nombre del fichero: "pattern" (filename_pattern) o "script"
+    # (file_name_script). Mismas claves que FlexibarNET10.
+    name_mode: str = "pattern"
+    file_name_script: str = ""
+    # Multipágina (pdf, pdfa, tiff): "batch" = un fichero por lote,
+    # "document" = uno por documento (tramo entre separadores).
+    grouping: str = "batch"
+    # La página separadora es la portada del documento ("include") o una
+    # hoja separadora que no se transfiere ("exclude").
+    separator_page: str = "include"
     create_subdirs: bool = True
     collision_policy: str = "suffix"  # "suffix", "overwrite", "merge"
     pdf_dpi: int = 200
@@ -116,9 +130,73 @@ def parse_transfer_config(json_str: str) -> TransferConfig:
     if not json_str or json_str == "{}":
         return TransferConfig()
     data = json.loads(json_str)
+    # Como FlexibarNET10: una config sin name_mode pero con script de nombre
+    # quería usar el script.
+    if "name_mode" not in data and str(data.get("file_name_script", "")).strip():
+        data["name_mode"] = "script"
     return TransferConfig(
         **{k: v for k, v in data.items() if k in TransferConfig.__dataclass_fields__}
     )
+
+
+MULTIPAGE_MODES = ("pdf", "pdfa", "tiff")
+
+# Resuelve el nombre de un fichero por script: recibe la página y su
+# documento y devuelve la subruta sin extensión, o None/"" para usar el patrón.
+NameResolver = Callable[[dict[str, Any], LogicalDocument | None], str | None]
+
+
+class TransferAbortedError(Exception):
+    """La transferencia no puede empezar: no se ha escrito nada."""
+
+
+def _uses_token(pattern: str, token: str) -> bool:
+    return "{" + token + "}" in pattern or "{" + token + ":" in pattern
+
+
+def missing_images(pages: list[dict[str, Any]]) -> list[int]:
+    """Índices de las páginas cuya imagen no está en disco."""
+    return [
+        page.get("page_index", 0)
+        for page in pages
+        if not Path(page.get("image_path") or "").is_file()
+    ]
+
+
+def document_problems(
+    pages: list[dict[str, Any]], config: TransferConfig
+) -> str | None:
+    """Comprueba los documentos del lote antes de transferir.
+
+    Returns:
+        None si se puede transferir, o el motivo por el que no.
+    """
+    documents = split_documents(pages)
+    exclude = config.separator_page == "exclude"
+    has_separators = any(not d.is_implicit for d in documents)
+
+    if exclude and has_separators and documents and documents[0].is_implicit:
+        return (
+            f"Hay {len(documents[0].pages)} página(s) antes de la primera hoja "
+            "separadora: no pertenecen a ningún documento"
+        )
+    if exclude:
+        for doc in documents:
+            if not doc.is_implicit and len(doc.pages) == 1:
+                return (
+                    f"El documento {doc.index} ({doc.separator_value or 'sin valor'}) "
+                    "solo tiene la hoja separadora: quedaría vacío"
+                )
+    if config.name_mode != "script" and _uses_token(
+        config.filename_pattern, "separator"
+    ):
+        for doc in documents:
+            if not doc.separator_value:
+                return (
+                    f"El documento {doc.index} no tiene valor de separador y el "
+                    "nombre del fichero usa {separator}: los ficheros se pisarían"
+                )
+    return None
 
 
 @dataclass
@@ -141,38 +219,152 @@ class TransferService:
         batch_fields: dict[str, str] | None = None,
         batch_id: int | None = None,
         on_page_callback: Any = None,
+        name_resolver: NameResolver | None = None,
     ) -> TransferResult:
         """Ejecuta la transferencia de un lote.
 
+        Antes de escribir nada se comprueban los documentos y se calculan
+        todos los nombres: si falla cualquiera (por ejemplo, el script de
+        nombre lanza), la transferencia no empieza y no queda salida a medias.
+
         Args:
             pages: Lista de dicts con keys: image_path, page_index,
-                   fields, ocr_text.
+                   fields, ocr_text, is_separator, separator_value.
             config: Configuración de transferencia.
             batch_fields: Campos del lote (para interpolación).
             batch_id: ID del lote (para nombres de fichero).
+            on_page_callback: ``(page_index, success)`` por página.
+            name_resolver: Script de nombre ya preparado (``name_mode``
+                ``"script"``).
 
         Returns:
             Resultado de la transferencia.
         """
         batch_fields = batch_fields or {}
 
-        if config.mode == "folder":
-            return self._transfer_folder(
-                pages,
-                config,
-                batch_fields,
-                batch_id,
-                on_page_callback,
-            )
-        elif config.mode in ("pdf", "pdfa"):
-            return self._transfer_pdf(pages, config, batch_fields, batch_id)
-        elif config.mode == "csv":
+        if config.mode in ("folder", *MULTIPAGE_MODES):
+            if not pages:
+                return TransferResult(
+                    success=False, errors=["No hay páginas que transferir"]
+                )
+            problem = document_problems(pages, config)
+            if problem:
+                return TransferResult(success=False, errors=[problem])
+            # Una imagen que falta se detecta antes de escribir nada: un
+            # fallo a mitad dejaría salida parcial y, con «Fusionar», el
+            # reintento anexaría otra vez las páginas ya archivadas.
+            missing = missing_images(pages)
+            if missing:
+                return TransferResult(
+                    success=False,
+                    errors=[
+                        "Faltan las imágenes de las páginas "
+                        + ", ".join(str(i + 1) for i in missing[:10])
+                        + ("…" if len(missing) > 10 else "")
+                    ],
+                )
+
+        try:
+            if config.mode == "folder":
+                return self._transfer_folder(
+                    pages,
+                    config,
+                    batch_fields,
+                    batch_id,
+                    on_page_callback,
+                    name_resolver,
+                )
+            if config.mode in MULTIPAGE_MODES:
+                return self._transfer_multipage(
+                    pages,
+                    config,
+                    batch_fields,
+                    batch_id,
+                    on_page_callback,
+                    name_resolver,
+                )
+        except TransferAbortedError as e:
+            return TransferResult(success=False, errors=[str(e)])
+
+        if config.mode == "csv":
             return self._transfer_csv(pages, config, batch_fields, batch_id)
-        else:
-            return TransferResult(
-                success=False,
-                errors=[f"Modo de transferencia no soportado: '{config.mode}'"],
+        return TransferResult(
+            success=False,
+            errors=[f"Modo de transferencia no soportado: '{config.mode}'"],
+        )
+
+    # ------------------------------------------------------------------
+    # Documentos y nombres
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _document_of(
+        pages: list[dict[str, Any]],
+    ) -> tuple[list[LogicalDocument], dict[int, LogicalDocument]]:
+        """Documentos del lote y mapa ``id(página) -> documento``."""
+        documents = split_documents(pages)
+        by_page = {id(page): doc for doc in documents for page in doc.pages}
+        return documents, by_page
+
+    @staticmethod
+    def _output_pages(
+        document: LogicalDocument,
+        config: TransferConfig,
+    ) -> list[dict[str, Any]]:
+        """Páginas del documento que se transfieren."""
+        if config.separator_page == "exclude" and not document.is_implicit:
+            return document.pages[1:]
+        return list(document.pages)
+
+    def _resolve_name(
+        self,
+        config: TransferConfig,
+        page: dict[str, Any],
+        document: LogicalDocument | None,
+        batch_fields: dict[str, str],
+        batch_id: int | None,
+        name_resolver: NameResolver | None,
+    ) -> str:
+        """Subruta y nombre (sin extensión) de un fichero de salida.
+
+        Con ``name_mode="script"`` manda el script; si devuelve vacío o None
+        se usa el patrón, como en FlexibarNET10. A diferencia de Flexibar,
+        si el script **lanza** la transferencia no se hace: un error de
+        script nunca se da por bueno.
+
+        Raises:
+            TransferAbortedError: Si el script de nombre falla.
+        """
+        if config.name_mode == "script" and name_resolver is not None:
+            try:
+                relative = name_resolver(page, document)
+            except Exception as e:
+                raise TransferAbortedError(
+                    f"Ha fallado el script de nombre en la página "
+                    f"{page.get('page_index', 0) + 1}: {e}"
+                ) from e
+            if isinstance(relative, str) and relative.strip():
+                return self._sanitize_relative(relative)
+            log.warning(
+                "El script de nombre no devolvió nada para la página %s: "
+                "se usa el patrón",
+                page.get("page_index"),
             )
+        return self._build_filename(
+            config.filename_pattern,
+            page,
+            batch_fields,
+            batch_id,
+            document,
+        )
+
+    @staticmethod
+    def _sanitize_relative(relative: str) -> str:
+        """Sanea cada segmento de una subruta (las "/" crean subcarpetas)."""
+        segments = [
+            sanitize_segment(part) for part in relative.replace("\\", "/").split("/")
+        ]
+        return "/".join(part for part in segments if part)
 
     # ------------------------------------------------------------------
     # Transferencia a carpeta
@@ -185,17 +377,40 @@ class TransferService:
         batch_fields: dict[str, str],
         batch_id: int | None,
         on_page_callback: Any = None,
+        name_resolver: NameResolver | None = None,
     ) -> TransferResult:
-        """Copia imágenes a una carpeta destino."""
+        """Copia imágenes a una carpeta destino (un fichero por página)."""
         dest = Path(config.destination)
         if config.create_subdirs and batch_id is not None:
             dest = dest / f"batch_{batch_id}"
-        dest.mkdir(parents=True, exist_ok=True)
 
-        result = TransferResult(output_path=str(dest))
+        documents, by_page = self._document_of(pages)
         needs_conversion = bool(config.output_format)
 
-        for page in pages:
+        # Nombres primero: si alguno falla no se escribe nada.
+        planned: list[tuple[dict[str, Any], str]] = []
+        for document in documents:
+            for page in self._output_pages(document, config):
+                name = self._resolve_name(
+                    config,
+                    page,
+                    by_page.get(id(page)),
+                    batch_fields,
+                    batch_id,
+                    name_resolver,
+                )
+                planned.append((page, name))
+
+        for page, name in planned:
+            try:
+                safe_join(dest, name)
+            except UnsafePathError as e:
+                raise TransferAbortedError(str(e)) from e
+
+        dest.mkdir(parents=True, exist_ok=True)
+        result = TransferResult(output_path=str(dest))
+
+        for page, name in planned:
             try:
                 src = Path(page["image_path"])
                 if not src.exists():
@@ -208,16 +423,7 @@ class TransferService:
                 else:
                     out_ext = src.suffix
 
-                filename = (
-                    self._build_filename(
-                        config.filename_pattern,
-                        page,
-                        batch_fields,
-                        batch_id,
-                    )
-                    + out_ext
-                )
-                dst = safe_join(dest, filename)
+                dst = safe_join(dest, name + out_ext)
                 dst.parent.mkdir(parents=True, exist_ok=True)
 
                 dst = self._resolve_collision(
@@ -235,7 +441,7 @@ class TransferService:
 
                 result.files_transferred += 1
 
-                if config.include_metadata:
+                if config.include_metadata and dst is not None:
                     self._write_metadata(dst, page)
 
                 if on_page_callback:
@@ -252,7 +458,7 @@ class TransferService:
         log.info(
             "Transferencia carpeta: %d/%d ficheros a '%s'",
             result.files_transferred,
-            len(pages),
+            len(planned),
             dest,
         )
         return result
@@ -305,93 +511,167 @@ class TransferService:
         )
 
     # ------------------------------------------------------------------
-    # Transferencia a PDF
+    # Transferencia multipágina (PDF, PDF/A, TIFF)
     # ------------------------------------------------------------------
 
-    def _transfer_pdf(
+    def _transfer_multipage(
         self,
         pages: list[dict[str, Any]],
         config: TransferConfig,
         batch_fields: dict[str, str],
         batch_id: int | None,
+        on_page_callback: Any = None,
+        name_resolver: NameResolver | None = None,
     ) -> TransferResult:
-        """Genera un PDF con todas las páginas del lote."""
+        """Un fichero multipágina por lote o por documento.
+
+        Con la colisión ``merge`` el fichero existente crece por el final:
+        las páginas no consecutivas con el mismo nombre acaban juntas
+        (AppendToEnd de FlexibarNET10).
+        """
         dest = Path(config.destination)
-        dest.mkdir(parents=True, exist_ok=True)
+        ext = ".tif" if config.mode == "tiff" else ".pdf"
+        documents, _ = self._document_of(pages)
 
-        filename = (
-            self._build_filename(
-                config.filename_pattern,
-                pages[0] if pages else {},
-                batch_fields,
-                batch_id,
+        # Unidades: (páginas a escribir, documento que da el nombre)
+        units: list[tuple[list[dict[str, Any]], LogicalDocument | None]] = []
+        if config.grouping == "document":
+            for document in documents:
+                units.append((self._output_pages(document, config), document))
+        else:
+            out = [p for d in documents for p in self._output_pages(d, config)]
+            units.append((out, documents[0] if documents else None))
+        units = [(u, d) for u, d in units if u]
+
+        # Nombres primero: si alguno falla no se escribe nada.
+        planned: list[tuple[list[dict[str, Any]], Path]] = []
+        for unit_pages, document in units:
+            first = document.pages[0] if document else unit_pages[0]
+            name = self._resolve_name(
+                config, first, document, batch_fields, batch_id, name_resolver
             )
-            + ".pdf"
+            try:
+                planned.append((unit_pages, safe_join(dest, name + ext)))
+            except UnsafePathError as e:
+                raise TransferAbortedError(str(e)) from e
+
+        dest.mkdir(parents=True, exist_ok=True)
+        result = TransferResult(
+            output_path=str(planned[0][1] if len(planned) == 1 else dest)
         )
+
+        for unit_pages, path in planned:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                append = False
+                if path.exists():
+                    if config.collision_policy == "merge":
+                        append = True
+                    elif config.collision_policy != "overwrite":
+                        path = self._next_free_path(path)
+                result.files_transferred += self._write_multipage(
+                    unit_pages, path, config, append
+                )
+                ok = True
+            except Exception as e:
+                ok = False
+                result.errors.append(f"Error generando '{path.name}': {e}")
+            if on_page_callback:
+                for page in unit_pages:
+                    on_page_callback(page.get("page_index", 0), ok)
+
+        result.success = len(result.errors) == 0
+        log.info(
+            "Transferencia %s: %d páginas en %d fichero(s) → '%s'",
+            config.mode,
+            result.files_transferred,
+            len(planned),
+            dest,
+        )
+        return result
+
+    def _write_multipage(
+        self,
+        unit_pages: list[dict[str, Any]],
+        path: Path,
+        config: TransferConfig,
+        append: bool,
+    ) -> int:
+        """Escribe (o amplía) un PDF o TIFF multipágina de forma atómica.
+
+        Se escribe en un temporal junto al destino y se renombra: un fallo a
+        mitad no deja un fichero corrupto ni pierde lo que ya tenía.
+
+        Returns:
+            Número de páginas escritas.
+        """
+        from app.services.image_lib import ImageLib
+
+        images: list[np.ndarray] = []
+        source_dpi = 0
+        for page in unit_pages:
+            src = Path(page["image_path"])
+            loaded = ImageLib.load(src) if src.exists() else []
+            if not loaded:
+                # Nunca un fichero con menos páginas de las debidas.
+                raise ValueError(f"no se pudo leer la imagen {src.name}")
+            if not source_dpi:
+                source_dpi = int(ImageLib.get_dpi(src)[0] or 0)
+            images.append(self._apply_output_transforms(loaded[0], src, config))
+
+        tmp = path.with_name(f".{path.name}.tmp")
         try:
-            output_path = safe_join(dest, filename)
-        except UnsafePathError as e:
-            return TransferResult(success=False, errors=[str(e)])
+            if config.mode == "tiff":
+                existing = ImageLib.load(str(path)) if append else []
+                ImageLib.merge_to_tiff(
+                    existing + images,
+                    tmp,
+                    compression=config.output_tiff_compression,
+                    dpi=config.output_dpi or source_dpi or None,
+                )
+            else:
+                self._write_pdf(images, path, tmp, config, append)
+            tmp.replace(path)
+        finally:
+            tmp.unlink(missing_ok=True)
+        log.info(
+            "%s: %d página(s) %s",
+            path,
+            len(images),
+            "añadidas al final" if append else "escritas",
+        )
+        return len(images)
 
-        result = TransferResult(output_path=str(output_path))
-        doc = pymupdf.open()
-
+    def _write_pdf(
+        self,
+        images: list[np.ndarray],
+        path: Path,
+        tmp: Path,
+        config: TransferConfig,
+        append: bool,
+    ) -> None:
+        """Escribe las imágenes en un PDF (ampliando ``path`` si ``append``)."""
+        doc = pymupdf.open(str(path)) if append else pymupdf.open()
         try:
-            for page_data in pages:
-                src = Path(page_data["image_path"])
-                if not src.exists():
-                    result.errors.append(f"Imagen no encontrada: {src}")
-                    continue
-
-                img = cv2.imread(str(src), cv2.IMREAD_COLOR)
-                if img is None:
-                    result.errors.append(f"No se pudo leer: {src}")
-                    continue
-
-                # Convertir BGR a RGB para pymupdf
-                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                h, w = img_rgb.shape[:2]
-
-                # Calcular tamaño de página en puntos (72 DPI base)
+            for img in images:
+                h, w = img.shape[:2]
                 page_w = w * 72.0 / config.pdf_dpi
                 page_h = h * 72.0 / config.pdf_dpi
-
                 pdf_page = doc.new_page(width=page_w, height=page_h)
-
-                # Insertar imagen
-                encode_params = [
-                    cv2.IMWRITE_JPEG_QUALITY,
-                    config.pdf_jpeg_quality,
-                ]
                 img_bytes = cv2.imencode(
                     ".jpg",
                     img,
-                    encode_params,
+                    [cv2.IMWRITE_JPEG_QUALITY, config.pdf_jpeg_quality],
                 )[1].tobytes()
                 pdf_page.insert_image(
                     pymupdf.Rect(0, 0, page_w, page_h),
                     stream=img_bytes,
                 )
-                result.files_transferred += 1
-
             if config.mode == "pdfa":
                 doc.scrub()
-
-            doc.save(str(output_path))
-            result.success = len(result.errors) == 0
-
-            log.info(
-                "Transferencia PDF: %d páginas → '%s'",
-                result.files_transferred,
-                output_path,
-            )
-        except Exception as e:
-            result.success = False
-            result.errors.append(f"Error generando PDF: {e}")
+            doc.save(str(tmp))
         finally:
             doc.close()
-
-        return result
 
     # ------------------------------------------------------------------
     # Transferencia CSV
@@ -586,24 +866,36 @@ class TransferService:
         page: dict[str, Any],
         batch_fields: dict[str, str],
         batch_id: int | None,
+        document: LogicalDocument | None = None,
     ) -> str:
         """Construye un nombre de fichero interpolando variables.
 
         Las claves de batch_fields se normalizan: espacios → guiones bajos,
         para que "fecha lote" sea accesible como {fecha_lote}.
+
+        Los tokens de documento (``{separator}``, ``{document_index}`` y su
+        alias ``{document_id}``) se resuelven sobre el documento de la
+        página, también en las páginas que no son la separadora. Flexibar
+        dejaba ``{separator}`` vacío en ellas, en contra de su manual.
         """
         # Normalizar claves: "fecha lote" → "fecha_lote"
         normalized = {
             k.replace(" ", "_"): sanitize_value(v) for k, v in batch_fields.items()
         }
         fallback = f"batch_{batch_id or 0}_page_{page.get('page_index', 0):04d}"
+        # Las variables del sistema ganan a un campo de lote con el mismo
+        # nombre (antes, un campo «batch_id» hacía fallar la transferencia).
+        values = {
+            **normalized,
+            "batch_id": batch_id or 0,
+            "page_index": page.get("page_index", 0),
+            "first_barcode": sanitize_value(page.get("first_barcode", "")),
+            "separator": sanitize_value(document.separator_value if document else ""),
+            "document_index": document.index if document else 0,
+            "document_id": document.index if document else 0,
+        }
         try:
-            result = pattern.format(
-                batch_id=batch_id or 0,
-                page_index=page.get("page_index", 0),
-                first_barcode=sanitize_value(page.get("first_barcode", "")),
-                **normalized,
-            )
+            result = pattern.format_map(values)
         except (KeyError, IndexError, ValueError) as e:
             log.warning(
                 "Error interpolando patrón '%s': %s. "

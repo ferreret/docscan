@@ -34,6 +34,15 @@ class ApplicationRepository:
         )
         return list(self._session.scalars(stmt))
 
+    def get_groups(self) -> list[str]:
+        """Grupos del launcher en uso, sin vacíos y en orden alfabético.
+
+        No hay entidad grupo (paridad FlexibarNET10): un grupo existe
+        mientras alguna aplicación lo tenga asignado.
+        """
+        stmt = select(Application.group).where(Application.group != "").distinct()
+        return sorted(set(self._session.scalars(stmt)), key=str.casefold)
+
     def get_by_id(self, app_id: int) -> Application | None:
         return self._session.get(Application, app_id)
 

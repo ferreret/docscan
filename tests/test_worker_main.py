@@ -1108,7 +1108,10 @@ class TestTransferBatch:
         )
         self._run(active_app, ctx, {"on_transfer_validate": "on_transfer_validate"})
         ctx[1].transfer.assert_not_called()
-        ctx[0].transition_state.assert_not_called()
+        # Sin operador delante, el bloqueo deja el lote en error y se notifica
+        ctx[0].transition_state.assert_called_once_with(1, "error_export")
+        ctx[2].notify_error.assert_called_once()
+        assert "falta el NHC" in ctx[2].notify_error.call_args.kwargs["error"]
 
     def test_avanzado_que_lanza_no_marca_el_lote(
         self, active_app: Application, tmp_path: Path

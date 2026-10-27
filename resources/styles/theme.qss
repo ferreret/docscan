@@ -171,9 +171,18 @@ QListWidget::item {
     padding: 0px;
 }
 
+/* El color del texto se fija: sin él, Qt usaba el de selección del sistema
+   (blanco) y en el tema claro la fila elegida no se leía. */
 QListWidget::item:selected {
     background-color: $selection_bg;
+    color: $text;
     border: 1px solid $accent;
+}
+
+/* Filas con casilla: margen interior para que la casilla no monte sobre el
+   borde redondeado de la fila. */
+#workbenchLayoutList::item {
+    padding: 4px 8px;
 }
 
 QListWidget::item:hover:!selected {
@@ -240,6 +249,14 @@ QStatusBar {
     padding: 2px 8px;
 }
 
+/* La esquina de redimensionar heredaba el fondo de la ventana y dejaba un
+   cuadrado de otro color al final de la barra. */
+QSizeGrip {
+    background-color: transparent;
+    width: 12px;
+    height: 12px;
+}
+
 QStatusBar QLabel#statusText {
     color: $text_subtle;
     padding: 0px 6px;
@@ -253,6 +270,17 @@ QStatusBar QLabel#statusDot {
 
 QStatusBar QWidget#statusReady {
     background-color: transparent;
+}
+
+/* === Editor de scripts (app/ui/widgets/code_editor.py) === */
+QPlainTextEdit#codeEditor {
+    background-color: $code_bg;
+    color: $text;
+    font-family: $font_mono;
+    font-size: 13px;
+    border: 1px solid $border;
+    border-radius: 6px;
+    selection-background-color: $selection_bg;
 }
 
 /* === Labels === */
@@ -312,6 +340,16 @@ QDialogButtonBox QPushButton:default {
 
 QDialogButtonBox QPushButton:default:hover {
     background-color: $accent_hover;
+}
+
+/* Desactivado (p. ej. OK con un valor que no valida): antes se pintaba igual
+   que activo y parecía que el botón no respondía. */
+QDialogButtonBox QPushButton:disabled,
+QDialogButtonBox QPushButton:default:disabled {
+    background-color: $disabled_bg;
+    color: $text_disabled;
+    border-color: $border;
+    font-weight: normal;
 }
 
 /* === Form fields === */
@@ -610,6 +648,7 @@ QTableWidget::item {
 
 QTableWidget::item:selected {
     background-color: $selection_bg;
+    color: $text;
 }
 
 QHeaderView::section {
@@ -837,6 +876,7 @@ QTableWidget {
 
 #pipelineStepList::item:selected {
     background-color: $surface_active;
+    color: $text;
     border: 1px solid $accent;
 }
 
@@ -1086,6 +1126,23 @@ QInputDialog QComboBox {
     letter-spacing: 0.5px;
 }
 
+#separatorZone {
+    background-color: $bg_alt;
+    border: 2px solid $orange;
+    border-radius: 6px;
+    margin: 6px 8px 2px 8px;
+}
+
+#separatorValue {
+    color: $text;
+    font-family: $font_mono;
+    font-size: 13px;
+}
+
+#separatorValueError {
+    color: $red;
+}
+
 #sectionBody, #barcodeList {
     background-color: transparent;
 }
@@ -1205,4 +1262,122 @@ QProgressBar#statusProgress::chunk {
 #infoTabs QTabBar::tab {
     padding: 7px 10px;
     min-width: 40px;
+}
+
+/* ==========================================================
+   Configurador: pestañas Eventos y Campos de lote, paso Barcode
+   (presentación de FlexibarNET 10)
+   ========================================================== */
+
+#eventDetail QPushButton[cssClass="primary"],
+#fieldsPanel QPushButton[cssClass="primary"] {
+    background-color: $accent;
+    color: $on_accent;
+    border-color: $accent;
+    font-weight: 600;
+}
+
+#eventDetail QPushButton[cssClass="primary"]:hover,
+#fieldsPanel QPushButton[cssClass="primary"]:hover {
+    background-color: $accent_hover;
+}
+
+#fieldsPanel QPushButton[cssClass="danger"] {
+    color: $danger;
+    border-color: $danger;
+}
+
+#fieldsPanel QPushButton[cssClass="danger"]:hover {
+    background-color: $danger;
+    color: $on_accent;
+}
+
+#fieldsPanel QPushButton[cssClass="danger"]:disabled {
+    color: $text_disabled;
+    border-color: $border;
+}
+
+/* Punto de estado: vacío (sin script), verde (ACTIVO), amarillo (PAUSADO) */
+#eventDot {
+    border-radius: 5px;
+    border: 2px solid $border_strong;
+    background-color: transparent;
+}
+
+#eventDot[state="active"] {
+    background-color: $success;
+    border-color: $success;
+}
+
+#eventDot[state="paused"] {
+    background-color: $warning;
+    border-color: $warning;
+}
+
+#eventRowName {
+    color: $text_subtle;
+    font-size: 13px;
+}
+
+#eventRowName[state="active"],
+#eventRowName[state="paused"] {
+    color: $text;
+    font-weight: 700;
+}
+
+#eventCanonical {
+    color: $text_subtle;
+    font-family: $font_mono;
+    font-size: 11px;
+}
+
+#eventPill {
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+#eventPill[state="active"] {
+    background-color: $success_bg;
+    color: $success;
+}
+
+#eventPill[state="paused"] {
+    background-color: $warning;
+    color: $on_warning;
+}
+
+#eventTitle {
+    color: $text;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+#variablesPanel {
+    background-color: $bg_alt;
+    border: 1px solid $border_soft;
+    border-radius: 6px;
+}
+
+#variablesBody {
+    background-color: transparent;
+}
+
+#eventSignature,
+#variableName {
+    color: $text;
+    font-family: $font_mono;
+    font-size: 12px;
+}
+
+#variableName {
+    font-weight: 600;
+}
+
+/* Leyenda de números de simbología (Code39 = 01 · Code128 = 02 · …) */
+#symbologyLegend {
+    color: $text_subtle;
+    font-family: $font_mono;
+    font-size: 11px;
 }

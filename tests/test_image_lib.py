@@ -236,3 +236,67 @@ class TestColorMode:
         bw = np.zeros((50, 50), dtype=np.uint8)
         bw[:25] = 255
         assert ImageLib.get_color_mode(bw) == "bw"
+
+
+class TestGroup4:
+    """Group4 solo para B/N (como FlexibarNET10); gris y color van en LZW.
+
+    Con una imagen que no era de 1 bit, libtiff tumbaba el proceso.
+    """
+
+    def test_bn_en_gris_va_en_group4(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        from app.services.image_lib import ImageLib
+
+        img = np.full((40, 40), 255, np.uint8)
+        img[10:20] = 0
+        path = ImageLib.save(img, tmp_path / "g4.tif", compression="group4")
+        with Image.open(path) as im:
+            assert im.mode == "1"
+            assert im.info.get("compression") == "group4"
+
+    def test_gris_de_verdad_va_en_lzw_sin_binarizar(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        from app.services.image_lib import ImageLib
+
+        img = np.full((40, 40), 200, np.uint8)
+        img[10:20] = 30
+        path = ImageLib.save(img, tmp_path / "gris.tif", compression="group4")
+        with Image.open(path) as im:
+            assert im.mode == "L"
+            assert im.info.get("compression") == "tiff_lzw"
+
+    def test_multipagina_con_una_en_color_va_entera_en_lzw(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        from app.services.image_lib import ImageLib
+
+        bn = np.full((30, 30, 3), 255, np.uint8)
+        color = np.full((30, 30, 3), (10, 120, 200), np.uint8)
+        path = ImageLib.merge_to_tiff(
+            [bn, color], tmp_path / "m.tif", compression="group4"
+        )
+        with Image.open(path) as im:
+            assert im.n_frames == 2
+            assert im.info.get("compression") == "tiff_lzw"
+
+    def test_multipagina_bn_en_rgb_va_en_group4(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        from app.services.image_lib import ImageLib
+
+        bn = np.full((30, 30, 3), 255, np.uint8)
+        bn[5:10] = 0
+        path = ImageLib.merge_to_tiff(
+            [bn, bn[:, :, 0]], tmp_path / "m.tif", compression="group4"
+        )
+        with Image.open(path) as im:
+            assert im.mode == "1"
+            assert im.n_frames == 2
+            assert im.info.get("compression") == "group4"

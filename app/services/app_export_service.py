@@ -25,6 +25,7 @@ EXPORT_VERSION = 1
 _EXPORTABLE_FIELDS: list[str] = [
     "name",
     "description",
+    "group",
     "active",
     "pipeline_json",
     "events_json",
@@ -42,6 +43,8 @@ _EXPORTABLE_FIELDS: list[str] = [
     "scanner_backend",
     "workbench_layout_json",
     "hide_add_barcode_button",
+    "show_scanner_ui",
+    "icon_accent",
 ]
 
 # Campos JSON que se parsean a objeto para legibilidad del export.
@@ -196,6 +199,7 @@ def import_application(
 
     # Campos escalares
     for field_name in (
+        "group",
         "auto_transfer",
         "close_after_transfer",
         "background_color",
@@ -204,6 +208,8 @@ def import_application(
         "scanner_backend",
         "workbench_layout_json",
         "hide_add_barcode_button",
+        "show_scanner_ui",
+        "icon_accent",
     ):
         value = app_data.get(field_name)
         if value is not None:

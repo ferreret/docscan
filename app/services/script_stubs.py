@@ -69,6 +69,8 @@ class PageContext:
     ocr_text: str                       # Texto OCR extraído
     flags: PageFlags                    # Flags de revisión y errores
     fields: dict[str, Any]              # Campos de página (indexación, IA, etc.)
+    is_separator: bool                  # La página abre un documento (separador)
+    separator_value: str                # Valor que identifica el documento ("" si no tiene)
 
 class PipelineContext:
     \"\"\"Control de flujo del pipeline (solo disponible en ScriptStep).\"\"\"
@@ -80,6 +82,39 @@ class PipelineContext:
     def get_step_result(self, step_id: str) -> Any: ...         # Resultado de un paso anterior
     def get_metadata(self, key: str) -> Any: ...                # Lee metadato (SOLO de esta página)
     def set_metadata(self, key: str, value: Any) -> None: ...   # Escribe metadato (SOLO de esta página)
+"""
+
+_TRANSFER_TYPE_DEFS = """\
+class TransferPage:
+    \"\"\"Página tal como la ven la transferencia y sus scripts.\"\"\"
+    image_path: str             # Ruta de la imagen en el lote
+    page_index: int             # Índice de la página (base 0)
+    fields: dict[str, Any]      # Campos de página
+    ocr_text: str               # Texto OCR
+    first_barcode: str          # Valor del primer barcode
+    barcodes: list[Any]         # .value, .symbology
+    is_separator: bool          # La página abre un documento
+    separator_value: str        # Valor del separador de la página
+    image: Any                  # numpy.ndarray, se lee al pedirla
+
+class LogicalDocument:
+    \"\"\"Documento: tramo de páginas de un separador al siguiente.\"\"\"
+    index: int                  # Posición en el lote (base 1)
+    separator_value: str        # Valor del separador ("" en el implícito)
+    pages: list[TransferPage]   # Páginas del documento, separadora incluida
+    fields: dict[str, Any]      # Campos de la página separadora
+    is_implicit: bool           # Páginas antes del primer separador
+"""
+
+_VARS_FILE_NAME = """\
+# --- Script de nombre de fichero: def file_name(page, document, batch, app) ---
+# Devuelve la subruta SIN extensión ("20261027/12345678") o None para usar el
+# patrón. Si lanza, la transferencia no se hace.
+log: logging.Logger         # Logger para mensajes
+page: TransferPage          # Primera página del fichero (o la página, en modo carpeta)
+document: LogicalDocument   # Documento de esa página (None en algún caso límite)
+app: AppContext             # Aplicación activa (solo lectura)
+batch: BatchContext         # Lote activo (.fields con los campos de lote)
 """
 
 _VARS_PIPELINE = """\
@@ -113,10 +148,14 @@ _EVENT_EXTRA_VARS: dict[str, str] = {
         "page_index: int             # Página recién copiada\n"
         "success: bool               # Si la copia fue correcta\n"
     ),
+    "on_transfer_validate": (
+        "pages: list[TransferPage]   # Páginas que se van a transferir\n"
+        "documents: list[LogicalDocument]  # Documentos del lote\n"
+    ),
     "on_transfer_advanced": (
-        "pages: list[Any]            # .image_path, .page_index, .fields,\n"
-        "                            #   .ocr_text, .first_barcode, .image\n"
+        "pages: list[TransferPage]   # Páginas transferidas\n"
         "result: Any                 # TransferResult de la transferencia simple\n"
+        "# documents: list[LogicalDocument], si la función lo declara\n"
     ),
     "on_navigate_prev": ("current_page_index: int\ntotal_pages: int\n"),
     "on_navigate_next": ("current_page_index: int\ntotal_pages: int\n"),
@@ -132,16 +171,19 @@ def generate_stubs(context_type: str, event_name: str = "") -> str:
     """Genera bloque de stubs para inyectar en archivo temporal.
 
     Args:
-        context_type: "pipeline" para ScriptStep, "event" para eventos.
+        context_type: "pipeline" para ScriptStep, "event" para eventos y
+            "file_name" para el script de nombre de fichero.
         event_name: Nombre del evento (solo si context_type="event").
 
     Returns:
         Bloque de código Python con tipos, delimitado por marcadores.
     """
-    parts = [STUB_DELIMITER, _IMPORTS, _TYPE_DEFS]
+    parts = [STUB_DELIMITER, _IMPORTS, _TYPE_DEFS, _TRANSFER_TYPE_DEFS]
 
     if context_type == "pipeline":
         parts.append(_VARS_PIPELINE)
+    elif context_type == "file_name":
+        parts.append(_VARS_FILE_NAME)
     else:
         parts.append(_VARS_EVENT_BASE)
         if event_name in _EVENT_EXTRA_VARS:

@@ -56,3 +56,9 @@ class PageRepository:
     def count_by_batch(self, batch_id: int) -> int:
         stmt = select(func.count(Page.id)).where(Page.batch_id == batch_id)
         return self._session.scalar(stmt) or 0
+
+    def next_index(self, batch_id: int) -> int:
+        """Índice para la siguiente página: uno más que el mayor del lote."""
+        stmt = select(func.max(Page.page_index)).where(Page.batch_id == batch_id)
+        current = self._session.scalar(stmt)
+        return 0 if current is None else current + 1

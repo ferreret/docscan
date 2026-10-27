@@ -296,3 +296,35 @@ class TestCopiaDeConfiguracion:
         assert copia.notifications_json == origen.notifications_json
         assert copia.pipeline_json == origen.pipeline_json
         assert copia.close_after_transfer is True
+
+
+def test_exporta_el_dialogo_del_escaner_y_el_color(sample_app):
+    from app.services.app_export_service import export_application
+
+    sample_app.show_scanner_ui = True
+    sample_app.icon_accent = "blue"
+    data = export_application(sample_app)["application"]
+    assert data["show_scanner_ui"] is True
+    assert data["icon_accent"] == "blue"
+
+
+def test_el_grupo_viaja_en_la_exportacion_y_la_importacion(session, sample_app):
+    from app.services.app_export_service import export_application
+
+    sample_app.group = "Hospital Arnau de Vilanova"
+    data = export_application(sample_app)
+    assert data["application"]["group"] == "Hospital Arnau de Vilanova"
+
+    data["application"]["name"] = "Reimportada"
+    app = import_application(data, session)
+    session.commit()
+    assert app.group == "Hospital Arnau de Vilanova"
+
+
+def test_un_export_sin_grupo_se_importa_sin_grupo(session):
+    """Los ficheros anteriores a los grupos no traen la clave."""
+    app = import_application(
+        {"version": 1, "application": {"name": "Antigua"}}, session
+    )
+    session.commit()
+    assert app.group == ""

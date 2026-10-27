@@ -81,6 +81,17 @@ _SET_PIPELINE_TOOL = {
                             "items": {"type": "string"},
                         },
                         "quality_threshold": {"type": "number"},
+                        "separator_enabled": {"type": "boolean"},
+                        "separator_by": {
+                            "type": "string",
+                            "enum": ["regex", "symbology", "fixed_value"],
+                        },
+                        "separator_regex": {"type": "string"},
+                        "separator_regex_include_symbology": {"type": "boolean"},
+                        "separator_symbology": {"type": "string"},
+                        "separator_fixed_value": {"type": "string"},
+                        "separator_manual_regex": {"type": "string"},
+                        "separator_default_value": {"type": "string"},
                         # OcrStep
                         "languages": {
                             "type": "array",
@@ -237,10 +248,20 @@ class PipelineAssistantService:
             "- symbologies: list of barcode types (e.g., ['Code128', 'QR', "
             "'EAN13', 'Code39', 'DataMatrix', 'PDF417']). Empty = all.\n"
             "- regex: optional filter pattern for barcode values\n"
-            "- regex_include_symbology: include symbology prefix in regex match\n"
+            "- regex_include_symbology: the regex is matched against NN+value, where "
+            "NN is the legacy symbology number (Code39=01, Code128=02, EAN13=04, "
+            "ITF=10, QR=22)\n"
             "- orientations: ['horizontal', 'vertical', 'diagonal']\n"
             "- quality_threshold: 0.0-1.0 confidence threshold\n"
-            "- window: [x, y, w, h] in pixels or null for full page\n\n"
+            "- window: [x, y, w, h] in pixels or null for full page\n"
+            "- separator_enabled: the step decides whether the PAGE opens a new "
+            "document (page.is_separator / page.separator_value). Authoritative: "
+            "reprocessing overwrites a manual mark\n"
+            "- separator_by: 'regex' (separator_regex, optionally on NN+value with "
+            "separator_regex_include_symbology), 'symbology' (separator_symbology) "
+            "or 'fixed_value' (separator_fixed_value)\n"
+            "- separator_manual_regex: validates the value the operator types when "
+            "marking a separator by hand (Ctrl+D); separator_default_value prefills it\n\n"
             "## OcrStep fields\n"
             "- engine: 'rapidocr' (fast, recommended), 'easyocr' (needs GPU), "
             "'tesseract' (fallback)\n"
