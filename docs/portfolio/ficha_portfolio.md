@@ -28,7 +28,7 @@ lenguas y borrar la antigua.
 |-------|------|----------|
 | `status` | `production` | **`in-development`**: hay releases con instaladores, pero ninguna instalación en producción (decisión de Nicolás, 2026-10-26) |
 | `timeline` | «Released v0.1.0 — 2026-03-26» | Última versión **v0.1.8, 2026-10-27** |
-| `description` | «…AI-powered field extraction…» | **No hay extracción de campos con IA.** La IA (Claude u OpenAI) se usa para *configurar*: AI Mode y Pipeline Assistant. El proceso de cada página es determinista (imagen, barcode, OCR, scripts) |
+| `description` | «…AI-powered field extraction…» | **No hay extracción de campos con IA.** La IA (Claude u OpenAI) se usa para *configurar*, en el AI Mode. El proceso de cada página es determinista (imagen, barcode, OCR, scripts) |
 | `businessMetrics` | 849 tests, 19.776 líneas, 94 ficheros, v0.1.0 | Ver §4 |
 | `problem` | Sistema legacy genérico, sin nombre | Se puede nombrar: FlexibarNET 10 de Tecnomedia, en hospitales (§3) |
 | `lessonsLearned` | «absorbe el 90 % de los requisitos» | Sin prueba; decidido sustituir por lecciones con evidencia (§5) |
@@ -57,13 +57,16 @@ lenguas y borrar la antigua.
   PyMuPDF; escáner por SANE (Linux) y TWAIN/WIA (Windows).
 - **Multi-aplicación**: N perfiles de proceso independientes (pipeline, campos,
   scripts, transferencia), agrupables en el launcher.
-- **Pipeline composable**: imagen (24 operaciones), barcode (2 motores, 15
+- **Pipeline composable**: imagen (24 operaciones), barcode (2 motores, hasta 15
   simbologías), OCR (3 motores) y scripts Python.
 - **Separador de documento** por barcode, automático o manual, y **transferencia por
   documento** (PDF, PDF/A, TIFF multipágina) con nombre por patrón o por script.
-- **IA generativa para configurar**: AI Mode crea o modifica aplicaciones completas
-  en lenguaje natural con *tool calling*; el Pipeline Assistant genera pasos y código
-  de eventos.
+- **IA generativa para configurar**: AI Mode crea, modifica, duplica o elimina
+  aplicaciones completas en lenguaje natural con *tool calling*, y escribe el código
+  de sus eventos; cada cambio se enseña antes de aplicarlo (aceptar / rechazar).
+- Existe además un *Pipeline Assistant* en el código (`app/services/pipeline_assistant.py`,
+  con su panel), pero **nunca se ha conectado a la interfaz**: no debe aparecer en la
+  ficha como función disponible.
 - **Worker desatendido** (carpeta vigilada) con el mismo flujo que la interfaz.
 - Instaladores (AppImage, setup.exe) con actualización automática desde GitHub.
 

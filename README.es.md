@@ -106,7 +106,7 @@ Detalle en el [CHANGELOG](CHANGELOG.md).
 <td valign="top">
 
 ### 🔍 Reconocimiento
-- **Barcodes**: dos motores (pyzbar y zxing-cpp), 15 simbologías
+- **Barcodes**: dos motores (pyzbar y zxing-cpp), hasta 15 simbologías
 - **OCR**: RapidOCR, EasyOCR y Tesseract
 - Lectura en toda la página o en una zona, con filtro por regex
 - Alta manual de códigos con validación por regex
@@ -147,7 +147,7 @@ Detalle en el [CHANGELOG](CHANGELOG.md).
 
 ### 🤖 IA generativa
 - **AI Mode**: crea y modifica aplicaciones conversando
-- **Pipeline Assistant**: genera pasos y código de eventos
+- Cada cambio se enseña antes de aplicarlo: aceptar o rechazar
 - Claude (Anthropic) u OpenAI, con claves cifradas con Fernet
 - La IA configura; el proceso de cada página es determinista
 
@@ -282,7 +282,7 @@ Cada página atraviesa una secuencia de pasos configurable por aplicación:
 | Tipo | Descripción |
 |------|-------------|
 | `image_op` | Operación sobre la imagen (24 disponibles) |
-| `barcode` | Lectura de códigos (2 motores, 15 simbologías) y condición de separador |
+| `barcode` | Lectura de códigos (2 motores, hasta 15 simbologías) y condición de separador |
 | `ocr` | Reconocimiento de texto (3 motores) |
 | `script` | Python con acceso al contexto completo |
 
@@ -319,7 +319,8 @@ Cada página atraviesa una secuencia de pasos configurable por aplicación:
 | Code128, Code39, Code93, Codabar | ✅ | ✅ |
 | EAN-13, EAN-8, UPC-A, UPC-E | ✅ | ✅ |
 | ITF (Interleaved 2 of 5) | ✅ | ✅ |
-| QR, PDF417, DataMatrix | ✅ | ✅ |
+| QR | ✅ | ✅ |
+| PDF417, DataMatrix | — | ✅ |
 | Aztec, MaxiCode, Micro QR | — | ✅ |
 
 </details>
@@ -373,9 +374,9 @@ con autocompletado.
 ## 🤖 AI Mode
 
 Asistente conversacional del launcher que **crea y modifica aplicaciones** en lenguaje
-natural, mediante *tool calling*: genera el pipeline, los campos, los scripts y la
-transferencia, y prueba el pipeline sobre una imagen de muestra. El **Pipeline
-Assistant** hace lo mismo dentro del configurador para una sola aplicación.
+natural, mediante *tool calling*: crea, modifica, duplica o elimina aplicaciones
+(pipeline, campos, transferencia) y escribe el código de sus eventos. Cada cambio
+se enseña antes de aplicarlo, para aceptarlo o rechazarlo.
 
 ```
 👤 Necesito una aplicación para facturas de proveedores: un PDF por factura,
@@ -519,8 +520,8 @@ Cómo se midió cada cifra:
 
 ## 🗺️ Hoja de ruta
 
-Hecho: pipeline composable, dos motores de barcode, tres de OCR, IA (AI Mode y
-Pipeline Assistant), scripting, workbench, gestor de lotes, worker desatendido,
+Hecho: pipeline composable, dos motores de barcode, tres de OCR, IA (AI Mode),
+scripting, workbench, gestor de lotes, worker desatendido,
 tres idiomas, instaladores con actualización automática, manual web, transferencia
 que falla cerrada (lote 3) y separador de documento (lote 6).
 

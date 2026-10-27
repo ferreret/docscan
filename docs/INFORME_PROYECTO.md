@@ -71,7 +71,7 @@ Cada página atraviesa los pasos configurados, en el orden que se quiera:
 | Tipo de paso | Descripción | Ejemplo de uso |
 |--------------|-------------|----------------|
 | **Operación de imagen** | 24 transformaciones | Enderezar, binarizar, recortar bordes, quitar agujeros de perforadora |
-| **Código de barras** | Dos motores (pyzbar y zxing-cpp), 15 simbologías, página completa o zona | Leer el Code128 de una petición y decidir si la página abre un documento |
+| **Código de barras** | Dos motores (pyzbar con 10 simbologías, zxing-cpp con 15), página completa o zona | Leer el Code128 de una petición y decidir si la página abre un documento |
 | **OCR** | Tres motores (RapidOCR, EasyOCR, Tesseract) | Extraer el texto de la página o de una zona |
 | **Script** | Python con acceso al contexto completo | Extraer un número de pedido del texto, validar datos |
 
@@ -132,7 +132,7 @@ Proceso de línea de comandos sin interfaz:
 | Barcode motor 1 | pyzbar + OpenCV | Rápido en códigos 1D |
 | Barcode motor 2 | zxing-cpp | Mejor en 2D y con varios códigos por página |
 | OCR | RapidOCR (principal), EasyOCR, Tesseract | Local, sin coste por página |
-| IA | Anthropic SDK, OpenAI SDK | AI Mode y Pipeline Assistant (*tool calling*) |
+| IA | Anthropic SDK, OpenAI SDK | AI Mode (*tool calling*) |
 | PDF | PyMuPDF | Lectura y generación, incluido PDF/A |
 | Escáner | SANE (Linux), TWAIN y WIA (Windows) | Sin SDK con licencia |
 | Cifrado | Fernet (cryptography) | Claves de API nunca en texto plano |
@@ -191,7 +191,7 @@ Medidas el 27 de octubre de 2026 sobre la v0.1.8 (detalle y método en `docs/por
 | ✅ Workbench | Visor, miniaturas, panel de códigos, campos, verificación, atajos de FlexibarNET 10 |
 | ✅ Gestor de lotes | Filtros, detalle en 4 pestañas, historial |
 | ✅ Worker desatendido | Carpeta vigilada y lotes pendientes, con el mismo flujo que el Workbench |
-| ✅ IA | AI Mode y Pipeline Assistant con Claude u OpenAI |
+| ✅ IA | AI Mode con Claude u OpenAI, con vista previa de cada cambio |
 | ✅ Instaladores | AppImage y setup.exe, con actualización automática |
 | ✅ Idiomas | Español, inglés y catalán |
 

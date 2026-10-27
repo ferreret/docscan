@@ -106,7 +106,7 @@ Details in the [CHANGELOG](CHANGELOG.md) (in Spanish).
 <td valign="top">
 
 ### 🔍 Recognition
-- **Barcodes**: two engines (pyzbar and zxing-cpp), 15 symbologies
+- **Barcodes**: two engines (pyzbar and zxing-cpp), up to 15 symbologies
 - **OCR**: RapidOCR, EasyOCR and Tesseract
 - Reading on the whole page or in a zone, with a regex filter
 - Manual barcode entry validated by regex
@@ -147,7 +147,7 @@ Details in the [CHANGELOG](CHANGELOG.md) (in Spanish).
 
 ### 🤖 Generative AI
 - **AI Mode**: creates and edits applications from a conversation
-- **Pipeline Assistant**: generates steps and event code
+- Every change is previewed before it applies: accept or reject
 - Claude (Anthropic) or OpenAI, with keys encrypted with Fernet
 - AI configures; processing each page stays deterministic
 
@@ -283,7 +283,7 @@ Every page goes through a sequence of steps configured per application:
 | Type | Description |
 |------|-------------|
 | `image_op` | One operation on the image (24 available) |
-| `barcode` | Barcode reading (2 engines, 15 symbologies) and separator condition |
+| `barcode` | Barcode reading (2 engines, up to 15 symbologies) and separator condition |
 | `ocr` | Text recognition (3 engines) |
 | `script` | Python with the full context |
 
@@ -320,7 +320,8 @@ Every page goes through a sequence of steps configured per application:
 | Code128, Code39, Code93, Codabar | ✅ | ✅ |
 | EAN-13, EAN-8, UPC-A, UPC-E | ✅ | ✅ |
 | ITF (Interleaved 2 of 5) | ✅ | ✅ |
-| QR, PDF417, DataMatrix | ✅ | ✅ |
+| QR | ✅ | ✅ |
+| PDF417, DataMatrix | — | ✅ |
 | Aztec, MaxiCode, Micro QR | — | ✅ |
 
 </details>
@@ -375,9 +376,9 @@ with autocompletion.
 ## 🤖 AI Mode
 
 A conversational assistant in the launcher that **creates and edits applications**
-in natural language through *tool calling*: it generates the pipeline, fields,
-scripts and transfer, and tests the pipeline on a sample image. The **Pipeline
-Assistant** does the same inside the configurator for a single application.
+in natural language through *tool calling*: it creates, edits, duplicates or
+deletes applications (pipeline, fields, transfer) and writes their event code.
+Every change is previewed before it applies, to accept or reject it.
 
 ```
 👤 I need an application for supplier invoices: one PDF per invoice,
@@ -522,8 +523,8 @@ figure was measured: [`docs/portfolio/metricas.md`](docs/portfolio/metricas.md)
 
 ## 🗺️ Roadmap
 
-Done: composable pipeline, two barcode engines, three OCR engines, AI (AI Mode and
-Pipeline Assistant), scripting, workbench, batch manager, unattended worker, three
+Done: composable pipeline, two barcode engines, three OCR engines, AI (AI Mode),
+scripting, workbench, batch manager, unattended worker, three
 languages, installers with automatic updates, web manual, fail-closed transfer and
 the document separator.
 
