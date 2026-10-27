@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.pipeline.steps import BarcodeStep
+from app.services.barcode_service import MOTOR1_SYMBOLOGIES
 from app.utils.symbology_numbers import legend
 
 # (clave guardada, etiqueta) del modo de detección de separador, en el orden
@@ -82,7 +83,7 @@ SYMBOLOGY_FAMILIES: list[tuple[str, list[tuple[str, str]]]] = [
 ALL_SYMBOLOGIES = [name for _, items in SYMBOLOGY_FAMILIES for name, _ in items]
 
 # Las que pyzbar (motor 1) no lee: solo las encuentra zxing-cpp (motor 2)
-MOTOR2_ONLY = {"MicroQRCode", "Aztec", "MaxiCode"}
+MOTOR2_ONLY = {name for name in ALL_SYMBOLOGIES if name not in MOTOR1_SYMBOLOGIES}
 
 ALL_ORIENTATIONS = [
     ("horizontal", QT_TRANSLATE_NOOP("BarcodeStepDialog", "Horizontal")),

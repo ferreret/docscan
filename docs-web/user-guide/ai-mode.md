@@ -32,9 +32,9 @@ AI Mode es un asistente conversacional integrado en el Launcher para crear y con
 El asistente no cambia nada por su cuenta. Cada cambio que propone aparece en
 el panel como una tarjeta con su resumen (y el código, si lo hay) y los botones
 **Aceptar** y **Rechazar**. Solo al aceptar se aplica. Para eliminar una
-aplicación, los botones son **Confirmar eliminacion** y **Cancelar**.
+aplicación, los botones son **Confirmar eliminación** y **Cancelar**.
 
-**Nueva conversacion** empieza de cero.
+**Nueva conversación** empieza de cero.
 
 ## Ejemplo
 

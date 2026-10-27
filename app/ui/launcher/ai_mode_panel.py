@@ -48,7 +48,7 @@ _ctx = "AiModePanel"
 
 _PROVIDERS = QT_TRANSLATE_NOOP(_ctx, "Anthropic|OpenAI")
 _LABEL_SEND = QT_TRANSLATE_NOOP(_ctx, "Enviar")
-_LABEL_NEW_CHAT = QT_TRANSLATE_NOOP(_ctx, "Nueva conversacion")
+_LABEL_NEW_CHAT = QT_TRANSLATE_NOOP(_ctx, "Nueva conversación")
 _LABEL_PLACEHOLDER = QT_TRANSLATE_NOOP(
     _ctx, "Describe lo que necesitas (crear app, modificar pipeline, etc.)..."
 )

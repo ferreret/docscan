@@ -186,6 +186,38 @@ class TestMotor1:
         assert results[0].value == "12345678"
         assert results[0].engine == "motor1"
 
+    @pytest.mark.parametrize("symbology", ["DataMatrix", "PDF417"])
+    def test_simbologia_que_zbar_no_lee_no_devuelve_otras(
+        self, service, code128_image, symbology
+    ):
+        """Pedir solo una simbología que zbar no lee no equivale a «todas»."""
+        results = service.read(
+            code128_image,
+            engine="motor1",
+            step_id="s1",
+            symbologies=[symbology],
+        )
+        assert results == []
+
+    def test_nombres_desconocidos_siguen_leyendo_todas(self, service, code128_image):
+        """Un nombre que no es de ningún motor se ignora, como antes."""
+        results = service.read(
+            code128_image,
+            engine="motor1",
+            step_id="s1",
+            symbologies=["CODE-INVENTADO"],
+        )
+        assert [r.value for r in results] == ["12345678"]
+
+
+def test_motor1_solo_anuncia_lo_que_zbar_decodifica():
+    """El mapa de pyzbar no lista simbologías que zbar no lee."""
+    from app.services.barcode_service import MOTOR1_SYMBOLOGIES
+
+    assert "DataMatrix" not in MOTOR1_SYMBOLOGIES
+    assert "PDF417" not in MOTOR1_SYMBOLOGIES
+    assert {"Code128", "QR", "ITF", "EAN13"} <= MOTOR1_SYMBOLOGIES
+
 
 # ------------------------------------------------------------------
 # Tests generales

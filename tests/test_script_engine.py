@@ -7,7 +7,15 @@ from typing import Any
 
 import pytest
 
-from app.services.script_engine import ScriptEngine, ScriptCompilationError
+import httpx
+
+from app.services.script_engine import (
+    HTTP_TIMEOUT,
+    ScriptCompilationError,
+    ScriptEngine,
+    create_script_engine,
+)
+from config.settings import PipelineSettings, Settings
 
 
 # ------------------------------------------------------------------
@@ -317,3 +325,57 @@ class TestRunEvent:
         engine.compile_script("bad_event", "def run(app): raise RuntimeError('x')")
         result = engine.run_event("bad_event", "run", app=app_ctx)
         assert result is None
+
+
+# ------------------------------------------------------------------
+# Engine de producción: cliente HTTP y timeout de la configuración
+# ------------------------------------------------------------------
+
+
+class TestCreateScriptEngine:
+    def test_scripts_reciben_un_cliente_http(self, page, batch, app_ctx, pipeline):
+        """``http`` es un httpx.Client listo, no None (error de la auditoría)."""
+        engine = create_script_engine(Settings())
+        try:
+            step = MockStep(script="def run(app, batch, page, pipeline): return http")
+            engine.compile_step(step)
+            client = engine.run_step(step, page, batch, app_ctx, pipeline)
+            assert isinstance(client, httpx.Client)
+            assert client.timeout.read == HTTP_TIMEOUT
+            assert page.flags.script_errors == []
+        finally:
+            engine.shutdown()
+
+    def test_eventos_reciben_el_mismo_cliente(self, app_ctx):
+        engine = create_script_engine(Settings())
+        try:
+            engine.compile_script("on_app_start", "def run(app): return http")
+            client = engine.run_event("on_app_start", "run", app=app_ctx)
+            assert isinstance(client, httpx.Client)
+        finally:
+            engine.shutdown()
+
+    def test_shutdown_cierra_el_cliente(self):
+        engine = create_script_engine(Settings())
+        client = engine._http_client
+        engine.shutdown()
+        assert client.is_closed
+
+    def test_timeout_de_la_configuracion(self, page, batch, app_ctx, pipeline):
+        """``pipeline.script_timeout_seconds`` corta el paso Script."""
+        settings = Settings(pipeline=PipelineSettings(script_timeout_seconds=1))
+        engine = create_script_engine(settings)
+        try:
+            step = MockStep(
+                script=(
+                    "import time\n"
+                    "def run(app, batch, page, pipeline):\n"
+                    "    time.sleep(3)\n"
+                )
+            )
+            engine.compile_step(step)
+            engine.run_step(step, page, batch, app_ctx, pipeline)
+            assert len(page.flags.script_errors) == 1
+            assert "1s" in page.flags.script_errors[0]["error"]
+        finally:
+            engine.shutdown()

@@ -568,6 +568,16 @@ class TestBarcodeStepDialog:
         qtbot.addWidget(dialog)
         assert set(dialog.get_step().symbologies) == {"Code 11", "QR"}
 
+    def test_aviso_solo_motor2(self, qtbot):
+        """El aviso «Solo la lee el motor 2» sale en todas las que zbar no lee."""
+        dialog = BarcodeStepDialog(BarcodeStep(id="s"))
+        qtbot.addWidget(dialog)
+        aviso = "Solo la lee el motor 2 (zxing-cpp)"
+        for name in ("DataMatrix", "PDF417", "Aztec", "MaxiCode", "MicroQRCode"):
+            assert dialog._symb_checks[name].toolTip() == aviso, name
+        for name in ("Code128", "QR", "ITF", "EAN13"):
+            assert dialog._symb_checks[name].toolTip() == "", name
+
     def test_ninguna_marcada_es_todas(self, qtbot):
         dialog = BarcodeStepDialog(BarcodeStep(id="s"))
         qtbot.addWidget(dialog)

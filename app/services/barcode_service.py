@@ -26,7 +26,9 @@ log = logging.getLogger(__name__)
 # Motor 1: pyzbar
 # ------------------------------------------------------------------
 
-# Mapeo de nombres pyzbar a nombres normalizados
+# Mapeo de nombres pyzbar a nombres normalizados. Solo las que zbar
+# decodifica de verdad: PDF417 existe en ``ZBarSymbol`` pero libzbar no lo lee,
+# y DataMatrix, Aztec, MaxiCode y MicroQR ni siquiera existen allí.
 _PYZBAR_SYMBOLOGY_MAP: dict[str, str] = {
     "CODE128": "Code128",
     "CODE39": "Code39",
@@ -38,14 +40,15 @@ _PYZBAR_SYMBOLOGY_MAP: dict[str, str] = {
     "UPCE": "UPCE",
     "I25": "ITF",
     "QRCODE": "QR",
-    "PDF417": "PDF417",
-    "DATAMATRIX": "DataMatrix",
 }
 
 # Mapeo inverso para filtrar por simbología
 _PYZBAR_SYMBOLOGY_REVERSE: dict[str, str] = {
     v: k for k, v in _PYZBAR_SYMBOLOGY_MAP.items()
 }
+
+# Simbologías (nombres normalizados) que lee el motor 1
+MOTOR1_SYMBOLOGIES: frozenset[str] = frozenset(_PYZBAR_SYMBOLOGY_MAP.values())
 
 
 def _read_motor1(
@@ -72,6 +75,14 @@ def _read_motor1(
             zbar_name = _PYZBAR_SYMBOLOGY_REVERSE.get(sym)
             if zbar_name and hasattr(ZBarSymbol, zbar_name):
                 zbar_symbols.append(getattr(ZBarSymbol, zbar_name))
+        if not zbar_symbols and any(s in _ZXING_FORMAT_MAP for s in symbologies):
+            # Se pidieron solo simbologías que zbar no lee (p. ej. DataMatrix):
+            # no hay nada que buscar. Sin esto, un filtro vacío leería todas.
+            log.debug(
+                "Motor 1 no lee ninguna de las simbologías pedidas: %s",
+                symbologies,
+            )
+            return []
 
     gray = _ensure_gray(image)
     decoded = pyzbar.decode(gray, symbols=zbar_symbols or None)

@@ -133,3 +133,17 @@ class TestLanguagePreference:
         """El valor por defecto es español."""
         save_language_preference("es")
         assert get_language_preference() == "es"
+
+
+class TestEtiquetasConTilde:
+    """Cadenas de interfaz que salían sin tilde (auditoría del 2026-10-27)."""
+
+    def test_confirmar_eliminacion(self):
+        from app.ui.launcher import app_change_preview
+
+        assert app_change_preview._LABEL_CONFIRM_DELETE == "Confirmar eliminación"
+
+    def test_nueva_conversacion(self):
+        from app.ui.launcher import ai_mode_panel
+
+        assert ai_mode_panel._LABEL_NEW_CHAT == "Nueva conversación"

@@ -102,9 +102,9 @@ Lee los códigos de la página (o de una ventana) y los acumula en
   nombre («Co»), con lo que ninguna regex heredada de Flexibar casaba.
 
 Con `motor1` solo se leen las simbologías con ✓ en su columna de la tabla de
-arriba. En el diálogo, Aztec, MicroQR y MaxiCode llevan el aviso «Solo la lee el
-motor 2 (zxing-cpp)»; DataMatrix y PDF417 no lo llevan, pero el motor 1 tampoco
-las lee.
+arriba. En el diálogo, las que no (DataMatrix, PDF417, Aztec, MaxiCode y MicroQR)
+llevan el aviso «Solo la lee el motor 2 (zxing-cpp)». Un paso `motor1` que solo
+pide simbologías de esas no encuentra nada.
 
 ### Separador de documento
 
@@ -185,8 +185,8 @@ Ejecuta una función Python sobre cada página.
   VS Code** si está instalado.
 
 Si el script no compila, no define la función, lanza una excepción o tarda más
-de **30 segundos**, el pipeline sigue con los demás pasos: el error queda en
-`page.flags.script_errors` y la página, a revisión. Ver
+de **30 segundos** (ajustable), el pipeline sigue con los demás pasos: el error
+queda en `page.flags.script_errors` y la página, a revisión. Ver
 [Scripting](scripting.md).
 
 ## Control de flujo

@@ -13,22 +13,22 @@ script de nombre) tiene estos nombres a mano, sin importarlos:
 | `re`, `json`, `datetime` | Los módulos estándar |
 | `Path` | `pathlib.Path` |
 | `ImageLib` | Utilidades de imagen: `load`, `save`, `convert`, `merge_to_pdf`, `merge_to_tiff`, `split`, `get_dpi`, `resize_to_dpi`, `to_grayscale`, `to_color`, `to_bw`, `get_color_mode` |
-| `http` | Hoy **no está disponible**: vale `None` |
+| `http` | Cliente [`httpx.Client`](https://www.python-httpx.org/api/#client) compartido por todos los scripts de la aplicación, con 20 s de tiempo máximo por petición (10 s para conectar) y que sigue redirecciones |
 
-!!! warning "`http` vale `None`"
-    El cliente HTTP compartido no se configura, así que `http.post(...)`
-    falla con `AttributeError`. Los scripts tienen los *builtins* completos:
-    importa `httpx` tú mismo.
+```python
+resp = http.post("https://api.ejemplo.com/clasificar", json={"text": page.ocr_text})
+resp.raise_for_status()
+```
 
-    ```python
-    import httpx
-    resp = httpx.post("https://api.ejemplo.com/clasificar", json={...}, timeout=10)
-    ```
+Una petición que falla lanza la excepción de `httpx`, y se trata como cualquier
+otro error del script. El cliente se cierra al cerrar la aplicación.
 
 !!! info "Tiempo máximo"
     Un paso Script se corta a los **30 s**: el error queda en
-    `page.flags.script_errors` y la página pasa a revisión. Los eventos no
-    tienen límite. Hoy ninguno de los dos se puede configurar.
+    `page.flags.script_errors` y la página pasa a revisión. El límite se cambia
+    con la variable de entorno `DOCSCAN_PIPELINE__SCRIPT_TIMEOUT_SECONDS`
+    (en segundos) y vale para el Workbench, el worker desatendido y el modo
+    directo. Los eventos no tienen límite.
 
 ## AppContext
 
@@ -40,15 +40,14 @@ script de nombre) tiene estos nombres a mano, sin importarlos:
 | `config` | dict | Configuración de IA |
 | `batch_fields_def` | list[dict] | Definición de los campos de lote |
 | `transfer_config` | dict | Configuración de transferencia |
-| `pipeline_steps` | list[dict] | Reservado: hoy siempre vacío |
+| `pipeline_steps` | list[dict] | Pasos del pipeline, tal como se guardan (`id`, `type`, `enabled` y las opciones de cada tipo). En la prueba del pipeline del Configurador, los pasos que se están editando |
 | `auto_transfer` | bool | Transferir automáticamente |
 | `output_format` | str | Formato de salida |
 
 !!! note "Contextos del worker desatendido y del modo directo"
-    Fuera del Workbench, `app` solo trae `id`, `name` y `description` (en el
-    modo directo, `id` y `name`), y `batch` solo `id` y `state`. `batch.fields`
-    se rellena justo antes de transferir, para los eventos de transferencia y
-    el script de nombre.
+    `app` trae los mismos atributos que en el Workbench. `batch` solo trae `id`
+    y `state`; `batch.fields` se rellena justo antes de transferir, para los
+    eventos de transferencia y el script de nombre.
 
 ## BatchContext
 
@@ -170,10 +169,6 @@ Todos los eventos reciben `app` y `batch`. Además reciben estos argumentos
 | `on_transfer_advanced` | `pages`, `documents`, `result` (en el Workbench y en el worker) | `False` (o una excepción) hace fallar la transferencia. Un `TransferResult` devuelto se suma al de la transferencia simple (o lo sustituye si está desactivada) |
 | `on_transfer_page` | `page_index`, `success` (solo en el Workbench) | ignorado |
 | `init_global` | — (sin `app` ni `batch`) | ignorado |
-
-!!! warning "`on_key_event` no se dispara hoy"
-    Por un error conocido del Workbench, el evento no llega a ejecutarse con
-    ninguna tecla. La firma documentada es la que tendrá cuando se corrija.
 
 ### Dónde corre cada evento
 
