@@ -83,7 +83,27 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
 - **La pestaña Transferencia tiene scroll** y el nombre de los ficheros
   (patrón o script) va en su propio grupo. Con el script de nombre, la pestaña
   no cabía y Qt aplastaba los controles unos sobre otros.
-- **Eventos se abre en el primer evento con código**, marcado con ●.
+- **Eventos como en FlexibarNET 10**: lista con punto de estado (vacío,
+  ACTIVO, PAUSADO), nombre legible y nombre canónico en monoespaciada, en
+  lugar del desplegable. El detalle muestra el resumen del código y **Editar
+  script…** abre el editor con el panel de variables disponibles del evento.
+  La pestaña se abre en el primer evento con código.
+- **Casilla «Activado» por evento**: un evento pausado guarda
+  `{"script": …, "enabled": false}` en `events_json` y no se compila, así que
+  no corre en el Workbench, el worker desatendido ni `transfer_flow`. Los
+  eventos activados se siguen guardando como texto. Todos los lectores de
+  `events_json` pasan por `app/services/event_config.py`; el Workbench y el
+  panel de verificación ya no fallan con la forma `{"script": …}`, que el worker
+  aceptaba desde siempre.
+- **Editor del paso Barcode por secciones**, como Flexibar: simbologías con
+  casillas por familia (1D lineal, EAN/UPC, 2D) en lugar de texto libre;
+  Lectura, Imagen (región de escaneo), Filtrado y Avanzado (JSON del paso). El
+  separador va en dos bloques, *Detección automática* y *Marca manual*, y la
+  leyenda de números de simbología se ve bajo la regex en lugar de en un
+  tooltip. Los nombres de simbología que el editor no conoce se conservan.
+- **Campos de lote en maestro-detalle**, como Flexibar, con **descripción** y
+  **valor por defecto** por campo. El valor por defecto se propone al abrir un
+  lote nuevo en el Workbench.
 - **Opciones nuevas en General**, de FlexibarNET 10: *Mostrar el diálogo del
   escáner al capturar* (`ShowScannerUi`), como valor por defecto de la casilla
   de ⚙, y *Color del icono* (`IconAccent`), que fija el color de la tarjeta en
@@ -97,6 +117,10 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
   binariza.
 
 ### 🐛 Corregido
+
+- Guardar la pestaña Campos de lote ya no descarta las claves de cada campo
+  que la pestaña no editaba (rehacía cada campo con `label`, `type`,
+  `required` y `config`).
 
 - **Borrar una página y capturar otra sobrescribía una imagen.** El índice de
   la página nueva salía del número de páginas, así que repetía el de la
@@ -136,6 +160,10 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
   códigos reales. Las dos de control eCAP (04 y 08) quedan para después.
 - `tests/test_arnau_e2e.py` pasa esas Apps por el worker real de extremo a
   extremo, con lectura real de códigos.
+- El campo de lote «Data» de las Apps del Arnau lleva la descripción de
+  Flexibar («Data del lot (dd/MM/yyyy). Buida = avui.»).
+- `tools/ui_snapshots.py` captura también el diálogo *Editar script* de un
+  evento (`dialog_event_script`).
 
 ## [0.1.7] - 2026-10-27
 

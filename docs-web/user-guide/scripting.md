@@ -36,6 +36,9 @@ están en la [referencia de la API](../reference/scripting-api.md#argumentos-de-
 | `init_global` | Al iniciar el programa |
 | `verification_panel` | Panel de verificación |
 
+Un evento con la casilla **Activado** desmarcada (estado PAUSADO en la pestaña
+Eventos) no se ejecuta, aunque tenga código.
+
 !!! info "Identificador de página"
     Desde la v0.1.1 (web) y v0.1.2 (desktop), `page.id` está disponible
     dentro del pipeline y de los eventos lifecycle. Útil para correlacionar

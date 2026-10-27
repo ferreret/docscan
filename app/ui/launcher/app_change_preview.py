@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from app.services.event_config import has_code
 from app.ui.widgets.code_editor import CodeEditor
 
 log = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ def _events_summary(events: dict) -> str:
     """Resumen de los eventos con codigo."""
     if not events:
         return "  (ninguno)"
-    return "\n".join(f"  - {name}" for name in events if events[name].strip())
+    return "\n".join(f"  - {name}" for name in events if has_code(events[name]))
 
 
 def _fields_summary(fields: list[dict]) -> str:

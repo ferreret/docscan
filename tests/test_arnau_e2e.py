@@ -240,3 +240,10 @@ def test_los_scripts_del_arnau_salen_formateados():
         if "No module named ruff" in r.stderr:
             pytest.skip("ruff no está instalado")
         assert r.returncode == 0, r.stdout
+
+
+def test_campo_data_lleva_la_descripcion_de_flexibar():
+    """La descripción del campo «Data» viaja como en SeedAppsArnau."""
+    (data,) = _load_tool("arnau_apps").CAMPOS_DE_LOTE
+    assert data["label"] == "Data"
+    assert data["description"] == "Data del lot (dd/MM/yyyy). Buida = avui."

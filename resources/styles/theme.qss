@@ -1252,3 +1252,121 @@ QProgressBar#statusProgress::chunk {
     padding: 7px 10px;
     min-width: 40px;
 }
+
+/* ==========================================================
+   Configurador: pestañas Eventos y Campos de lote, paso Barcode
+   (presentación de FlexibarNET 10)
+   ========================================================== */
+
+#eventDetail QPushButton[cssClass="primary"],
+#fieldsPanel QPushButton[cssClass="primary"] {
+    background-color: $accent;
+    color: $on_accent;
+    border-color: $accent;
+    font-weight: 600;
+}
+
+#eventDetail QPushButton[cssClass="primary"]:hover,
+#fieldsPanel QPushButton[cssClass="primary"]:hover {
+    background-color: $accent_hover;
+}
+
+#fieldsPanel QPushButton[cssClass="danger"] {
+    color: $danger;
+    border-color: $danger;
+}
+
+#fieldsPanel QPushButton[cssClass="danger"]:hover {
+    background-color: $danger;
+    color: $on_accent;
+}
+
+#fieldsPanel QPushButton[cssClass="danger"]:disabled {
+    color: $text_disabled;
+    border-color: $border;
+}
+
+/* Punto de estado: vacío (sin script), verde (ACTIVO), amarillo (PAUSADO) */
+#eventDot {
+    border-radius: 5px;
+    border: 2px solid $border_strong;
+    background-color: transparent;
+}
+
+#eventDot[state="active"] {
+    background-color: $success;
+    border-color: $success;
+}
+
+#eventDot[state="paused"] {
+    background-color: $warning;
+    border-color: $warning;
+}
+
+#eventRowName {
+    color: $text_subtle;
+    font-size: 13px;
+}
+
+#eventRowName[state="active"],
+#eventRowName[state="paused"] {
+    color: $text;
+    font-weight: 700;
+}
+
+#eventCanonical {
+    color: $text_subtle;
+    font-family: $font_mono;
+    font-size: 11px;
+}
+
+#eventPill {
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+#eventPill[state="active"] {
+    background-color: $success_bg;
+    color: $success;
+}
+
+#eventPill[state="paused"] {
+    background-color: $warning;
+    color: $on_warning;
+}
+
+#eventTitle {
+    color: $text;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+#variablesPanel {
+    background-color: $bg_alt;
+    border: 1px solid $border_soft;
+    border-radius: 6px;
+}
+
+#variablesBody {
+    background-color: transparent;
+}
+
+#eventSignature,
+#variableName {
+    color: $text;
+    font-family: $font_mono;
+    font-size: 12px;
+}
+
+#variableName {
+    font-weight: 600;
+}
+
+/* Leyenda de números de simbología (Code39 = 01 · Code128 = 02 · …) */
+#symbologyLegend {
+    color: $text_subtle;
+    font-family: $font_mono;
+    font-size: 11px;
+}

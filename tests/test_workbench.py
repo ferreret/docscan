@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -2570,3 +2571,64 @@ class TestSeparadorEnWorkbench:
         assert wb._pages[0].id == first_id
         wb._on_move_page(-1)  # ya está arriba: no hace nada
         assert wb._pages[0].id == first_id
+
+
+# ==================================================================
+# Paridad FlexibarNET10: evento pausado y valor por defecto de campo
+# ==================================================================
+
+
+class TestEventoPausadoYValorPorDefecto:
+    def test_el_workbench_no_compila_un_evento_pausado(
+        self, qtbot, session_factory, sample_app, tmp_path
+    ):
+        code = "def on_batch_loaded(app, batch):\n    pass\n"
+        with session_factory() as s:
+            app = s.get(Application, sample_app.id)
+            app.events_json = json.dumps(
+                {
+                    "on_batch_loaded": {"script": code, "enabled": False},
+                    "on_app_end": "def on_app_end(app, batch):\n    pass\n",
+                }
+            )
+            s.commit()
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        assert not window._script_engine.is_compiled("on_batch_loaded")
+        assert window._script_engine.is_compiled("on_app_end")
+
+    def test_lote_nuevo_toma_el_valor_por_defecto(self, qtbot):
+        panel = MetadataPanel()
+        qtbot.addWidget(panel)
+        panel.configure(
+            [
+                {"name": "dept", "type": "Texto", "default": "Administración"},
+                {"name": "ref", "type": "Texto"},
+            ]
+        )
+        panel.set_batch_fields({})
+        assert panel._batch_widgets["dept"].text() == "Administración"
+        assert panel._batch_widgets["ref"].text() == ""
+        # Un valor ya guardado en el lote manda sobre el por defecto, aunque
+        # esté vacío
+        panel.set_batch_fields({"dept": ""})
+        assert panel._batch_widgets["dept"].text() == ""
+
+    def test_el_workbench_pasa_el_valor_por_defecto_al_panel(
+        self, qtbot, session_factory, sample_app, tmp_path
+    ):
+        with session_factory() as s:
+            app = s.get(Application, sample_app.id)
+            app.batch_fields_json = json.dumps(
+                [{"label": "cliente", "type": "texto", "default": "ACME"}]
+            )
+            s.commit()
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        assert window._metadata_panel.get_batch_fields()["cliente"] == "ACME"

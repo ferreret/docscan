@@ -48,6 +48,7 @@ from app.pipeline.page_context import (
     separator_state,
 )
 from app.services.barcode_service import BarcodeService
+from app.services.event_config import active_event_sources
 from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
@@ -297,25 +298,22 @@ class WorkbenchWindow(QMainWindow):
 
     def _compile_events(self) -> None:
         """Pre-compila los scripts de eventos del ciclo de vida."""
-        try:
-            events = json.loads(self._application.events_json)
-        except json.JSONDecodeError, TypeError:
-            events = {}
-
+        # Solo los activados: un evento «PAUSADO» no se compila y, por tanto,
+        # no corre (ni aquí ni en transfer_flow, que mira is_compiled).
+        events = active_event_sources(self._application.events_json)
         for event_name, source in events.items():
-            if source and source.strip():
-                try:
-                    self._script_engine.compile_script(
-                        event_name,
-                        source,
-                        label=event_name,
-                    )
-                except Exception as e:
-                    log.warning(
-                        "Error compilando evento '%s': %s",
-                        event_name,
-                        e,
-                    )
+            try:
+                self._script_engine.compile_script(
+                    event_name,
+                    source,
+                    label=event_name,
+                )
+            except Exception as e:
+                log.warning(
+                    "Error compilando evento '%s': %s",
+                    event_name,
+                    e,
+                )
 
         compile_transfer_scripts(
             self._script_engine,
@@ -768,11 +766,7 @@ class WorkbenchWindow(QMainWindow):
         """Carga e instancia el panel de verificación si está definido."""
         if self._application is None:
             return
-        try:
-            events = json.loads(self._application.events_json or "{}")
-        except json.JSONDecodeError, TypeError:
-            return
-
+        events = active_event_sources(self._application.events_json)
         source = events.get("verification_panel", "").strip()
         if not source:
             return
@@ -885,6 +879,7 @@ class WorkbenchWindow(QMainWindow):
                 "name": f.get("label", ""),
                 "type": type_map.get(f.get("type", "texto"), "Texto"),
                 "required": f.get("required", False),
+                "default": f.get("default", ""),
             }
             if f.get("type") == "lista":
                 entry["choices"] = cfg.get("values", [])
@@ -984,6 +979,8 @@ class WorkbenchWindow(QMainWindow):
             self._batch_id = batch.id
             self._barcode_undo.clear()
 
+        # Lote nuevo: los campos arrancan con su valor por defecto
+        self._metadata_panel.set_batch_fields({})
         self._pages = []
         self._current_page_index = -1
         self._update_page_info()

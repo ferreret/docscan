@@ -19,6 +19,7 @@ from typing import Any
 
 from PySide6.QtCore import QCoreApplication, QSettings
 
+from app.services.event_config import has_code
 from app.services.transfer_service import parse_transfer_config
 
 log = logging.getLogger(__name__)
@@ -159,7 +160,7 @@ def _has_scripts(app: Any, steps: set[str]) -> bool:
         return True  # hay algo escrito, aunque no se pueda leer
     if not isinstance(data, dict):
         return False
-    return any(isinstance(v, str) and v.strip() for v in data.values())
+    return any(has_code(v) for v in data.values())
 
 
 def format_tag(app: Any) -> str | None:
