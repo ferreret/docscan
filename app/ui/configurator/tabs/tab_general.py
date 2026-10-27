@@ -71,11 +71,16 @@ def _accent_swatch(key: str) -> QIcon:
 class GeneralTab(QWidget):
     """Pestaña de configuración general de la aplicación."""
 
-    def __init__(self, app: Application, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        app: Application,
+        existing_groups: list[str] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
-        self._setup_ui(app)
+        self._setup_ui(app, existing_groups or [])
 
-    def _setup_ui(self, app: Application) -> None:
+    def _setup_ui(self, app: Application, existing_groups: list[str]) -> None:
         # Con scroll: la pestaña ya no cabe a la altura del diálogo y, sin él,
         # Qt aplastaba los campos (Nombre, Descripción) y la lista de pestañas.
         outer = QVBoxLayout(self)
@@ -102,6 +107,23 @@ class GeneralTab(QWidget):
         self._desc_edit.setPlainText(app.description)
         self._desc_edit.setMaximumHeight(80)
         main_form.addRow(self.tr("Descripción:"), self._desc_edit)
+
+        # Grupo del launcher (FlexibarNET10 «Grupo (Launcher)»): combo
+        # editable con los grupos en uso; escribir uno nuevo lo crea.
+        self._group_combo = QComboBox()
+        self._group_combo.setEditable(True)
+        self._group_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self._group_combo.addItems(existing_groups)
+        self._group_combo.setCurrentIndex(-1)
+        self._group_combo.setEditText(getattr(app, "group", "") or "")
+        self._group_combo.lineEdit().setPlaceholderText(self.tr("Sin grupo"))
+        self._group_combo.setToolTip(
+            self.tr(
+                "Agrupa la aplicación bajo una cabecera en el launcher.\n"
+                "Vacío = sin grupo."
+            )
+        )
+        main_form.addRow(self.tr("Grupo (launcher):"), self._group_combo)
 
         self._active_check = QCheckBox(self.tr("Activa"))
         self._active_check.setChecked(app.active)
@@ -397,6 +419,7 @@ class GeneralTab(QWidget):
         """Aplica los valores del formulario al objeto Application."""
         app.name = self._name_edit.text().strip()
         app.description = self._desc_edit.toPlainText().strip()
+        app.group = self._group_combo.currentText().strip()
         app.active = self._active_check.isChecked()
         app.scanner_backend = self._scanner_combo.currentText()
         app.show_scanner_ui = self._show_scanner_ui.isChecked()

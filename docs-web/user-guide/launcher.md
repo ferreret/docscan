@@ -23,6 +23,22 @@ Cada aplicación es una tarjeta, como en FlexibarNET 10:
 
 La barra de estado muestra cuántas aplicaciones hay y, a la derecha, «● Listo».
 
+## Grupos
+
+Las aplicaciones con **grupo** (pestaña General del configurador) aparecen bajo
+una cabecera con el nombre del grupo y el número de aplicaciones, igual que en
+FlexibarNET 10:
+
+- Las aplicaciones **sin grupo** van primero, sin cabecera. Después, los grupos
+  por orden alfabético.
+- **Un clic en la cabecera** pliega o despliega el grupo. Cada equipo recuerda
+  qué grupos tiene plegados.
+- No hay que crear los grupos aparte: un grupo existe mientras alguna aplicación
+  lo tenga. Si se vacía el grupo de la última, la cabecera desaparece.
+- **La búsqueda** filtra también dentro de los grupos. La cabecera cuenta solo
+  las aplicaciones encontradas y desaparece si no queda ninguna. Un grupo
+  plegado sigue plegado mientras se busca: despliégalo para ver los resultados.
+
 ## Sidebar
 
 La sidebar izquierda proporciona acceso rápido a todas las acciones. Se puede expandir/colapsar haciendo clic en el icono de menú.
@@ -54,7 +70,7 @@ La sidebar izquierda proporciona acceso rápido a todas las acciones. Se puede e
 
 Las aplicaciones se exportan como ficheros `.docscan` (JSON) que incluyen:
 
-- Configuración general
+- Configuración general (incluido el grupo)
 - Pipeline completo
 - Campos de lote
 - Eventos y scripts

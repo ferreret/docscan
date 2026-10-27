@@ -26,6 +26,9 @@ class Application(Base):
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
+    # Grupo del launcher (FlexibarNET10 App.Group): texto libre, "" = sin
+    # grupo. No hay entidad grupo: existe mientras alguna App lo tenga.
+    group: Mapped[str] = mapped_column(String(200), default="", server_default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Pipeline como JSON (serializado con pipeline/serializer.py)

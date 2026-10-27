@@ -11,6 +11,7 @@ from pathlib import Path
 
 from alembic import command
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.orm import Session
 
 from app.db.database import (
     Base,
@@ -235,3 +236,38 @@ def test_e5b7_idempotent_when_named_constraint_absent(tmp_path):
     }
     engine.dispose()
     assert "uq_applications_tenant_name" in uqs
+
+
+def test_f3a8_adds_group_without_touching_data(tmp_path):
+    """f3a8 añade ``applications.group`` con "" y no recrea la tabla.
+
+    Con ``batch_alter_table`` la tabla se recrearía y el ``ON DELETE
+    CASCADE`` vaciaría los lotes (bug de 2026-08-05): aquí deben seguir.
+    """
+    db = tmp_path / "group.db"
+    e = create_engine(f"sqlite:///{db.as_posix()}")
+    Base.metadata.create_all(e, tables=_DESKTOP_TABLES)
+    with Session(e) as session:
+        session.add(Batch(application=Application(name="Prueba")))
+        session.commit()
+    with e.begin() as c:
+        c.exec_driver_sql('ALTER TABLE applications DROP COLUMN "group"')
+    with e.connect() as conn:
+        cfg = _alembic_config()
+        cfg.attributes["connection"] = conn
+        command.stamp(cfg, "e2c7b9a4f160")
+    e.dispose()
+    assert "group" not in _applications_columns(db)
+
+    engine = create_db_engine(db_path=db)
+    run_migrations(engine)
+    engine.dispose()
+
+    assert _stamped_version(db) == _alembic_head()
+    engine = create_engine(f"sqlite:///{db.as_posix()}")
+    with engine.connect() as conn:
+        assert conn.exec_driver_sql(
+            'SELECT name, "group" FROM applications'
+        ).fetchall() == [("Prueba", "")]
+        assert conn.exec_driver_sql("SELECT COUNT(*) FROM batches").scalar() == 1
+    engine.dispose()

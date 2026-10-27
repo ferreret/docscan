@@ -36,6 +36,9 @@ from app.pipeline.steps import BarcodeStep
 # Raíz real en el hospital (unidad de red de las estaciones Windows).
 RAIZ_PRODUCCION = "W:\\"
 
+# Grupo del launcher de las Apps del hospital (Flexibar App.Group)
+GRUPO = "Hospital Arnau de Vilanova"
+
 # Regex del separador sobre "NN"+valor (NN = número legacy de simbología)
 CODE128_O_I2OF5 = "^(02|10)"
 SOLO_I2OF5 = "^10"
@@ -282,6 +285,7 @@ def columnas(app: ArnauApp, raiz: str, escaner: str = "twain") -> dict[str, Any]
     return {
         "name": app.nombre,
         "description": app.descripcion,
+        "group": GRUPO,  # Flexibar App.Group de las Apps del hospital
         "active": True,
         "pipeline_json": serialize([paso_barcode(app)]),
         "events_json": json.dumps({"on_transfer_validate": VALIDAR}),

@@ -129,10 +129,12 @@ def test_los_packs_se_siembran_con_scripts_que_compilan(entorno):
     engine = create_db_engine(db_path=entorno["db"])
     with get_session_factory(engine)() as s:
         names = sorted(a.name for a in s.query(Application).all())
+        groups = {a.group for a in s.query(Application).all()}
         app = s.query(Application).filter(Application.name.like("01%")).one()
         transfer = json.loads(app.transfer_json)
     engine.dispose()
     assert len(names) == 6
+    assert groups == {"Hospital Arnau de Vilanova"}
     assert transfer["mode"] == "tiff"
     assert transfer["grouping"] == "document"
     assert transfer["collision_policy"] == "merge"

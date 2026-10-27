@@ -341,7 +341,7 @@ class LauncherWindow(QMainWindow):
             self._app_list.populate(apps)
 
         self._lbl_app_count.setText(
-            self.tr("{0} aplicación(es)").format(self._app_list.count())
+            self.tr("{0} aplicación(es)").format(self._app_list.app_count())
         )
         self._update_button_state()
 

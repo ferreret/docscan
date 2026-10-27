@@ -111,6 +111,16 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
   la exportación.
 - Un backend de escáner de otra plataforma (`twain` abierto en Linux) se
   conserva al guardar; antes se cambiaba al primero de la lista.
+- **Grupo (launcher)** en General (`App.Group` de FlexibarNET 10): combo
+  editable con los grupos ya usados; vacío = sin grupo. Migración
+  `f3a8c1d72b95`, solo `ADD COLUMN`. Viaja en la exportación y en el clon.
+
+### 🏠 Launcher
+
+- **Grupos de aplicaciones** con cabecera plegable, como FlexibarNET 10: las
+  aplicaciones sin grupo van primero y sin cabecera, y los grupos después, por
+  orden alfabético, con el número de aplicaciones. El plegado se recuerda por
+  equipo y la búsqueda cuenta lo encontrado en cada grupo.
 - La lista de pasos indica la condición de separador del paso Barcode.
 - **Group4 solo para páginas en blanco y negro**, como el ExportConfig de
   FlexibarNET 10: un TIFF con alguna página en gris o color va en LZW y no se
@@ -158,6 +168,7 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
 - `tools/seed_apps_arnau.py` siembra las seis Apps de archivo del Arnau
   (01, 02, 03, 05, 06 y 07), exporta sus packs y genera páginas de prueba con
   códigos reales. Las dos de control eCAP (04 y 08) quedan para después.
+  Las seis van al grupo «Hospital Arnau de Vilanova», como en Flexibar.
 - `tests/test_arnau_e2e.py` pasa esas Apps por el worker real de extremo a
   extremo, con lectura real de códigos.
 - El campo de lote «Data» de las Apps del Arnau lleva la descripción de
