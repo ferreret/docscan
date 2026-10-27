@@ -21,13 +21,17 @@ from PySide6.QtWidgets import (
 
 from app.ui.workbench.page_state import (
     PageState,
-    STATE_COLORS,
+    state_color,
     ndarray_to_qpixmap,
 )
 
 log = logging.getLogger(__name__)
 
 THUMBNAIL_WIDTH = 140
+# Grosor total alrededor de la imagen (borde + marco), igual con y sin selección.
+_FRAME = 7
+_BORDER = 2
+_SELECTED_BORDER = 3
 
 
 class ThumbnailItem(QLabel):
@@ -41,28 +45,46 @@ class ThumbnailItem(QLabel):
         self.page_index = page_index
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setFixedWidth(THUMBNAIL_WIDTH + 8)
+        self.setFixedWidth(THUMBNAIL_WIDTH + 8 + 2 * _FRAME)
         self._selected = False
+        self._state = PageState.NO_RECOGNITION
 
     def set_state(self, state: PageState) -> None:
         """Actualiza el color del borde según el estado."""
-        color = STATE_COLORS[state]
-        border_w = 4 if self._selected else 3
-        self.setStyleSheet(
-            f"QLabel {{ border: {border_w}px solid {color}; padding: 2px; }}"
-        )
+        self._state = state
+        self._apply_style()
 
     def set_selected(self, selected: bool, state: PageState) -> None:
         """Marca o desmarca la miniatura como seleccionada."""
         self._selected = selected
-        color = STATE_COLORS[state]
-        if selected:
+        self._state = state
+        self._apply_style()
+
+    def _apply_style(self) -> None:
+        """Pinta el borde de estado y, si está seleccionada, el marco de acento.
+
+        El borde exterior siempre lleva el color del estado (revisión,
+        separador…). La seleccionada añade un marco macizo del color de acento
+        entre ese borde y la imagen: antes solo se distinguía por 1 px más de
+        borde y un fondo al 16 % que quedaba tapado por la página. El grosor
+        total es el mismo en los dos casos, así que nada se mueve al cambiar
+        de página.
+        """
+        from app.ui.palette import color
+
+        state = state_color(self._state)
+        if self._selected:
             self.setStyleSheet(
-                f"QLabel {{ border: 4px solid {color}; "
-                f"background-color: rgba(100, 150, 255, 40); padding: 2px; }}"
+                f"QLabel {{ border: {_SELECTED_BORDER}px solid {state}; "
+                f"background-color: {color('accent')}; "
+                f"padding: {_FRAME - _SELECTED_BORDER}px; }}"
             )
         else:
-            self.set_state(state)
+            self.setStyleSheet(
+                f"QLabel {{ border: {_BORDER}px solid {state}; "
+                f"background-color: transparent; "
+                f"padding: {_FRAME - _BORDER}px; }}"
+            )
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -109,7 +131,7 @@ class ThumbnailPanel(QWidget):
         self._scroll.setWidget(self._container)
         layout.addWidget(self._scroll)
 
-        self.setFixedWidth(THUMBNAIL_WIDTH + 30)
+        self.setFixedWidth(THUMBNAIL_WIDTH + 38 + 2 * _FRAME)
 
     @staticmethod
     def _make_pixmap(image: np.ndarray) -> QPixmap:

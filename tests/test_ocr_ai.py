@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+import pytest
 
 from app.services.ocr_service import OcrService
 
@@ -77,8 +78,8 @@ class TestOcrService:
         assert isinstance(result.text, str)
 
     def test_unknown_engine(self):
+        """Un motor desconocido es un error, no un texto vacío (paridad Flexibar)."""
         service = OcrService()
         blank = np.ones((100, 200, 3), dtype=np.uint8) * 255
-        result = service.recognize(blank, engine="unknown_engine")
-        assert result.text == ""
-        assert result.regions == []
+        with pytest.raises(RuntimeError, match="unknown_engine"):
+            service.recognize(blank, engine="unknown_engine")

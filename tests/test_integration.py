@@ -289,8 +289,12 @@ class TestPipelineBarcodeStep:
         assert "SEP-001" in values
         assert "DOC-999" in values
 
-    def test_barcode_service_none_skips_step_gracefully(self) -> None:
-        """Sin barcode_service configurado el paso se ignora sin error."""
+    def test_barcode_service_none_queda_a_revision(self) -> None:
+        """Sin barcode_service el paso falla a la vista, no se salta en silencio.
+
+        Así se escondía que el worker desatendido y el modo directo no leían
+        ningún barcode (paridad FlexibarNET10 v1.26).
+        """
         steps = [BarcodeStep(id="bc1")]
         executor = _make_executor(steps, barcode_service=None)
         page = _PageCtx(page_index=0, image=_white_image())
@@ -298,7 +302,8 @@ class TestPipelineBarcodeStep:
         executor.execute(page, _BatchCtx(), _AppCtx())
 
         assert page.barcodes == []
-        assert page.flags.processing_errors == []
+        assert page.flags.processing_errors
+        assert page.flags.needs_review is True
 
     def test_script_reads_accumulated_barcodes(self) -> None:
         """Un ScriptStep posterior puede leer page.barcodes."""

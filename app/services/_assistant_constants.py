@@ -78,8 +78,9 @@ Scripts (ScriptStep and lifecycle events) receive these objects:
 - pipeline.abort(reason: str) — abort pipeline, mark page for review
 - pipeline.repeat_step(step_id: str) — re-execute a step (max 3 repeats)
 - pipeline.replace_image(img: np.ndarray) — replace current image
-- pipeline.set_metadata(key: str, value: Any) — store metadata
-- pipeline.get_metadata(key: str) -> Any — retrieve metadata
+- pipeline.set_metadata(key: str, value: Any) — store metadata (lives for the CURRENT PAGE only)
+- pipeline.get_metadata(key: str) -> Any — retrieve metadata. A new PipelineContext is created
+  for every page, so metadata can NOT carry values from one page to the next.
 - pipeline.get_step_result(step_id: str) -> Any — result from a previous step
 
 ### Built-in variables
@@ -133,18 +134,29 @@ def process(app, batch, page, pipeline):
 EVENT_SIGNATURES: dict[str, str] = {
     "on_app_start": 'def on_app_start(app, batch):\n    """Runs when the application opens in the Workbench."""',
     "on_app_end": 'def on_app_end(app, batch):\n    """Runs when the application closes."""',
-    "on_import": 'def on_import(app, batch):\n    """Replaces standard import logic when defined. Called on \'Process\' button with file/PDF source."""',
-    "on_scan_complete": 'def on_scan_complete(app, batch):\n    """Runs ONCE after the pipeline finishes for ALL pages in the batch."""',
-    "on_transfer_validate": 'def on_transfer_validate(app, batch) -> bool:\n    """Runs before transfer. Return False to cancel transfer."""',
-    "on_transfer_advanced": 'def on_transfer_advanced(app, batch, result):\n    """Replaces simple transfer when defined. Full batch access for custom transfer logic."""',
-    "on_transfer_page": 'def on_transfer_page(app, batch, page, result):\n    """Runs after copying each page during simple transfer."""',
-    "on_navigate_prev": 'def on_navigate_prev(app, batch):\n    """Custom previous navigation handler."""',
-    "on_navigate_next": 'def on_navigate_next(app, batch):\n    """Custom next navigation handler."""',
-    "on_navigate_script": 'def on_navigate_script(app, batch):\n    """Custom viewer navigation button handler."""',
+    "on_import": 'def on_import(app, batch):\n    """Runs when the operator starts an import. Return any non-None value to replace the standard import; return None to keep it."""',
+    "on_scan_complete": 'def on_scan_complete(app, batch):\n    """Runs ONCE after the pipeline finishes for ALL pages in the batch. Receives no pages."""',
+    "on_transfer_validate": 'def on_transfer_validate(app, batch) -> bool:\n    """Runs before transfer, after the required batch fields are checked.\n    Return False to cancel. An exception also cancels it (fails closed)."""',
+    "on_transfer_advanced": (
+        "def on_transfer_advanced(app, batch, pages, result):\n"
+        '    """Runs AFTER the simple transfer (if enabled), in the Workbench and in the\n'
+        "    unattended worker alike. `pages`: list with .image_path, .page_index, .fields,\n"
+        "    .ocr_text, .first_barcode, .image (loaded on demand). `result`: TransferResult\n"
+        "    of the simple transfer. There is NO batch.pages and pages have NO .barcodes.\n"
+        '    Return False or raise to make the transfer fail: the batch is NOT marked as exported."""'
+    ),
+    "on_transfer_page": 'def on_transfer_page(app, batch, page_index, success):\n    """Runs after each page is copied by the simple transfer (Workbench only)."""',
+    "on_navigate_prev": 'def on_navigate_prev(app, batch, current_page_index, total_pages):\n    """Custom previous navigation. Return the page index to go to (int), or None."""',
+    "on_navigate_next": 'def on_navigate_next(app, batch, current_page_index, total_pages):\n    """Custom next navigation. Return the page index to go to (int), or None."""',
+    "on_navigate_script": (
+        "def on_navigate_script(app, batch, current_page_index, total_pages, pages):\n"
+        '    """Custom viewer navigation button. `pages` is a list of dicts with page_index,\n'
+        '    barcodes (value, symbology, role) and needs_review. Return the target page index (int)."""'
+    ),
     "on_key_event": 'def on_key_event(app, batch, key):\n    """Custom key event handler. \'key\' is a string with the key name."""',
     "on_batch_loaded": 'def on_batch_loaded(app, batch):\n    """Runs when a batch is opened in the Workbench (after the pipeline has finished)."""',
-    "on_page_changed": 'def on_page_changed(app, batch, page):\n    """Runs each time the active page changes. \'page\' has id, page_index, fields, barcodes, ocr_text."""',
-    "init_global": 'def init_global(app, batch):\n    """Runs at program startup (launcher-level global script)."""',
+    "on_page_changed": 'def on_page_changed(app, batch, page, page_index):\n    """Runs each time the active page changes. \'page\' has id, page_index, fields, barcodes, ocr_text."""',
+    "init_global": 'def init_global():\n    """Runs at program startup (launcher-level global script). Receives NO arguments."""',
     "verification_panel": (
         "class MyVerificationPanel(VerificationPanel):\n"
         '    """Custom verification panel plugin.\n'

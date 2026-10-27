@@ -262,3 +262,37 @@ class TestRoundtrip:
         imported = import_application(data, session, name_override="Roundtrip")
         session.commit()
         assert imported.pipeline_json == sample_app.pipeline_json
+
+
+# ------------------------------------------------------------------
+# Copia completa de la configuración (paridad FlexibarNET10 v1.26)
+# ------------------------------------------------------------------
+
+
+class TestCopiaDeConfiguracion:
+    def test_toda_columna_es_config_o_esta_excluida(self):
+        """Una columna nueva no puede quedarse fuera de export/clon sin decidirlo."""
+        from app.services.app_export_service import (
+            _EXPORTABLE_FIELDS,
+            NON_CONFIG_COLUMNS,
+        )
+
+        columnas = {c.name for c in Application.__table__.columns}
+        sin_clasificar = columnas - set(_EXPORTABLE_FIELDS) - NON_CONFIG_COLUMNS
+        assert not sin_clasificar, f"Columnas sin clasificar: {sin_clasificar}"
+
+    def test_copia_incluye_notificaciones(self):
+        from app.services.app_export_service import copy_configuration
+
+        origen = Application(
+            name="Origen",
+            notifications_json='{"webhook_enabled": true}',
+            pipeline_json='[{"type": "ocr", "id": "o1"}]',
+            close_after_transfer=True,
+        )
+        copia = Application(name="Copia")
+        copy_configuration(origen, copia)
+        assert copia.name == "Copia"
+        assert copia.notifications_json == origen.notifications_json
+        assert copia.pipeline_json == origen.pipeline_json
+        assert copia.close_after_transfer is True

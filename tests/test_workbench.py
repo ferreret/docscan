@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -30,7 +31,8 @@ from app.workers.scan_worker import ScanWorker
 from app.workers.transfer_worker import TransferWorker
 from app.ui.workbench.page_state import (
     PageState,
-    STATE_COLORS,
+    STATE_COLOR_KEYS,
+    state_color,
     determine_page_state,
     ndarray_to_qpixmap,
 )
@@ -967,10 +969,10 @@ class TestDeterminePageState:
         assert state is PageState.SEPARATOR_BARCODE
 
     def test_all_states_have_colors(self):
-        """Todos los estados tienen un color definido en STATE_COLORS."""
+        """Todos los estados tienen un color de la paleta."""
         for state in PageState:
-            assert state in STATE_COLORS
-            assert STATE_COLORS[state].startswith("#")
+            assert state in STATE_COLOR_KEYS
+            assert state_color(state).startswith("#")
 
 
 # ==================================================================
@@ -1193,7 +1195,7 @@ class TestDocumentViewer:
 
         viewer.set_image(color_image, PageState.NEEDS_REVIEW)
         style = viewer.styleSheet()
-        assert "#e53935" in style  # rojo para NEEDS_REVIEW
+        assert state_color(PageState.NEEDS_REVIEW) in style  # rojo
 
     def test_set_state_changes_border_color(self, qtbot, color_image):
         viewer = DocumentViewer()
@@ -1202,7 +1204,7 @@ class TestDocumentViewer:
         viewer.set_image(color_image, PageState.NO_RECOGNITION)
         viewer.set_state(PageState.HAS_FIELDS)
         style = viewer.styleSheet()
-        assert "#1e88e5" in style  # azul para HAS_FIELDS
+        assert state_color(PageState.HAS_FIELDS) in style  # azul
 
     def test_clear_removes_pixmap(self, qtbot, color_image):
         viewer = DocumentViewer()
@@ -1351,126 +1353,105 @@ class TestDocumentViewer:
 
 
 class TestBarcodePanel:
-    def test_creates_without_error(self, qtbot):
+    """Lista de códigos al estilo FlexibarNET10 (filas, no tabla)."""
+
+    @staticmethod
+    def _panel(qtbot):
         panel = BarcodePanel()
         qtbot.addWidget(panel)
-        assert panel is not None
+        return panel
 
-    def test_empty_on_creation(self, qtbot):
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
-        assert panel._table.rowCount() == 0
+    def test_vacio_al_crear(self, qtbot):
+        panel = self._panel(qtbot)
+        assert panel.row_count() == 0
+        assert "· 0" in panel._section._lbl_title.text()
 
-    def test_set_page_barcodes_populates_table(self, qtbot):
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
-
-        barcodes = [
-            BarcodeResult(
-                value="ABC-123", symbology="CODE128", engine="pyzbar", role=""
-            ),
-            BarcodeResult(
-                value="SEP-001", symbology="QR", engine="zxing", role="separator"
-            ),
-        ]
-        panel.set_page_barcodes(barcodes)
-
-        assert panel._table.rowCount() == 2
-        # Columna 0 es indicador de color, datos empiezan en columna 1
-        assert panel._table.item(0, 1).text() == "ABC-123"
-        assert panel._table.item(0, 2).text() == "CODE128"
-        assert panel._table.item(0, 3).text() == "pyzbar"
-        assert panel._table.item(0, 4).text() == ""
-        assert panel._table.item(1, 4).text() == "separator"
-
-    def test_set_page_barcodes_replaces_previous(self, qtbot):
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
-
-        panel.set_page_barcodes([BarcodeResult(value="OLD")])
+    def test_una_fila_por_codigo_con_su_informacion(self, qtbot):
+        panel = self._panel(qtbot)
         panel.set_page_barcodes(
             [
-                BarcodeResult(value="NEW-1"),
-                BarcodeResult(value="NEW-2"),
-                BarcodeResult(value="NEW-3"),
+                BarcodeResult(value="ABC-123", symbology="Code128", engine="pyzbar"),
+                BarcodeResult(
+                    value="SEP-001", symbology="QR", engine="zxing", role="separator"
+                ),
+                BarcodeResult(value="A MANO", symbology="MANUAL", engine="manual"),
             ]
         )
+        assert panel.row_count() == 3
+        assert "BARCODES DE LA PÁGINA · 3" in panel._section._lbl_title.text()
+        assert [panel.row_value(i) for i in range(3)] == [
+            "ABC-123",
+            "SEP-001",
+            "A MANO",
+        ]
+        filas = panel._rows
+        assert "pyzbar" in filas[0].findChild(QLabel, "barcodeMeta").text()
+        assert "separator" in filas[1].findChild(QLabel, "barcodeMeta").text()
+        assert filas[2].findChild(QLabel, "badgeManual") is not None
+        assert filas[0].findChild(QLabel, "badgeManual") is None
 
-        assert panel._table.rowCount() == 3
-        assert panel._table.item(0, 1).text() == "NEW-1"
-
-    def test_set_page_barcodes_empty_clears_table(self, qtbot):
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
-
-        panel.set_page_barcodes([BarcodeResult(value="X")])
+    def test_reemplaza_y_vacia(self, qtbot):
+        panel = self._panel(qtbot)
+        panel.set_page_barcodes([BarcodeResult(value="OLD")])
+        panel.set_page_barcodes([BarcodeResult(value="N1"), BarcodeResult(value="N2")])
+        assert panel.row_count() == 2
         panel.set_page_barcodes([])
+        assert panel.row_count() == 0
 
-        assert panel._table.rowCount() == 0
+    def test_papelera_de_la_fila_pide_borrar_esa_fila(self, qtbot):
+        panel = self._panel(qtbot)
+        panel.set_page_barcodes([BarcodeResult(value="A"), BarcodeResult(value="B")])
+        with qtbot.waitSignal(panel.delete_barcode_requested) as sig:
+            panel._rows[1].findChild(QPushButton, "rowDeleteButton").click()
+        assert sig.args == [1]
 
-    def test_set_lot_counters(self, qtbot):
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
+    def test_supr_en_fila_enfocada_borra_codigo_no_pagina(self, qtbot):
+        """La fila reclama Supr antes que el atajo de ventana «borrar página»."""
+        from PySide6.QtCore import QEvent
+        from PySide6.QtGui import QKeyEvent
 
-        panel.set_lot_counters(
-            {
-                "total_pages": 42,
-                "with_barcode": 15,
-                "separators": 3,
-                "needs_review": 7,
-            }
+        panel = self._panel(qtbot)
+        panel.set_page_barcodes([BarcodeResult(value="A")])
+        fila = panel._rows[0]
+        override = QKeyEvent(
+            QEvent.Type.ShortcutOverride,
+            Qt.Key.Key_Delete,
+            Qt.KeyboardModifier.NoModifier,
         )
+        QApplication.sendEvent(fila, override)
+        assert override.isAccepted()
+        with qtbot.waitSignal(panel.delete_barcode_requested) as sig:
+            qtbot.keyClick(fila, Qt.Key.Key_Delete)
+        assert sig.args == [0]
 
-        assert "42" in panel._lbl_total.text()
-        assert "15" in panel._lbl_with_barcode.text()
-        assert "3" in panel._lbl_separators.text()
-        assert "7" in panel._lbl_review.text()
+    def test_clic_selecciona_fila(self, qtbot):
+        panel = self._panel(qtbot)
+        panel.set_page_barcodes([BarcodeResult(value="A"), BarcodeResult(value="B")])
+        qtbot.mouseClick(panel._rows[1], Qt.MouseButton.LeftButton)
+        assert panel.selected_row() == 1
+        assert panel.selected_value() == "B"
 
-    def test_set_lot_counters_missing_keys(self, qtbot):
-        """set_lot_counters con dict vacío usa 0 por defecto."""
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
+    def test_resaltado_desde_el_visor(self, qtbot):
+        panel = self._panel(qtbot)
+        panel.set_page_barcodes([BarcodeResult(value="A"), BarcodeResult(value="B")])
+        panel.highlight_row(1)
+        assert panel._rows[1].property("highlighted") is True
+        assert panel._rows[0].property("highlighted") is False
+        panel.highlight_row(-1)
+        assert panel._rows[1].property("highlighted") is False
 
-        panel.set_lot_counters({})
+    def test_boton_anadir_se_puede_ocultar(self, qtbot):
+        panel = self._panel(qtbot)
+        panel.set_add_button_visible(False)
+        assert panel._btn_add.isHidden()
 
-        assert "0" in panel._lbl_total.text()
-        assert "0" in panel._lbl_with_barcode.text()
-
-    def test_clear_empties_table_and_counters(self, qtbot):
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
-
-        panel.set_page_barcodes([BarcodeResult(value="X"), BarcodeResult(value="Y")])
-        panel.set_lot_counters(
-            {
-                "total_pages": 10,
-                "with_barcode": 5,
-                "separators": 1,
-                "needs_review": 2,
-            }
-        )
-        panel.clear()
-
-        assert panel._table.rowCount() == 0
-        assert "0" in panel._lbl_total.text()
-        assert "0" in panel._lbl_with_barcode.text()
-        assert "0" in panel._lbl_separators.text()
-        assert "0" in panel._lbl_review.text()
-
-    def test_table_has_five_columns(self, qtbot):
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
-        assert panel._table.columnCount() == 5
-
-    def test_table_headers(self, qtbot):
-        panel = BarcodePanel()
-        qtbot.addWidget(panel)
-        headers = [panel._table.horizontalHeaderItem(i).text() for i in range(5)]
-        assert headers == ["", "Valor", "Simbología", "Motor", "Rol"]
+    def test_plegar_oculta_la_lista(self, qtbot):
+        panel = self._panel(qtbot)
+        panel._section.toggle()
+        assert panel._section.is_collapsed()
+        assert panel._section._scroll.isHidden()
 
 
-# ==================================================================
-# MetadataPanel
 # ==================================================================
 
 
@@ -1505,10 +1486,51 @@ class TestMetadataPanel:
     def test_creates_without_error(self, panel):
         assert panel is not None
 
-    def test_tabs_lote_and_log(self, panel):
-        assert panel._tabs.count() == 2
-        assert panel._tabs.tabText(0) == "Lote"
-        assert panel._tabs.tabText(1) == "Log"
+    def test_pestanas_como_flexibar(self, panel):
+        """Verificación, OCR y Log; los campos de lote ya no son una pestaña."""
+        titulos = [panel._tabs.tabText(i) for i in range(panel._tabs.count())]
+        assert titulos == ["Verificación", "OCR", "Log"]
+
+    def test_ocr_de_la_pagina_se_muestra(self, panel):
+        """Antes set_verification_data era un stub y el OCR no se veía."""
+        panel.set_verification_data(ocr_text="FACTURA 2026-001")
+        assert panel.ocr_text() == "FACTURA 2026-001"
+
+    def test_pestana_inicial_configurada(self, panel):
+        panel.set_default_tab("ocr")
+        assert panel.current_tab() == "ocr"
+        panel.set_default_tab("lote")  # valor antiguo: primera visible
+        assert panel.current_tab() == "verificacion"
+
+    def test_layout_oculta_y_reordena_pestanas(self, panel):
+        from app.models.workbench_layout import WorkbenchLayout
+
+        layout = WorkbenchLayout.from_json(
+            '[{"id": "log", "visible": true}, {"id": "ocr", "visible": true},'
+            ' {"id": "verificacion", "visible": false}]'
+        )
+        panel.apply_layout(layout)
+        titulos = [panel._tabs.tabText(i) for i in range(panel._tabs.count())]
+        assert titulos == ["Log", "OCR"]
+        panel.set_default_tab("verificacion")  # oculta: primera visible
+        assert panel.current_tab() == "log"
+
+    def test_sin_pestanas_visibles_el_bloque_se_oculta(self, panel):
+        from app.models.workbench_layout import WorkbenchLayout
+
+        panel.apply_layout(
+            WorkbenchLayout.from_json(
+                '[{"id": "verificacion", "visible": false},'
+                ' {"id": "ocr", "visible": false}, {"id": "log", "visible": false}]'
+            )
+        )
+        assert panel._tabs.isHidden()
+
+    def test_panel_de_campos_solo_con_campos(self, panel, batch_fields_def):
+        assert panel._fields_section.isHidden()
+        panel.configure(batch_fields_def, [])
+        assert not panel._fields_section.isHidden()
+        assert "· 4" in panel._fields_section._lbl_title.text()
 
     def test_configure_creates_batch_widgets(
         self, panel, batch_fields_def, index_fields_def
@@ -1695,6 +1717,54 @@ class TestWorkbenchWindow:
             )
         qtbot.addWidget(window)
         return window
+
+    def test_validacion_ve_los_campos_actuales_del_panel(
+        self, workbench, session_factory, tmp_path
+    ):
+        """on_transfer_validate recibe lo que hay en el panel, no lo del intento anterior.
+
+        Antes los campos se guardaban DESPUÉS de validar y el script decidía
+        con el valor viejo (hallado en el smoke del lote 3).
+        """
+        from app.services.batch_service import BatchService
+        from config.settings import APP_IMAGES_DIR
+
+        with session_factory() as s:
+            BatchService(s, APP_IMAGES_DIR).add_pages(
+                workbench._batch_id, [np.full((20, 20, 3), 255, np.uint8)]
+            )
+            s.commit()
+        workbench._reload_pages()
+        workbench._script_engine.compile_script(
+            "on_transfer_validate",
+            "def on_transfer_validate(app, batch):\n"
+            "    return batch.fields.get('cliente') != 'MALO'\n",
+        )
+        workbench._metadata_panel._batch_widgets["cliente"].setText("MALO")
+        with (
+            patch("app.ui.workbench.workbench_window.QMessageBox.warning") as aviso,
+            patch("app.ui.workbench.workbench_window.QMessageBox.question") as pregunta,
+        ):
+            workbench._on_transfer()
+        pregunta.assert_not_called()
+        assert "rechazado" in aviso.call_args.args[2]
+
+    def test_barra_del_visor_queda_debajo_de_la_imagen(self, workbench, qtbot):
+        """La barra no puede tapar la página: va bajo el visor, no encima."""
+        from PySide6.QtCore import QPoint, QRect
+
+        workbench.resize(1280, 800)
+        workbench.show()
+        qtbot.waitExposed(workbench)
+        viewer, barra = workbench._viewer, workbench._viewer_overlay
+        assert barra.parent() is not viewer
+
+        def rect_en_ventana(w):
+            return QRect(w.mapTo(workbench, QPoint(0, 0)), w.size())
+
+        r_visor, r_barra = rect_en_ventana(viewer), rect_en_ventana(barra)
+        assert not r_visor.intersects(r_barra)
+        assert r_barra.top() >= r_visor.bottom()
 
     def test_window_title_contains_app_name(self, workbench, sample_app):
         assert sample_app.name in workbench.windowTitle()
@@ -1929,10 +1999,12 @@ class TestWorkbenchWindow:
         assert workbench._recognition_worker is None
         assert workbench._transfer_worker is None
 
-    def test_scan_source_radio_defaults_to_import(self, workbench):
-        """El radio button de importar está seleccionado por defecto."""
-        assert workbench._radio_import.isChecked()
-        assert not workbench._radio_scanner.isChecked()
+    def test_scan_and_import_are_separate_buttons(self, workbench):
+        """Escanear e Importar son botones propios: ya no hay radio de origen."""
+        assert not hasattr(workbench, "_radio_import")
+        assert not hasattr(workbench, "_radio_scanner")
+        assert workbench._btn_scan.isEnabled()
+        assert workbench._btn_import.isEnabled()
 
     def test_build_app_context_enriched(self, workbench):
         """_build_app_context devuelve campos enriquecidos."""
@@ -1957,8 +2029,429 @@ class TestWorkbenchWindow:
         assert result is None  # No hay script, pero no debe crashear
 
     def test_source_type_combo_exists(self, workbench):
-        """El combo de source_type (ADF/Flatbed) existe en la toolbar."""
+        """El combo de source_type (ADF/Flatbed) existe en el popover ⚙."""
         assert hasattr(workbench, "_combo_source_type")
         assert workbench._combo_source_type.count() == 2
         assert workbench._combo_source_type.itemData(0) == "flatbed"
         assert workbench._combo_source_type.itemData(1) == "adf"
+
+
+class TestBarraSuperior:
+    """Barra superior del Workbench como la de FlexibarNET 10 (fase E4a)."""
+
+    @pytest.fixture(autouse=True)
+    def _sin_origen_guardado(self):
+        """Cada ventana guarda su escáner al cerrarse: que no pase al test siguiente."""
+        from PySide6.QtCore import QSettings
+
+        QSettings("DocScanStudio", "Workbench").clear()
+
+    @pytest.fixture
+    def workbench(self, qtbot, session_factory, sample_app, tmp_path):
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id,
+                session_factory=session_factory,
+            )
+        qtbot.addWidget(window)
+        return window
+
+    @staticmethod
+    def _shortcuts(window) -> set[str]:
+        from PySide6.QtGui import QShortcut
+
+        return {sc.key().toString() for sc in window.findChildren(QShortcut)}
+
+    def test_orden_y_estilo_de_los_botones(self, workbench):
+        from PySide6.QtWidgets import QToolBar
+
+        toolbar = workbench.findChild(QToolBar, "workbenchToolbar")
+        widgets = [toolbar.widgetForAction(a) for a in toolbar.actions()]
+        orden = [
+            workbench._btn_scan,
+            workbench._btn_scan_config,
+            workbench._lbl_scanner.parentWidget(),
+            workbench._btn_import,
+            workbench._btn_process,
+            workbench._btn_transfer,
+            workbench._btn_close_batch,
+        ]
+        posiciones = [widgets.index(w) for w in orden]
+        assert posiciones == sorted(posiciones)
+        assert workbench._btn_scan.text() == "Escanear"
+        assert workbench._btn_import.text() == "Importar\u2026"
+        assert workbench._btn_process.text() == "Procesar"
+        assert workbench._btn_scan.property("cssClass") == "primary"
+        assert workbench._btn_transfer.property("cssClass") == "success-outline"
+        assert workbench._btn_close_batch.property("cssClass") == "danger-outline"
+        for btn in (orden[0], orden[1], *orden[3:]):  # sin el distintivo
+            assert not btn.icon().isNull()
+
+    def test_atajos_como_flexibar(self, workbench):
+        keys = self._shortcuts(workbench)
+        assert {"F5", "Ctrl+I", "F9", "Ctrl+T", "Ctrl+W"} <= keys
+
+    def test_abrir_no_enumera_escaneres(
+        self, qtbot, session_factory, sample_app, tmp_path
+    ):
+        """Enumerar en SANE tarda segundos: no se hace al abrir el Workbench."""
+        scanner = MagicMock()
+        with (
+            patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path),
+            patch("app.services.scanner_service.create_scanner", return_value=scanner),
+        ):
+            window = WorkbenchWindow(
+                app_id=sample_app.id,
+                session_factory=session_factory,
+            )
+        qtbot.addWidget(window)
+        scanner.list_sources.assert_not_called()
+        assert window._lbl_scanner.text() == "(sin esc\u00e1ner)"
+
+    def test_engranaje_enumera_una_vez_y_conserva_la_eleccion(self, workbench):
+        scanner = MagicMock()
+        scanner.list_sources.return_value = ["Canon DR-C225", "Fujitsu fi-7160"]
+        workbench._scan_popup.preselect_scanner("Fujitsu fi-7160")
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch.object(workbench._scan_popup, "show_below") as abrir,
+        ):
+            workbench._on_scan_config()
+            workbench._on_scan_config()
+        assert scanner.list_sources.call_count == 1
+        assert abrir.call_count == 2
+        assert workbench._combo_source.count() == 2
+        assert workbench._combo_source.currentText() == "Fujitsu fi-7160"
+        assert workbench._lbl_scanner.text() == "Fujitsu fi-7160 · Flatbed"
+
+    def test_distintivo_sigue_a_la_fuente(self, workbench):
+        workbench._scan_popup.preselect_scanner("Canon DR-C225")
+        workbench._combo_source_type.setCurrentIndex(
+            workbench._combo_source_type.findData("adf")
+        )
+        assert workbench._lbl_scanner.text() == "Canon DR-C225 · ADF"
+
+    def test_escanear_sin_escaner_avisa_y_abre_el_engranaje(self, workbench):
+        scanner = MagicMock()
+        scanner.list_sources.return_value = []
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch("app.ui.workbench.workbench_window.QMessageBox.warning") as aviso,
+            patch.object(workbench._scan_popup, "show_below") as abrir,
+            patch("app.ui.workbench.workbench_window.ScanWorker") as worker,
+        ):
+            workbench._on_scan()
+        scanner.list_sources.assert_called_once()
+        aviso.assert_called_once()
+        abrir.assert_called_once()
+        worker.assert_not_called()
+
+    def test_importar_lanza_la_importacion(self, workbench):
+        with patch.object(workbench, "_start_import") as importar:
+            workbench._on_import()
+        importar.assert_called_once()
+
+    def test_procesar_pasa_todas_las_paginas(self, workbench):
+        paginas = [MagicMock(page_index=i) for i in range(3)]
+        workbench._pages = paginas
+        with patch.object(workbench, "_run_pipeline_on") as correr:
+            workbench._on_process_all()
+        correr.assert_called_once()
+        assert correr.call_args.args[0] == [(i, p) for i, p in enumerate(paginas)]
+
+    def test_procesar_sin_paginas_no_hace_nada(self, workbench):
+        workbench._pages = []
+        with patch.object(workbench, "_run_pipeline_on") as correr:
+            workbench._on_process_all()
+        correr.assert_not_called()
+
+    def test_con_el_pipeline_en_marcha_se_bloquea_la_adquisicion(self, workbench):
+        workbench._set_acquire_enabled(False)
+        assert not workbench._btn_scan.isEnabled()
+        assert not workbench._btn_import.isEnabled()
+        assert not workbench._btn_process.isEnabled()
+        workbench._pages = [MagicMock(page_index=0)]
+        with (
+            patch.object(workbench, "_start_scanner") as escanear,
+            patch.object(workbench, "_start_import") as importar,
+            patch.object(workbench, "_run_pipeline_on") as correr,
+        ):
+            # Los atajos F5 / Ctrl+I / F9 tampoco deben colarse
+            workbench._on_scan()
+            workbench._on_import()
+            workbench._on_process_all()
+        escanear.assert_not_called()
+        importar.assert_not_called()
+        correr.assert_not_called()
+        workbench._set_acquire_enabled(True)
+        assert workbench._btn_scan.isEnabled()
+
+    def test_los_iconos_se_repintan_al_cambiar_de_tema(self, workbench):
+        antes = workbench._btn_transfer.icon().cacheKey()
+        workbench._update_toolbar_icons()
+        assert workbench._btn_transfer.icon().cacheKey() != antes
+
+
+class TestBarraDeEstado:
+    """Barra de estado del Workbench como la de Flexibar (fase E4c)."""
+
+    def test_procesado(self):
+        from app.ui.workbench.workbench_window import format_processed
+
+        assert format_processed(5, 5, 0) == "Procesado 5/5"
+        assert format_processed(4, 5, 1) == "Procesado 4/5 (1 errores)"
+
+    def test_info_de_imagen(self):
+        from app.ui.workbench.workbench_window import format_image_info
+
+        assert format_image_info(1240, 1754, 150) == "1240\u00d71754 \u2014 150 DPI"
+        assert format_image_info(1240, 1754, None) == "1240\u00d71754"
+
+    def test_lee_los_dpi_de_la_cabecera(self, tmp_path):
+        from PIL import Image
+
+        from app.ui.workbench.workbench_window import read_dpi
+
+        con = tmp_path / "con.png"
+        Image.new("L", (10, 10)).save(con, dpi=(300, 300))
+        sin = tmp_path / "sin.png"
+        Image.new("L", (10, 10)).save(sin)
+        assert read_dpi(con) == 300
+        assert read_dpi(sin) is None
+        basura = tmp_path / "basura.tif"
+        import cv2
+
+        cv2.imwrite(str(basura), np.zeros((10, 10, 3), np.uint8))  # deja «1 DPI»
+        assert read_dpi(basura) is None
+        assert read_dpi(tmp_path / "no_existe.png") is None
+
+    @pytest.fixture
+    def workbench(self, qtbot, session_factory, sample_app, tmp_path):
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id,
+                session_factory=session_factory,
+            )
+        qtbot.addWidget(window)
+        return window
+
+    def test_barra_de_progreso_fina(self, workbench):
+        bar = workbench._progress_bar
+        assert (bar.width(), bar.height()) == (120, 3)
+        assert not bar.isTextVisible()
+
+    def test_al_terminar_dice_procesado_con_errores(self, workbench):
+        workbench._run_errors = 0
+        workbench._on_progress(2, 3)
+        workbench._on_page_error(1, "fallo")
+        workbench._on_progress(3, 3)
+        workbench._on_all_processed()
+        assert workbench._status_bar.currentMessage() == "Procesado 3/3 (1 errores)"
+
+    def test_info_de_la_pagina_del_visor(
+        self, workbench, session_factory, tmp_path, color_image
+    ):
+        from PIL import Image
+
+        from app.services.batch_service import BatchService
+
+        with session_factory() as session:
+            svc = BatchService(session, tmp_path / "images")
+            (page,) = svc.add_pages(workbench._batch_id, [color_image])
+            session.commit()
+            ruta = page.image_path
+            session.expunge(page)
+        # La imagen guardada lleva sus DPI en la cabecera, como la del escáner
+        Image.new("RGB", (80, 100), "white").save(ruta, dpi=(200, 200))
+        workbench._pages.append(page)
+        workbench._navigate_to(0)
+        assert workbench._lbl_image_info.text() == "80\u00d7100 \u2014 200 DPI"
+
+
+class TestMiniaturaSeleccionada:
+    """La miniatura de la página del visor se distingue claramente."""
+
+    def test_seleccionada_lleva_marco_de_acento_y_conserva_estado(self, qtbot):
+        from app.ui.palette import color
+        from app.ui.workbench.thumbnail_panel import ThumbnailItem
+
+        item = ThumbnailItem(0)
+        qtbot.addWidget(item)
+        item.set_selected(True, PageState.NEEDS_REVIEW)
+        estilo = item.styleSheet()
+        assert color("accent") in estilo
+        assert state_color(PageState.NEEDS_REVIEW) in estilo
+
+    def test_cambiar_estado_no_quita_la_seleccion(self, qtbot):
+        """Antes set_state repintaba la miniatura como no seleccionada."""
+        from app.ui.palette import color
+        from app.ui.workbench.thumbnail_panel import ThumbnailItem
+
+        item = ThumbnailItem(0)
+        qtbot.addWidget(item)
+        item.set_selected(True, PageState.NO_RECOGNITION)
+        item.set_state(PageState.HAS_FIELDS)
+        assert color("accent") in item.styleSheet()
+
+    def test_no_seleccionada_sin_marco_y_mismo_tamano(self, qtbot):
+        from app.ui.palette import color
+        from app.ui.workbench.thumbnail_panel import ThumbnailItem
+
+        sel, normal = ThumbnailItem(0), ThumbnailItem(1)
+        qtbot.addWidget(sel)
+        qtbot.addWidget(normal)
+        sel.set_selected(True, PageState.NO_RECOGNITION)
+        normal.set_selected(False, PageState.NO_RECOGNITION)
+        assert color("accent") not in normal.styleSheet()
+        assert sel.sizeHint() == normal.sizeHint()
+
+
+class TestEnlaceFilaRecuadro:
+    """Pasar el ratón por una fila resalta su recuadro, y al revés (Flexibar)."""
+
+    def test_resaltar_recuadro_desde_el_panel(self, qtbot):
+        viewer = DocumentViewer()
+        qtbot.addWidget(viewer)
+        viewer.set_image(
+            np.full((400, 300, 3), 255, np.uint8), PageState.NO_RECOGNITION
+        )
+        barcodes = [
+            BarcodeResult(value="A", pos_x=10, pos_y=10, pos_w=50, pos_h=20),
+            BarcodeResult(value="B", pos_x=10, pos_y=60, pos_w=50, pos_h=20),
+        ]
+        viewer.set_overlays(barcodes=barcodes)
+        viewer.highlight_barcode(1)
+        assert viewer.highlighted_barcode() == 1
+        viewer.highlight_barcode(-1)
+        assert viewer.highlighted_barcode() == -1
+
+    def test_hover_en_recuadro_avisa_al_panel(self, qtbot):
+        viewer = DocumentViewer()
+        qtbot.addWidget(viewer)
+        viewer.set_image(
+            np.full((400, 300, 3), 255, np.uint8), PageState.NO_RECOGNITION
+        )
+        viewer.set_overlays(
+            barcodes=[BarcodeResult(value="A", pos_x=10, pos_y=10, pos_w=50, pos_h=20)]
+        )
+        with qtbot.waitSignal(viewer.barcode_hovered) as sig:
+            viewer._barcode_rects[0]._on_hover(0)
+        assert sig.args == [0]
+
+    def test_workbench_conecta_panel_y_visor(
+        self, qtbot, session_factory, sample_app, tmp_path
+    ):
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        window._viewer.set_image(
+            np.full((400, 300, 3), 255, np.uint8), PageState.NO_RECOGNITION
+        )
+        window._viewer.set_overlays(
+            barcodes=[BarcodeResult(value="A", pos_x=10, pos_y=10, pos_w=50, pos_h=20)]
+        )
+        window._barcode_panel.set_page_barcodes([BarcodeResult(value="A")])
+        window._barcode_panel.row_hovered.emit(0)
+        assert window._viewer.highlighted_barcode() == 0
+        window._viewer.barcode_hovered.emit(0)
+        assert window._barcode_panel._rows[0].property("highlighted") is True
+
+
+class TestBarcodesEnWorkbench:
+    """Borrar sin confirmación y deshacer con Ctrl+Z (paridad FlexibarNET10)."""
+
+    @pytest.fixture
+    def wb(self, qtbot, session_factory, sample_app, tmp_path):
+        from app.services.batch_service import BatchService
+
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        with session_factory() as s:
+            pages = BatchService(s, tmp_path).add_pages(
+                window._batch_id, [np.full((60, 40, 3), 255, np.uint8)]
+            )
+            s.add(
+                Barcode(
+                    page_id=pages[0].id,
+                    value="X-1",
+                    symbology="Code128",
+                    engine="pyzbar",
+                    step_id="b1",
+                )
+            )
+            s.commit()
+        window._reload_pages()
+        window._navigate_to(0)
+        return window
+
+    def test_borrar_y_deshacer(self, wb):
+        assert wb._barcode_panel.row_count() == 1
+        wb._on_delete_barcode(0)
+        assert wb._barcode_panel.row_count() == 0
+        wb._on_undo_barcode()
+        assert wb._barcode_panel.row_count() == 1
+        assert wb._barcode_panel.row_value(0) == "X-1"
+
+    def test_anadir_y_deshacer(self, wb):
+        from PySide6.QtWidgets import QInputDialog
+
+        with patch.object(QInputDialog, "getText", return_value=("MAN-9", True)):
+            wb._on_insert_barcode()
+        assert wb._barcode_panel.row_count() == 2
+        wb._on_undo_barcode()
+        assert wb._barcode_panel.row_count() == 1
+
+    def test_ocultar_anadir_desactiva_tambien_el_atajo(self, wb):
+        from PySide6.QtWidgets import QInputDialog
+
+        wb._application.hide_add_barcode_button = True
+        with patch.object(QInputDialog, "getText", return_value=("MAN-9", True)) as dlg:
+            wb._on_insert_barcode()
+        dlg.assert_not_called()
+
+
+class TestTextosDeEstado:
+    def test_contadores_del_lote(self):
+        from app.ui.workbench.workbench_window import format_lot_counters
+
+        texto = format_lot_counters(
+            {"total_pages": 12, "with_barcode": 9, "separators": 3, "needs_review": 1}
+        )
+        assert texto == "12 páginas · 9 con barcode · 3 separadores · 1 a revisión"
+
+    def test_motivo_de_revision(self):
+        from app.ui.workbench.workbench_window import page_review_message
+
+        assert page_review_message(False, "", "[]", "[]") == ""
+        msg = page_review_message(
+            True, "Ha fallado el script del paso s1", "[]", '[{"error": "x"}]'
+        )
+        assert "Ha fallado el script del paso s1" in msg
+        assert "1 error" in msg
+
+
+class TestAltoDeLaListaDeBarcodes:
+    def test_la_lista_crece_con_las_filas_en_un_panel_visible(self, qtbot):
+        """Regresión: con el panel ya visible, la lista medía 0 de alto."""
+        panel = BarcodePanel()
+        qtbot.addWidget(panel)
+        panel.show()
+        qtbot.waitExposed(panel)
+        panel.set_page_barcodes([])
+        vacio = panel._section._scroll.height()
+        panel.set_page_barcodes([BarcodeResult(value=f"V{i}") for i in range(3)])
+        assert panel._section._scroll.height() > vacio + 60
+
+    def test_la_lista_no_pasa_del_tope(self, qtbot):
+        from app.ui.workbench.barcode_panel import BARCODES_MAX_HEIGHT
+
+        panel = BarcodePanel()
+        qtbot.addWidget(panel)
+        panel.show()
+        panel.set_page_barcodes([BarcodeResult(value=f"V{i}") for i in range(40)])
+        assert panel._section._scroll.height() == BARCODES_MAX_HEIGHT

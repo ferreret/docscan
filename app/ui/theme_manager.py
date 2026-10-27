@@ -13,6 +13,9 @@ from PySide6.QtWidgets import QApplication
 log = logging.getLogger(__name__)
 
 _STYLES_DIR = Path(__file__).resolve().parent.parent.parent / "resources" / "styles"
+_ICONS_DIR = _STYLES_DIR.parent / "icons"
+_TEMPLATE_NAME = "theme.qss"
+_TOKEN = re.compile(r"\$([a-z_][a-z0-9_]*)")
 
 BASE_FONT_SIZE = 13
 MIN_FONT_SIZE = 9
@@ -91,13 +94,19 @@ class ThemeManager(QObject):
         self._settings.sync()
 
     def apply_theme(self, theme: Theme) -> None:
-        """Aplica un tema a la aplicación."""
-        qss_file = _STYLES_DIR / f"{theme.value}.qss"
+        """Aplica un tema a la aplicación.
+
+        Rellena la plantilla ``theme.qss`` con la paleta del tema
+        (``app/ui/palette.py``): un único QSS para los dos temas.
+        """
+        qss_file = _STYLES_DIR / _TEMPLATE_NAME
         if not qss_file.exists():
             log.warning("Archivo de tema no encontrado: %s", qss_file)
             return
 
-        stylesheet = qss_file.read_text(encoding="utf-8")
+        stylesheet = render_stylesheet(
+            qss_file.read_text(encoding="utf-8"), dark=theme == Theme.DARK
+        )
         stylesheet = self._scale_font_sizes(stylesheet)
 
         app = QApplication.instance()
@@ -143,3 +152,19 @@ class ThemeManager(QObject):
             return f"font-size: {scaled}px"
 
         return re.sub(r"font-size:\s*(\d+)px", _replace, stylesheet)
+
+
+def render_stylesheet(template: str, *, dark: bool) -> str:
+    """Sustituye los ``$tokens`` de la plantilla por los colores del tema.
+
+    Raises:
+        KeyError: Si la plantilla usa un token que la paleta no define (un
+            QSS con un hueco dejaría widgets sin estilo sin avisar).
+    """
+    from app.ui.palette import palette
+
+    # ``$icons_dir`` es la ruta absoluta de resources/icons: un ``url()``
+    # relativo se resuelve contra el directorio de trabajo, que fuera del
+    # repositorio (instalador, acceso directo) no es el del programa.
+    values = {**palette(dark), "icons_dir": _ICONS_DIR.as_posix()}
+    return _TOKEN.sub(lambda m: values[m.group(1)], template)

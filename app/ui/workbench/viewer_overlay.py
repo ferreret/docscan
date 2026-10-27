@@ -1,23 +1,18 @@
-"""Barra de herramientas flotante sobre el visor de documentos.
+"""Barra de herramientas del visor de documentos.
 
-Contiene navegación, zoom y herramientas de manipulación como overlay
-semitransparente en la parte inferior del visor.
+Contiene navegación, zoom y herramientas de manipulación. Se coloca en su
+propia franja bajo el visor (WorkbenchWindow); ya no flota sobre la imagen,
+porque tapaba la parte inferior de la página.
 """
 
 from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
-from PySide6.QtGui import (
-    QColor,
-    QFont,
-    QIcon,
-    QIntValidator,
-    QPainter,
-    QPen,
-    QPixmap,
-)
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QIcon, QIntValidator
+
+from app.ui.icons import svg_icon
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -28,248 +23,46 @@ from PySide6.QtWidgets import (
 
 log = logging.getLogger(__name__)
 
-_SZ = 32  # Tamaño base de los iconos
+_SZ = 20  # Tamaño de los iconos (Lucide, trazo fino como en FlexibarNET10)
+# Ancho que añade el QLineEdit del contador alrededor del texto: borde y
+# padding del QSS más el margen interno de Qt.
+_COUNTER_EDIT_CHROME = 10
 
 
-def _pm() -> QPixmap:
-    pm = QPixmap(_SZ, _SZ)
-    pm.fill(Qt.GlobalColor.transparent)
-    return pm
+def _lucide(name: str, default_role: str = "text"):
+    """Fábrica ``(color) -> QIcon`` para un icono Lucide de la barra."""
+
+    def factory(color: str | None = None) -> QIcon:
+        from app.ui.palette import color as palette_color
+
+        return svg_icon(
+            name,
+            color or palette_color(default_role),
+            _SZ,
+            disabled_color=palette_color("text_disabled"),
+        )
+
+    return factory
 
 
-def _pen(color: str = "#cdd6f4", width: float = 2.0) -> QPen:
-    p = QPen(QColor(color), width)
-    p.setCapStyle(Qt.PenCapStyle.RoundCap)
-    p.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    return p
-
-
-# -- Iconos de navegación --
-
-
-def _icon_first(color: str = "#cdd6f4") -> QIcon:
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 3.0))
-    p.drawLine(7, 8, 7, 24)
-    p.drawLine(19, 8, 11, 16)
-    p.drawLine(11, 16, 19, 24)
-    p.drawLine(27, 8, 19, 16)
-    p.drawLine(19, 16, 27, 24)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_prev(color: str = "#cdd6f4") -> QIcon:
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 3.0))
-    p.drawLine(21, 7, 11, 16)
-    p.drawLine(11, 16, 21, 25)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_next(color: str = "#cdd6f4") -> QIcon:
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 3.0))
-    p.drawLine(11, 7, 21, 16)
-    p.drawLine(21, 16, 11, 25)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_last(color: str = "#cdd6f4") -> QIcon:
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 3.0))
-    p.drawLine(5, 8, 13, 16)
-    p.drawLine(13, 16, 5, 24)
-    p.drawLine(13, 8, 21, 16)
-    p.drawLine(21, 16, 13, 24)
-    p.drawLine(25, 8, 25, 24)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_nav_script(color: str = "#cdd6f4") -> QIcon:
-    """Flecha + engranaje: navegación programable."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    # Flecha derecha pequeña
-    p.setPen(_pen(color, 2.5))
-    p.drawLine(4, 10, 12, 16)
-    p.drawLine(12, 16, 4, 22)
-    # Engranaje simplificado (círculo con muescas)
-    p.setPen(_pen(color, 2.0))
-    p.drawEllipse(QPoint(22, 16), 5, 5)
-    for angle_offset in range(0, 360, 60):
-        import math
-
-        rad = math.radians(angle_offset)
-        x1 = 22 + int(6 * math.cos(rad))
-        y1 = 16 + int(6 * math.sin(rad))
-        x2 = 22 + int(8 * math.cos(rad))
-        y2 = 16 + int(8 * math.sin(rad))
-        p.drawLine(x1, y1, x2, y2)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_next_barcode(color: str = "#cdd6f4") -> QIcon:
-    """Flecha + líneas verticales: siguiente con barcode."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    # Flecha derecha
-    p.drawLine(4, 10, 12, 16)
-    p.drawLine(12, 16, 4, 22)
-    # Barcode simplificado (líneas verticales)
-    p.setPen(_pen(color, 2.0))
-    for x in (18, 21, 23, 26, 28):
-        p.drawLine(x, 9, x, 23)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_next_review(color: str = "#cdd6f4") -> QIcon:
-    """Flecha + signo de exclamación: siguiente pendiente de revisión."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    # Flecha derecha
-    p.drawLine(4, 10, 12, 16)
-    p.drawLine(12, 16, 4, 22)
-    # Exclamación
-    p.setPen(_pen("#e53935", 3.0))
-    p.drawLine(24, 8, 24, 18)
-    p.drawPoint(24, 23)
-    p.end()
-    return QIcon(pm)
-
-
-# -- Iconos de zoom --
-
-
-def _icon_zoom_in(color: str = "#cdd6f4") -> QIcon:
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawEllipse(QPoint(13, 13), 9, 9)
-    p.drawLine(20, 20, 28, 28)
-    p.drawLine(9, 13, 17, 13)
-    p.drawLine(13, 9, 13, 17)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_zoom_out(color: str = "#cdd6f4") -> QIcon:
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawEllipse(QPoint(13, 13), 9, 9)
-    p.drawLine(20, 20, 28, 28)
-    p.drawLine(9, 13, 17, 13)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_zoom_fit(color: str = "#cdd6f4") -> QIcon:
-    """Ajustar a página: 4 flechas hacia dentro."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawRect(9, 9, 14, 14)
-    for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
-        cx = 16 + dx * 11
-        cy = 16 + dy * 11
-        tx = 16 + dx * 7
-        ty = 16 + dy * 7
-        p.drawLine(cx, cy, tx, ty)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_zoom_100(color: str = "#cdd6f4") -> QIcon:
-    """1:1 como texto."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-    font = QFont("Segoe UI", 12)
-    font.setBold(True)
-    p.setFont(font)
-    p.setPen(QColor(color))
-    p.drawText(QRect(0, 0, _SZ, _SZ), Qt.AlignmentFlag.AlignCenter, "1:1")
-    p.end()
-    return QIcon(pm)
-
-
-# -- Iconos de herramientas --
-
-
-def _icon_rotate(color: str = "#cdd6f4") -> QIcon:
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawArc(5, 5, 22, 22, 30 * 16, 300 * 16)
-    p.drawLine(24, 7, 27, 13)
-    p.drawLine(24, 7, 19, 8)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_mark(color: str = "#cdd6f4") -> QIcon:
-    """Bandera para marcar/excluir."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawLine(8, 5, 8, 27)
-    p.setPen(_pen("#fb8c00", 2.5))
-    p.setBrush(QColor("#fb8c00"))
-    pts = [QPoint(9, 6), QPoint(25, 12), QPoint(9, 17)]
-    p.drawPolygon(pts)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_delete_current(color: str = "#e53935") -> QIcon:
-    """X para eliminar página actual."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 3.0))
-    p.drawLine(8, 8, 24, 24)
-    p.drawLine(24, 8, 8, 24)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_delete_from(color: str = "#e53935") -> QIcon:
-    """Tijeras para borrar desde aquí."""
-    pm = _pm()
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setPen(_pen(color, 2.5))
-    p.drawEllipse(QPoint(9, 23), 5, 5)
-    p.drawEllipse(QPoint(23, 23), 5, 5)
-    p.drawLine(12, 19, 23, 5)
-    p.drawLine(20, 19, 9, 5)
-    p.end()
-    return QIcon(pm)
+# -- Navegación --
+_icon_first = _lucide("chevron-first")
+_icon_prev = _lucide("chevron-left")
+_icon_next = _lucide("chevron-right")
+_icon_last = _lucide("chevron-last")
+_icon_nav_script = _lucide("route")
+_icon_next_barcode = _lucide("barcode")
+_icon_next_review = _lucide("circle-alert")
+# -- Zoom --
+_icon_zoom_in = _lucide("zoom-in")
+_icon_zoom_out = _lucide("zoom-out")
+_icon_zoom_fit = _lucide("maximize")
+_icon_zoom_100 = _lucide("proportions")
+# -- Herramientas: el color se reserva para las acciones destructivas --
+_icon_rotate = _lucide("rotate-cw")
+_icon_mark = _lucide("flag")
+_icon_delete_current = _lucide("trash-2", "red")
+_icon_delete_from = _lucide("list-x", "red")
 
 
 def _make_button(
@@ -282,9 +75,9 @@ def _make_button(
     """Crea un botón con icono pintado para el overlay."""
     btn = QPushButton()
     btn.setIcon(icon)
-    btn.setIconSize(btn.iconSize().expandedTo(QPixmap(_SZ, _SZ).size()))
+    btn.setIconSize(QSize(_SZ, _SZ))
     btn.setToolTip(tooltip)
-    btn.setFixedSize(width, 36)
+    btn.setFixedSize(width, 32)
     btn.setCursor(Qt.CursorShape.PointingHandCursor)
     if obj_name:
         btn.setObjectName(obj_name)
@@ -320,7 +113,7 @@ class _PageNumberEdit(QLineEdit):
 
 
 class ViewerOverlay(QWidget):
-    """Barra flotante de herramientas sobre el visor.
+    """Barra de herramientas del visor (va bajo la imagen, no sobre ella).
 
     Signals:
         nav_first, nav_prev, nav_next, nav_last: Navegación básica.
@@ -365,7 +158,7 @@ class ViewerOverlay(QWidget):
         layout.setContentsMargins(8, 4, 8, 4)
         layout.setSpacing(2)
 
-        c = "#cdd6f4"  # Color base (se adapta vía QSS)
+        c = None  # color de la paleta del tema activo
 
         # --- Navegación ---
         self._btn_first = _make_button(
@@ -379,16 +172,18 @@ class ViewerOverlay(QWidget):
         self._total_pages = 0
         self._edit_page = _PageNumberEdit("0")
         self._edit_page.setObjectName("pageInfoEdit")
-        self._edit_page.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._edit_page.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         self._edit_page.setValidator(QIntValidator(1, 999999, self._edit_page))
-        self._edit_page.setMinimumWidth(52)
-        self._edit_page.setMaximumWidth(120)
         self._edit_page.setToolTip(
             self.tr("Escribe un número de página y pulsa Intro para ir a ella")
         )
-        self._lbl_page_info = QLabel("/ 0 ")
+        self._lbl_page_info = QLabel("/ 0")
         self._lbl_page_info.setObjectName("pageInfoLabel")
-        self._lbl_page_info.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._lbl_page_info.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
         self._btn_next = _make_button(_icon_next(c), self.tr("Siguiente (Right)"))
         self._btn_last = _make_button(
             _icon_last(c), self.tr("\u00daltima p\u00e1gina (End)")
@@ -405,8 +200,18 @@ class ViewerOverlay(QWidget):
 
         layout.addWidget(self._btn_first)
         layout.addWidget(self._btn_prev)
-        layout.addWidget(self._edit_page)
-        layout.addWidget(self._lbl_page_info)
+        # «N / M» como un bloque ajustado a su contenido y con el mismo margen
+        # a cada lado, para que quede centrado entre las flechas.
+        self._page_counter = QWidget()
+        counter_layout = QHBoxLayout(self._page_counter)
+        # 2 px menos a la izquierda: compensa el margen interno del QLineEdit,
+        # que el «/ M» de la derecha no tiene (medido sobre la imagen).
+        counter_layout.setContentsMargins(4, 0, 8, 0)
+        counter_layout.setSpacing(4)
+        counter_layout.addWidget(self._edit_page)
+        counter_layout.addWidget(self._lbl_page_info)
+        layout.addWidget(self._page_counter)
+        self._fit_page_counter()
         layout.addWidget(self._btn_next)
         layout.addWidget(self._btn_last)
         layout.addWidget(self._btn_next_bc)
@@ -436,7 +241,6 @@ class ViewerOverlay(QWidget):
         self._btn_zoom_100 = _make_button(
             _icon_zoom_100(c),
             self.tr("Tamaño real (Ctrl+0)"),
-            width=42,
         )
 
         layout.addWidget(self._btn_zoom_in)
@@ -485,6 +289,7 @@ class ViewerOverlay(QWidget):
         self._btn_delete_current.clicked.connect(self.delete_current_requested)
         self._btn_delete_from.clicked.connect(self.delete_from_requested)
         self._edit_page.returnPressed.connect(self._on_page_entered)
+        self._edit_page.textChanged.connect(lambda _t: self._fit_page_counter())
         self._edit_page.cancelled.connect(self._restore_page_number)
 
     # ------------------------------------------------------------------
@@ -502,7 +307,33 @@ class ViewerOverlay(QWidget):
         self._total_pages = total
         self._edit_page.setText(str(current))
         self._edit_page.setEnabled(total > 0)
-        self._lbl_page_info.setText(f"/ {total} ")
+        self._lbl_page_info.setText(f"/ {total}")
+        self._fit_page_counter()
+
+    def _fit_page_counter(self) -> None:
+        """Ajusta el contador «N / M» al ancho exacto de su texto.
+
+        Con un ancho fijo, el número (alineado a la derecha) dejaba un hueco
+        a su izquierda y el contador no quedaba centrado entre las flechas.
+        El campo se ajusta a lo que contiene, también mientras se teclea.
+        """
+        self._edit_page.ensurePolished()
+        self._lbl_page_info.ensurePolished()
+        text = self._edit_page.text() or "0"
+        self._edit_page.setFixedWidth(
+            self._edit_page.fontMetrics().horizontalAdvance(text) + _COUNTER_EDIT_CHROME
+        )
+        self._lbl_page_info.setFixedWidth(
+            self._lbl_page_info.fontMetrics().horizontalAdvance(
+                self._lbl_page_info.text()
+            )
+        )
+
+    def changeEvent(self, event) -> None:  # noqa: N802 — API de Qt
+        """Reajusta el contador si cambia la fuente (tema o A+/A−)."""
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self._fit_page_counter()
 
     def is_editing_page(self) -> bool:
         """¿El usuario está tecleando en el contador de página?
@@ -552,6 +383,8 @@ class ViewerOverlay(QWidget):
         self._btn_zoom_100.setIcon(_icon_zoom_100(color))
         self._btn_rotate.setIcon(_icon_rotate(color))
         self._btn_mark.setIcon(_icon_mark(color))
+        self._btn_delete_current.setIcon(_icon_delete_current())
+        self._btn_delete_from.setIcon(_icon_delete_from())
 
     def _separator(self) -> QWidget:
         """Crea un separador vertical delgado."""

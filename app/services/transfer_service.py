@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,6 +21,63 @@ import numpy as np
 import pymupdf
 
 log = logging.getLogger(__name__)
+
+# Saneado de rutas (paridad con FlexibarNET10 v1.26: SanitizeRelativePath +
+# IsUnderDestFolder). Los valores interpolados salen del papel (barcodes,
+# OCR, IA) y no son de confianza.
+_INVALID_PATH_CHARS = re.compile(r'[<>:"|?*\x00-\x1f]')
+_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+)
+MAX_SEGMENT_LENGTH = 200
+
+
+class UnsafePathError(ValueError):
+    """La ruta calculada saldría de la carpeta de destino."""
+
+
+def sanitize_value(value: Any) -> Any:
+    """Neutraliza un valor que se va a interpolar en un nombre de fichero.
+
+    Las barras de un valor nunca crean subcarpetas: solo lo hacen las que
+    escribe el usuario en el patrón. Los no-texto (índices, ids) se
+    devuelven tal cual para que sigan admitiendo formato (``:04d``).
+    """
+    if not isinstance(value, str):
+        return value
+    return value.replace("/", "_").replace("\\", "_")
+
+
+def sanitize_segment(segment: str) -> str:
+    """Convierte un segmento de ruta en un nombre válido en Windows y Linux.
+
+    Sustituye caracteres no válidos, quita puntos y espacios finales,
+    protege los nombres reservados de Windows (``CON``, ``NUL``, ``COM1``…)
+    y limita la longitud a ``MAX_SEGMENT_LENGTH``. Devuelve ``""`` para los
+    segmentos que no deben existir (vacíos, ``.`` y ``..``).
+    """
+    cleaned = _INVALID_PATH_CHARS.sub("_", segment).strip().rstrip(". ")
+    if cleaned in ("", ".", ".."):
+        return ""
+    if cleaned.split(".", 1)[0].upper() in _RESERVED_NAMES:
+        cleaned = f"_{cleaned}"
+    return cleaned[:MAX_SEGMENT_LENGTH]
+
+
+def safe_join(dest: Path, relative: str) -> Path:
+    """Une ``relative`` a ``dest`` garantizando que no sale de ella.
+
+    Raises:
+        UnsafePathError: Si la ruta resultante queda fuera de ``dest``.
+    """
+    target = (dest / relative).resolve()
+    if not target.is_relative_to(dest.resolve()):
+        raise UnsafePathError(
+            f"La ruta '{relative}' queda fuera de la carpeta de destino"
+        )
+    return target
 
 
 @dataclass
@@ -159,7 +217,7 @@ class TransferService:
                     )
                     + out_ext
                 )
-                dst = dest / filename
+                dst = safe_join(dest, filename)
                 dst.parent.mkdir(parents=True, exist_ok=True)
 
                 dst = self._resolve_collision(
@@ -270,7 +328,10 @@ class TransferService:
             )
             + ".pdf"
         )
-        output_path = dest / filename
+        try:
+            output_path = safe_join(dest, filename)
+        except UnsafePathError as e:
+            return TransferResult(success=False, errors=[str(e)])
 
         result = TransferResult(output_path=str(output_path))
         doc = pymupdf.open()
@@ -356,7 +417,10 @@ class TransferService:
             )
             + ".csv"
         )
-        output_path = dest / filename
+        try:
+            output_path = safe_join(dest, filename)
+        except UnsafePathError as e:
+            return TransferResult(success=False, errors=[str(e)])
 
         result = TransferResult(output_path=str(output_path))
 
@@ -529,34 +593,34 @@ class TransferService:
         para que "fecha lote" sea accesible como {fecha_lote}.
         """
         # Normalizar claves: "fecha lote" → "fecha_lote"
-        normalized = {k.replace(" ", "_"): v for k, v in batch_fields.items()}
+        normalized = {
+            k.replace(" ", "_"): sanitize_value(v) for k, v in batch_fields.items()
+        }
+        fallback = f"batch_{batch_id or 0}_page_{page.get('page_index', 0):04d}"
         try:
             result = pattern.format(
                 batch_id=batch_id or 0,
                 page_index=page.get("page_index", 0),
-                first_barcode=page.get("first_barcode", ""),
+                first_barcode=sanitize_value(page.get("first_barcode", "")),
                 **normalized,
             )
         except (KeyError, IndexError, ValueError) as e:
             log.warning(
                 "Error interpolando patrón '%s': %s. "
-                "Variables: batch_id=%s, page_index=%s, first_barcode=%s, campos=%s",
+                "Variables: batch_id=%s, page_index=%s, campos=%s",
                 pattern,
                 e,
                 batch_id,
                 page.get("page_index"),
-                page.get("first_barcode"),
                 list(normalized.keys()),
             )
-            result = f"batch_{batch_id or 0}_page_{page.get('page_index', 0):04d}"
+            return fallback
 
-        # Sanitizar path traversal: reemplazar separadores sospechosos
-        result = result.replace("\\", "_")
-        # Permitir "/" como separador de subdirectorios intencionado
-        # pero verificar que no haya ".." para evitar traversal
-        parts = result.split("/")
-        parts = [p for p in parts if p != ".."]
-        return "/".join(parts)
+        # Las "/" que quedan son las del patrón: subcarpetas intencionadas.
+        # "\\" se trata igual para que un patrón escrito en Windows funcione.
+        segments = [sanitize_segment(p) for p in result.replace("\\", "/").split("/")]
+        segments = [p for p in segments if p]
+        return "/".join(segments) or fallback
 
     def _write_metadata(self, image_path: Path, page: dict[str, Any]) -> None:
         """Escribe un fichero .json de metadatos junto a la imagen."""

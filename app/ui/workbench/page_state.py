@@ -24,14 +24,23 @@ class PageState(Enum):
     NO_RECOGNITION = "no_recognition"
 
 
-STATE_COLORS: dict[PageState, str] = {
-    PageState.EXCLUDED: "#d32f2f",
-    PageState.NEEDS_REVIEW: "#e53935",
-    PageState.SEPARATOR_BARCODE: "#fb8c00",
-    PageState.HAS_FIELDS: "#1e88e5",
-    PageState.BARCODE_NO_ROLE: "#43a047",
-    PageState.NO_RECOGNITION: "#9e9e9e",
+# Clave de app/ui/palette.py para cada estado: el color real depende del tema.
+# Naranja para el separador y rojo para revisión, como en FlexibarNET10.
+STATE_COLOR_KEYS: dict[PageState, str] = {
+    PageState.EXCLUDED: "red",
+    PageState.NEEDS_REVIEW: "red",
+    PageState.SEPARATOR_BARCODE: "orange",
+    PageState.HAS_FIELDS: "blue",
+    PageState.BARCODE_NO_ROLE: "green",
+    PageState.NO_RECOGNITION: "overlay0",
 }
+
+
+def state_color(state: PageState) -> str:
+    """Color del estado de página en el tema activo."""
+    from app.ui.palette import color
+
+    return color(STATE_COLOR_KEYS[state])
 
 
 def determine_page_state(

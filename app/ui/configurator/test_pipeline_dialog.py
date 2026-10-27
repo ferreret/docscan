@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 
 from app.pipeline.steps import PipelineStep
 from app.pipeline.test_executor import StepSnapshot
+from app.ui.palette import color
 from app.ui.workbench.page_state import ndarray_to_qpixmap
 
 log = logging.getLogger(__name__)
@@ -117,7 +118,7 @@ class TestPipelineResultDialog(QDialog):
         ).format(n_barcodes, n_fields, n_errors, total_ms)
         summary_label = QLabel(summary)
         if n_errors > 0:
-            summary_label.setStyleSheet("color: #e53935; font-weight: bold;")
+            summary_label.setStyleSheet(f"color: {color('red')}; font-weight: bold;")
         layout.addWidget(summary_label)
 
         # Boton cerrar
@@ -134,7 +135,7 @@ class TestPipelineResultDialog(QDialog):
 
         group = QGroupBox(title)
         if snap.error:
-            group.setStyleSheet("QGroupBox { border: 2px solid #e53935; }")
+            group.setStyleSheet(f"QGroupBox {{ border: 2px solid {color('red')}; }}")
         glayout = QVBoxLayout(group)
         glayout.setContentsMargins(6, 12, 6, 6)
         glayout.setSpacing(4)
@@ -143,7 +144,7 @@ class TestPipelineResultDialog(QDialog):
         if snap.error:
             err_label = QLabel(snap.error)
             err_label.setWordWrap(True)
-            err_label.setStyleSheet("color: #e53935;")
+            err_label.setStyleSheet(f"color: {color('red')};")
             glayout.addWidget(err_label)
 
         # Imagen (para image_op y siempre que haya imagen)

@@ -1,0 +1,1208 @@
+/* DocScan Studio — plantilla de tema. ThemeManager sustituye cada token (prefijo de dólar) con los valores de app/ui/palette.py */
+
+/* === Paleta base === */
+QWidget {
+    background-color: $bg;
+    color: $text;
+    font-family: $font_family;
+    font-size: 13px;
+}
+
+QMainWindow {
+    background-color: $bg;
+}
+
+/* === Toolbar === */
+QToolBar {
+    background-color: $bg_alt;
+    border-bottom: 1px solid $surface;
+    spacing: 6px;
+    padding: 6px 8px;
+}
+
+QToolBar QPushButton {
+    background-color: $surface_btn;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-weight: 500;
+}
+
+QToolBar QPushButton:hover {
+    background-color: $border_soft;
+    border-color: $border_strong;
+}
+
+QToolBar QPushButton:pressed {
+    background-color: $hover_strong;
+}
+
+QToolBar QPushButton:disabled {
+    background-color: $bg;
+    color: $text_disabled;
+    border-color: $surface;
+}
+
+QToolBar QPushButton[cssClass="primary"] {
+    background-color: $accent;
+    color: $on_accent;
+    border-color: $accent;
+    font-weight: 600;
+}
+
+QToolBar QPushButton[cssClass="primary"]:hover {
+    background-color: $accent_hover;
+}
+
+QToolBar QPushButton[cssClass="danger"] {
+    background-color: $surface_active;
+    color: $danger;
+    border-color: $danger;
+}
+
+QToolBar QPushButton[cssClass="danger"]:hover {
+    background-color: $danger;
+    color: $on_accent;
+}
+
+/* Transferir y Cerrar lote: contorno verde / rojo, como Flexibar */
+QToolBar QPushButton[cssClass="success-outline"] {
+    background-color: transparent;
+    color: $success;
+    border-color: $success;
+}
+
+QToolBar QPushButton[cssClass="success-outline"]:hover {
+    background-color: $success_bg;
+}
+
+QToolBar QPushButton[cssClass="danger-outline"] {
+    background-color: transparent;
+    color: $danger;
+    border-color: $danger;
+}
+
+QToolBar QPushButton[cssClass="danger-outline"]:hover {
+    background-color: $danger_bg;
+}
+
+QToolBar QPushButton[cssClass="success-outline"]:disabled,
+QToolBar QPushButton[cssClass="danger-outline"]:disabled {
+    color: $text_disabled;
+    border-color: $surface;
+}
+
+/* ⚙ junto a Escanear: solo icono */
+QToolBar QPushButton#scanConfigButton {
+    padding: 7px 9px;
+}
+
+/* Huecos de la barra: que se vea su fondo, no el de la ventana */
+QToolBar QWidget#toolbarSpacer,
+QToolBar QWidget#scannerChipBox,
+QLabel#scannerChipTitle {
+    background-color: transparent;
+}
+
+QLabel#scannerChipTitle {
+    color: $text_muted;
+    font-size: 11px;
+}
+
+/* Distintivo del escáner activo (el «Perfil:» de Flexibar) */
+QLabel#scannerChip {
+    background-color: $surface;
+    color: $text;
+    border: 1px solid $border_strong;
+    border-radius: 10px;
+    padding: 2px 9px;
+    font-size: 11px;
+}
+
+/* Popover de configuración del escáner */
+QFrame#scanConfigPopup {
+    background-color: $bg_raised;
+    border: 1px solid $border_strong;
+    border-radius: 8px;
+}
+
+QFrame#scanConfigPopup QLabel {
+    background-color: transparent;
+    color: $text_muted;
+}
+
+QFrame#scanConfigPopup QCheckBox {
+    background-color: transparent;
+}
+
+/* === Search bar === */
+QLineEdit {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    selection-background-color: $accent;
+    selection-color: $on_accent;
+}
+
+QLineEdit:focus {
+    border-color: $accent;
+}
+
+QLineEdit::placeholder {
+    color: $text_placeholder;
+}
+
+/* === List widget (cards) === */
+QListWidget {
+    background-color: $bg;
+    border: none;
+    outline: none;
+}
+
+QListWidget::item {
+    background-color: $field;
+    border: 1px solid $border_soft;
+    border-radius: 8px;
+    margin: 3px 4px;
+    padding: 0px;
+}
+
+QListWidget::item:selected {
+    background-color: $selection_bg;
+    border: 1px solid $accent;
+}
+
+QListWidget::item:hover:!selected {
+    background-color: $hover;
+    border-color: $border_strong;
+}
+
+/* Lista del launcher: la tarjeta la dibuja AppCardDelegate entera */
+QListWidget#appList::item,
+QListWidget#appList::item:selected,
+QListWidget#appList::item:hover:!selected {
+    background-color: transparent;
+    border: none;
+    margin: 0px;
+}
+
+/* === Scroll bars === */
+QScrollBar:vertical {
+    background-color: $bg;
+    width: 10px;
+    border: none;
+}
+
+QScrollBar::handle:vertical {
+    background-color: $border;
+    border-radius: 5px;
+    min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: $border_strong;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    background-color: $bg;
+    height: 10px;
+    border: none;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: $border;
+    border-radius: 5px;
+    min-width: 30px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: $border_strong;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+/* === Status bar === */
+QStatusBar {
+    background-color: $bg_alt;
+    color: $text_subtle;
+    border-top: 1px solid $surface;
+    font-size: 12px;
+    padding: 2px 8px;
+}
+
+QStatusBar QLabel#statusText {
+    color: $text_subtle;
+    padding: 0px 6px;
+}
+
+/* «● Listo» del launcher, como Flexibar */
+QStatusBar QLabel#statusDot {
+    background-color: $success;
+    border-radius: 4px;
+}
+
+QStatusBar QWidget#statusReady {
+    background-color: transparent;
+}
+
+/* === Labels === */
+QLabel {
+    background-color: transparent;
+    color: $text;
+}
+
+QLabel[cssClass="title"] {
+    font-size: 22px;
+    font-weight: 700;
+    color: $text;
+}
+
+/* Versión junto al título del launcher */
+QLabel#titleVersion {
+    color: $text_subtle;
+    font-size: 12px;
+    padding-bottom: 3px;
+}
+
+QLabel[cssClass="subtitle"] {
+    font-size: 13px;
+    color: $text_subtle;
+}
+
+QLabel[cssClass="info"] {
+    color: $text_muted;
+    font-size: 12px;
+    padding: 8px;
+}
+
+/* === Dialogs === */
+QDialog {
+    background-color: $bg;
+}
+
+QDialogButtonBox QPushButton {
+    background-color: $surface_btn;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 7px 20px;
+    min-width: 80px;
+}
+
+QDialogButtonBox QPushButton:hover {
+    background-color: $border_soft;
+}
+
+QDialogButtonBox QPushButton:default {
+    background-color: $accent;
+    color: $on_accent;
+    border-color: $accent;
+    font-weight: 600;
+}
+
+QDialogButtonBox QPushButton:default:hover {
+    background-color: $accent_hover;
+}
+
+/* === Form fields === */
+QTextEdit {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 6px;
+    selection-background-color: $accent;
+    selection-color: $on_accent;
+}
+
+QTextEdit:focus {
+    border-color: $accent;
+}
+
+/* === Message boxes === */
+QMessageBox {
+    background-color: $bg;
+}
+
+QMessageBox QLabel {
+    color: $text;
+}
+
+QMessageBox QPushButton {
+    background-color: $surface_btn;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 7px 20px;
+    min-width: 80px;
+}
+
+QMessageBox QPushButton:hover {
+    background-color: $border_soft;
+}
+
+/* === Tooltips === */
+QToolTip {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+/* === Separator === */
+QToolBar::separator {
+    background-color: $border;
+    width: 1px;
+    margin: 4px 6px;
+}
+
+/* === Viewer overlay toolbar === */
+/* Franja bajo el visor que contiene su barra de herramientas */
+#viewerBar {
+    background-color: $bg_alt;
+    border-top: 1px solid $surface;
+}
+
+#viewerOverlay {
+    background-color: transparent;
+    border: none;
+}
+
+/* Botones planos: solo se marcan al pasar el ratón (como en FlexibarNET10).
+   El color de los iconos lo pone la paleta; el rojo queda para borrar. */
+#viewerOverlay QPushButton {
+    background-color: transparent;
+    color: $text;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 13px;
+    padding: 2px;
+}
+
+#viewerOverlay QPushButton:hover {
+    background-color: $hover_strong;
+}
+
+#viewerOverlay QPushButton:pressed {
+    background-color: $selection_bg;
+}
+
+#viewerOverlay QPushButton#dangerButton:hover {
+    background-color: $danger_bg;
+}
+
+/* Contador «N / M» a tamaño de texto normal */
+#viewerOverlay #pageInfoLabel {
+    color: $text;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Contador editable: se ve como la etiqueta hasta que recibe el foco */
+#viewerOverlay #pageInfoEdit {
+    color: $text;
+    font-size: 14px;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0px 2px;
+    selection-background-color: $accent;
+    selection-color: $on_accent;
+}
+
+#viewerOverlay #pageInfoEdit:hover {
+    border-color: $border_strong;
+}
+
+#viewerOverlay #pageInfoEdit:focus {
+    background-color: $field;
+    border-color: $accent;
+}
+
+#viewerOverlay #overlaySeparator {
+    background-color: $border;
+}
+
+/* === Checkboxes === */
+QCheckBox {
+    color: $text;
+    spacing: 6px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 2px solid $border_strong;
+    background-color: $field;
+}
+
+QCheckBox::indicator:hover {
+    border-color: $accent;
+}
+
+QCheckBox::indicator:checked {
+    background-color: $accent;
+    border-color: $accent;
+    image: url($icons_dir/check-$arrow_variant.svg);
+}
+
+QCheckBox::indicator:disabled {
+    border-color: $border_soft;
+    background-color: $disabled_bg;
+}
+
+QCheckBox::indicator:checked:disabled {
+    background-color: $border_strong;
+    border-color: $border_strong;
+}
+
+/* === Radio buttons === */
+QRadioButton {
+    color: $text;
+    spacing: 6px;
+}
+
+QRadioButton::indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    border: 2px solid $border_strong;
+    background-color: $field;
+}
+
+QRadioButton::indicator:checked {
+    background-color: $accent;
+    border-color: $accent;
+}
+
+/* === Spin box === */
+QSpinBox, QDoubleSpinBox {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 5px 10px;
+    min-height: 24px;
+}
+
+QSpinBox:hover, QDoubleSpinBox:hover {
+    border-color: $border_strong;
+}
+
+QSpinBox:focus, QDoubleSpinBox:focus {
+    border-color: $accent;
+}
+
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 22px;
+    border-left: 1px solid $border;
+    border-top-right-radius: 6px;
+    background-color: $selection_bg;
+}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {
+    background-color: $spin_hover;
+}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 22px;
+    border-left: 1px solid $border;
+    border-bottom-right-radius: 6px;
+    background-color: $selection_bg;
+}
+
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+    background-color: $spin_hover;
+}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url($icons_dir/arrow-up-$arrow_variant.svg);
+    width: 10px;
+    height: 6px;
+}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url($icons_dir/arrow-down-$arrow_variant.svg);
+    width: 10px;
+    height: 6px;
+}
+
+/* === Combo box === */
+QComboBox {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 5px 10px;
+    min-height: 24px;
+}
+
+QComboBox:hover {
+    border-color: $border_strong;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+
+/* Sin esta imagen, el estilo del drop-down quita la flecha nativa y el
+   desplegable parece un campo de texto. */
+QComboBox::down-arrow {
+    image: url($icons_dir/arrow-down-$arrow_variant.svg);
+    width: 10px;
+    height: 6px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    selection-background-color: $selection_bg;
+}
+
+/* === Group box === */
+QGroupBox {
+    color: $text_muted;
+    border: 1px solid $surface;
+    border-radius: 6px;
+    margin-top: 8px;
+    padding-top: 12px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+}
+
+/* === Tables === */
+QTableWidget {
+    background-color: $on_accent;
+    color: $text;
+    border: 1px solid $surface;
+    border-radius: 4px;
+    gridline-color: $surface;
+}
+
+QTableWidget::item {
+    padding: 4px;
+}
+
+QTableWidget::item:selected {
+    background-color: $selection_bg;
+}
+
+QHeaderView::section {
+    background-color: $bg_alt;
+    color: $text_muted;
+    border: none;
+    border-bottom: 1px solid $surface;
+    border-right: 1px solid $surface;
+    padding: 5px 8px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+/* === Splitter === */
+QSplitter::handle {
+    background-color: $surface;
+}
+
+QSplitter::handle:horizontal {
+    width: 2px;
+}
+
+/* === Progress bar === */
+QProgressBar {
+    background-color: $surface_btn;
+    border: 1px solid $border;
+    border-radius: 4px;
+    text-align: center;
+    color: $text;
+    font-size: 12px;
+}
+
+QProgressBar::chunk {
+    background-color: $accent;
+    border-radius: 3px;
+}
+
+/* === Tab widget === */
+QTabWidget::pane {
+    background-color: $bg;
+    border: 1px solid $surface;
+    border-top: none;
+}
+
+QTabBar {
+    qproperty-expanding: false;
+}
+
+QTabBar::tab {
+    background-color: $bg_alt;
+    color: $text_subtle;
+    border: 1px solid $surface;
+    border-bottom: none;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    padding: 8px 20px;
+    margin-right: 2px;
+    min-width: 100px;
+    font-weight: 500;
+}
+
+QTabBar::tab:selected {
+    background-color: $bg;
+    color: $text;
+    border-bottom: 2px solid $accent;
+    font-weight: 600;
+}
+
+QTabBar::tab:hover:!selected {
+    background-color: $surface_btn;
+    color: $text_muted_hover;
+}
+
+/* === Date edit === */
+/* Como el DatePicker de Flexibar: campo de superficie con un botón
+   transparente y el icono de calendario (antes era un cuadrado con borde que
+   se confundía con una casilla). */
+QDateEdit {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 13px;
+}
+
+QDateEdit:focus {
+    border-color: $accent;
+}
+
+QDateEdit::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 26px;
+    border: none;
+    background-color: transparent;
+}
+
+QDateEdit::down-arrow {
+    image: url($icons_dir/calendar-$arrow_variant.svg);
+    width: 14px;
+    height: 14px;
+}
+
+QDateEdit::drop-down:hover {
+    background-color: $hover;
+    border-radius: 4px;
+}
+
+QDateEdit QAbstractItemView {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    selection-background-color: $selection_bg;
+}
+
+/* === Calendar popup === */
+QCalendarWidget {
+    background-color: $bg;
+    color: $text;
+}
+
+QCalendarWidget QToolButton {
+    background-color: $surface_btn;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+QCalendarWidget QToolButton:hover {
+    background-color: $border_soft;
+}
+
+QCalendarWidget QAbstractItemView {
+    background-color: $bg;
+    color: $text;
+    selection-background-color: $accent;
+    selection-color: $on_accent;
+}
+
+/* === Form layout labels === */
+QFormLayout QLabel {
+    color: $text_muted;
+    font-weight: 500;
+}
+
+/* === Hint labels (descriptive text in forms) === */
+QLabel#hint_label {
+    color: $text_hint;
+    font-size: 12px;
+    font-weight: 400;
+    font-style: italic;
+    padding: 2px 0 4px 0;
+}
+
+/* === Alternate row color override === */
+QTableWidget {
+    alternate-background-color: transparent;
+}
+
+/* === Pipeline toolbar === */
+#pipelineToolbar {
+    background-color: $bg_alt;
+    border: 1px solid $surface;
+    border-radius: 8px;
+}
+
+#pipelineToolbar QPushButton {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border_soft;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-weight: 500;
+    min-height: 28px;
+}
+
+#pipelineToolbar QPushButton:hover {
+    background-color: $surface_active;
+    border-color: $hover_strong;
+}
+
+#pipelineToolbar QPushButton:pressed {
+    background-color: $pressed;
+}
+
+#pipelineToolbar QPushButton[cssClass="primary"] {
+    background-color: $accent;
+    color: $on_accent;
+    border-color: $accent;
+    font-weight: 600;
+}
+
+#pipelineToolbar QPushButton[cssClass="primary"]:hover {
+    background-color: $accent_hover;
+}
+
+#pipelineToolbar QPushButton[cssClass="danger"] {
+    color: $danger;
+    border-color: $danger;
+}
+
+#pipelineToolbar QPushButton[cssClass="danger"]:hover {
+    background-color: $danger;
+    color: $on_accent;
+}
+
+/* === Pipeline step list === */
+#pipelineStepList {
+    background-color: $bg;
+    border: 1px solid $surface;
+    border-radius: 6px;
+    outline: none;
+}
+
+#pipelineStepList::item {
+    background-color: $field;
+    border: 1px solid $border_soft;
+    border-radius: 6px;
+    margin: 3px 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+#pipelineStepList::item:selected {
+    background-color: $surface_active;
+    border: 1px solid $accent;
+}
+
+/* Casillas de las listas (pasos del pipeline, pestañas del Workbench),
+   iguales que las QCheckBox */
+#pipelineStepList::indicator,
+#workbenchLayoutList::indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 2px solid $border_strong;
+    background-color: $field;
+    margin-right: 4px;
+}
+
+#pipelineStepList::indicator:hover,
+#workbenchLayoutList::indicator:hover {
+    border-color: $accent;
+}
+
+#pipelineStepList::indicator:checked,
+#workbenchLayoutList::indicator:checked {
+    background-color: $accent;
+    border-color: $accent;
+    image: url($icons_dir/check-$arrow_variant.svg);
+}
+
+#pipelineStepList::item:hover:!selected {
+    background-color: $hover_alt;
+    border-color: $hover_strong;
+}
+
+/* === Input dialog === */
+QInputDialog {
+    background-color: $bg;
+}
+
+QInputDialog QComboBox {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 5px 10px;
+}
+
+/* ---- Sidebar ---- */
+#sidebar {
+    background-color: $bg_alt;
+    border-right: 1px solid $sidebar_border;
+}
+
+#sidebarBtn, #sidebarBtnDanger, #sidebarBtnAiMode {
+    background-color: transparent;
+    color: $text_secondary;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+#sidebarBtn:hover, #sidebarBtnAiMode:hover {
+    background-color: $surface;
+    color: $text;
+}
+
+#sidebarBtn:disabled {
+    color: $text_disabled;
+}
+
+#sidebarBtnDanger:hover {
+    background-color: $danger_bg;
+    color: $danger;
+}
+
+#sidebarBtnAiMode:checked {
+    background-color: $warning;
+    color: $on_warning;
+}
+
+#sidebarToggle {
+    background-color: transparent;
+    color: $text_secondary;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 8px;
+}
+
+#sidebarToggle:hover {
+    background-color: $surface;
+}
+
+/* ---- Asistente IA: Panel de chat ---- */
+#pipelineAssistantPanel {
+    background-color: $bg;
+    border-left: 1px solid $border;
+}
+
+#chatBubbleUser {
+    background-color: $surface_btn;
+    border-radius: 8px;
+    margin-left: 40px;
+    margin-right: 4px;
+}
+
+#chatBubbleAssistant {
+    background-color: $bg_raised;
+    border-radius: 8px;
+    margin-left: 4px;
+    margin-right: 40px;
+}
+
+#chatBubbleError {
+    background-color: $danger_bg;
+    border: 1px solid $danger;
+    border-radius: 8px;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+#chatCodePreview {
+    background-color: $code_bg;
+    border: 1px solid $border;
+    border-radius: 6px;
+}
+
+#assistantInput {
+    background-color: $field;
+    color: $text;
+    border: 1px solid $border;
+    border-radius: 6px;
+    padding: 4px;
+}
+
+#aiModeToggle {
+    background-color: $hover_strong;
+    color: $text;
+    border: 1px solid $text_placeholder;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-weight: bold;
+}
+
+#aiModeToggle:checked {
+    background-color: $warning;
+    color: $on_warning;
+}
+
+#aiModePanel {
+    background-color: $bg;
+    border-left: 1px solid $border;
+}
+
+#aiModeTitle {
+    color: $warning;
+    font-size: 14px;
+    padding: 4px;
+}
+
+#appChangePreview {
+    background-color: $bg_raised;
+    border: 1px solid $text_disabled;
+    border-radius: 6px;
+    padding: 4px;
+}
+
+/* ---- Asistente IA: Diff widget ---- */
+#pipelineDiffWidget {
+    background-color: $bg_raised;
+    border: 1px solid $border;
+    border-radius: 6px;
+}
+
+#diffAcceptBtn {
+    background-color: $success_btn;
+    color: white;
+    border-radius: 6px;
+    padding: 4px 16px;
+}
+
+#diffRejectBtn {
+    background-color: $danger_btn;
+    color: white;
+    border-radius: 6px;
+    padding: 4px 16px;
+}
+
+/* === Banner de actualización === */
+#updateBanner {
+    background-color: $info_bg;
+    border: 1px solid $info_border;
+    border-radius: 8px;
+    margin: 4px 0;
+}
+
+#updateBanner QLabel {
+    background-color: transparent;
+    color: $info_fg;
+    font-size: 12px;
+}
+
+#updateBanner QPushButton[cssClass="banner-btn"] {
+    background-color: transparent;
+    color: $info_fg;
+    border: 1px solid $info_border;
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+#updateBanner QPushButton[cssClass="banner-btn"]:hover {
+    background-color: $banner_btn_hover;
+    color: $banner_hover_text;
+}
+
+#updateBanner QPushButton[cssClass="banner-btn-primary"] {
+    background-color: $banner_btn;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+#updateBanner QPushButton[cssClass="banner-btn-primary"]:hover {
+    background-color: $banner_btn_strong;
+}
+
+
+/* ==========================================================
+   Panel derecho del Workbench (paridad FlexibarNET10)
+   ========================================================== */
+
+#rightPanel {
+    background-color: $bg_alt;
+}
+
+#panelSection {
+    background-color: $bg_alt;
+    border: none;
+}
+
+#sectionTitle {
+    color: $text_muted;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+#sectionBody, #barcodeList {
+    background-color: transparent;
+}
+
+#sectionToggle, #rowDeleteButton {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0px;
+}
+
+#sectionToggle:hover {
+    background-color: $hover_strong;
+}
+
+#rowDeleteButton:hover {
+    background-color: $danger_bg;
+}
+
+#addBarcodeButton {
+    background-color: $green;
+    color: $on_accent;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#barcodeRow {
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid $surface;
+}
+
+#barcodeRow:hover,
+#barcodeRow[highlighted="true"] {
+    background-color: $surface;
+}
+
+#barcodeRow[selected="true"] {
+    background-color: $selection_bg;
+}
+
+#barcodeRow:focus {
+    border-bottom: 1px solid $accent;
+}
+
+#barcodeValue {
+    color: $text;
+    font-family: $font_mono;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+#barcodeMeta {
+    color: $text_muted;
+    font-size: 12px;
+}
+
+#badgeManual {
+    background-color: $orange;
+    color: $on_accent;
+    border-radius: 3px;
+    padding: 0px 4px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+#fieldName {
+    color: $text;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+#fieldType {
+    color: $text_subtle;
+    font-size: 11px;
+}
+
+#emptyHint {
+    color: $text_subtle;
+    padding: 6px 0px;
+}
+
+#ocrText {
+    background-color: transparent;
+    border: none;
+    padding: 6px;
+}
+
+#statusCounters {
+    color: $text_muted;
+    padding: 0px 8px;
+}
+
+#statusImageInfo {
+    color: $text_muted;
+    font-size: 11px;
+    padding: 0px 8px;
+}
+
+/* Barra de progreso fina de la barra de estado, verde como Flexibar */
+QProgressBar#statusProgress {
+    background-color: $surface;
+    border: none;
+    border-radius: 1px;
+    margin-right: 8px;
+}
+
+QProgressBar#statusProgress::chunk {
+    background-color: $success;
+    border-radius: 1px;
+}
+
+/* Pestañas del panel derecho: compactas para que las tres quepan */
+#infoTabs QTabBar::tab {
+    padding: 7px 10px;
+    min-width: 40px;
+}

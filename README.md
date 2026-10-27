@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.2-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.1.7-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
-  <img src="https://img.shields.io/badge/tests-861_passing-brightgreen?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-939_passing-brightgreen?style=flat-square" alt="Tests">
   <img src="https://img.shields.io/badge/license-proprietary-red?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/platform-Linux_%7C_Windows-lightgrey?style=flat-square" alt="Platform">
 </p>
@@ -87,7 +87,7 @@ DocScan Studio es una aplicación de escritorio **multi-aplicación** para la ca
 ### 📊 Indexación
 - Campos de lote (texto, fecha, número, booleano, desplegable)
 - Campos de documento/página con expresiones calculadas
-- Separación automática por código de barras
+- Separación de documentos por código de barras (hoy por script; nativa en diseño)
 - Panel de verificación personalizable por script
 
 </td>
@@ -142,9 +142,11 @@ DocScan Studio es una aplicación de escritorio **multi-aplicación** para la ca
 
 | Requisito | Versión | Notas |
 |-----------|---------|-------|
-| Python | **3.14+** | En Linux: `python3.14` |
+| Python | **3.14+** | Si el sistema no trae 3.14, `uv` la instala (ver abajo) |
 | SQLite | 3.35+ | Incluido con Python |
-| SANE | - | Solo Linux, para escaneo |
+| SANE | - | Solo Linux, para escaneo (`libsane-dev`) |
+| ZBar | - | Solo Linux, lector de barcodes de pyzbar (`libzbar0t64` en Ubuntu) |
+| libxcb-cursor | - | Solo Linux, plataforma xcb de Qt (`libxcb-cursor0`) |
 | Tesseract | 5.x | Opcional, OCR fallback |
 
 ### Instalación
@@ -155,80 +157,44 @@ git clone https://github.com/ferreret/docscan.git
 cd docscan
 
 # 2. Crear entorno virtual
-python3.14 -m venv .venv
-source .venv/bin/activate    # Linux/macOS
-# .venv\Scripts\activate     # Windows
+python3.14 -m venv .venv                  # o bien: uv venv --python 3.14 --managed-python
+source .venv/bin/activate                 # Linux/macOS
+# .venv\Scripts\activate                  # Windows
 
 # 3. Instalar dependencias
-pip install -r requirements.txt
+pip install -r requirements.txt           # requirements-dev.txt añade tests y lint
 
-# 4. Inicializar base de datos
-alembic upgrade head
-
-# 5. ¡Lanzar!
-python3.14 main.py
+# 4. ¡Lanzar! (la base de datos se crea y migra sola al arrancar)
+python main.py
 ```
 
 ### Modos de ejecución
 
 ```bash
 # 🏠 Launcher — gestionar aplicaciones
-python3.14 main.py
+python main.py
 
 # 🔧 Abrir directamente una aplicación
-python3.14 main.py "Facturas Proveedores"
+python main.py "Facturas Proveedores"
 
 # 🤖 Modo headless — escanear y transferir sin UI
-python3.14 main.py --direct-mode "Facturas Proveedores"
+python main.py --direct-mode "Facturas Proveedores"
 
-# ⚙️ Worker desatendido — procesar desde carpeta
-python3.14 -m docscan_worker --batch-path /ruta/a/documentos
+# ⚙️ Worker desatendido — vigilar una carpeta de entrada
+python -m docscan_worker --app-name "Facturas Proveedores" --watch /ruta/entrada
+
+# ⚙️ Worker desatendido — procesar lotes pendientes y salir
+python -m docscan_worker --app-name "Facturas Proveedores" --process-pending
 ```
 
 ---
 
-## 🌐 Versión web SaaS
+## 🌐 Versión web SaaS (archivada)
 
-DocScan Studio incluye una API REST + frontend SPA para entornos multi-tenant. La pila completa (PostgreSQL, MinIO, Redis, API FastAPI, worker ARQ) se levanta con Docker Compose.
-
-```bash
-# 1. Configurar .env (a partir de la plantilla)
-cp web/.env.example .env
-
-# 2. Levantar el stack completo
-docker compose up -d --build
-
-# 3. Bootstrap del superadmin (idempotente)
-docker compose exec api python -m web.api.bootstrap superadmin \
-    --email admin@tecnomedia.es \
-    --password "una_contraseña_segura" \
-    --display "Admin TecnoMedia"
-
-# 4. Frontend Vite (modo dev)
-cd web/frontend && npm install && npm run dev
-# → http://localhost:5173
-```
-
-### Jerarquía de roles
-
-```
-superadmin  (TecnoMedia, cross-tenant)
-   └── company_admin  (por tenant)
-          └── operator  (por tenant)
-```
-
-- **superadmin** se crea SOLO con el comando `bootstrap` desde la línea de comandos. El registro público está deshabilitado.
-- El comando es **idempotente**: ejecutarlo dos veces con el mismo email no crea duplicados ni modifica al superadmin existente.
-- Tras el bootstrap, el superadmin entra en `/admin/tenants` para crear empresas y sus primeros administradores.
-- Los `company_admin` invitan a sus `operator` desde la pestaña Equipo.
-
-### Smoke test e2e
-
-`scripts/smoke_superadmin.sh` ejecuta una matriz curl de 19 casos contra el stack docker (registro cerrado, login + me, CRUD de tenants y usuarios cross-tenant, guards 409 último-admin / self-modify, login bloqueado en tenant suspendido, cascade delete, protección de TecnoMedia). Tras el bootstrap:
-
-```bash
-bash scripts/smoke_superadmin.sh
-```
+El repositorio contiene una versión web multi-tenant (`web/`, API FastAPI, worker ARQ,
+PostgreSQL, MinIO y Redis con Docker Compose). **Está archivada desde julio de 2026** y
+no se mantiene: el producto es la aplicación de escritorio. Sus tests se omiten solos
+si faltan sus dependencias.
 
 ---
 
@@ -263,11 +229,10 @@ docscan/
 │   ├── db/              # Database, repositorios, modelos ORM
 │   ├── models/          # Dataclasses y enums de dominio
 │   ├── pipeline/        # Steps, Context, Executor, Serializer
-│   ├── providers/       # Anthropic, OpenAI, LocalOCR (Strategy)
 │   ├── services/        # Lógica de negocio (barcode, OCR, imagen, transfer...)
 │   ├── ui/
 │   │   ├── launcher/    # Ventana principal, sidebar, AI Mode
-│   │   ├── configurator/# 6 pestañas + diálogos de pasos
+│   │   ├── configurator/# 7 pestañas + diálogos de pasos
 │   │   ├── workbench/   # Visor, miniaturas, paneles
 │   │   └── batch_manager/# Historial de lotes
 │   └── workers/         # QThread: scan, recognition, transfer
@@ -277,7 +242,7 @@ docscan/
 │   ├── styles/          # QSS temas claro/oscuro
 │   └── translations/    # .ts para ES, EN, CAT
 ├── alembic/             # Migraciones de BD
-├── tests/               # 861 tests (pytest + pytest-qt)
+├── tests/               # 939 tests (pytest + pytest-qt)
 └── docs/                # Documentación e informes
 ```
 
@@ -285,12 +250,12 @@ docscan/
 
 | Métrica | Valor |
 |---------|-------|
-| Líneas de código (app) | **19.776** |
-| Líneas de test | **11.618** |
-| Ficheros fuente | **94** |
-| Ficheros de test | **32** |
-| Tests pasando | **861** ✅ |
-| Ratio código:test | **1.7:1** |
+| Líneas de código (app) | **22.425** |
+| Líneas de test (escritorio) | **14.459** |
+| Ficheros fuente | **101** |
+| Ficheros de test (escritorio) | **39** |
+| Tests pasando | **939** ✅ |
+| Ratio código:test | **1.6:1** |
 
 ---
 
@@ -395,10 +360,10 @@ def mi_script(app, batch, page, pipeline):
     pipeline.replace_image(gray)
 
     # Abortar el pipeline (marca la página para revisión)
-    if page.flags.get("critical_error"):
-        pipeline.abort("Error crítico detectado")
+    if not page.ocr_text and not page.barcodes:
+        pipeline.abort("Página sin texto ni códigos")
 
-    # Compartir datos entre pasos
+    # Compartir datos entre pasos DE ESTA PÁGINA (no pasa a la siguiente)
     pipeline.set_metadata("doc_type", "factura")
     doc_type = pipeline.get_metadata("doc_type")
 ```
@@ -423,45 +388,65 @@ Todos los scripts reciben un contexto completo para interactuar con la aplicaci�
 
 ### Eventos del ciclo de vida
 
-```python
-# on_scan_complete — después de que el pipeline procese todas las páginas
-def on_scan_complete(app, batch, page):
-    log.info(f"Lote {batch.name} procesado: {len(batch.pages)} páginas")
-    if any(p.flags.get("needs_review") for p in batch.pages):
-        log.warning("Hay páginas pendientes de revisión")
+Cada evento recibe `app`, `batch` y sus argumentos propios; la tabla completa
+está en `docs-web/reference/scripting-api.md`. **No existe `batch.pages`.**
 
-# on_transfer_validate — validar antes de transferir
-def on_transfer_validate(app, batch, page):
+```python
+# on_scan_complete — una vez, cuando el pipeline termina todas las páginas
+def on_scan_complete(app, batch):
+    log.info(f"Lote {batch.id} procesado: {batch.page_count} páginas")
+
+# on_transfer_validate — devuelve False (o lanza) para cancelar
+def on_transfer_validate(app, batch):
     if not batch.fields.get("numero_factura"):
-        raise ValueError("El número de factura es obligatorio")
+        log.warning("Falta el número de factura")
+        return False
+    return True
 
-# on_transfer_page — personalizar la transferencia por página
-def on_transfer_page(app, batch, page):
-    barcode = page.barcodes[0].data if page.barcodes else "SIN_BC"
-    page.fields["subdirectory"] = f"facturas/{barcode[:4]}"
+# on_transfer_page — tras copiar cada página en la transferencia simple
+def on_transfer_page(app, batch, page_index, success):
+    if not success:
+        log.warning(f"La página {page_index} no se ha copiado")
 ```
 
-### Ejemplo: separación de documentos por barcode
+### Ejemplo: un PDF por documento (hojas separadoras)
+
+Un **documento** es el tramo desde una hoja separadora hasta la siguiente, como
+en FlexibarNET 10. Un ScriptStep marca la separadora y `on_transfer_advanced`
+agrupa los tramos:
 
 ```python
-def separar_documentos(app, batch, page, pipeline):
-    """Cada vez que aparece un barcode Code128, inicia un nuevo documento."""
-    separadores = [b for b in page.barcodes if b.symbology == "CODE128"]
+def marcar_separador(app, batch, page, pipeline):
+    for bc in page.barcodes:
+        if bc.symbology == "Code39":          # condición de separador
+            bc.role = "separator"             # la miniatura se pinta como separadora
+            page.fields["separator"] = bc.value
+            return
 
-    if separadores:
-        # Marcar como página separadora
-        page.fields["es_separador"] = True
-        page.fields["id_documento"] = separadores[0].data
-        log.info(f"Nuevo documento: {separadores[0].data}")
-    else:
-        # Heredar ID del documento anterior
-        prev_id = pipeline.get_metadata("ultimo_doc_id")
-        page.fields["id_documento"] = prev_id or "DOC_DEFAULT"
 
-    # Guardar para la siguiente página
-    if page.barcodes:
-        pipeline.set_metadata("ultimo_doc_id", page.barcodes[0].data)
+def on_transfer_advanced(app, batch, pages, result):
+    from app.services.image_lib import ImageLib
+
+    destino = Path(app.transfer_config["destination"])
+    destino.mkdir(parents=True, exist_ok=True)
+
+    documentos = []
+    for p in pages:  # en orden de lote; las previas a la 1.ª separadora = documento implícito
+        valor = p.fields.get("separator")
+        if valor or not documentos:
+            documentos.append({"separator": valor or "", "paginas": []})
+        documentos[-1]["paginas"].append(p.image_path)
+
+    for i, doc in enumerate(documentos, start=1):
+        nombre = re.sub(r'[\\/:*?"<>|.]', "_", doc["separator"]) or f"documento_{i}"
+        ImageLib.merge_to_pdf(doc["paginas"], destino / f"{nombre}_{batch.id}.pdf")
+    return True
 ```
+
+> `pipeline.set_metadata()` **no** sirve para esto: el contexto del pipeline es
+> nuevo en cada página. La separación nativa (separador como propiedad de la
+> página, transferencia por documento) está diseñada en
+> `docs/diseno_separadores_documento_2026-10-26.md`.
 
 ---
 
@@ -544,7 +529,7 @@ El **AI Mode** es un asistente conversacional integrado que permite crear y conf
 
 ## 📋 Configurador
 
-El configurador permite ajustar cada aplicación a través de **6 pestañas**:
+El configurador permite ajustar cada aplicación a través de **7 pestañas**:
 
 | Pestaña | Contenido |
 |---------|-----------|
@@ -554,6 +539,7 @@ El configurador permite ajustar cada aplicación a través de **6 pestañas**:
 | 🔄 **Pipeline** | Editor visual de pasos arrastrables |
 | 📜 **Eventos** | Scripts para 7+ eventos del ciclo de vida |
 | 📤 **Transferencia** | Destino, formato salida, naming pattern, política de colisión |
+| 🔔 **Notificaciones** | Webhook al terminar la transferencia o ante un error |
 
 ---
 
@@ -581,7 +567,7 @@ El configurador permite ajustar cada aplicación a través de **6 pestañas**:
 
 ## 🔒 Seguridad
 
-- 🔐 **API keys cifradas** con Fernet (AES-128-CBC + HMAC-SHA256) en `~/.local/share/docscan/secrets.enc`
+- 🔐 **API keys cifradas** con Fernet (AES-128-CBC + HMAC-SHA256) en `secrets.enc` dentro del directorio de configuración (`~/.config/docscan/` en Linux)
 - 🔑 **Clave de cifrado** generada automáticamente con permisos `0600`
 - 🛡️ **Sanitización de rutas** para prevenir path traversal
 - 🗃️ **SQLite WAL mode** obligatorio para concurrencia segura
@@ -593,8 +579,8 @@ El configurador permite ajustar cada aplicación a través de **6 pestañas**:
 ## 🧪 Tests
 
 ```bash
-# Ejecutar todos los tests
-pytest tests/ -v --tb=short
+# Ejecutar todos los tests (sin ventanas)
+QT_QPA_PLATFORM=offscreen pytest tests/ -q
 
 # Tests de un módulo específico
 pytest tests/test_pipeline.py -v
@@ -606,7 +592,7 @@ pytest tests/test_pipeline.py::TestExecutor::test_barcode_step -v
 pytest tests/ --cov=app --cov-report=html
 ```
 
-**Estado actual: 861 tests ✅ — 0 fallos**
+**Estado actual: 939 tests ✅ — 0 fallos**
 
 ---
 
@@ -647,10 +633,11 @@ pytest tests/ --cov=app --cov-report=html
 - [x] ~~AI Mode — asistente conversacional~~
 - [x] ~~Export/Import de aplicaciones (.docscan)~~
 - [x] ~~Detección de páginas en blanco~~
-- [ ] 📖 Documentación de usuario
-- [ ] 📦 Instaladores Linux + Windows
-- [ ] 🔄 Auto-actualización via GitHub Releases
-- [ ] 🌐 Documentación web (MkDocs)
+- [x] ~~📦 Instaladores Linux (AppImage) + Windows (Inno Setup)~~
+- [x] ~~🔄 Auto-actualización vía GitHub Releases~~
+- [x] ~~🌐 Documentación web (MkDocs, `docs-web/`)~~
+- [ ] 📄 Separación de documentos nativa (paridad FlexibarNET 10) — ver `docs/diseno_separadores_documento_2026-10-26.md`
+- [x] ~~🛡️ Transferencia que falla cerrada y rutas blindadas~~ (lote 3 de `docs/propuestas_desde_flexibarnet10_2026-10-26.md`)
 
 ---
 
@@ -661,5 +648,5 @@ Desarrollado por **Tecnomedia** — Soluciones de gestión documental.
 ---
 
 <p align="center">
-  <sub>DocScan Studio v0.1 RC — Hecho con ❤️ y 🐍</sub>
+  <sub>DocScan Studio v0.1.7 — Hecho con ❤️ y 🐍</sub>
 </p>

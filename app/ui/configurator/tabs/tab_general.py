@@ -4,13 +4,21 @@ from __future__ import annotations
 
 import json
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QFrame,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
+    QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QScrollArea,
     QSpinBox,
     QTextEdit,
     QVBoxLayout,
@@ -18,7 +26,18 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.application import Application
+from app.models.workbench_layout import (
+    BARCODES,
+    CAMPOS,
+    LOG,
+    OCR,
+    PANEL_IDS,
+    VERIFICACION,
+    LayoutEntry,
+    WorkbenchLayout,
+)
 from app.services.scanner_service import get_available_backends
+from app.ui.icons import icon
 
 
 class GeneralTab(QWidget):
@@ -29,7 +48,17 @@ class GeneralTab(QWidget):
         self._setup_ui(app)
 
     def _setup_ui(self, app: Application) -> None:
-        layout = QVBoxLayout(self)
+        # Con scroll: la pestaña ya no cabe a la altura del diálogo y, sin él,
+        # Qt aplastaba los campos (Nombre, Descripción) y la lista de pestañas.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+        layout = QVBoxLayout(content)
         layout.setSpacing(16)
         layout.setContentsMargins(12, 12, 12, 12)
 
@@ -99,7 +128,23 @@ class GeneralTab(QWidget):
         )
         bc_form.addRow(self.tr("Valor fijo:"), self._bc_fixed_edit)
 
+        self._hide_add_barcode = QCheckBox(
+            self.tr("Ocultar el botón «+ Añadir» en el Workbench")
+        )
+        self._hide_add_barcode.setToolTip(
+            self.tr(
+                "Oculta el botón y desactiva también sus atajos (Ctrl+N, Insert).\n"
+                "La lectura de códigos del pipeline no cambia."
+            )
+        )
+        self._hide_add_barcode.setChecked(
+            bool(getattr(app, "hide_add_barcode_button", False))
+        )
+        bc_form.addRow("", self._hide_add_barcode)
+
         layout.addWidget(bc_group)
+
+        layout.addWidget(self._build_workbench_layout_group(app))
 
         # --- Grupo: Detección de páginas en blanco ---
         blank_group = QGroupBox(self.tr("Detección de páginas en blanco"))
@@ -156,6 +201,113 @@ class GeneralTab(QWidget):
 
         layout.addStretch()
 
+    # ------------------------------------------------------------------
+    # Pestañas del Workbench (paridad FlexibarNET10)
+    # ------------------------------------------------------------------
+
+    def _entry_titles(self) -> dict[str, str]:
+        return {
+            BARCODES: self.tr("Barcodes de la página (panel fijo)"),
+            CAMPOS: self.tr("Campos de lote (panel fijo)"),
+            VERIFICACION: self.tr("Verificación"),
+            OCR: self.tr("OCR"),
+            LOG: self.tr("Log"),
+        }
+
+    def _build_workbench_layout_group(self, app: Application) -> QGroupBox:
+        group = QGroupBox(self.tr("Pestañas del Workbench"))
+        box = QVBoxLayout(group)
+        box.setContentsMargins(12, 16, 12, 12)
+        hint = QLabel(
+            self.tr(
+                "Las dos primeras entradas son paneles fijos, siempre encima de las "
+                "pestañas: desmárcalas para ocultarlos. El panel de campos solo "
+                "aparece si la aplicación tiene campos de lote. Reordena las "
+                "pestañas y desactiva las que no necesite el operador."
+            )
+        )
+        hint.setWordWrap(True)
+        hint.setProperty("cssClass", "info")
+        box.addWidget(hint)
+
+        row = QHBoxLayout()
+        self._layout_list = QListWidget()
+        self._layout_list.setObjectName("workbenchLayoutList")
+        titles = self._entry_titles()
+        for entry in WorkbenchLayout.from_json(
+            getattr(app, "workbench_layout_json", "") or ""
+        ).entries:
+            item = QListWidgetItem(titles[entry.id])
+            item.setData(Qt.ItemDataRole.UserRole, entry.id)
+            item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsUserCheckable
+            )
+            item.setCheckState(
+                Qt.CheckState.Checked if entry.visible else Qt.CheckState.Unchecked
+            )
+            self._layout_list.addItem(item)
+        # Alto para ver las cinco entradas sin scroll interno.
+        rows = self._layout_list.count()
+        row_h = max(self._layout_list.sizeHintForRow(0), 24)
+        self._layout_list.setFixedHeight(
+            row_h * rows + 2 * self._layout_list.frameWidth() + 8
+        )
+        row.addWidget(self._layout_list, 1)
+
+        buttons = QVBoxLayout()
+        self._btn_layout_up = QPushButton()
+        self._btn_layout_up.setIcon(icon("chevron-up", "text", 16))
+        self._btn_layout_up.setToolTip(self.tr("Subir la pestaña seleccionada"))
+        self._btn_layout_down = QPushButton()
+        self._btn_layout_down.setIcon(icon("chevron-down", "text", 16))
+        self._btn_layout_down.setToolTip(self.tr("Bajar la pestaña seleccionada"))
+        for btn in (self._btn_layout_up, self._btn_layout_down):
+            btn.setFixedWidth(36)
+            buttons.addWidget(btn)
+        buttons.addStretch(1)
+        row.addLayout(buttons)
+        box.addLayout(row)
+
+        self._btn_layout_up.clicked.connect(lambda: self._move_layout_entry(-1))
+        self._btn_layout_down.clicked.connect(lambda: self._move_layout_entry(1))
+        self._layout_list.currentRowChanged.connect(self._refresh_layout_buttons)
+        self._refresh_layout_buttons(self._layout_list.currentRow())
+        return group
+
+    def _refresh_layout_buttons(self, row: int) -> None:
+        """Los paneles fijos no se reordenan; las pestañas, entre sí."""
+        first_tab = len(PANEL_IDS)
+        last = self._layout_list.count() - 1
+        is_tab = row >= first_tab
+        self._btn_layout_up.setEnabled(is_tab and row > first_tab)
+        self._btn_layout_down.setEnabled(is_tab and row < last)
+
+    def _move_layout_entry(self, delta: int) -> None:
+        row = self._layout_list.currentRow()
+        target = row + delta
+        if row < len(PANEL_IDS) or not (
+            len(PANEL_IDS) <= target < self._layout_list.count()
+        ):
+            return
+        item = self._layout_list.takeItem(row)
+        self._layout_list.insertItem(target, item)
+        self._layout_list.setCurrentRow(target)
+
+    def current_workbench_layout(self) -> WorkbenchLayout:
+        """Layout tal como está en la lista (orden y casillas)."""
+        entries = []
+        for i in range(self._layout_list.count()):
+            item = self._layout_list.item(i)
+            entries.append(
+                LayoutEntry(
+                    item.data(Qt.ItemDataRole.UserRole),
+                    item.checkState() == Qt.CheckState.Checked,
+                )
+            )
+        return WorkbenchLayout(tuple(entries))
+
     @staticmethod
     def _parse_ai_config(app: Application) -> dict:
         """Parsea ai_config_json con fallback a dict vacío."""
@@ -190,6 +342,8 @@ class GeneralTab(QWidget):
         app.scanner_backend = self._scanner_combo.currentText()
         app.auto_transfer = self._auto_transfer.isChecked()
         app.close_after_transfer = self._close_after.isChecked()
+        app.hide_add_barcode_button = self._hide_add_barcode.isChecked()
+        app.workbench_layout_json = self.current_workbench_layout().to_json()
 
         config = self._parse_ai_config(app)
         config["barcode_regex"] = self._bc_regex_edit.text().strip()

@@ -6,12 +6,16 @@
 ## FOCO ACTUAL (desde 2026-07-21): DocScan DESKTOP
 - [Web SaaS ARCHIVADA 2026-07-21](project_web_archivado.md) — decisión del usuario; estado congelado de ramas/sprints y cómo retomar. No reabrir trabajo web salvo petición explícita.
 - [Punto de retoma próxima sesión](project_next_session_resume.md) — foco desktop, candidatos de trabajo pendientes de priorizar.
+- **2026-10-26 — 2.ª pasada FlexibarNET10 (v1.30)**: informe `docs/propuestas_desde_flexibarnet10_2026-10-26.md` (lotes 3-6; **lote 3 «nada falla en silencio» HECHO 2026-10-26 en rama `fix/lote3-nada-falla-en-silencio` (commits c79e264 + 1e6a5cf, sin push)**: flujo único `app/services/transfer_flow.py` para Workbench+worker, `ScriptEngine.run_event_checked`, rutas blindadas, obligatorios, scripts/motores → revisión, Configurador no guarda scripts rotos, clon completo, checksum fail-closed, dirs 0700, excepthook + versión en log. El smoke real destapó 3 bugs más ya corregidos: el worker y --direct-mode NO leían barcodes (sin BarcodeService), el worker no guardaba barcodes, y on_transfer_validate veía campos del intento anterior. Pendiente lote 4: D3 rollback de salida parcial; lote 5: log a fichero junto con enmascarado PII) y diseño `docs/diseno_separadores_documento_2026-10-26.md` (separador como propiedad de página, documento = tramo, paridad Flexibar; decidido `separator_page` include por defecto y reproceso autoritativo). Alineadas docs, skill, CLAUDE.md y conocimiento de los asistentes con las firmas REALES de los eventos (varias estaban mal y fallaban sin avisar). Ver [[project_paridad_flexibarnet10]].
 
 ## Referencia externa
+- ⚖️ [Paridad funcional con FlexibarNET10](project_paridad_flexibarnet10.md) — requisito desde 2026-10-26: misma lógica, claves y tokens; se sigue su manual cuando su código lo contradice; las desviaciones solo con decisión explícita.
 - [Propuestas desde FlexibarNET10](project_propuestas_flexibarnet10.md) — repo hermano en .NET 10 (v1.11.0, producción). Informe de mejoras en `docs/propuestas_desde_flexibarnet10_2026-07-27.md`. Incluye un bug latente de caché de scripts en DocScan.
 - ✅ [Lotes 1 y 2 cerrados 2026-07-28](project_lotes_flexibarnet_ejecutados.md) — mergeados vía PR #1 y publicados como **v0.1.6**; 937 tests; decisiones cerradas (dep `regex` aceptada, `replace_image` documentado sin tocar). Siguiente: lote «separación de documentos y launcher».
 
 ## Estado desktop
+- 🗂️ [Ficha de DocScan en el portfolio](project_ficha_portfolio.md) — replantear tras el rediseño; se puede nombrar Flexibar/Tecnomedia/hospitales; estado in-development.
+- 🎨 [Rediseño UI con estética FlexibarNET10](project_rediseno_ui.md) — rama `feat/rediseno-ui`: paleta, Inter, Lucide, barra del visor, panel derecho, barra superior (E4a), tarjetas del launcher y barras de estado (E4c), fecha y lista de pasos (E4e/f) hechos y capturas regeneradas (2026-10-26); falta la ficha del portfolio.
 - ⚠️ [Bug BD: no migraba al arrancar + `upgrade head` BORRABA datos](project_db_migration_bug.md) — **2 bugs distintos**. El 2º (2026-08-05): `batch_alter_table` + `PRAGMA foreign_keys=ON` vaciaba lotes/páginas/barcodes en silencio; **v0.1.5 y v0.1.6 publicadas lo tienen**. Arreglado en `82eeeb4`; no urgente porque no hay instalaciones en producción. Destapado en campo 2026-07-22 (`create_all` no añade columnas; falta `notifications_json`). BD del usuario **ya reparada** (quirúrgico + stamp head, backup hecho, app arranca). **Fix de fondo pendiente para v0.1.5**: `upgrade head` peta por migraciones web; hay que separar cadena desktop/web. v0.1.4 publicada CON este bug.
 - **Auditoría completa 2026-07-21** en `docs/auditoria_desktop_2026-07-21.md` — núcleo sano, cobertura 65%. Plan P0/P1/P2 en el doc.
 - **P0+P1+P2 EJECUTADO y MERGEADO a `main` 2026-07-21** (pusheado a origin). **Release v0.1.3 taggeada** (tag apunta a commit con fix de sintaxis; build en curso al cerrar). Hecho: fix `--direct-mode`; deps CVE (Pillow 12.3.0, cryptography 48.0.1, pydantic-settings 2.14.2, pytest 9.0.3 — pip-audit limpio); borrado `app/providers/`; barrido ruff `--fix`+`format` + `ruff.toml`; `pytest.ini` (testpaths + --timeout=120); workflow CI `.github/workflows/ci.yml`; README/CHANGELOG/`.gitignore`; tags `v1.0.0` (local+origin) borrados; **SANE mockeado** en `test_scanner_service.py` (ya NO cuelga, suite completa 861/861 en ~22s); `test_create_duplicate_app` modal mockeado; `ruff check .` 100% limpio.
@@ -23,7 +27,7 @@
 - **Webhook configurable HECHO 2026-07-22** (commit `6c5aff7`): cerrado el TODO `webhook=None` de `worker_main.py`. Columna nueva `applications.notifications_json` (migración `c1d5e9f34b28`, down_revision al head web `a3b8d4e2f7c9` — cadena lineal, sin multiple-heads), dataclass `NotificationConfig`+`parse/serialize_notification_config` en `notification_service.py` (patrón `image_config.py`), pestaña «Notificaciones» en el configurador (`tab_notifications.py`, registrada a mano en `app_configurator.py`), worker cablea el webhook en notify_transfer_complete/notify_error, exportable en `app_export_service.py`. +18 tests, suite **879 verde**. **Email SMTP pendiente**: estructura JSON anidada lo admite sin migración, pero falta UI + cifrado Fernet del password (regla crítica). `INFORME_PROYECTO.md` ya se actualizó a v1.1 esta sesión.
 - Pasos 1-22 completados. Releases: v0.1.0, v0.1.1, v0.1.2 (2026-04-30), v0.1.3 (2026-07-21). **v0.1.6 taggeada 2026-07-28** (commit `6d147df`) — ver [[project_lotes_flexibarnet_ejecutados]]. **v0.1.5 taggeada y pusheada 2026-07-22** (commit `b98403e`): fix del crash de migraciones (ver [[project_db_migration_bug]]); `_version.py`→0.1.5, CHANGELOG `[0.1.5]`; binario PyInstaller validado LOCALMENTE contra BD legacy antes de taggear (cazó un `logging.config` faltante en hiddenimports que habría roto producción como v0.1.4). **v0.1.4 taggeada y pusheada 2026-07-22** (commit `dad4002`, tag `v0.1.4`): recoge webhook de notificaciones + upgrades de dependencias mayores + toolchain 3.14; `_version.py` bumpeado a 0.1.4, CHANGELOG `[Unreleased]`→`[0.1.4] - 2026-07-22`. Build `release.yml` disparado (run 29911729055) — primer empaquetado con opencv 5 + PySide6 6.11 bajo PyInstaller. Detalle en CHANGELOG.md.
 - CI: `release.yml` dispara con tag `v*` (Ubuntu 24.04 + Windows latest, Python 3.13). Instaladores: AppImage (Linux) + Inno Setup (Windows).
-- Tests desktop: **936 passing + 1 skipped** (última medición 2026-08-05, en Windows con el stack al día).
+- Tests desktop: **986 passing** (2026-10-26 tras el lote 3, Linux nuevo, `QT_QPA_PLATFORM=offscreen`, ~17 s).
 - Rama de trabajo desktop: partir de `main` (incluye la web mergeada, pero `app/` intacto desde v0.1.2).
 - [Progreso instaladores + auto-update](project_release2_progress.md) — releases 1-3, docs, empaquetado, auto-update completados.
 - [Ideas de roadmap 2026-03-20](project_upcoming.md) — el asistente IA de pipelines YA se implementó en Release 3 (`app/services/pipeline_assistant.py` + `ai_mode_assistant.py`); no proponerlo como pendiente.
@@ -42,6 +46,7 @@
 - Session management: expunge objects antes de cerrar session para uso en UI
 - `_workbenches: list = []` en main.py para evitar GC de ventanas
 - SANE no es thread-safe: usar `scanimage` subprocess para adquisición desde QThread; `dev.snap()` falla con algunos drivers
+- **Icono en Linux/Wayland** (2026-10-26, confirmado por Nicolás): el escritorio ignora `setWindowIcon` y busca el `.desktop` cuyo nombre = app_id. `main.py` hace `QApplication.setDesktopFileName("docscan")` **antes** de crear la QApplication (después, el portal da «Connection already associated»). Desde el código: `tools/install_desktop_entry.py` (ya instalado en minis-nick-linux).
 - QSS sobreescribe `setFont()` — estilos siempre en .qss; triángulos CSS no funcionan (usar SVG con `image: url()`); estilar `::up-button` de QSpinBox borra flechas nativas (proveer SVGs)
 - QDateEdit: `setCalendarPopup(True)`, valor inicial no emite `dateChanged`
 - Barcode model: atributo `symbology`, no `type`. Page model: no tiene atributo `state`
@@ -70,6 +75,7 @@
 - **OBLIGATORIO**: al final de cada sesión, crear `docs/progreso_YYYY-MM-DD.md` (resumen, cambios, estado, próximos pasos). Doc base: `docs/INFORME_PROYECTO.md`.
 
 ## Preferencias de comunicación
+- [Alinear guías sin pedir OK punto a punto](feedback_alinear_sin_pedir_ok.md) — corregir de una vez docs, skills y CLAUDE.md desfasados y reportar al final.
 - [Español de España](feedback_spanish_spain.md) — castellano peninsular
 - [Actualizar docs en cada cambio](feedback_update_docs_on_changes.md) — README y CHANGELOG sincronizados
 - [Push al cerrar sesión](feedback_push_on_close.md)
@@ -78,9 +84,11 @@
 - [No romper la desktop al evolucionar la web](feedback_no_romper_desktop.md) — 869 tests desktop verdes tras cada cambio compartido
 
 ## Entorno
+- **PC Linux actual desde 2026-10-23: minis-nick-linux** (Ubuntu 26.04, Ryzen AI 9 HX 370). Repo en `~/Projects/Personal/docscan` (clon nuevo de GitHub). Python 3.14.8 **de uv** (no hay `python3.14` del sistema): `uv venv --python 3.14 --managed-python` + `uv pip install -r requirements-dev.txt`; invocar `.venv/bin/python`. Paquetes del sistema: libzbar0t64, libsane-dev, libxcb-cursor0, build-essential. BD nueva en `~/.local/share/docscan/docscan.db` (no se migró nada del PC viejo). App probada con una App «Test PDF» (import + transferencia PDF). **Escáner sin probar en Ubuntu.** Docker no instalado: la parte web no se migra (decisión del usuario).
+- PC Xubuntu anterior: copia vieja intacta en `/media/nicolas/DATA/Tecnomedia/DocScan` (de ahí se copiaron `.env` y `.superpowers/`).
 - Python 3.14, venv en `.venv` (`source .venv/bin/activate`)
 - **PC Windows operativo desde 2026-08-05**: repo en `F:\Tecnomedia\docscan`, venv `.venv` (Python 3.14.2, invocar `.venv\Scripts\python.exe`), BD y datos en `%LOCALAPPDATA%\docscan\` (backup `docscan.db.bak-preupgrade`). App arrancada y verificada visualmente. **Falta probar el escáner físico.**
 - ⚠️ **Pins solo-Windows no los valida el CI** (corre en Linux, el marcador `sys_platform == "win32"` los salta): `pywin32==310` era insatisfacible en Python 3.14 (sin wheel cp314) y abortaba `pip install -r` ENTERA. Subido a 311. Revisar a mano al tocar `pytwain`/`pywin32`.
 - Remoto: git@github.com:ferreret/docscan.git
 - Escáner de test: Canon imageFORMULA DR-M160 (canon_dr:libusb en Linux; TWAIN en Windows)
-- [GitHub API via curl](feedback_github_api.md) — usar $GITHUB_PAT, no gh CLI
+- [Acceso a GitHub con gh](feedback_github_api.md) — `gh` autenticado; el $GITHUB_PAT está caducado

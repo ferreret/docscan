@@ -120,6 +120,62 @@ class TestAppListWidget:
         data = widget.selected_app_data()
         assert data is not None
         assert "name" in data
+        assert data["card"].tags  # icono, acento y etiquetas ya derivados
+
+    def test_kebab_click_selects_and_requests_menu(
+        self, qtbot, session_factory, seed_apps
+    ):
+        from app.db.repositories.application_repo import ApplicationRepository
+        from PySide6.QtCore import Qt
+
+        widget = AppListWidget()
+        qtbot.addWidget(widget)
+        widget.resize(700, 400)
+        widget.show()
+        with session_factory() as session:
+            widget.populate(ApplicationRepository(session).get_all())
+        item = widget.item(1)
+        kebab = widget.kebab_rect_for(item)
+        with qtbot.waitSignal(widget.menu_requested, timeout=1000):
+            qtbot.mouseClick(
+                widget.viewport(), Qt.MouseButton.LeftButton, pos=kebab.center()
+            )
+        assert widget.currentItem() is item
+
+    def test_click_outside_kebab_does_not_open_menu(
+        self, qtbot, session_factory, seed_apps
+    ):
+        from app.db.repositories.application_repo import ApplicationRepository
+        from PySide6.QtCore import Qt
+
+        widget = AppListWidget()
+        qtbot.addWidget(widget)
+        widget.resize(700, 400)
+        widget.show()
+        with session_factory() as session:
+            widget.populate(ApplicationRepository(session).get_all())
+        rect = widget.visualItemRect(widget.item(0))
+        with qtbot.assertNotEmitted(widget.menu_requested):
+            qtbot.mouseClick(
+                widget.viewport(), Qt.MouseButton.LeftButton, pos=rect.center()
+            )
+        assert widget.currentRow() == 0
+
+    def test_cards_grow_with_the_font_size(self, qtbot):
+        from PySide6.QtGui import QFont
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
+        from app.ui.launcher.app_list_widget import AppCardDelegate
+
+        delegate = AppCardDelegate()
+        option = QStyleOptionViewItem()
+        small, big = QFont(), QFont()
+        small.setPixelSize(13)
+        big.setPixelSize(17)
+        option.font = small
+        h_small = delegate.sizeHint(option, None).height()
+        option.font = big
+        assert delegate.sizeHint(option, None).height() > h_small
 
 
 # ------------------------------------------------------------------
@@ -154,7 +210,11 @@ class TestLauncherWindow:
     def test_window_creates(self, qtbot, session_factory, seed_apps):
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
-        assert window.windowTitle() == "DocScan Studio"
+        from app._version import __version__
+
+        # Como Flexibar («FlexibarNET v1.30»): la versión en el título
+        assert window.windowTitle() == f"DocScan Studio v{__version__}"
+        assert window._version_label.text() == f"v{__version__}"
         assert window._app_list.count() == 3
 
     def test_buttons_disabled_without_selection(
@@ -229,11 +289,61 @@ class TestLauncherWindow:
         with qtbot.waitSignal(window.app_opened, timeout=1000):
             window._on_open_app()
 
-    def test_info_label_updates(self, qtbot, session_factory, seed_apps):
+    def test_status_bar_counts_apps_and_says_ready(
+        self, qtbot, session_factory, seed_apps
+    ):
+        """Como Flexibar: «N aplicación(es)» a la izquierda y «● Listo» a la derecha."""
+        from PySide6.QtWidgets import QLabel
+
+        window = LauncherWindow(session_factory=session_factory)
+        qtbot.addWidget(window)
+        assert window._lbl_app_count.text() == "3 aplicación(es)"
+        textos = [lbl.text() for lbl in window.statusBar().findChildren(QLabel)]
+        assert "Listo" in textos
+        assert window.statusBar().findChild(QLabel, "statusDot") is not None
+
+    def test_no_info_line_under_the_list(self, qtbot, session_factory, seed_apps):
+        """La tarjeta ya muestra descripción, estado y fecha (Flexibar no la tiene)."""
+        window = LauncherWindow(session_factory=session_factory)
+        qtbot.addWidget(window)
+        assert not hasattr(window, "_info_label")
+
+    def test_card_menu_has_the_sidebar_actions(
+        self, qtbot, session_factory, seed_apps, monkeypatch
+    ):
+        from PySide6.QtCore import QPoint
+        from PySide6.QtWidgets import QMenu
+
+        monkeypatch.setattr(QMenu, "popup", lambda self, pos: None)
         window = LauncherWindow(session_factory=session_factory)
         qtbot.addWidget(window)
         window._app_list.setCurrentRow(0)
-        assert (
-            "Facturas" in window._info_label.text()
-            or "Albaranes" in window._info_label.text()
+        window._show_card_menu(QPoint(0, 0))
+        textos = [a.text() for a in window._card_menu.actions() if not a.isSeparator()]
+        assert textos == ["Abrir", "Configurar", "Clonar", "Exportar", "Eliminar"]
+        assert all(
+            not a.icon().isNull() for a in window._card_menu.actions() if a.text()
         )
+
+    def test_card_menu_open_opens_the_app(
+        self, qtbot, session_factory, seed_apps, monkeypatch
+    ):
+        from PySide6.QtCore import QPoint
+        from PySide6.QtWidgets import QMenu
+
+        monkeypatch.setattr(QMenu, "popup", lambda self, pos: None)
+        window = LauncherWindow(session_factory=session_factory)
+        qtbot.addWidget(window)
+        window._app_list.setCurrentRow(0)
+        window._show_card_menu(QPoint(0, 0))
+        with qtbot.waitSignal(window.app_opened, timeout=1000):
+            window._card_menu.actions()[0].trigger()
+
+    def test_card_menu_needs_a_selection(self, qtbot, session_factory, seed_apps):
+        from PySide6.QtCore import QPoint
+
+        window = LauncherWindow(session_factory=session_factory)
+        qtbot.addWidget(window)
+        window._app_list.setCurrentRow(-1)
+        window._show_card_menu(QPoint(0, 0))
+        assert getattr(window, "_card_menu", None) is None

@@ -40,6 +40,8 @@ _EXPORTABLE_FIELDS: list[str] = [
     "output_format",
     "default_tab",
     "scanner_backend",
+    "workbench_layout_json",
+    "hide_add_barcode_button",
 ]
 
 # Campos JSON que se parsean a objeto para legibilidad del export.
@@ -53,6 +55,27 @@ _JSON_FIELDS: list[str] = [
     "ai_config_json",
     "notifications_json",
 ]
+
+
+# Columnas de Application que NO forman parte de la configuración: las pone
+# la base de datos o identifican la fila. Toda columna nueva debe ir aquí o en
+# _EXPORTABLE_FIELDS (lo comprueba un test): duplicar una App perdía la config
+# de notificaciones porque el clon enumeraba los campos a mano.
+NON_CONFIG_COLUMNS: frozenset[str] = frozenset(
+    {"id", "tenant_id", "name", "created_at", "updated_at"}
+)
+
+
+def copy_configuration(source: Application, target: Application) -> None:
+    """Copia toda la configuración exportable de una App a otra (salvo el nombre).
+
+    Args:
+        source: Aplicación origen.
+        target: Aplicación destino (normalmente recién creada).
+    """
+    for field_name in _EXPORTABLE_FIELDS:
+        if field_name != "name":
+            setattr(target, field_name, getattr(source, field_name))
 
 
 class AppImportError(Exception):
@@ -179,6 +202,8 @@ def import_application(
         "output_format",
         "default_tab",
         "scanner_backend",
+        "workbench_layout_json",
+        "hide_add_barcode_button",
     ):
         value = app_data.get(field_name)
         if value is not None:

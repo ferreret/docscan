@@ -7,16 +7,10 @@ Panel lateral izquierdo con dos estados:
 
 from __future__ import annotations
 
-import math
-
-from PySide6.QtCore import QPoint, QPropertyAnimation, QSize, Qt, Signal
-from PySide6.QtGui import (
-    QColor,
-    QIcon,
-    QPainter,
-    QPen,
-    QPixmap,
-)
+from PySide6.QtCore import QPropertyAnimation, QSize, Qt, Signal
+from PySide6.QtGui import QIcon
+from app.ui.icons import svg_icon
+from app.ui.palette import palette
 from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
@@ -31,283 +25,31 @@ _BTN_H = 40
 
 
 # ---------------------------------------------------------------
-# Fabrica de iconos para el sidebar
+# Iconos del sidebar (Lucide, ver app/ui/icons.py)
 # ---------------------------------------------------------------
 
 
-def _pm(size: int = _ICON_SIZE) -> QPixmap:
-    pm = QPixmap(size, size)
-    pm.fill(Qt.GlobalColor.transparent)
-    return pm
+def _lucide(name: str):
+    """Fábrica ``(color, size) -> QIcon`` para un icono Lucide."""
+
+    def factory(color: str, size: int = _ICON_SIZE) -> QIcon:
+        return svg_icon(name, color, size)
+
+    return factory
 
 
-def _icon_plus(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono + (Nueva)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(2, size / 10))
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    p.setPen(pen)
-    c = size // 2
-    arm = int(size * 0.3)
-    p.drawLine(c - arm, c, c + arm, c)
-    p.drawLine(c, c - arm, c, c + arm)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_folder_open(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono carpeta abierta (Abrir)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(1.5, size / 14))
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    p.setPen(pen)
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    m = int(size * 0.15)
-    # Carpeta
-    p.drawRect(m, int(size * 0.3), size - 2 * m, int(size * 0.5))
-    # Pestaña
-    p.drawLine(m, int(size * 0.3), int(size * 0.35), int(size * 0.3))
-    p.drawLine(int(size * 0.35), int(size * 0.3), int(size * 0.45), int(size * 0.18))
-    p.drawLine(int(size * 0.45), int(size * 0.18), int(size * 0.6), int(size * 0.18))
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_gear(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono engranaje (Configurar)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    c = QColor(color)
-    pen = QPen(c, max(1.5, size / 14))
-    p.setPen(pen)
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    cx, cy = size // 2, size // 2
-    r_outer = int(size * 0.38)
-    r_inner = int(size * 0.18)
-    # Circulo interior
-    p.drawEllipse(QPoint(cx, cy), r_inner, r_inner)
-    # Dientes
-    for i in range(8):
-        angle = math.radians(i * 45)
-        x1 = cx + int(r_inner * 1.3 * math.cos(angle))
-        y1 = cy + int(r_inner * 1.3 * math.sin(angle))
-        x2 = cx + int(r_outer * math.cos(angle))
-        y2 = cy + int(r_outer * math.sin(angle))
-        p.drawLine(x1, y1, x2, y2)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_copy(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono copiar (Clonar)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(1.5, size / 14))
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    p.setPen(pen)
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    m = int(size * 0.12)
-    offset = int(size * 0.18)
-    w = int(size * 0.55)
-    # Rectangulo trasero
-    p.drawRect(m + offset, m, w, w)
-    # Rectangulo frontal
-    p.drawRect(m, m + offset, w, w)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_upload(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono exportar (flecha arriba + caja)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(1.5, size / 14))
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    p.setPen(pen)
-    cx = size // 2
-    # Flecha arriba
-    top = int(size * 0.15)
-    mid = int(size * 0.55)
-    arm = int(size * 0.18)
-    p.drawLine(cx, top, cx, mid)
-    p.drawLine(cx, top, cx - arm, top + arm)
-    p.drawLine(cx, top, cx + arm, top + arm)
-    # Caja
-    m = int(size * 0.15)
-    btm = int(size * 0.82)
-    p.drawLine(m, int(size * 0.45), m, btm)
-    p.drawLine(m, btm, size - m, btm)
-    p.drawLine(size - m, btm, size - m, int(size * 0.45))
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_download(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono importar (flecha abajo + caja)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(1.5, size / 14))
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    p.setPen(pen)
-    cx = size // 2
-    top = int(size * 0.15)
-    mid = int(size * 0.55)
-    arm = int(size * 0.18)
-    # Flecha abajo
-    p.drawLine(cx, top, cx, mid)
-    p.drawLine(cx, mid, cx - arm, mid - arm)
-    p.drawLine(cx, mid, cx + arm, mid - arm)
-    # Caja
-    m = int(size * 0.15)
-    btm = int(size * 0.82)
-    p.drawLine(m, int(size * 0.45), m, btm)
-    p.drawLine(m, btm, size - m, btm)
-    p.drawLine(size - m, btm, size - m, int(size * 0.45))
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_trash(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono papelera (Eliminar)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(1.5, size / 14))
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    p.setPen(pen)
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    m = int(size * 0.2)
-    # Tapa
-    p.drawLine(m - 2, int(size * 0.28), size - m + 2, int(size * 0.28))
-    p.drawLine(int(size * 0.38), int(size * 0.28), int(size * 0.38), int(size * 0.15))
-    p.drawLine(int(size * 0.38), int(size * 0.15), int(size * 0.62), int(size * 0.15))
-    p.drawLine(int(size * 0.62), int(size * 0.15), int(size * 0.62), int(size * 0.28))
-    # Cuerpo
-    p.drawLine(m, int(size * 0.28), int(m * 1.15), int(size * 0.85))
-    p.drawLine(int(m * 1.15), int(size * 0.85), int(size - m * 1.15), int(size * 0.85))
-    p.drawLine(int(size - m * 1.15), int(size * 0.85), size - m, int(size * 0.28))
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_refresh(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono actualizar (flecha circular)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(1.5, size / 14))
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    p.setPen(pen)
-    cx, cy = size // 2, size // 2
-    r = int(size * 0.32)
-    p.drawArc(cx - r, cy - r, 2 * r, 2 * r, 30 * 16, 300 * 16)
-    # Punta de flecha
-    tip_angle = math.radians(30)
-    tx = cx + int(r * math.cos(tip_angle))
-    ty = cy - int(r * math.sin(tip_angle))
-    arm = int(size * 0.12)
-    p.drawLine(tx, ty, tx + arm, ty + arm)
-    p.drawLine(tx, ty, tx - arm, ty + int(arm * 0.3))
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_grid(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono grid (Gestor de lotes)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(1.5, size / 14))
-    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    p.setPen(pen)
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    m = int(size * 0.15)
-    gap = int(size * 0.08)
-    cell = (size - 2 * m - gap) // 2
-    for row in range(2):
-        for col in range(2):
-            x = m + col * (cell + gap)
-            y = m + row * (cell + gap)
-            p.drawRect(x, y, cell, cell)
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_ai(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono AI (estrella/sparkle)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-    c = QColor(color)
-    p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(c)
-    cx, cy = size // 2, size // 2
-    r = int(size * 0.38)
-    # Estrella de 4 puntas
-    from PySide6.QtGui import QPolygonF
-    from PySide6.QtCore import QPointF
-
-    pts = []
-    for i in range(8):
-        angle = math.radians(i * 45 - 90)
-        dist = r if i % 2 == 0 else int(r * 0.35)
-        pts.append(QPointF(cx + dist * math.cos(angle), cy + dist * math.sin(angle)))
-    p.drawPolygon(QPolygonF(pts))
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_info(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono (i) información (Acerca de)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(1.5, size / 14))
-    p.setPen(pen)
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    c = size // 2
-    r = int(size * 0.38)
-    p.drawEllipse(QPoint(c, c), r, r)
-    # Punto de la i
-    dot_r = max(1, int(size * 0.05))
-    p.setBrush(QColor(color))
-    p.drawEllipse(QPoint(c, int(c - r * 0.45)), dot_r, dot_r)
-    # Barra de la i
-    pen2 = QPen(QColor(color), max(2, size / 10))
-    pen2.setCapStyle(Qt.PenCapStyle.RoundCap)
-    p.setPen(pen2)
-    p.drawLine(c, int(c - r * 0.15), c, int(c + r * 0.55))
-    p.end()
-    return QIcon(pm)
-
-
-def _icon_hamburger(color: str, size: int = _ICON_SIZE) -> QIcon:
-    """Icono hamburguesa (toggle sidebar)."""
-    pm = _pm(size)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(QColor(color), max(2, size / 10))
-    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-    p.setPen(pen)
-    m = int(size * 0.2)
-    for i, frac in enumerate([0.3, 0.5, 0.7]):
-        y = int(size * frac)
-        p.drawLine(m, y, size - m, y)
-    p.end()
-    return QIcon(pm)
+_icon_plus = _lucide("plus")
+_icon_folder_open = _lucide("folder-open")
+_icon_gear = _lucide("settings")
+_icon_copy = _lucide("copy")
+_icon_upload = _lucide("upload")
+_icon_download = _lucide("download")
+_icon_trash = _lucide("trash-2")
+_icon_refresh = _lucide("refresh-cw")
+_icon_grid = _lucide("layout-grid")
+_icon_ai = _lucide("sparkles")
+_icon_info = _lucide("info")
+_icon_hamburger = _lucide("menu")
 
 
 # ---------------------------------------------------------------
@@ -373,7 +115,7 @@ class Sidebar(QWidget):
         self._setup_ui()
 
     def _icon_color(self) -> str:
-        return "#cdd6f4" if self._is_dark else "#4c4f69"
+        return palette(self._is_dark)["text"]
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)

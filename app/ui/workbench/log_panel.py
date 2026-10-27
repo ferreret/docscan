@@ -23,13 +23,14 @@ from PySide6.QtWidgets import (
 
 log = logging.getLogger(__name__)
 
-# Colores por nivel de log (texto)
-_LEVEL_COLORS: dict[int, str] = {
-    logging.DEBUG: "#888888",
-    logging.INFO: "#d4d4d4",
-    logging.WARNING: "#e5c07b",
-    logging.ERROR: "#e06c75",
-    logging.CRITICAL: "#ff4444",
+# Clave de app/ui/palette.py por nivel de log. Antes eran colores fijos
+# pensados para fondo oscuro: INFO (#d4d4d4) no se leía en el tema claro.
+_LEVEL_COLOR_KEYS: dict[int, str] = {
+    logging.DEBUG: "overlay0",
+    logging.INFO: "text",
+    logging.WARNING: "yellow",
+    logging.ERROR: "red",
+    logging.CRITICAL: "red",
 }
 
 _MAX_LOG_LINES = 5000
@@ -152,7 +153,9 @@ class LogPanel(QWidget):
         if level < self._min_level:
             return
 
-        color = _LEVEL_COLORS.get(level, "#d4d4d4")
+        from app.ui.palette import color as palette_color
+
+        color = palette_color(_LEVEL_COLOR_KEYS.get(level, "text"))
 
         # Insertar con color
         cursor = self._text.textCursor()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import QCheckBox, QComboBox, QSpinBox, QLineEdit
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -158,6 +159,57 @@ class TestPipelineTab:
         tab.apply_to(sample_app)
         assert sample_app.pipeline_json != "[]"
 
+    def test_cada_fila_tiene_casilla_e_icono(self, qtbot, sample_app):
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        for i, step in enumerate(tab.get_steps()):
+            item = tab._list.item(i)
+            assert item.flags() & Qt.ItemFlag.ItemIsUserCheckable
+            assert (item.checkState() == Qt.CheckState.Checked) == step.enabled
+            assert not item.icon().isNull()
+
+    def test_la_casilla_desactiva_el_paso(self, qtbot, sample_app):
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        tab._list.item(1).setCheckState(Qt.CheckState.Unchecked)
+        assert not tab.get_steps()[1].enabled
+        assert tab.get_steps()[0].enabled
+        tab.apply_to(sample_app)
+        assert '"enabled": false' in sample_app.pipeline_json
+        tab._list.item(1).setCheckState(Qt.CheckState.Checked)
+        assert tab.get_steps()[1].enabled
+
+    def test_paso_desactivado_se_ve_atenuado(self, qtbot, sample_app):
+        from app.ui.palette import color
+
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        tab._list.setCurrentRow(0)
+        tab._on_toggle()
+        item = tab._list.item(0)
+        assert item.checkState() == Qt.CheckState.Unchecked
+        assert item.foreground().color().name() == color("text_disabled")
+
+    def test_arrastrar_reordena_los_pasos(self, qtbot, sample_app):
+        """Antes la lista se reordenaba al arrastrar pero _steps no: se perdía."""
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        primero, segundo = tab.get_steps()
+        # Lo que hace QListWidget al soltar un arrastre interno
+        model = tab._list.model()
+        assert model.moveRows(QModelIndex(), 1, 1, QModelIndex(), 0)
+        assert tab.get_steps() == [segundo, primero]
+        tab.apply_to(sample_app)
+        assert sample_app.pipeline_json.index(
+            '"barcode"'
+        ) < sample_app.pipeline_json.index('"image_op"')
+
+    def test_sin_boton_on_off(self, qtbot, sample_app):
+        tab = PipelineTab(sample_app)
+        qtbot.addWidget(tab)
+        assert not hasattr(tab, "_btn_toggle")
+        assert not tab._btn_up.icon().isNull()
+
     def test_empty_pipeline(self, qtbot):
         app = Application(name="Empty", pipeline_json="[]")
         tab = PipelineTab(app)
@@ -184,10 +236,10 @@ class TestStepDisplayText:
         assert "Script" in text
         assert "Mi script" in text
 
-    def test_disabled_marker(self):
+    def test_sin_marca_de_texto(self):
+        """El estado activo va en la casilla de la fila, no en el texto."""
         step = ImageOpStep(id="s1", op="Crop", enabled=False)
-        text = _step_display_text(step)
-        assert "[✗]" in text
+        assert _step_display_text(step) == "Imagen: Crop"
 
 
 # ------------------------------------------------------------------
@@ -242,7 +294,7 @@ class TestEventsTab:
         assert idx >= 0, "on_page_changed no está en el combo"
         tab._event_combo.setCurrentIndex(idx)
         ph = tab._code_edit.placeholderText()
-        assert "def on_page_changed(app, batch, page):" in ph
+        assert "def on_page_changed(app, batch, page, page_index):" in ph
         # Cambiar a on_key_event → debe llevar `key` en la firma.
         idx2 = tab._event_combo.findData("on_key_event")
         tab._event_combo.setCurrentIndex(idx2)
@@ -259,7 +311,7 @@ class TestEventsTab:
         assert "def on_batch_loaded(app, batch):" in EVENT_SIGNATURES["on_batch_loaded"]
         assert "on_page_changed" in EVENT_SIGNATURES
         assert (
-            "def on_page_changed(app, batch, page):"
+            "def on_page_changed(app, batch, page, page_index):"
             in EVENT_SIGNATURES["on_page_changed"]
         )
 
@@ -614,3 +666,103 @@ class TestAppConfigurator:
         qtbot.addWidget(dialog)
         assert dialog._tabs.count() == 7
         assert dialog.windowTitle().startswith("Configurar")
+
+    def test_no_guarda_si_un_evento_no_compila(
+        self, qtbot, sample_app, session_factory
+    ):
+        """Paridad FlexibarNET10 v1.20: el Configurador rechaza scripts rotos."""
+        from unittest.mock import patch
+
+        dialog = AppConfigurator(sample_app, session_factory)
+        qtbot.addWidget(dialog)
+        tab = dialog._tab_events
+        assert tab._current_event == "on_app_start"
+        tab._code_edit.setPlainText("def on_app_start(app, batch:\n")
+        with patch("app.ui.configurator.app_configurator.QMessageBox.warning") as aviso:
+            dialog._on_save()
+        aviso.assert_called_once()
+        assert "on_app_start" in aviso.call_args.args[2]
+        assert dialog.result() == 0  # no se aceptó el diálogo
+
+
+class TestFindScriptErrors:
+    def test_detecta_pipeline_y_eventos(self):
+        import json
+
+        from app.services.script_engine import find_script_errors
+
+        pipeline = json.dumps(
+            [
+                {
+                    "type": "script",
+                    "id": "s1",
+                    "label": "Separar",
+                    "entry_point": "f",
+                    "script": "def f(:\n",
+                }
+            ]
+        )
+        events = json.dumps(
+            {
+                "on_app_start": "def on_app_start(app, batch):\n    pass\n",
+                "verification_panel": {"script": "class X(:\n"},
+            }
+        )
+        errors = find_script_errors(pipeline, events)
+        assert len(errors) == 2
+        assert any("Separar" in e for e in errors)
+        assert any("verification_panel" in e for e in errors)
+
+    def test_sin_errores(self):
+        from app.services.script_engine import find_script_errors
+
+        assert find_script_errors("[]", "{}") == []
+
+
+class TestPestanasDelWorkbench:
+    """Configurador → General → «Pestañas del Workbench» (paridad Flexibar)."""
+
+    def test_lista_con_las_cinco_entradas_y_guardado(self, qtbot, sample_app):
+        import json
+
+        from app.ui.configurator.tabs.tab_general import GeneralTab
+
+        tab = GeneralTab(sample_app)
+        qtbot.addWidget(tab)
+        lista = tab._layout_list
+        from PySide6.QtCore import Qt
+
+        ids = [
+            lista.item(i).data(Qt.ItemDataRole.UserRole) for i in range(lista.count())
+        ]
+        assert ids == ["barcodes", "campos", "verificacion", "ocr", "log"]
+
+        # Ocultar OCR y subir Log por encima de él
+        lista.item(3).setCheckState(Qt.CheckState.Unchecked)
+        lista.setCurrentRow(4)
+        tab._move_layout_entry(-1)
+        tab._hide_add_barcode.setChecked(True)
+        tab.apply_to(sample_app)
+
+        guardado = json.loads(sample_app.workbench_layout_json)
+        assert [e["id"] for e in guardado] == [
+            "barcodes",
+            "campos",
+            "verificacion",
+            "log",
+            "ocr",
+        ]
+        assert next(e for e in guardado if e["id"] == "ocr")["visible"] is False
+        assert sample_app.hide_add_barcode_button is True
+
+    def test_los_paneles_fijos_no_se_reordenan(self, qtbot, sample_app):
+        from app.ui.configurator.tabs.tab_general import GeneralTab
+
+        tab = GeneralTab(sample_app)
+        qtbot.addWidget(tab)
+        tab._layout_list.setCurrentRow(1)  # «Campos de lote»
+        assert not tab._btn_layout_up.isEnabled()
+        assert not tab._btn_layout_down.isEnabled()
+        tab._layout_list.setCurrentRow(2)  # primera pestaña: no sube
+        assert not tab._btn_layout_up.isEnabled()
+        assert tab._btn_layout_down.isEnabled()

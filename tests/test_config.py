@@ -1,6 +1,5 @@
 """Tests de configuración y secrets."""
 
-
 import pytest
 
 from config.secrets import SecretsManager, SecretsError
@@ -97,3 +96,18 @@ class TestSecrets:
         )
         SecretsManager(**kw).set("key", "value")
         assert SecretsManager(**kw).get("key") == "value"
+
+
+class TestDirectorioPrivado:
+    def test_permisos_0700_en_posix(self, tmp_path):
+        import os
+        import stat
+
+        from config.settings import ensure_private_dir
+
+        if os.name != "posix":
+            pytest.skip("solo POSIX")
+        d = tmp_path / "datos"
+        d.mkdir(mode=0o755)
+        ensure_private_dir(d)
+        assert stat.S_IMODE(d.stat().st_mode) == 0o700

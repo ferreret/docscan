@@ -260,12 +260,12 @@ class TestVerifyChecksum:
 
         assert UpdateService.verify_checksum(file_path, "bad_hash") is False
 
-    def test_empty_checksum_skips(self, tmp_path):
-        """Sin checksum se omite la verificación."""
+    def test_empty_checksum_falla_cerrado(self, tmp_path):
+        """Sin checksum la descarga no se da por buena (falla cerrado)."""
         file_path = tmp_path / "test.bin"
         file_path.write_bytes(b"data")
 
-        assert UpdateService.verify_checksum(file_path, "") is True
+        assert UpdateService.verify_checksum(file_path, "") is False
 
 
 # ── Tests de _find_platform_asset ─────────────────────────────────

@@ -2,6 +2,10 @@
 
 Permite añadir, editar, eliminar, reordenar y habilitar/deshabilitar
 pasos del pipeline de procesado.
+
+Cada fila lleva, como en FlexibarNET 10, una casilla real de activo, el
+icono del tipo de paso y su nombre. El icono y su color distinguen el tipo
+de un vistazo; un paso desactivado se ve atenuado.
 """
 
 from __future__ import annotations
@@ -10,7 +14,8 @@ import uuid
 import logging
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Qt, QSize
+from PySide6.QtCore import QCoreApplication, QModelIndex, QT_TRANSLATE_NOOP, Qt, QSize
+from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -24,6 +29,8 @@ from PySide6.QtWidgets import (
 
 from app.models.application import Application
 from app.pipeline.serializer import serialize, deserialize
+from app.ui.icons import icon
+from app.ui.palette import color
 from app.pipeline.steps import (
     STEP_TYPE_MAP,
     BarcodeStep,
@@ -44,6 +51,17 @@ _STEP_TYPE_LABELS_SRC = {
 }
 
 _tr = lambda s: QCoreApplication.translate("PipelineTab", s)
+
+# Icono Lucide y color de la paleta de cada tipo de paso
+STEP_TYPE_ICONS: dict[str, tuple[str, str]] = {
+    "image_op": ("image", "mauve"),
+    "barcode": ("barcode", "blue"),
+    "ocr": ("scan-text", "green"),
+    "script": ("code", "peach"),
+}
+
+# El item guarda su paso: al arrastrar, el orden de _steps sale de la lista.
+STEP_ROLE = Qt.ItemDataRole.UserRole
 
 
 def STEP_TYPE_LABELS() -> dict[str, str]:
@@ -69,8 +87,7 @@ def _step_display_text(step: PipelineStep) -> str:
     else:
         detail = step.id
 
-    enabled = "✓" if step.enabled else "✗"
-    return f"[{enabled}] {prefix}: {detail}"
+    return f"{prefix}: {detail}"
 
 
 class PipelineTab(QWidget):
@@ -112,15 +129,11 @@ class PipelineTab(QWidget):
         self._btn_delete.setToolTip(
             self.tr("Eliminar el paso seleccionado del pipeline")
         )
-        self._btn_toggle = QPushButton(self.tr("On/Off"))
-        self._btn_toggle.setToolTip(
-            self.tr("Activar o desactivar el paso seleccionado")
-        )
-        self._btn_up = QPushButton("↑")
+        self._btn_up = QPushButton()
         self._btn_up.setToolTip(
             self.tr("Mover el paso hacia arriba en el orden de ejecución")
         )
-        self._btn_down = QPushButton("↓")
+        self._btn_down = QPushButton()
         self._btn_down.setToolTip(
             self.tr("Mover el paso hacia abajo en el orden de ejecución")
         )
@@ -136,7 +149,6 @@ class PipelineTab(QWidget):
             self._btn_add,
             self._btn_edit,
             self._btn_delete,
-            self._btn_toggle,
             self._btn_up,
             self._btn_down,
         ):
@@ -150,22 +162,26 @@ class PipelineTab(QWidget):
         self._list = QListWidget()
         self._list.setObjectName("pipelineStepList")
         self._list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self._list.setIconSize(QSize(18, 18))
         self._list.setToolTip(
             self.tr(
-                "Lista de pasos del pipeline. Doble clic para editar, arrastrar para reordenar"
+                "Lista de pasos del pipeline. La casilla activa o desactiva el paso; "
+                "doble clic para editar, arrastrar para reordenar"
             )
         )
         layout.addWidget(self._list)
+        self._refresh_icons()
 
         # Conexiones
         self._btn_add.clicked.connect(self._on_add)
         self._btn_edit.clicked.connect(self._on_edit)
         self._btn_delete.clicked.connect(self._on_delete)
-        self._btn_toggle.clicked.connect(self._on_toggle)
         self._btn_up.clicked.connect(self._on_move_up)
         self._btn_down.clicked.connect(self._on_move_down)
         self._btn_test.clicked.connect(self._on_test_pipeline)
         self._list.itemDoubleClicked.connect(self._on_edit)
+        self._list.itemChanged.connect(self._on_item_changed)
+        self._list.model().rowsMoved.connect(self._on_rows_moved)
 
     def _load_from_app(self, app: Application) -> None:
         """Carga los pasos desde el JSON de la aplicación."""
@@ -178,11 +194,59 @@ class PipelineTab(QWidget):
 
     def _refresh_list(self) -> None:
         """Refresca la lista visual."""
+        self._list.blockSignals(True)
         self._list.clear()
         for step in self._steps:
             item = QListWidgetItem(_step_display_text(step))
+            item.setData(STEP_ROLE, step)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setSizeHint(QSize(0, 38))
+            self._style_item(item, step)
             self._list.addItem(item)
+        self._list.blockSignals(False)
+
+    def _style_item(self, item: QListWidgetItem, step: PipelineStep) -> None:
+        """Casilla, icono del tipo y color según el paso esté activo o no."""
+        item.setCheckState(
+            Qt.CheckState.Checked if step.enabled else Qt.CheckState.Unchecked
+        )
+        icon_name, role = STEP_TYPE_ICONS.get(step.type, ("circle", "text"))
+        item.setIcon(icon(icon_name, role if step.enabled else "text_disabled", 18))
+        item.setForeground(
+            QBrush(QColor(color("text") if step.enabled else color("text_disabled")))
+        )
+        item.setToolTip(
+            "" if step.enabled else self.tr("Paso desactivado: no se ejecuta")
+        )
+
+    def _on_item_changed(self, item: QListWidgetItem) -> None:
+        """La casilla activa o desactiva el paso."""
+        step = item.data(STEP_ROLE)
+        if step is None:
+            return
+        enabled = item.checkState() == Qt.CheckState.Checked
+        if step.enabled == enabled:
+            return
+        step.enabled = enabled
+        self._list.blockSignals(True)
+        self._style_item(item, step)
+        self._list.blockSignals(False)
+
+    def _on_rows_moved(self, *_args: QModelIndex | int) -> None:
+        """Tras arrastrar, el orden de los pasos es el de la lista."""
+        self._steps = [
+            self._list.item(i).data(STEP_ROLE) for i in range(self._list.count())
+        ]
+
+    def _refresh_icons(self) -> None:
+        """Iconos de los botones de mover (y de los pasos) con el tema activo."""
+        self._btn_up.setIcon(icon("chevron-up", "text", 16))
+        self._btn_down.setIcon(icon("chevron-down", "text", 16))
+        for i in range(self._list.count()):
+            item = self._list.item(i)
+            self._list.blockSignals(True)
+            self._style_item(item, item.data(STEP_ROLE))
+            self._list.blockSignals(False)
 
     def _selected_index(self) -> int | None:
         row = self._list.currentRow()

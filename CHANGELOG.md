@@ -8,6 +8,241 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-27
+
+Dos bloques: el lote 3 de mejoras desde FlexibarNET 10 y el rediseño visual con la
+estética de FlexibarNET 10 (ver «Interfaz»). Incluye además el arreglo de las
+migraciones que borraban datos en SQLite, presente en v0.1.5 y v0.1.6.
+
+> **Actualizar desde v0.1.5 o v0.1.6 es urgente si hay datos reales**: esas
+> versiones podían vaciar lotes, páginas y barcodes al migrar una base de datos
+> antigua (ver «Corregido»).
+
+Lote 3 de mejoras desde FlexibarNET 10: **nada falla en silencio**. La mayoría son
+errores que se trataban como si todo hubiera ido bien, o que solo quedaban en el log.
+Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
+(v1.20, v1.26 y v1.27).
+
+> **Cambios de comportamiento a revisar antes de actualizar**
+> - Un `on_transfer_advanced` que lanza una excepción o devuelve `False` hace fallar
+>   la transferencia y el lote no se marca como exportado. Si el script escribe en
+>   un sistema externo, debe poder repetirse sin duplicar registros.
+> - `on_transfer_advanced` corre ahora **después** de la transferencia simple, en el
+>   Workbench igual que en el worker desatendido, y recibe `pages` y `result`.
+> - Un `on_transfer_validate` que lanza una excepción cancela la transferencia.
+> - Un campo de lote marcado como obligatorio y vacío bloquea la transferencia.
+> - Un ScriptStep que falla, o un paso cuyo motor de barcode/OCR no está
+>   disponible, deja la página «a revisión» con el motivo.
+> - El Configurador no guarda una App si algún script no compila.
+> - El actualizador rechaza una descarga sin checksum publicado.
+
+### 🛡️ Seguridad
+
+- **Un código de barras ya no puede sacar la transferencia de la carpeta de
+  destino.** Con el patrón `{first_barcode}`, un código que empezara por `/` escribía
+  en esa ruta absoluta. Ahora los valores interpolados (barcodes y campos) se sanean
+  antes de usarlos: sus barras pasan a `_`, los caracteres no válidos y los nombres
+  reservados de Windows (`CON`, `NUL`…) se neutralizan y cada segmento se limita a
+  200 caracteres. Además, toda ruta final se comprueba contra la carpeta de destino.
+- **El actualizador falla cerrado**: una descarga sin checksum ya no se da por buena.
+  Las releases publican siempre `SHA256SUMS.txt`.
+- **Las carpetas de datos y de configuración quedan solo para el usuario** (0700 en
+  Linux). Con el umask por defecto, otras cuentas del equipo podían leer las
+  imágenes de los lotes.
+
+### 🐛 Corregido
+
+- **Las migraciones ya no borran datos en SQLite.** `batch_alter_table` recrea la
+  tabla con `DROP TABLE`, y con `PRAGMA foreign_keys=ON` ese borrado propagaba los
+  `ON DELETE CASCADE`: al migrar una base de datos anterior a `e5b7c3d94f10`, se
+  vaciaban `batches`, `pages` y `barcodes` sin aviso. Como la aplicación migra sola
+  al arrancar desde v0.1.5, afectaba a cualquier instalación con una base de datos
+  antigua. `alembic/env.py` desactiva ahora las claves foráneas durante la
+  migración y las reactiva aunque falle.
+- **`pywin32` sube a 311**: la 310 no tiene wheel para Python 3.14 y hacía abortar
+  `pip install -r requirements.txt` entero en Windows.
+
+- **Icono de DocScan en Linux con Wayland.** El escritorio ignora el icono que
+  pone la aplicación y lo busca en el `.desktop` cuyo nombre coincide con el
+  identificador de la ventana, que era el del intérprete de Python: salía un icono
+  genérico. La aplicación se declara ahora como `docscan`, el nombre del
+  `.desktop` del AppImage. Para ejecutar desde el código,
+  `tools/install_desktop_entry.py` instala (o quita, con `--uninstall`) esa
+  entrada en `~/.local/share/applications`.
+
+- **Arrastrar un paso del pipeline ya cambia su orden.** La lista lo movía, pero el
+  orden guardado seguía siendo el anterior: el cambio se perdía al guardar.
+- **Las imágenes del tema ya no dependen del directorio de trabajo.** Las flechas de
+  los campos numéricos se cargaban con una ruta relativa
+  (`resources/icons/…`), que solo funcionaba arrancando desde la carpeta del
+  programa. Ahora el tema usa la ruta absoluta (`$icons_dir`).
+
+- **Un script de transferencia que falla ya no da la transferencia por hecha.**
+  `on_transfer_advanced` podía lanzar una excepción, incluida la de la firma que
+  enseñaba el asistente, y el lote se marcaba como exportado igualmente. En el worker
+  desatendido, además, el script se ejecutaba después de marcar el lote.
+- **La validación previa falla cerrada**: una excepción en `on_transfer_validate`
+  dejaba pasar la transferencia.
+- **Los campos de lote obligatorios bloquean la transferencia**, nombrando los que
+  faltan. Hasta ahora el asterisco era decorativo.
+- **El Workbench y el worker desatendido transfieren igual.** Los dos usan ahora el
+  mismo flujo (`app/services/transfer_flow.py`). El worker ignoraba la transferencia
+  simple desactivada, exigía carpeta de destino aunque la App solo transfiriera por
+  script y dejaba `{first_barcode}` vacío.
+- **Un script de pipeline que falla ya no es invisible**: si lanza, no compila o no
+  define su función, la página queda «a revisión» con el motivo y el error en
+  `script_errors`. Un script que no compila se intenta compilar una sola vez, no en
+  cada página.
+- **«Motor no disponible» ya no equivale a «página sin código».** Si falta pyzbar,
+  libzbar, zxing-cpp o el motor OCR, el paso falla y la página queda «a revisión», en
+  lugar de guardar un resultado vacío.
+- **El Configurador no guarda una App con scripts que no compilan** (pasos del
+  pipeline, eventos y panel de verificación): enumera el script y la línea.
+- **Duplicar una App ya no pierde la configuración de notificaciones.** El clon copia
+  ahora la misma lista de campos que la exportación, y un test impide que una columna
+  nueva quede fuera de las dos.
+- **El texto OCR de la página se ve en el Workbench** (pestaña OCR). La función que
+  debía mostrarlo era un stub vacío.
+- **Se respeta la pestaña inicial configurada** (`default_tab`). Antes se abría
+  siempre la primera.
+- **Duplicar una App desde el modo IA ya no pierde configuración**: enumeraba los
+  campos a mano y se dejaba las notificaciones. Ahora usa la misma copia que el
+  launcher.
+- **Las excepciones no capturadas quedan en el log con su traza**, también las de los
+  slots de Qt y los hilos. En el binario sin consola se perdían.
+- **El worker desatendido y el modo directo leen barcodes.** No recibían el servicio
+  de barcodes (el worker tampoco el de OCR) y saltaban esos pasos con un aviso en el
+  log. Ahora un paso sin su servicio falla y deja la página «a revisión».
+- **El worker guarda los barcodes que lee.** No los persistía: el lote quedaba sin
+  rastro de lo leído y la transferencia, con `{first_barcode}` vacío.
+- **`on_transfer_validate` ve los campos de lote actuales.** El Workbench guardaba
+  los campos del panel después de validar, así que el script decidía con el valor del
+  intento anterior.
+- **El log registra versión, ejecutable y plataforma en cada arranque.**
+- El patrón de nombre ya no escribe en el log el valor del barcode ni de los campos
+  al fallar la interpolación: solo los nombres de las variables.
+
+### 🎨 Interfaz
+
+- **Panel derecho del Workbench como el de FlexibarNET 10.**
+  - Arriba, «BARCODES DE LA PÁGINA · N» como lista de filas: punto de color,
+    valor en monoespaciada, «simbología · motor · rol», distintivo MANUAL y
+    papelera por fila. Crece hasta 280 px.
+  - Debajo, «CAMPOS DE LOTE · N» como panel, hasta 180 px; antes era una
+    pestaña.
+  - Al fondo, las pestañas Verificación / OCR / Log.
+  - Los dos paneles se pliegan.
+  - La fila y su recuadro en el visor se resaltan mutuamente al pasar el ratón.
+  - Atajos: **Ctrl+N** / **Insert** para añadir, **Supr** sobre la fila para
+    borrar sin confirmación y **Ctrl+Z** para deshacer.
+- **Pestañas del Workbench configurables por aplicación** (Configurador → General):
+  - mostrar u ocultar cada panel y cada pestaña;
+  - reordenar las pestañas;
+  - ocultar «+ Añadir» junto con sus atajos.
+
+  Lo guardan las columnas nuevas `workbench_layout_json` y
+  `hide_add_barcode_button`. La migración `b4e2a7c9d1f3` las añade con
+  `ADD COLUMN`, sin recrear la tabla, y se probó sobre una copia de una base de
+  datos real con los recuentos intactos. Las dos viajan en la exportación.
+- **Barra superior del Workbench como la de FlexibarNET 10.**
+  - **Escanear** (botón primario, F5), **⚙** con el escáner y un distintivo
+    «Escáner: …», **Importar…** (Ctrl+I), **Procesar** (F9), **Transferir** con
+    contorno verde y **Cerrar lote** con contorno rojo, todos con icono.
+  - Fuera los radio buttons Escáner/Importar, el combo de origen y el botón
+    «Escanear / Importar»: escanear e importar son botones propios.
+  - El escáner, la fuente (Flatbed/ADF) y «Mostrar las opciones del escáner al
+    capturar» pasan al panel de ⚙, con ↻ para volver a buscar escáneres.
+  - La lista de escáneres ya no se busca al abrir el Workbench (en SANE tarda
+    segundos), sino al abrir ⚙ o al escanear sin escáner elegido. El elegido se
+    recuerda por aplicación, como antes.
+  - **Procesar es nuevo**: pasa el pipeline por todas las páginas del lote y
+    termina por el mismo camino que una captura, como en Flexibar.
+  - Mientras corre el pipeline, Escanear, Importar y Procesar se deshabilitan, y
+    sus atajos tampoco actúan.
+  - **Cambia un atajo:** F5 escanea (antes escaneaba o importaba según el radio).
+    Ctrl+W sigue cerrando el lote.
+- **Tarjetas del launcher como las de FlexibarNET 10.**
+  - Cada aplicación lleva un **icono sobre un color**, deducidos de su
+    configuración: barcodes → OCR → salida PDF → escáner elegido en el
+    Workbench → documento. El color
+    sale del nombre con el mismo hash que Flexibar (FNV-1a), así que una
+    aplicación con el mismo nombre tiene el mismo color en los dos productos.
+  - Hasta **tres etiquetas** automáticas: «Códigos de barras», «OCR», «Scripts» y
+    el formato de salida («PDF», «PDF/A», «TIFF», «CSV»…), o «Digitalización».
+  - Fecha de la última modificación (dd/mm/aaaa) y botón **⋮** con Abrir,
+    Configurar, Clonar, Exportar y Eliminar. El botón derecho abre el mismo menú.
+  - Las tarjetas crecen con el tamaño de letra (A+/A−).
+  - Desaparece la línea de información bajo la lista: la tarjeta ya lo dice todo.
+- **Barra de estado del launcher**: «N aplicación(es)» a la izquierda, que ya no
+  desaparece a los 3 segundos, y «● Listo» a la derecha.
+- **Barra de estado del Workbench**: tamaño y DPI de la página del visor
+  («1240×1754 — 300 DPI»), barra de progreso fina de 120×3 px en verde y, al
+  terminar, «Procesado N/M (k errores)» en lugar de «Procesamiento completado».
+- **Lista de pasos del Configurador como la de Flexibar**: cada paso tiene una
+  **casilla real** de activo, el **icono de su tipo** con su color (imagen, barcode,
+  OCR, script) y su nombre. Un paso desactivado se ve atenuado. Desaparecen el
+  botón «On/Off» y la marca de texto `[✓]`/`[✗]`, y subir/bajar llevan icono.
+- **El campo de fecha lleva un icono de calendario**, como el DatePicker de
+  Flexibar. Antes el desplegable era un cuadrado con borde que parecía una casilla.
+- **Las casillas marcadas llevan tic.** Antes eran un cuadrado relleno sin marca.
+  También lo llevan las de la lista «Pestañas del Workbench».
+- **Los desplegables vuelven a tener flecha.** El estilo del tema quitaba la nativa
+  sin poner otra, y parecían campos de texto. El de idioma del launcher es un poco
+  más ancho para que quepan el código y la flecha.
+- **La versión se ve en el título del launcher**: en la barra de la ventana
+  («DocScan Studio v0.1.7», como el «FlexibarNET v1.30» de Flexibar) y junto al
+  encabezado.
+- **Contadores del lote en la barra de estado** (páginas, con barcode, separadores y
+  a revisión), como el «Procesado 5/5» de Flexibar. Antes ocupaban el panel derecho.
+- **Al abrir una página a revisión, la barra de estado dice por qué** y cuántos
+  errores de procesado tiene.
+
+- **Paleta de FlexibarNET 10**: navy profundo en el tema oscuro y el claro de
+  Flexibar en el claro. Hay una única fuente de color (`app/ui/palette.py`) y una
+  sola plantilla de estilos (`resources/styles/theme.qss`, con tokens) para los dos
+  temas, en lugar de dos QSS copiados. Los colores de estado de página, del log y
+  del gestor de lotes salen de la paleta y cambian con el tema: el texto INFO del
+  log ya se lee en el tema claro.
+- **La miniatura de la página que se ve en el visor se distingue claramente**:
+  lleva un marco macizo del color de acento por dentro del borde de estado (que
+  conserva su color: rojo a revisión, naranja separador…). Antes solo tenía 1 px
+  más de borde y un fondo casi transparente. Además, cambiar el estado de la página
+  seleccionada ya no le quita el resaltado.
+- **Iconos Lucide** (ISC, `resources/icons/lucide`, paquete `lucide-static` 1.55.0
+  verificado por su hash SHA-512): un único juego de trazo fino, recoloreado con la
+  paleta del tema (`app/ui/icons.py`). Sustituye a los ~30 iconos dibujados a mano en
+  la barra lateral, la barra superior y la barra del visor. La barra del visor tiene
+  ahora botones planos y monocromos, con el rojo reservado para borrar, y el contador
+  de página a tamaño normal en lugar de 36 px en rosa, ajustado a su texto y
+  centrado entre las flechas (antes un campo de ancho fijo dejaba un hueco a la
+  izquierda del número).
+- **Tipografía Inter** empaquetada (OFL, `resources/fonts/inter`) y registrada al
+  arrancar. En Windows se usa «Segoe UI», como Flexibar. Antes se pedía «Segoe UI»
+  también en Linux y se caía en la fuente que hubiera.
+- **La barra de herramientas del visor ya no tapa la página.** Antes flotaba sobre la
+  parte inferior de la imagen y ocultaba lo que hubiera allí (a menudo, el código de
+  barras). Ahora ocupa su propia franja bajo el visor, como en FlexibarNET 10.
+
+### 📚 Documentación
+
+- La tabla de atajos (`docs-web/reference/shortcuts.md`) se rehízo contra el código:
+  decía `Ctrl+S`, `R` y `M`, que no existen (son `F5`, `Ctrl+R` y `Ctrl+M`).
+- **Capturas regeneradas** con la interfaz nueva: las 15 de `docs/screenshots/` y
+  `docs-web/assets/screenshots/`. Los lotes de la demo usan una estación neutra
+  (`PUESTO-01`) en lugar del nombre del equipo en el que se generan.
+- Las aplicaciones de demostración de `tools/ui_snapshots.py` tienen ahora configuraciones
+  distintas, para que la captura del launcher enseñe iconos y etiquetas variados.
+- **`tools/ui_snapshots.py`** regenera con un comando las 15 capturas de la
+  documentación (`docs/screenshots/` y `docs-web/assets/screenshots/`) y, si se
+  pide, la imagen del portfolio. Abre las ventanas reales sin mostrarlas, con datos
+  de demostración ficticios y neutros, en un entorno aislado: no toca los datos ni
+  las preferencias del usuario y no se conecta a la red. Su primera ejecución
+  destapó que la pestaña General del Configurador ya no cabía y aplastaba los
+  campos. Ahora tiene scroll.
+- Firmas reales de todos los eventos en la plantilla del Configurador, los asistentes
+  de IA, los stubs del editor externo, el README y docs-web, más la receta «Un PDF por
+  documento» (hojas separadoras).
+
 ## [0.1.6] - 2026-07-28
 
 ### ✨ Salto directo a página en el visor

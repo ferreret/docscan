@@ -43,6 +43,7 @@ from docscan_worker.worker_main import (
     _process_pending_batches,
     _transfer_batch,
 )
+from app.services.script_engine import EventOutcome
 from app.workers.recognition_worker import AppContext, BatchContext
 
 
@@ -941,7 +942,9 @@ class TestTransferBatch:
             app_ctx,
             batch_ctx,
         ) = self._make_transfer_context(tmp_path)
-        script_engine.run_event.return_value = False
+        script_engine.run_event_checked.return_value = EventOutcome(
+            ran=True, value=False
+        )
 
         lifecycle = {"on_transfer_validate": "validate"}
         _transfer_batch(
@@ -989,6 +992,9 @@ class TestTransferBatch:
             output_path=str(dest),
         )
 
+        script_engine.is_compiled.return_value = True
+        script_engine.run_event_checked.return_value = EventOutcome(ran=True)
+
         lifecycle = {"on_transfer_advanced": "advanced"}
         _transfer_batch(
             batch_id=1,
@@ -1003,8 +1009,11 @@ class TestTransferBatch:
             batch_ctx=batch_ctx,
         )
 
-        event_names = [c.args[0] for c in script_engine.run_event.call_args_list]
+        event_names = [
+            c.args[0] for c in script_engine.run_event_checked.call_args_list
+        ]
         assert "on_transfer_advanced" in event_names
+        batch_svc.transition_state.assert_called_once_with(1, "exported")
 
     def test_paginas_excluidas_no_se_transfieren(
         self, active_app: Application, tmp_path: Path
@@ -1060,8 +1069,93 @@ class TestTransferBatch:
         )
 
         # Solo 1 página debería llegar al transfer
-        pages_data = transfer_svc.transfer.call_args[0][0]
+        pages_data = transfer_svc.transfer.call_args.kwargs["pages"]
         assert len(pages_data) == 1
+
+    def _run(self, active_app, ctx, lifecycle):
+        (
+            batch_svc,
+            transfer_svc,
+            notification_svc,
+            script_engine,
+            session,
+            app_ctx,
+            batch_ctx,
+        ) = ctx
+        _transfer_batch(
+            batch_id=1,
+            app_record=active_app,
+            batch_svc=batch_svc,
+            transfer_svc=transfer_svc,
+            notification_svc=notification_svc,
+            script_engine=script_engine,
+            lifecycle_events=lifecycle,
+            session=session,
+            app_ctx=app_ctx,
+            batch_ctx=batch_ctx,
+        )
+
+    def test_validacion_que_lanza_bloquea_la_transferencia(
+        self, active_app: Application, tmp_path: Path
+    ) -> None:
+        """Paridad FlexibarNET10: una excepción en on_transfer_validate no deja pasar."""
+        active_app.transfer_json = json.dumps(
+            {"mode": "folder", "destination": str(tmp_path)}
+        )
+        ctx = self._make_transfer_context(tmp_path)
+        ctx[3].run_event_checked.return_value = EventOutcome(
+            ran=True, error="ValueError: falta el NHC"
+        )
+        self._run(active_app, ctx, {"on_transfer_validate": "on_transfer_validate"})
+        ctx[1].transfer.assert_not_called()
+        ctx[0].transition_state.assert_not_called()
+
+    def test_avanzado_que_lanza_no_marca_el_lote(
+        self, active_app: Application, tmp_path: Path
+    ) -> None:
+        """Si on_transfer_advanced falla, el lote no pasa a exported."""
+        from app.services.transfer_service import TransferResult
+
+        active_app.transfer_json = json.dumps(
+            {"mode": "folder", "destination": str(tmp_path)}
+        )
+        ctx = self._make_transfer_context(tmp_path)
+        ctx[1].transfer.return_value = TransferResult(success=True, files_transferred=1)
+        ctx[3].is_compiled.return_value = True
+        ctx[3].run_event_checked.return_value = EventOutcome(
+            ran=True, error="RuntimeError: LIS caído"
+        )
+        self._run(active_app, ctx, {"on_transfer_advanced": "on_transfer_advanced"})
+        ctx[0].transition_state.assert_called_once_with(1, "error_export")
+
+    def test_solo_script_avanzado_sin_destino_si_transfiere(
+        self, active_app: Application, tmp_path: Path
+    ) -> None:
+        """Con la transferencia simple desactivada no hace falta carpeta destino."""
+        active_app.transfer_json = json.dumps(
+            {"standard_enabled": False, "destination": ""}
+        )
+        ctx = self._make_transfer_context(tmp_path)
+        ctx[3].is_compiled.return_value = True
+        ctx[3].run_event_checked.return_value = EventOutcome(ran=True, value=True)
+        self._run(active_app, ctx, {"on_transfer_advanced": "on_transfer_advanced"})
+        ctx[1].transfer.assert_not_called()
+        ctx[0].transition_state.assert_called_once_with(1, "exported")
+
+    def test_campo_obligatorio_vacio_bloquea(
+        self, active_app: Application, tmp_path: Path
+    ) -> None:
+        """Un campo de lote obligatorio vacío detiene la transferencia."""
+        active_app.transfer_json = json.dumps(
+            {"mode": "folder", "destination": str(tmp_path)}
+        )
+        active_app.batch_fields_json = json.dumps(
+            [{"label": "NHC", "type": "texto", "required": True}]
+        )
+        ctx = self._make_transfer_context(tmp_path)
+        ctx[0].get_fields.return_value = {"NHC": "  "}
+        self._run(active_app, ctx, {})
+        ctx[1].transfer.assert_not_called()
 
 
 # ------------------------------------------------------------------
@@ -1541,3 +1635,16 @@ class TestShutdownEvent:
 
         _handle_signal(2, None)  # 2 = SIGINT
         assert wm._shutdown.is_set()
+
+
+class TestExecutorDelWorker:
+    def test_el_worker_lee_barcodes_y_ocr(self, active_app: Application) -> None:
+        """Regresión: _build_executor no pasaba los servicios y saltaba los pasos."""
+        from app.services.barcode_service import BarcodeService
+        from app.services.ocr_service import OcrService
+        from docscan_worker.worker_main import _build_executor
+
+        active_app.pipeline_json = "[]"
+        executor = _build_executor(active_app, MagicMock())
+        assert isinstance(executor._barcode_service, BarcodeService)
+        assert isinstance(executor._ocr_service, OcrService)
