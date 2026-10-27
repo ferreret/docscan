@@ -54,8 +54,8 @@ Descarga el instalador de la
 
 | Sistema | Fichero |
 |---------|---------|
-| Linux (x86_64) | `docscan-0.1.8-x86_64.AppImage`: dale permiso de ejecución y ábrelo |
-| Windows | `docscan-0.1.8-setup.exe`: instalador |
+| Linux (x86_64) | `docscan-0.1.9-x86_64.AppImage`: dale permiso de ejecución y ábrelo |
+| Windows | `docscan-0.1.9-setup.exe`: instalador |
 
 Desde el código fuente (Python 3.14 con [uv](https://docs.astral.sh/uv/)):
 
@@ -73,6 +73,10 @@ La base de datos se crea y se migra sola al arrancar.
 [Guía completa de inicio :material-arrow-right:](user-guide/getting-started.md){ .md-button .md-button--primary }
 
 ## :sparkles: Novedades
+
+**v0.1.9**: inglés y catalán completos; los scripts reciben `http`, `on_key_event`
+se dispara y el límite de tiempo de los pasos Script es configurable. Se retira el
+Pipeline Assistant, que nunca llegó a la interfaz.
 
 **v0.1.8**: separador de documento nativo, con la lógica de FlexibarNET 10.
 
@@ -116,5 +120,5 @@ Detalle completo en el
 ---
 
 <p align="center">
-  <sub>DocScan Studio v0.1.8 — © 2026 Nicolás Barceló</sub>
+  <sub>DocScan Studio v0.1.9 — © 2026 Nicolás Barceló</sub>
 </p>

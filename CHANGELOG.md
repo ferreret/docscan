@@ -8,6 +8,19 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-10-27
+
+Versión de mantenimiento sobre la 0.1.8: interfaz completa en inglés y catalán,
+los errores de scripting que destapó el repaso del manual, la retirada del Pipeline
+Assistant (nunca llegó a la interfaz), la documentación pública al día y la nueva
+autoría.
+
+> **A revisar antes de actualizar**
+> - En Windows cambia el identificador de la aplicación (AppUserModelID): un acceso
+>   anclado a la barra de tareas puede tener que volver a anclarse.
+> - Un paso Barcode con `motor1` que solo pide PDF417 o DataMatrix ya no lee nada
+>   (pyzbar no los decodifica): hay que pasarlo a `motor2`.
+
 ### 🌐 Idiomas
 
 - **Inglés y catalán completos**: 652 textos en cada idioma (había 349 sin

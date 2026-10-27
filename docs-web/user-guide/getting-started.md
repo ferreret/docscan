@@ -16,8 +16,8 @@ Descarga la última versión de
 
 | Sistema | Fichero |
 |---------|---------|
-| Linux | `docscan-0.1.8-x86_64.AppImage` |
-| Windows | `docscan-0.1.8-setup.exe` |
+| Linux | `docscan-0.1.9-x86_64.AppImage` |
+| Windows | `docscan-0.1.9-setup.exe` |
 
 Cada release publica también `SHA256SUMS.txt`, con el SHA-256 de cada
 instalador, para comprobar la descarga. No hace falta instalar Python.
@@ -26,13 +26,13 @@ instalador, para comprobar la descarga. No hace falta instalar Python.
 
     ```bash
     sha256sum -c SHA256SUMS.txt --ignore-missing
-    chmod +x docscan-0.1.8-x86_64.AppImage
-    ./docscan-0.1.8-x86_64.AppImage
+    chmod +x docscan-0.1.9-x86_64.AppImage
+    ./docscan-0.1.9-x86_64.AppImage
     ```
 
 === "Windows"
 
-    Ejecuta `docscan-0.1.8-setup.exe` y sigue el asistente.
+    Ejecuta `docscan-0.1.9-setup.exe` y sigue el asistente.
 
 ### Actualizaciones
 

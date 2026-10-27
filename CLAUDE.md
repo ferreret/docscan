@@ -181,7 +181,7 @@ SQLite with **mandatory WAL mode** for UI + DocScanWorker concurrency. Repositor
 ## Implementation order
 
 The original 22-step build order (pipeline → config → DB → services → UI →
-worker → tests) is **complete** (releases v0.1.0–v0.1.8). Current work is
+worker → tests) is **complete** (releases v0.1.0–v0.1.9). Current work is
 prioritised in `docs/propuestas_desde_flexibarnet10_2026-10-26.md` (lote 3 done
 in v0.1.7; lotes 4–5 pending; lote 6 slices S1–S2 done in v0.1.8, status in §8 of
 `docs/diseno_separadores_documento_2026-10-26.md`).

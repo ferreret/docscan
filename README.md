@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/version-0.1.8-blue?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/version-0.1.9-blue?style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
   <img src="https://img.shields.io/badge/tests-1240_passing-brightgreen?style=flat-square" alt="Tests">
@@ -63,6 +63,14 @@ applications.
 ```
 📥 Scan / import → 🔄 Pipeline (image · barcode · OCR · scripts) → ✅ Review and index → 📤 Transfer
 ```
+
+### What's new in v0.1.9
+
+- **English and Catalan complete** across the whole interface.
+- Scripts get an `http` client (httpx), `on_key_event` fires and the Script step
+  time limit can be configured.
+- The Pipeline Assistant, which never reached the interface, is removed; AI lives
+  in AI Mode.
 
 ### What's new in v0.1.8
 
@@ -155,7 +163,7 @@ Details in the [CHANGELOG](CHANGELOG.md) (in Spanish).
 <td valign="top">
 
 ### 🌐 Interface
-- Spanish (main language), English and Catalan
+- Spanish (main language), English and Catalan, complete
 - Light and dark themes
 - FlexibarNET 10 keyboard shortcuts
 - Installers and automatic updates from GitHub
@@ -174,8 +182,8 @@ Download the latest version from [Releases](https://github.com/ferreret/docscan/
 
 | System | File |
 |--------|------|
-| Linux (x86_64) | `docscan-0.1.8-x86_64.AppImage`: make it executable and open it |
-| Windows | `docscan-0.1.8-setup.exe`: installer |
+| Linux (x86_64) | `docscan-0.1.9-x86_64.AppImage`: make it executable and open it |
+| Windows | `docscan-0.1.9-setup.exe`: installer |
 
 `SHA256SUMS.txt` holds the checksums. The application tells you when a new version is
 out and updates itself. The database is created and migrated at startup.
@@ -348,7 +356,7 @@ def my_step(app, batch, page, pipeline):
 | `batch` | Current batch and its fields | All |
 | `page` | Page: image, `barcodes`, `ocr_text`, `fields`, separator | Steps and page events |
 | `pipeline` | Flow control | Script steps only |
-| `log` | Script logger | All |
+| `log`, `http` | Script logger and shared httpx client | All |
 | `re`, `json`, `datetime`, `Path`, `ImageLib` | Standard modules and image utilities | All |
 
 **14 events** outside the pipeline: `on_app_start`, `on_app_end`, `on_import`,
@@ -435,7 +443,7 @@ The full list is in the [manual](https://ferreret.github.io/docscan/reference/sh
   directory.
 - **SQLite in WAL mode**, so the UI and the worker can run at the same time;
   migrations apply themselves at startup.
-- **Time limit** of 30 s for pipeline Script steps.
+- **Time limit** for pipeline Script steps, configurable (30 s by default).
 
 ---
 
@@ -552,5 +560,5 @@ maintained; its tests skip themselves when their dependencies are missing.
 Developed by **Nicolás Barceló**.
 
 <p align="center">
-  <sub>DocScan Studio v0.1.8</sub>
+  <sub>DocScan Studio v0.1.9</sub>
 </p>
