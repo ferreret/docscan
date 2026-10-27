@@ -1,162 +1,122 @@
 # DocScan Studio — Informe de Proyecto
-**Fecha**: 22 de julio de 2026
-**Versión del documento**: 1.1
-**Estado del proyecto**: En producción — v0.1.3 publicada (22/22 fases completadas)
+**Fecha**: 27 de octubre de 2026
+**Versión del documento**: 1.2
+**Estado del proyecto**: En desarrollo — v0.1.8 publicada, con instaladores; sin instalaciones en producción todavía
 
 ---
 
 ## 1. Resumen Ejecutivo
 
-DocScan Studio es una aplicación de escritorio para la **captura masiva, procesamiento automático e indexación inteligente de documentos**. Está diseñada para sustituir y modernizar el sistema actual basado en Flexibar.NET, incorporando capacidades de **inteligencia artificial generativa** (Claude de Anthropic, GPT-4o de OpenAI), **reconocimiento óptico de caracteres (OCR)** y **lectura avanzada de códigos de barras**.
+DocScan Studio es una aplicación de escritorio para la **captura por lotes, el procesamiento y la indexación de documentos**. Es la **reimplementación multiplataforma** de FlexibarNET 10, el producto de captura de Tecnomedia en .NET (solo Windows) que está en producción en hospitales. Mantiene **paridad funcional** con él (la misma lógica, las mismas claves de configuración y los mismos tokens), funciona en Linux y Windows, y añade **IA generativa** (Claude de Anthropic u OpenAI) para crear y configurar aplicaciones conversando.
 
-El sistema permite digitalizar documentos desde escáneres físicos o importar archivos existentes (imágenes, PDFs), procesarlos automáticamente mediante un pipeline configurable, extraer información relevante y transferir los resultados a sistemas externos (carpetas de red, APIs, bases de datos, gestores documentales).
+El sistema digitaliza documentos desde escáneres físicos o importando ficheros (imágenes y PDF), los procesa con un pipeline configurable (operaciones de imagen, códigos de barras, OCR y scripts Python), los divide en documentos por código de barras, permite revisarlos e indexarlos, y los transfiere al archivo de destino.
 
-**Estado actual**: Las 22 fases de implementación están completadas. El proyecto cuenta con 104 módulos de código fuente (~23.000 líneas), 861 tests automatizados pasando, y cuatro releases públicas (v0.1.0 → v0.1.3) con instaladores para Linux (AppImage) y Windows (.exe) y actualización automática. La versión vigente es la **v0.1.3** (julio de 2026). Toda la cadena —desarrollo, integración continua e instaladores— está unificada en Python 3.14.
+**Estado actual**: v0.1.8, publicada el 27 de octubre de 2026, con instaladores para Linux (AppImage) y Windows (.exe) y actualización automática. Hay **1240 tests automáticos** en verde, con una cobertura de líneas del **72 %**. La v0.1.8 incorpora el **separador de documento** de FlexibarNET 10 y, como prueba de aceptación, **seis aplicaciones reales** de FlexibarNET 10 portadas (las de archivo del Hospital Arnau de Vilanova). Falta la validación en campo con escáner físico y la primera instalación en producción.
 
 ---
 
 ## 2. Objetivos del Proyecto
 
 ### 2.1 Objetivo Principal
-Desarrollar una plataforma de digitalización documental moderna, flexible y extensible que permita a las organizaciones automatizar sus flujos de captura e indexación de documentos.
+Ofrecer una plataforma de captura documental multiplataforma, flexible y extensible, con el mismo comportamiento que FlexibarNET 10 allí donde ambos resuelven el mismo problema.
 
 ### 2.2 Objetivos Específicos
 
 | # | Objetivo | Beneficio |
 |---|----------|-----------|
-| 1 | **Multi-aplicación**: múltiples perfiles de proceso independientes | Un mismo software sirve para diferentes tipos de documento y flujos de trabajo |
-| 2 | **Pipeline configurable**: procesamiento definible sin programación | Los administradores configuran el flujo de procesamiento visualmente |
-| 3 | **IA generativa integrada**: extracción automática de campos | Reduce la intervención manual en la indexación de documentos |
-| 4 | **Doble motor de barcode**: pyzbar + zxing-cpp | Mayor tasa de lectura y compatibilidad con todos los tipos de código |
-| 5 | **OCR múltiple**: RapidOCR, EasyOCR, Tesseract | Flexibilidad según necesidades de precisión y velocidad |
-| 6 | **Scripting Python**: automatización avanzada | Los procesos complejos se resuelven con scripts sin modificar el software |
-| 7 | **Procesamiento desatendido**: worker CLI autónomo | Los lotes se pueden procesar sin intervención humana |
-| 8 | **Multiplataforma**: Linux y Windows | Despliegue en la infraestructura existente |
+| 1 | **Paridad con FlexibarNET 10** | Las aplicaciones de clientes reales se pueden portar con la misma configuración |
+| 2 | **Multi-aplicación**: perfiles de proceso independientes, agrupables | Un mismo programa sirve para distintos tipos de documento y clientes |
+| 3 | **Pipeline configurable**: pasos combinables sin programar | El flujo de proceso se define desde el configurador |
+| 4 | **Separación de documentos** por código de barras | Un lote de papel se archiva como documentos independientes |
+| 5 | **Scripting Python** | Los casos especiales se resuelven con scripts, sin tocar el programa |
+| 6 | **IA generativa para configurar** | Crear o modificar una aplicación describiéndola en lenguaje natural |
+| 7 | **Procesamiento desatendido** | Lotes procesados sin operador, desde una carpeta vigilada |
+| 8 | **Multiplataforma**: Linux y Windows | Despliegue sin depender de Windows ni de SDK con licencia |
 
 ---
 
 ## 3. Descripción Funcional
 
-### 3.1 Módulo 1 — Lanzador de Aplicaciones
+### 3.1 Launcher
 
-El **Launcher** es la pantalla principal del sistema. Presenta una lista de todas las aplicaciones (perfiles de proceso) configuradas, permitiendo al usuario:
+La pantalla principal lista las aplicaciones (perfiles de proceso) configuradas, agrupadas por cliente o departamento bajo cabeceras plegables, como en FlexibarNET 10. Desde él se:
 
-- **Iniciar una aplicación** con doble-click o botón, abriendo la ventana de trabajo (Workbench)
-- **Acceder al configurador** para crear o modificar aplicaciones (solo administradores)
-- **Abrir el gestor de lotes** para supervisar el estado de los trabajos procesados
-- **Lanzamiento por línea de comandos**: iniciar directamente una aplicación sin pasar por el launcher
-- **Modo directo**: escanear y transferir automáticamente sin mostrar interfaz gráfica
+- **Abre una aplicación** en la ventana de trabajo (Workbench)
+- **Crea, configura, duplica, exporta e importa** aplicaciones
+- **Abre el gestor de lotes**
+- **Conversa con el AI Mode** para crear o modificar aplicaciones
 
-**Ejemplo de uso**: Una empresa tiene configuradas las aplicaciones "Facturas Proveedor", "Albaranes de Entrega" y "Contratos Clientes". El operador abre el launcher, selecciona "Facturas Proveedor" e inmediatamente accede al entorno de trabajo configurado para ese tipo de documento.
+Una aplicación también se puede abrir directamente desde la línea de comandos, o ejecutar en **modo directo** (escanear y transferir sin interfaz).
 
-### 3.2 Módulo 2 — Configurador de Aplicaciones
+### 3.2 Configurador de Aplicaciones
 
-El configurador permite a los administradores definir completamente cómo se procesa cada tipo de documento. Se organiza en pestañas:
+Siete pestañas, con la presentación de FlexibarNET 10:
 
-#### Pestaña General
-Nombre, descripción, estado activo/inactivo, color de fondo personalizado (para distinguir visualmente aplicaciones abiertas simultáneamente), opciones de auto-transferencia y formato de imagen de salida.
+| Pestaña | Contenido |
+|---------|-----------|
+| **General** | Nombre, descripción, grupo, color del icono, escáner y si se muestra su diálogo, autotransferencia, detección de páginas en blanco |
+| **Imagen** | Formato de captura, modo de color y compresión |
+| **Campos de Lote** | Campos en maestro-detalle: tipo (texto, fecha, número, booleano, lista), obligatorio, descripción y valores |
+| **Pipeline** | Lista de pasos con su resumen; un diálogo por tipo de paso |
+| **Eventos** | Los 14 eventos del ciclo de vida y el panel de verificación, en lista con su estado y la casilla «Activado» |
+| **Transferencia** | Modo, destino, colisión, nombre de los ficheros (patrón o script) y agrupación por documento |
+| **Notificaciones** | Webhook al terminar una transferencia o ante un error |
 
-#### Pestaña Campos de Lote
-Define los datos que el operador introduce al iniciar un lote de escaneo. Ejemplos: fecha del lote, nombre del proveedor, número de pedido. Cada campo tiene tipo (texto, fecha, número, lista desplegable), puede ser obligatorio y validarse con expresiones regulares.
+Los scripts se editan con un editor con colores y números de línea, o en VS Code con autocompletado.
 
-#### Pestaña de Indexación
-Define los campos que se extraen **por cada página o documento**. Pueden ser introducidos manualmente, calculados automáticamente a partir de los barcodes detectados, o extraídos por IA. Ejemplos: número de factura, fecha, importe total, NIF del proveedor.
+#### El pipeline
 
-#### Pestaña Pipeline de Procesado
-El corazón del sistema. Define **qué operaciones se aplican a cada página**, en qué orden:
+Cada página atraviesa los pasos configurados, en el orden que se quiera:
 
 | Tipo de paso | Descripción | Ejemplo de uso |
 |--------------|-------------|----------------|
-| **Operación de imagen** | Transformaciones visuales | Enderezar, convertir a blanco/negro, recortar bordes, ajustar brillo/contraste |
-| **Lectura de barcode** | Detectar y leer códigos de barras | Leer Code128, QR, DataMatrix con uno o dos motores |
-| **OCR** | Reconocimiento de texto | Extraer texto completo de la página o de una zona |
-| **IA** | Extracción inteligente de campos | Enviar la imagen a Claude/GPT-4o para extraer datos estructurados |
-| **Script** | Código Python personalizado | Asignar roles a barcodes, validar datos, conectar con sistemas externos |
-| **Condición** | Evaluación de una expresión | Si no hay barcode, saltar al paso de revisión manual |
-| **Petición HTTP** | Llamada a API externa | Consultar un ERP para validar un código de cliente |
+| **Operación de imagen** | 24 transformaciones | Enderezar, binarizar, recortar bordes, quitar agujeros de perforadora |
+| **Código de barras** | Dos motores (pyzbar y zxing-cpp), 15 simbologías, página completa o zona | Leer el Code128 de una petición y decidir si la página abre un documento |
+| **OCR** | Tres motores (RapidOCR, EasyOCR, Tesseract) | Extraer el texto de la página o de una zona |
+| **Script** | Python con acceso al contexto completo | Extraer un número de pedido del texto, validar datos |
 
-El pipeline se ejecuta **automáticamente** por cada página escaneada o importada, sin intervención del operador.
+Desde un script se puede controlar el flujo: saltar pasos, repetir uno (con límite), abortar la página para revisión o sustituir la imagen.
 
-**Ejemplo de pipeline para facturas**:
-1. Auto-enderezar imagen
-2. Convertir a escala de grises
-3. Leer barcodes (Motor 1: pyzbar)
-4. Leer barcodes (Motor 2: zxing-cpp)
-5. Script: asignar rol "separador" si el barcode empieza con "SEP-"
-6. OCR de zona superior (para número de factura)
-7. IA: extraer fecha, importe y NIF con Claude Vision
-8. Script: validar NIF contra base de datos
+#### Separador de documento
 
-#### Pestaña IA / OCR
-Configuración de credenciales de proveedores de IA (Anthropic, OpenAI), selección del proveedor por defecto y gestión de plantillas de extracción.
+Un **documento** es el tramo de páginas que va de una página separadora a la siguiente. El paso de código de barras declara la condición de separador (por simbología, por expresión regular o por valor fijo), con la misma lógica que FlexibarNET 10. El operador puede marcar o desmarcar separadores a mano y reordenar páginas.
 
-#### Pestaña Eventos y Scripts
-Código Python que se ejecuta en momentos clave del ciclo de vida:
-- Al abrir/cerrar la aplicación
-- Al completar el escaneo de todas las páginas
-- Antes y durante la transferencia
-- Al navegar entre páginas
-- Al pulsar teclas personalizadas
+#### Transferencia
 
-#### Pestaña Transferencia
-Define cómo se exportan los documentos procesados:
-- **Transferencia simple**: copiar archivos a una carpeta de red con reglas de subdirectorio y nombre
-- **Transferencia avanzada**: script Python con acceso completo para conectar a cualquier sistema (ERP, gestor documental, API REST, SFTP, base de datos)
-- Formatos de salida: TIFF, JPEG, PNG, PDF, PDF/A (con metadatos XMP)
+- Modos: carpeta (un fichero por página), **PDF**, **PDF/A**, **TIFF multipágina** y CSV de índices.
+- Un fichero por lote o **uno por documento**; la página separadora se incluye o se descarta.
+- Nombre por **patrón** (con variables del lote, de la página y del documento) o por **script**.
+- Ante un nombre existente: sufijo, sobrescribir o **fusionar** (añadir páginas al final).
+- Todo se comprueba antes de escribir (nombres, rutas, imágenes) y los ficheros multipágina se escriben de forma atómica: una transferencia que no puede completarse no deja nada a medias.
+- Transferencia avanzada por script para integrarse con cualquier sistema.
 
-### 3.3 Módulo 3 — Ventana de Trabajo (Workbench)
+### 3.3 Workbench (ventana de trabajo)
 
-La ventana principal de operación del sistema:
+- **Adquisición**: escáner (SANE en Linux, TWAIN/WIA en Windows) o importación de imágenes y PDF.
+- **Proceso en segundo plano**: el pipeline se ejecuta por cada página sin bloquear la interfaz.
+- **Visor**: zoom, ajuste, rotación y recuadros sobre los códigos leídos.
+- **Miniaturas** con un color por estado: con código, separadora, pendiente de revisión.
+- **Panel derecho**: separador del documento, códigos de la página (alta manual validada por regex), campos de lote, verificación, texto OCR y log.
+- **Navegación**: siguiente con código, siguiente pendiente de revisión, o la que decida un script.
+- **Atajos de teclado** de FlexibarNET 10 (F5 escanear, F9 procesar, Ctrl+D separador, Alt+↑/↓ mover página…).
+- **Transferencia** al destino configurado, tras la validación de la aplicación.
 
-```
-┌─────────────┬──────────────────────────────┬─────────────────┐
-│  Miniaturas │     Visor de documento        │  Panel barcodes │
-│  de páginas │     (zoom, arrastre,          │  con tabla y    │
-│  (scroll    │      overlays de barcodes     │  contadores     │
-│   vertical) │      y campos IA)             │                 │
-│             │                               │  ─────────────  │
-│             │  Borde coloreado por estado:  │  Pestañas:      │
-│             │  🟢 Con barcodes detectados   │  - Lote         │
-│             │  🟠 Separador de documentos   │  - Indexación   │
-│             │  🔵 Campos IA extraídos       │  - Verificación │
-│             │  🔴 Requiere revisión manual  │                 │
-│             │  ⚪ Sin procesar              │                 │
-├─────────────┼──────────────────────────────┤                 │
-│  Botones    │  Importar / Escáner / Zoom   │                 │
-└─────────────┴──────────────────────────────┴─────────────────┘
-```
+### 3.4 Gestor de Lotes
 
-**Funcionalidades clave**:
-- **Adquisición**: importar imágenes (individuales, múltiples o carpeta), importar PDF, escanear desde dispositivo físico
-- **Procesamiento en tiempo real**: el pipeline se ejecuta automáticamente en segundo plano por cada página, sin bloquear la interfaz
-- **Visor interactivo**: zoom con rueda del ratón, arrastre, ajustar a página, zoom al 100%
-- **Overlays visuales**: rectángulos semitransparentes sobre cada barcode detectado, con color según su rol
-- **Panel de barcodes**: tabla detallada de todos los barcodes de la página (valor, simbología, motor, rol)
-- **Contadores del lote**: total de páginas, con barcode, separadores, pendientes de revisión
-- **Navegación**: primera/anterior/siguiente/última página, navegación inteligente (ir a siguiente con barcode, ir a siguiente pendiente de revisión)
-- **Manipulación**: rotar, eliminar, marcar/desmarcar páginas
-- **Transferencia**: exportar el lote procesado al destino configurado
+- Lista de lotes con filtros por aplicación, estación y fechas.
+- Estados: creado → leído → verificado → listo para exportar → exportado, más los de error de lectura y de exportación.
+- Detalle con cuatro pestañas: general, estadísticas, páginas e historial.
+- Historial de las operaciones de cada lote.
+- Refresco automático cada 20 segundos; abrir o eliminar un lote.
 
-### 3.4 Módulo 4 — Gestor de Lotes
+### 3.5 Proceso Desatendido (DocScanWorker)
 
-Interfaz centralizada para supervisar todos los lotes procesados:
+Proceso de línea de comandos sin interfaz:
 
-- **Lista filtrable**: por estado, aplicación, estación de trabajo, rango de fechas
-- **Estados de lote**: Creado → Leído → Verificado → Listo para exportar → Exportado (+ estados de error)
-- **Panel de detalle**: información general, estadísticas de procesamiento, lista de páginas, historial de operaciones
-- **Modo supervisor**: acceso protegido con contraseña para operaciones avanzadas (liberar bloqueos, cambiar estados, eliminar lotes)
-- **Refresco automático**: actualización periódica cada 20 segundos
-- **Historial inmutable**: registro de auditoría de todas las operaciones sobre cada lote
-
-### 3.5 Módulo 5 — Proceso Desatendido (DocScanWorker)
-
-*[Pendiente de implementación]*
-
-Proceso de línea de comandos que funciona sin interfaz gráfica:
-- **Consume lotes automáticamente**: procesa lotes en estado "Leído" o "Listo para exportar"
-- **Vigilancia de carpeta**: detecta nuevos archivos (imágenes o PDFs) en una carpeta de entrada y crea lotes automáticamente
-- **Mismos motores de procesamiento**: utiliza exactamente el mismo pipeline que la interfaz gráfica
-- **Notificaciones**: envía webhooks y/o emails al completar un lote
+- **Vigila una carpeta** de entrada y crea un lote por cada fichero nuevo (imágenes o PDF).
+- **Procesa los lotes pendientes** y termina.
+- Usa **el mismo pipeline y el mismo flujo de transferencia** que el Workbench (validación, separadores, script de nombre).
+- Un lote cuya validación falla pasa a error y se **notifica por webhook**.
 
 ---
 
@@ -166,78 +126,40 @@ Proceso de línea de comandos que funciona sin interfaz gráfica:
 
 | Componente | Tecnología | Justificación |
 |------------|------------|---------------|
-| Interfaz gráfica | PySide6 (Qt) | Framework maduro, multiplataforma, rendimiento nativo |
-| Base de datos | SQLAlchemy + SQLite (modo WAL) | Sin servidor, concurrencia UI + worker |
-| Barcode Motor 1 | pyzbar + OpenCV | Rápido, buen soporte 1D |
-| Barcode Motor 2 | zxing-cpp | Superior en códigos 2D y múltiples códigos |
-| OCR principal | RapidOCR | Ligero (~10MB), sin dependencia GPU |
-| OCR alternativo | EasyOCR | Mayor precisión en textos complejos |
-| IA | Anthropic SDK + OpenAI SDK | Claude Vision y GPT-4o para extracción inteligente |
-| PDF | PyMuPDF | Lectura, generación y soporte PDF/A |
-| Scripting | Python embebido | Scripts compilados al cargar la aplicación |
-| Cifrado | Fernet (cryptography) | API keys siempre cifradas |
+| Lenguaje | Python 3.14 | Desarrollo, CI e instaladores con la misma versión |
+| Interfaz gráfica | PySide6 (Qt 6) | Multiplataforma, nativo, maduro |
+| Base de datos | SQLAlchemy 2 + SQLite (modo WAL) + Alembic | Sin servidor; interfaz y worker a la vez; migraciones al arrancar |
+| Barcode motor 1 | pyzbar + OpenCV | Rápido en códigos 1D |
+| Barcode motor 2 | zxing-cpp | Mejor en 2D y con varios códigos por página |
+| OCR | RapidOCR (principal), EasyOCR, Tesseract | Local, sin coste por página |
+| IA | Anthropic SDK, OpenAI SDK | AI Mode y Pipeline Assistant (*tool calling*) |
+| PDF | PyMuPDF | Lectura y generación, incluido PDF/A |
+| Escáner | SANE (Linux), TWAIN y WIA (Windows) | Sin SDK con licencia |
+| Cifrado | Fernet (cryptography) | Claves de API nunca en texto plano |
+| Empaquetado | PyInstaller, AppImage, Inno Setup | Instaladores y actualización automática desde GitHub Releases |
 
 ### 4.2 Principios de Diseño
 
-- **La interfaz nunca se bloquea**: todo procesamiento pesado en hilos secundarios
-- **Pipeline composable**: los pasos se combinan libremente sin limitaciones
-- **Seguridad**: claves API cifradas, nunca en texto plano
-- **Tolerancia a errores**: un error en un script no detiene el pipeline ni crashea la aplicación
-- **Concurrencia**: SQLite en modo WAL permite acceso simultáneo desde la UI y el worker
-- **Auditoría**: historial inmutable de todas las operaciones sobre lotes
+- **Paridad con FlexibarNET 10**: cuando ambos resuelven el mismo problema, se sigue su comportamiento documentado; las desviaciones se deciden explícitamente.
+- **Nada falla en silencio**: un fallo de script o de motor aparece en la página, en el log o como transferencia fallida, nunca como un éxito.
+- **La interfaz nunca se bloquea**: el trabajo pesado va en hilos secundarios.
+- **La IA configura, no procesa**: el proceso de cada página es determinista.
+- **Datos del papel no fiables**: un valor leído no puede escribir fuera del destino.
+- **Seguridad**: claves cifradas, directorios de datos privados.
 
 ---
 
-## 5. Plan de Implementación
+## 5. Evolución del Proyecto
 
-El proyecto se ha estructurado en **22 fases** organizadas de abajo hacia arriba (infraestructura → servicios → interfaz → integración):
+Las 22 fases del plan inicial (infraestructura → servicios → interfaz → worker → tests) están terminadas desde abril de 2026. Desde entonces el trabajo se organiza en **lotes de mejoras** sacados del análisis de FlexibarNET 10: dos pasadas sobre su código, sus versiones (v1.11 en julio, v1.30 en octubre: 19 versiones y 6 auditorías revisadas en la segunda) y sus manuales.
 
-### Fases 1-5: Infraestructura y Modelo de Datos ✅
-
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| 1 | Definición de pasos del pipeline (dataclasses) | ✅ Completado |
-| 2 | Contexto del pipeline (control de flujo) | ✅ Completado |
-| 3 | Serialización pipeline (JSON ↔ objetos) | ✅ Completado |
-| 4 | Configuración y gestión de secretos | ✅ Completado |
-| 5 | Base de datos SQLite con modo WAL y repositorios | ✅ Completado |
-
-### Fases 6-11: Servicios de Negocio ✅
-
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| 6 | Modelos ORM (Aplicación, Lote, Página, Barcode, Plantilla) | ✅ Completado |
-| 7 | Motor de scripts Python (compilación, ejecución, caché) | ✅ Completado |
-| 8 | Pipeline de imagen (25+ operaciones de transformación) | ✅ Completado |
-| 9 | Servicio de lectura de barcodes (2 motores) | ✅ Completado |
-| 10 | Proveedores de IA y servicios de OCR | ✅ Completado |
-| 11 | Ejecutor del pipeline (orquestación de pasos) | ✅ Completado |
-
-### Fases 12-15: Servicios de Soporte ✅
-
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| 12 | Servicio de escáner (SANE en Linux, TWAIN/WIA en Windows) | ✅ Completado |
-| 13 | Servicio de importación (imágenes + PDF) | ✅ Completado |
-| 14 | Servicios de lote y transferencia | ✅ Completado |
-| 15 | Servicio de notificaciones (webhooks + email) | ✅ Completado |
-
-### Fases 16-20: Interfaz de Usuario ✅
-
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| 16 | Launcher (pantalla principal) | ✅ Completado |
-| 17 | Configurador de aplicaciones + editor de pipeline | ✅ Completado |
-| 18 | Editor de eventos y scripts | ✅ Completado |
-| 19 | Workbench (ventana de trabajo con visor y workers) | ✅ Completado |
-| 20 | Gestor de lotes (lista, filtros, detalle, supervisor) | ✅ Completado |
-
-### Fases 21-22: Integración Final 🔲
-
-| Fase | Descripción | Estado |
-|------|-------------|--------|
-| 21 | **DocScanWorker** — proceso CLI desatendido + vigilancia de carpeta | 🔲 Pendiente |
-| 22 | **Tests adicionales** — cobertura extendida e integración | 🔲 Pendiente |
+| Lote | Contenido | Versión |
+|------|-----------|---------|
+| 1 y 2 | Correcciones de la primera pasada (caché de scripts, regex sin bloqueos…) | v0.1.6 |
+| 3 | «Nada falla en silencio»: transferencia que falla cerrada, rutas blindadas, obligatorios | v0.1.7 |
+| 6 (S1–S2) | Separador de documento, transferencia por documento, script de nombre | v0.1.8 |
+| 4 | Deshacer una transferencia que falla a medias | Pendiente |
+| 5 | Log a fichero con enmascarado de datos personales | Pendiente |
 
 ---
 
@@ -245,59 +167,40 @@ El proyecto se ha estructurado en **22 fases** organizadas de abajo hacia arriba
 
 ### 6.1 Métricas
 
+Medidas el 27 de octubre de 2026 sobre la v0.1.8 (detalle y método en `docs/portfolio/metricas.md`).
+
 | Métrica | Valor |
 |---------|-------|
-| Fases completadas | **22 de 22** (100%) |
-| Módulos de código fuente | **104 archivos Python** |
-| Líneas de código (producción) | **~23.000** |
-| Tests automatizados | **861 pasando** (0 fallando) |
-| Versión actual | **v0.1.3** (julio 2026) |
-| Releases públicas | **4** (v0.1.0 → v0.1.3) |
-| Runtime | **Python 3.14** (desarrollo, CI e instaladores) |
+| Versión actual | **v0.1.8** (27/10/2026) |
+| Releases publicadas | **10** (v0.1.0 a v0.1.8, más dos candidatas) |
+| Tests automáticos | **1240** en verde |
+| Cobertura de líneas | **72 %** |
+| Líneas de Python de la aplicación | **27.407** |
+| Líneas de tests | **18.743** |
+| Aplicaciones de FlexibarNET 10 portadas | **6** |
 
 ### 6.2 Funcionalidades Operativas
 
-Las siguientes funcionalidades están **implementadas y verificadas**:
-
 | Funcionalidad | Detalles |
 |---------------|----------|
-| ✅ Launcher | Lista de aplicaciones, acceso a configurador y gestor de lotes |
-| ✅ Configurador completo | 6 pestañas: general, pipeline, IA/OCR, eventos, transferencia simple y avanzada |
-| ✅ Editor de pipeline | Añadir, editar, reordenar, activar/desactivar pasos de 7 tipos |
-| ✅ Diálogos de paso | Formularios específicos para image_op, barcode, OCR, IA, script |
-| ✅ Workbench funcional | Visor con zoom, miniaturas, panel de barcodes, panel de metadatos |
-| ✅ Importación múltiple | Archivos individuales, múltiples, carpeta completa, PDF |
-| ✅ Pipeline en tiempo real | Procesamiento automático en segundo plano por cada página importada |
-| ✅ Detección de barcodes | Motor 1 (pyzbar) + Motor 2 (zxing-cpp), overlays visuales |
-| ✅ Overlays en visor | Rectángulos semitransparentes coloreados por rol sobre cada barcode |
-| ✅ Gestor de lotes | Lista con filtros, panel de detalle con 4 pestañas, modo supervisor |
-| ✅ Historial de auditoría | Registro inmutable de todas las operaciones sobre lotes |
-| ✅ Motor de scripts | Compilación, ejecución con contexto completo, caché por ID |
-| ✅ 25+ operaciones de imagen | Deskew, crop, rotate, brightness, contrast, despeckle, etc. |
-| ✅ Servicios de transferencia | Simple (carpeta) y avanzada (script Python) |
-| ✅ Cifrado de credenciales | API keys protegidas con Fernet |
-| ✅ Base de datos WAL | Concurrencia entre UI y worker sin conflictos |
+| ✅ Launcher | Aplicaciones agrupadas, configurador, gestor de lotes, AI Mode |
+| ✅ Configurador | 7 pestañas al estilo FlexibarNET 10, editor de scripts con colores, VS Code |
+| ✅ Pipeline | 4 tipos de paso, 24 operaciones de imagen, 2 motores de barcode, 3 de OCR |
+| ✅ Separador de documento | Automático por barcode o manual, con validación del valor |
+| ✅ Transferencia | Carpeta, PDF, PDF/A, TIFF multipágina, CSV; por lote o por documento; nombre por script |
+| ✅ Workbench | Visor, miniaturas, panel de códigos, campos, verificación, atajos de FlexibarNET 10 |
+| ✅ Gestor de lotes | Filtros, detalle en 4 pestañas, historial |
+| ✅ Worker desatendido | Carpeta vigilada y lotes pendientes, con el mismo flujo que el Workbench |
+| ✅ IA | AI Mode y Pipeline Assistant con Claude u OpenAI |
+| ✅ Instaladores | AppImage y setup.exe, con actualización automática |
+| ✅ Idiomas | Español, inglés y catalán |
 
-### 6.3 Funcionalidades Completadas tras el Informe Inicial
+### 6.3 Pendiente de Validación en Campo
 
-Las fases 21-22, pendientes en la versión 1.0 de este informe, están **completadas**:
-
-| Funcionalidad | Fase | Estado |
-|---------------|------|--------|
-| ✅ DocScanWorker | 21 | Proceso CLI para procesamiento desatendido de lotes |
-| ✅ Folder-watch | 21 | Vigilancia automática de carpeta de entrada con watchdog |
-| ✅ Notificaciones automatizadas | 21 | Webhooks y emails al completar lotes en modo desatendido |
-| ✅ Tests de integración | 22 | Cobertura extendida (65% global; 861 tests) |
-
-### 6.4 Funcionalidades Configuradas pero Pendientes de Validación en Producción
-
-Estas funcionalidades están implementadas a nivel de código pero requieren validación con entornos y equipos reales:
-
-- Conexión con escáneres físicos (SANE en Linux, TWAIN/WIA en Windows)
-- Extracción con IA generativa (requiere claves API de Anthropic/OpenAI)
-- OCR con EasyOCR (requiere descarga de modelos PyTorch)
-- Generación de PDF/A con metadatos XMP
-- Transferencia avanzada a sistemas externos
+- Escaneo con escáner físico en Linux (Canon DR-M160) y en Windows.
+- Las aplicaciones del Hospital Arnau con escaneos reales (hoy se prueban con páginas sintéticas con códigos reales).
+- OCR con EasyOCR (descarga modelos de PyTorch).
+- Primera instalación en producción.
 
 ---
 
@@ -307,65 +210,53 @@ Estas funcionalidades están implementadas a nivel de código pero requieren val
 
 | Hito | Fecha | Descripción |
 |------|-------|-------------|
-| H1 | Completado | Infraestructura base: pipeline, base de datos, modelos |
-| H2 | Completado | Servicios de negocio: barcode, OCR, IA, scripts, imagen |
-| H3 | Completado | Interfaz de usuario: launcher, configurador, workbench, gestor |
-| H4 | Completado | Integración: pipeline ejecutándose en tiempo real desde la UI |
-
-### Hitos Completados (continuación)
-
-| Hito | Fecha | Descripción |
-|------|-------|-------------|
-| H5 | Completado | DocScanWorker + folder-watch (procesamiento desatendido) |
-| H6 | Completado | Tests de integración y cobertura extendida (861 tests) |
-| H7 | 2026 | Releases públicas v0.1.0 → v0.1.3 con instaladores y auto-update |
+| H1–H4 | Marzo 2026 | Pipeline, servicios, interfaz e integración |
+| H5 | Marzo 2026 | Primera release, v0.1.0, con instaladores |
+| H6 | Abril–julio 2026 | Worker desatendido, auditoría, Python 3.14, dependencias al día (v0.1.1–v0.1.5) |
+| H7 | Julio 2026 | Primera pasada de paridad con FlexibarNET 10 (v0.1.6) |
+| H8 | Octubre 2026 | Segunda pasada: «nada falla en silencio» y rediseño visual (v0.1.7) |
+| H9 | Octubre 2026 | Separador de documento y aplicaciones del Hospital Arnau (v0.1.8) |
 
 ### Hitos Pendientes
 
-| Hito | Descripción | Esfuerzo estimado |
-|------|-------------|-------------------|
-| H8 | Validación en campo con escáneres y entornos reales | Variable |
+| Hito | Descripción |
+|------|-------------|
+| H10 | Familia eCAP del Hospital Arnau: secretos accesibles desde scripts y registro por ODBC |
+| H11 | Lotes 4 y 5 |
+| H12 | Validación en campo con escáner y primera instalación en producción |
 
 ---
 
 ## 8. Casos de Uso Principales
 
-### Caso 1: Digitalización de facturas con separación automática
-1. El operador abre la aplicación "Facturas Proveedor"
-2. Coloca un lote de facturas en el escáner (con hojas separadoras entre facturas)
-3. Pulsa "Escanear" → las páginas se capturan y procesan automáticamente
-4. El pipeline detecta los barcodes separadores y agrupa las páginas por documento
-5. La IA extrae automáticamente número de factura, fecha, importe y NIF
-6. El operador verifica los datos en la pestaña de indexación
-7. Pulsa "Transferir" → los documentos se exportan al gestor documental
+### Caso 1: Archivo de peticiones por código de barras (Hospital Arnau)
+1. El operador abre «01 Arxiu de Peticions» y escanea un taco de peticiones.
+2. El paso de código de barras lee el Code128 o el Interleaved 2 of 5 de cada hoja y la marca como separadora.
+3. Si una hoja no tiene código, la validación bloquea la transferencia e indica cuál es; el operador la marca a mano (Ctrl+D) con su valor.
+4. Al transferir, cada código va a su TIFF en la carpeta del día; si el código ya existía, la página se añade al final del fichero.
 
-### Caso 2: Procesamiento desatendido de documentos
-1. Un sistema externo deposita PDFs en una carpeta de red
-2. DocScanWorker detecta los nuevos archivos automáticamente
-3. Crea un lote, extrae las páginas del PDF y ejecuta el pipeline configurado
-4. Al finalizar, envía un webhook al sistema origen con los resultados
-5. Los documentos procesados se transfieren al destino configurado
-6. El administrador puede supervisar todo desde el gestor de lotes
+### Caso 2: Facturas, un PDF por factura
+1. Las facturas llevan un Code128 con su número en la primera página.
+2. El paso de código de barras marca esas páginas como separadoras; las siguientes forman parte de la misma factura.
+3. Un script de nombre guarda cada factura en la carpeta de su proveedor con el número como nombre.
 
-### Caso 3: Clasificación de documentos con IA
-1. El operador importa un conjunto de documentos variados
-2. El pipeline incluye un paso de IA que clasifica cada página (factura, albarán, contrato...)
-3. Un script posterior asigna la categoría como campo de indexación
-4. Los documentos se transfieren a subcarpetas según su clasificación
+### Caso 3: Proceso desatendido
+1. Un sistema externo deja PDF en una carpeta.
+2. DocScanWorker crea un lote por fichero, ejecuta el pipeline y transfiere.
+3. Si algo falla, el lote queda en error y se avisa por webhook; el gestor de lotes lo muestra.
 
 ---
 
-## 9. Ventajas Competitivas
+## 9. Comparación con FlexibarNET 10
 
-| Aspecto | DocScan Studio | Soluciones tradicionales |
-|---------|---------------|--------------------------|
-| **IA Generativa** | Claude Vision, GPT-4o integrados | No disponible o requiere integración externa |
-| **Pipeline configurable** | Sin límites en orden y combinación de pasos | Flujo fijo pre-barcode → post-barcode |
-| **Scripting** | Python completo con acceso al contexto | Limitado o inexistente |
-| **Doble motor barcode** | pyzbar + zxing-cpp | Típicamente un solo motor |
-| **Multiplataforma** | Linux + Windows | Generalmente solo Windows |
-| **Open source** | Sin costes de licencia | Licencias comerciales |
-| **Proceso desatendido** | DocScanWorker + folder-watch | Requiere licencias adicionales |
+| Aspecto | DocScan Studio | FlexibarNET 10 |
+|---------|----------------|----------------|
+| **Plataforma** | Linux y Windows | Solo Windows |
+| **Lenguaje** | Python 3.14, PySide6 | .NET 10, WPF |
+| **Imagen y códigos** | OpenCV, pyzbar, zxing-cpp (libres) | SDK comercial con licencia |
+| **Comportamiento** | Paridad: misma lógica, claves y tokens | Referencia, en producción en hospitales |
+| **IA generativa** | Crear y configurar aplicaciones conversando | — |
+| **Madurez** | En desarrollo, sin instalaciones en producción | En producción |
 
 ---
 
@@ -373,22 +264,20 @@ Estas funcionalidades están implementadas a nivel de código pero requieren val
 
 | Riesgo | Impacto | Mitigación |
 |--------|---------|------------|
-| Compatibilidad con escáneres específicos | Medio | Doble protocolo (SANE + TWAIN/WIA), fallback a importación de archivos |
-| Costes de API de IA | Medio | OCR local como alternativa sin coste, IA solo para extracción avanzada |
-| Rendimiento con lotes grandes | Bajo | Procesamiento multihilo, SQLite WAL, paginación |
-| Precisión de lectura de barcodes | Bajo | Doble motor con configuración por simbología y calidad mínima |
+| Compatibilidad con escáneres concretos | Medio | SANE, TWAIN y WIA; importación de ficheros como alternativa; falta validar en campo |
+| Diferencias de comportamiento con FlexibarNET 10 | Medio | Paridad como requisito; aplicaciones reales portadas como prueba de aceptación |
+| Pérdida de datos al migrar la base de datos | Alto | Migraciones probadas sobre una copia de una base real antes de cada release |
+| Costes de API de IA | Bajo | La IA solo se usa para configurar, nunca por página |
 
 ---
 
 ## 11. Conclusión
 
-DocScan Studio está **completo y en producción**: las 22 fases de implementación están terminadas y el núcleo, los servicios de negocio y la interfaz de usuario están verificados con 861 tests automatizados. Se han publicado cuatro releases (v0.1.0 → v0.1.3) con instaladores para Linux y Windows y actualización automática.
+DocScan Studio cubre ya el flujo completo de captura —escaneo o importación, pipeline, separación en documentos, revisión, indexación y transferencia— en Linux y Windows, con el comportamiento de FlexibarNET 10 y 1240 tests automáticos. La v0.1.8 demuestra la paridad con seis aplicaciones reales de un hospital en producción con FlexibarNET 10.
 
-La aplicación es **plenamente funcional** tanto para captura interactiva (escaneo, pipeline, gestión de lotes) como para procesamiento desatendido (DocScanWorker con vigilancia de carpetas y notificaciones). El trabajo restante es de validación en campo con escáneres y entornos reales.
-
-El diseño modular y extensible permite incorporar nuevos tipos de paso, proveedores de IA y destinos de transferencia sin modificar el código existente, garantizando la evolución futura del producto.
+Lo que queda para la primera instalación en producción es la validación en campo con escáner y escaneos reales, la familia eCAP del Hospital Arnau y los lotes 4 y 5 (transferencias que fallan a medias y log con datos personales enmascarados).
 
 ---
 
-*Documento generado el 10 de marzo de 2026; actualizado el 22 de julio de 2026 (v1.1).*
+*Documento generado el 10 de marzo de 2026; actualizado el 22 de julio de 2026 (v1.1) y el 27 de octubre de 2026 (v1.2).*
 *DocScan Studio — Tecnomedia*

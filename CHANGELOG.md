@@ -19,6 +19,14 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
   transferencia por documento con nombre por script, en lugar del script antiguo
   que ponía `role="separator"`.
 - `docs/portfolio/metricas.md`: las cifras de la v0.1.8 y cómo se midió cada una.
+- **Informe del proyecto** (`docs/INFORME_PROYECTO.md`) puesto al día con la v0.1.8
+  (versión 1.2 del documento). Corrige afirmaciones que ya no eran ciertas: pasos
+  de IA, de condición y de petición HTTP que no existen, modo supervisor con
+  contraseña, email SMTP en las notificaciones y el estado «en producción».
+- **Retirado el manual en Word** (`docs/manual_docscan_studio.docx`, de marzo) y su
+  generador `docs/generate_manual.py`: el manual que se mantiene es el web
+  (<https://ferreret.github.io/docscan/>). Sale `python-docx` de
+  `requirements-dev.txt`.
 
 ## [0.1.8] - 2026-10-27
 
