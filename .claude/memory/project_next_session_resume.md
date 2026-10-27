@@ -1,6 +1,6 @@
 ---
 name: next-session-resume
-description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-27, v0.1.7 publicada y lote 6 (separadores + Apps del Arnau) en rama sin mergear."
+description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-27, v0.1.7 publicada y lote 6 (separadores + Apps del Arnau) mergeado en main sin release."
 metadata:
   node_type: memory
   type: project
@@ -16,22 +16,19 @@ metadata:
   setup.exe y SHA256SUMS.txt). Las ramas `docs/paridad-flexibarnet10`,
   `fix/lote3-nada-falla-en-silencio` y `feat/rediseno-ui` están subsumidas en main
   (borrables).
-- **Rama `feat/lote6-separadores`** = **PR #3** contra main (abierto, Auto-fix activo).
-  Lleva el lote 6 (separadores + Apps de archivo del Arnau), el Configurador revisado
-  frente a Flexibar (editor de scripts con colores, ShowScannerUi, IconAccent, Group4
-  solo B/N) y los PR **#4** (grupos en el launcher) y **#5** (Configurador al estilo
-  Flexibar: Barcode por secciones, Eventos en lista con «Activado», campos de lote
-  maestro-detalle), ya mergeados en ella el 2026-10-27. 1237 tests verdes.
-- **Pendiente para mergear #3 en main:** la pasada manual de Nicolás con
-  `~/DocScanArnau/arrancar.sh` (entorno aislado con las 6 Apps, ya resembrado).
+- **Lote 6 mergeado en `main`** el 2026-10-27 (PR #3, merge `985bcad`), tras la
+  pasada manual de Nicolás con `~/DocScanArnau/arrancar.sh` (todo OK, incluido VS Code
+  para el script de nombre). Incluye separadores + Apps de archivo del Arnau, el
+  Configurador revisado frente a Flexibar y los PR #4 (grupos en el launcher) y #5
+  (Configurador al estilo Flexibar). **1240 tests verdes en main.** Sin release aún:
+  CHANGELOG en `[Unreleased]`. Ramas `feat/lote6-separadores` y las de #4/#5 borrables.
 - `.mcp.json`: el servidor sqlite recibía `--db-path` como ruta y creaba un fichero
   vacío con ese nombre en la raíz del repo; arreglado (7991c0c). Si vuelve a aparecer,
   es otra cosa.
 
 ## Siguiente (en orden)
 
-1. Tras la prueba manual de Nicolás, mergear el PR #3 en main (el CHANGELOG está en
-   `[Unreleased]`; luego valorar release v0.1.8).
+1. Valorar la release v0.1.8 con el lote 6 (solo si Nicolás la pide).
 2. Probar las Apps del Arnau con escáner real (DR-M160) y escaneos de verdad.
 3. Familia eCAP del Arnau (04, 08): secretos en scripts + ODBC contra BD simulada.
 4. Pendientes de la revisión de código (anteriores al lote 6): eventos que no compilan
