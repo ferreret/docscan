@@ -160,7 +160,7 @@ class TestPipelineResultDialog(QDialog):
         if snap.step.type == "barcode" and snap.barcodes:
             table = QTableWidget(len(snap.barcodes), 3)
             table.setHorizontalHeaderLabels(
-                [self.tr("Valor"), self.tr("Simbologia"), self.tr("Calidad")]
+                [self.tr("Valor"), self.tr("Simbología"), self.tr("Calidad")]
             )
             table.setMaximumHeight(min(150, 30 + 25 * len(snap.barcodes)))
             for r, bc in enumerate(snap.barcodes):

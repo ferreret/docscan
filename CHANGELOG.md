@@ -8,6 +8,17 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🌐 Idiomas
+
+- **Inglés y catalán completos**: 652 textos en cada idioma (había 349 sin
+  traducir, casi todos de los lotes 3 y 6: separadores, transferencia por
+  documento, Configurador nuevo, grupos, actualizador). Se eliminan 57 entradas
+  obsoletas.
+- Los contadores de la barra de estado del Workbench, los avisos de revisión y
+  el tipo de cada campo de lote salían siempre en castellano: sus textos estaban
+  fuera de una clase y no se traducían.
+- Tildes que faltaban en «Pipeline vacío», «Imágenes» y «Simbología».
+
 ### 🧹 Retirado
 
 - **Pipeline Assistant**: el asistente de IA por aplicación (`pipeline_assistant.py`,

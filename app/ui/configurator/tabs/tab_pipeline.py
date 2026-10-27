@@ -375,7 +375,7 @@ class PipelineTab(QWidget):
         if not self._steps:
             QMessageBox.information(
                 self,
-                self.tr("Pipeline vacio"),
+                self.tr("Pipeline vacío"),
                 self.tr("Añade al menos un paso antes de probar."),
             )
             return
@@ -386,7 +386,7 @@ class PipelineTab(QWidget):
             self,
             self.tr("Seleccionar imagen de prueba"),
             "",
-            self.tr("Imagenes (*.tif *.tiff *.png *.jpg *.jpeg *.bmp *.pdf)"),
+            self.tr("Imágenes (*.tif *.tiff *.png *.jpg *.jpeg *.bmp *.pdf)"),
         )
         if not path:
             return

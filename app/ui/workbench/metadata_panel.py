@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from PySide6.QtCore import QDate, Qt, Signal
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QDate, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -41,11 +41,11 @@ FIELDS_MAX_HEIGHT = 180
 
 # Nombre visible del tipo de campo, bajo su etiqueta.
 _TYPE_LABELS = {
-    "Texto": "texto",
-    "Fecha": "fecha",
-    "Número": "número",
-    "Lista": "lista",
-    "Booleano": "sí/no",
+    "Texto": QT_TRANSLATE_NOOP("MetadataPanel", "texto"),
+    "Fecha": QT_TRANSLATE_NOOP("MetadataPanel", "fecha"),
+    "Número": QT_TRANSLATE_NOOP("MetadataPanel", "número"),
+    "Lista": QT_TRANSLATE_NOOP("MetadataPanel", "lista"),
+    "Booleano": QT_TRANSLATE_NOOP("MetadataPanel", "sí/no"),
 }
 
 log = logging.getLogger(__name__)
@@ -257,7 +257,7 @@ class MetadataPanel(QWidget):
             label_layout.setSpacing(0)
             lbl_name = QLabel(label_text)
             lbl_name.setObjectName("fieldName")
-            lbl_type = QLabel(_TYPE_LABELS.get(ftype, ftype.lower()))
+            lbl_type = QLabel(self.tr(_TYPE_LABELS.get(ftype, ftype.lower())))
             lbl_type.setObjectName("fieldType")
             label_layout.addWidget(lbl_name)
             label_layout.addWidget(lbl_type)
