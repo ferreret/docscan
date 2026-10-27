@@ -5,19 +5,19 @@
 #   - Stack docker compose arriba (api en :8001).
 #   - Bootstrap previo del superadmin con:
 #       docker compose exec api python -m web.api.bootstrap superadmin \
-#           --email super@tecnomedia.es --password supersecret123 \
-#           --display "Super TecnoMedia"
+#           --email super@example.com --password "$SUPER_PASSWORD" \
+#           --display "Super Plataforma"
 #
 # Cubre 19 casos: registro cerrado, login + me, /admin/tenants y
 # /admin/users (200 con superadmin, 403 con company_admin, 401 sin
 # token), creación de tenant + admin, plan inválido (422), nombre
 # duplicado (409), suspensión + login bloqueado (401), DELETE cascade
-# y protección del tenant TecnoMedia (409), guards self-modify (409).
+# y protección del tenant Plataforma (409), guards self-modify (409).
 set -u
 
 BASE="${DOCSCAN_API_BASE:-http://localhost:8001/api}"
-SUPER_EMAIL="${SUPER_EMAIL:-super@tecnomedia.es}"
-SUPER_PASSWORD="${SUPER_PASSWORD:-supersecret123}"
+SUPER_EMAIL="${SUPER_EMAIL:-super@example.com}"
+SUPER_PASSWORD="${SUPER_PASSWORD:?Define SUPER_PASSWORD con la contraseña del superadmin}"
 
 PASS=0
 FAIL=0
@@ -176,12 +176,12 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/auth/login" \
 check "Login con email de tenant borrado" 401 "$code"
 
 echo
-echo "=== 14) Borrar TecnoMedia → 409 (protegido) ==="
+echo "=== 14) Borrar Plataforma → 409 (protegido) ==="
 TECNO_ID=$(curl -s -H "Authorization: Bearer $SUPER_TOKEN" "$BASE/admin/tenants" \
-  | jq -r '.items[] | select(.slug=="tecnomedia") | .id')
+  | jq -r '.items[] | select(.slug=="plataforma") | .id')
 code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/admin/tenants/$TECNO_ID" \
   -H "Authorization: Bearer $SUPER_TOKEN")
-check "DELETE tenant TecnoMedia" 409 "$code"
+check "DELETE tenant Plataforma" 409 "$code"
 
 echo
 echo "=== Resultados ==="

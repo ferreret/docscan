@@ -116,5 +116,5 @@ Detalle completo en el
 ---
 
 <p align="center">
-  <sub>DocScan Studio v0.1.8 — © 2026 Tecnomedia</sub>
+  <sub>DocScan Studio v0.1.8 — © 2026 Nicolás Barceló</sub>
 </p>

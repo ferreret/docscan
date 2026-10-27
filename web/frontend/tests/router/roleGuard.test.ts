@@ -8,7 +8,7 @@ import {
 const SUPERADMIN: GuardUser = {
   role: 'superadmin',
   tenant_id: 1,
-  email: 's@tecnomedia.test',
+  email: 's@example.test',
 }
 const COMPANY_ADMIN: GuardUser = {
   role: 'company_admin',

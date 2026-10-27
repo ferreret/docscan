@@ -14,7 +14,7 @@ un PC con Windows.
 
 **Why:** la memoria nativa vive en `~/.claude/projects/<slug>/memory/`, fuera del
 repo, y el slug deriva de la ruta absoluta del proyecto — en Linux es
-`-media-nicolas-DATA-Tecnomedia-DocScan` y en Windows sería otro. Sin la copia
+`-media-nicolas-DATA-<carpeta>-DocScan` y en Windows sería otro. Sin la copia
 versionada, el equipo nuevo arranca sin ningún histórico.
 
 **How to apply:**

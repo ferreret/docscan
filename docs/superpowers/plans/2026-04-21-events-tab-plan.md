@@ -64,7 +64,7 @@
 - [ ] **Step 1: Mover los dos ficheros**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy
+cd <repo>
 mkdir -p web/frontend/src/components/code-editor
 git mv web/frontend/src/components/pipeline/forms/script-editor/editor.ts \
        web/frontend/src/components/code-editor/editor.ts
@@ -164,7 +164,7 @@ describe('code-editor/editor — funciones puras', () => {
 - [ ] **Step 3: Verificar que los tests fallan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/code-editor/editor.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/code-editor/editor.test.ts
 ```
 
 Expected: FAIL con "buildContextSuggestions expected 2 args but got 1" o similar.
@@ -389,7 +389,7 @@ vi.mock('@/components/code-editor/editor', () => ({
 - [ ] **Step 7: Verificar que toda la suite pasa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 74/74 PASS (73 anteriores + 1 nuevo test de prefijo multi-nivel en el wrapper).
@@ -544,7 +544,7 @@ describe('CodeEditor', () => {
 - [ ] **Step 2: Verificar que los tests fallan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/CodeEditor.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/CodeEditor.test.ts
 ```
 
 Expected: FAIL con "Cannot find module '@/components/CodeEditor.vue'".
@@ -749,7 +749,7 @@ onBeforeUnmount(() => {
 - [ ] **Step 4: Verificar que los 6 tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/CodeEditor.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/CodeEditor.test.ts
 ```
 
 Expected: 6/6 PASS.
@@ -757,7 +757,7 @@ Expected: 6/6 PASS.
 - [ ] **Step 5: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 80/80 PASS (74 + 6 nuevos).
@@ -915,7 +915,7 @@ describe('ScriptStepForm — editor CodeMirror', () => {
 - [ ] **Step 3: Verificar que los tests fallan (porque ScriptStepForm aún no usa CodeEditor)**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: FAIL en "pasa CONTEXT_VARIABLES y SNIPPETS al CodeEditor" (findComponent no encuentra CodeEditor).
@@ -1005,7 +1005,7 @@ Cambios: elimina toda la lógica de editor/snippets/panel (ahora vive en `<CodeE
 - [ ] **Step 5: Verificar que los tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: 7/7 PASS (5 campos base + 2 integración CodeEditor).
@@ -1013,7 +1013,7 @@ Expected: 7/7 PASS (5 campos base + 2 integración CodeEditor).
 - [ ] **Step 6: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 78/78 PASS (80 anteriores − 2 tests eliminados del ScriptStepForm = 78).
@@ -1021,7 +1021,7 @@ Expected: 78/78 PASS (80 anteriores − 2 tests eliminados del ScriptStepForm = 
 - [ ] **Step 7: Verificar build y chunk separado**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run build 2>&1 | grep -E "editor-|CodeEditor|ScriptStepForm"
+cd <repo>/web/frontend && npm run build 2>&1 | grep -E "editor-|CodeEditor|ScriptStepForm"
 ```
 
 Expected: chunk `editor-*.js` sigue separado (~131 KB gzipped); `CodeEditor` aparece probablemente inline en el bundle que lo consuma (PipelineEditorView); el chunk `ScriptStepForm` se mantiene pequeño.
@@ -1102,7 +1102,7 @@ describe('events-catalog', () => {
 - [ ] **Step 2: Verificar que los tests fallan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/api/events-catalog.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/api/events-catalog.test.ts
 ```
 
 Expected: FAIL con "Cannot find module '@/api/events-catalog'".
@@ -1291,7 +1291,7 @@ export const EVENT_DEFINITIONS: EventDefinition[] = [
 - [ ] **Step 4: Verificar que los tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/api/events-catalog.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/api/events-catalog.test.ts
 ```
 
 Expected: 3/3 PASS.
@@ -1299,7 +1299,7 @@ Expected: 3/3 PASS.
 - [ ] **Step 5: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 81/81 PASS (78 + 3 nuevos).
@@ -1375,7 +1375,7 @@ describe('AppHeader', () => {
 - [ ] **Step 2: Verificar que los tests fallan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/components/AppHeader.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/components/AppHeader.test.ts
 ```
 
 Expected: FAIL con "Cannot find module '@/components/AppHeader.vue'".
@@ -1444,7 +1444,7 @@ const router = useRouter()
 - [ ] **Step 4: Verificar que los tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/components/AppHeader.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/components/AppHeader.test.ts
 ```
 
 Expected: 2/2 PASS.
@@ -1452,7 +1452,7 @@ Expected: 2/2 PASS.
 - [ ] **Step 5: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 83/83 PASS (81 + 2 nuevos).
@@ -1594,7 +1594,7 @@ Cambios: se importa `AppHeader`, se elimina la cabecera anterior con el botón "
 - [ ] **Step 2: Verificar que la suite sigue verde**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 83/83 PASS.
@@ -1651,7 +1651,7 @@ Si el componente tiene botones específicos (p. ej. "Guardar pipeline"), se muev
 - [ ] **Step 3: Verificar que la suite sigue verde**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 83/83 PASS (posible regresión solo si había algún test sobre el DOM del header de PipelineEditorView — si falla, ajustar el test al nuevo header).
@@ -1865,7 +1865,7 @@ describe('EventsEditorView', () => {
 - [ ] **Step 2: Verificar que los tests fallan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/views/EventsEditorView.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/views/EventsEditorView.test.ts
 ```
 
 Expected: FAIL con "Cannot find module '@/views/applications/EventsEditorView.vue'".
@@ -2108,7 +2108,7 @@ Abrir `web/frontend/src/router/index.ts`. Localizar el bloque de rutas (array). 
 - [ ] **Step 5: Verificar que los tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/views/EventsEditorView.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/views/EventsEditorView.test.ts
 ```
 
 Expected: 8/8 PASS.
@@ -2116,7 +2116,7 @@ Expected: 8/8 PASS.
 - [ ] **Step 6: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 91/91 PASS (83 + 8 nuevos).
@@ -2124,7 +2124,7 @@ Expected: 91/91 PASS (83 + 8 nuevos).
 - [ ] **Step 7: Verificar build**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run build 2>&1 | tail -15
+cd <repo>/web/frontend && npm run build 2>&1 | tail -15
 ```
 
 Expected: build OK; chunk `editor-*.js` sigue aislado; nuevos chunks para EventsEditorView.
@@ -2151,11 +2151,11 @@ git commit -m "feat(web-frontend): pestaña Eventos con sidebar + CodeEditor"
 docker start docscan-pg
 
 # Terminal 2
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && source .venv/bin/activate
+cd <repo> && source .venv/bin/activate
 uvicorn web.api.main:create_app --factory --reload --port 8001
 
 # Terminal 3
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run dev
+cd <repo>/web/frontend && npm run dev
 ```
 
 - [ ] **Step 2: Login y navegación por tabs**
@@ -2203,7 +2203,7 @@ En la pestaña Eventos:
 - [ ] **Step 9: Push al remote**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git push origin feature/web
+cd <repo> && git push origin feature/web
 ```
 
 Expected: push OK, rama `feature/web` actualizada con todos los commits del sub-proyecto.

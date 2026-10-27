@@ -1,6 +1,6 @@
 ---
 name: Estado BD docker tras rebuild 2026-05-11
-description: BD docker reseteada parcialmente. Tenant TecnoMedia, app AppHito7, operario con password <REDACTADO — ver gestor de contraseñas>. Útil para próximos smokes.
+description: BD docker reseteada parcialmente. Tenant Plataforma, app AppHito7, operario con password <REDACTADO — ver gestor de contraseñas>. Útil para próximos smokes.
 type: project
 originSessionId: f19935ac-e52e-4b9e-879a-36b3000ed3f0
 ---
@@ -12,8 +12,8 @@ La BD docker no contiene los datos antiguos descritos en MEMORY.md (tenant Smoke
 
 Para el siguiente smoke o cualquier prueba contra docker:
 
-- **Login**: `operario@tecnomedia.es` / `<REDACTADO — ver gestor de contraseñas>` (rol operator, tenant TecnoMedia id=2). Password reseteado en esta sesión vía UPDATE de `hashed_password` (columna se llama `hashed_password`, NO `password_hash`).
-- También existe `superadmin@tecnomedia.es` (rol superadmin) con password desconocido. Resetear con mismo procedimiento si hace falta superadmin.
+- **Login**: `operario@example.com` / `<REDACTADO — ver gestor de contraseñas>` (rol operator, tenant Plataforma id=2). Password reseteado en esta sesión vía UPDATE de `hashed_password` (columna se llama `hashed_password`, NO `password_hash`).
+- También existe `superadmin@example.com` (rol superadmin) con password desconocido. Resetear con mismo procedimiento si hace falta superadmin.
 - **App de pruebas**: `AppHito7` (id=2) con `scan_show_dialog=true`, `scan_defaults_json='{}'`.
 - **Lotes existentes**: ids 2-6 con páginas 5-17. El lote 6 (último) tiene páginas 16-17 escaneadas con mode=Lineart (overrides del dialog del hito 13).
 - **Imágenes**: en bucket MinIO `docscan` con path `2/<batch_id>/<hash>.png`. Verificable con `docker compose exec minio mc ls --recursive local/docscan/` tras configurar alias `mc alias set local http://localhost:9000 docscan docscan123`.
@@ -27,7 +27,7 @@ Para resetear vía heredoc (NO usar `-c` con escapes — el shell expande mal lo
 ```bash
 docker compose exec -T db psql -U docscan -d docscan <<'EOF'
 UPDATE users SET hashed_password='<HASH BCRYPT REDACTADO>'
-WHERE email='operario@tecnomedia.es';
+WHERE email='operario@example.com';
 EOF
 ```
 

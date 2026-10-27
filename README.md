@@ -52,8 +52,8 @@ It is a **multi-application environment**: the launcher holds N *applications*, 
 one a processing profile with its own pipeline, fields, scripts and transfer, fully
 independent of the others. Applications can be grouped by customer or department.
 
-DocScan is the **cross-platform reimplementation** of FlexibarNET 10, Tecnomedia's
-.NET capture product (Windows only) that runs in production in hospitals. It keeps
+DocScan is the **cross-platform reimplementation** of FlexibarNET 10, a .NET
+document capture product (Windows only) that runs in production in hospitals. It keeps
 **functional parity** with it (same logic, same configuration keys, same tokens),
 runs on Linux and Windows, and adds generative AI to create and configure
 applications.
@@ -549,7 +549,7 @@ maintained; its tests skip themselves when their dependencies are missing.
 
 ## 👥 Credits
 
-Developed by **Tecnomedia**, document management solutions.
+Developed by **Nicolás Barceló**.
 
 <p align="center">
   <sub>DocScan Studio v0.1.8</sub>

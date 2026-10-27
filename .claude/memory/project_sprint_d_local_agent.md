@@ -88,8 +88,8 @@ Servicios corriendo en el equipo del operario (no detenidos):
 
 BD docker tras rebuild + migraciones:
 - HEAD alembic: `e6f9a013c245`
-- Tenant: TecnoMedia (id=2). NO existe SmokeTest (la BD se recreó respecto a la memoria vieja).
-- Users: `superadmin@tecnomedia.es` (password desconocido), **`operario@tecnomedia.es` / `<REDACTADO — ver gestor de contraseñas>`** (reseteado en esta sesión).
+- Tenant: Plataforma (id=2). NO existe SmokeTest (la BD se recreó respecto a la memoria vieja).
+- Users: `superadmin@example.com` (password desconocido), **`operario@example.com` / `<REDACTADO — ver gestor de contraseñas>`** (reseteado en esta sesión).
 - App: AppHito7 (id=2) con `scan_show_dialog=true`, `scan_defaults_json={}`.
 - Lotes en BD: id 2-6 con 13 páginas totales. Lote más reciente (#6) tiene páginas 16, 17 ya escaneadas con dialog (mode=Lineart).
 - Imágenes en MinIO bucket `docscan` con path `2/<batch>/<hash>.png`.

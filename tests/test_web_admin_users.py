@@ -87,7 +87,7 @@ def client(_test_engine, tmp_path):
 def _bootstrap_super(
     factory,
     *,
-    email: str = "superadmin@tecnomedia.es",
+    email: str = "superadmin@example.com",
     password: str = "superpass123",
     display: str = "SA",
 ):
@@ -106,7 +106,7 @@ def _login(client, email: str, password: str) -> dict[str, str]:
 def _superadmin_header(
     client: TestClient,
     *,
-    email: str = "superadmin@tecnomedia.es",
+    email: str = "superadmin@example.com",
     password: str = "superpass123",
 ) -> dict[str, str]:
     _bootstrap_super(client.app.state.test_db_factory, email=email, password=password)
@@ -208,7 +208,7 @@ class TestAdminUsersList:
         assert resp.status_code == 200
         data = resp.json()
         emails = {u["email"] for u in data["items"]}
-        assert {"a1@x.com", "a2@x.com", "superadmin@tecnomedia.es"} <= emails
+        assert {"a1@x.com", "a2@x.com", "superadmin@example.com"} <= emails
 
     def test_filtro_por_tenant_id(self, client):
         h = _superadmin_header(client)
@@ -259,10 +259,10 @@ class TestAdminUsersCreate:
     def test_superadmin_puede_crear_otro_superadmin(self, client):
         h = _superadmin_header(client)
         f = client.app.state.test_db_factory
-        # En el tenant tecnomedia
+        # En el tenant plataforma
         with f() as db:
             tecno = db.execute(
-                select(Tenant).where(Tenant.slug == "tecnomedia")
+                select(Tenant).where(Tenant.slug == "plataforma")
             ).scalar_one()
             tecno_id = tecno.id
         resp = client.post(
@@ -270,7 +270,7 @@ class TestAdminUsersCreate:
             headers=h,
             json=self._payload(
                 tecno_id,
-                email="super2@tecnomedia.es",
+                email="super2@example.com",
                 role=ROLE_SUPERADMIN,
             ),
         )
@@ -358,7 +358,7 @@ class TestAdminUsersUpdate:
         f = client.app.state.test_db_factory
         with f() as db:
             sa = db.execute(
-                select(User).where(User.email == "superadmin@tecnomedia.es")
+                select(User).where(User.email == "superadmin@example.com")
             ).scalar_one()
             sa_id = sa.id
         resp = client.patch(
@@ -388,7 +388,7 @@ class TestAdminUsersUpdate:
         f = client.app.state.test_db_factory
         with f() as db:
             tecno = db.execute(
-                select(Tenant).where(Tenant.slug == "tecnomedia")
+                select(Tenant).where(Tenant.slug == "plataforma")
             ).scalar_one()
             tecno_id = tecno.id
         # Crear segundo superadmin
@@ -397,7 +397,7 @@ class TestAdminUsersUpdate:
             headers=h,
             json={
                 "tenant_id": tecno_id,
-                "email": "second@tecnomedia.es",
+                "email": "second@example.com",
                 "password": "password123",
                 "display_name": "Second",
                 "role": ROLE_SUPERADMIN,
@@ -412,7 +412,7 @@ class TestAdminUsersUpdate:
         )
         assert resp_degrade.status_code == 200
         # Ahora solo queda el primero como superadmin. Crear otro operator
-        # en tecnomedia para no quedarnos sin admin del tenant.
+        # en plataforma para no quedarnos sin admin del tenant.
         # Y degradar al primero (que está logueado): no podemos porque es
         # self-modify. Mejor: degradar via OTRO superadmin.
         # Para simplificar, comprobamos con login del segundo (ya degradado a
@@ -436,7 +436,7 @@ class TestAdminUsersUpdate:
         f = client.app.state.test_db_factory
         with f() as db:
             tecno = db.execute(
-                select(Tenant).where(Tenant.slug == "tecnomedia")
+                select(Tenant).where(Tenant.slug == "plataforma")
             ).scalar_one()
             tecno_id = tecno.id
         # Crear segundo superadmin via h1
@@ -445,19 +445,19 @@ class TestAdminUsersUpdate:
             headers=h1,
             json={
                 "tenant_id": tecno_id,
-                "email": "two@tecnomedia.es",
+                "email": "two@example.com",
                 "password": "password123",
                 "display_name": "Two",
                 "role": ROLE_SUPERADMIN,
             },
         )
         two_id = resp.json()["id"]
-        h2 = _login(client, "two@tecnomedia.es", "password123")
+        h2 = _login(client, "two@example.com", "password123")
         # Desde h2, desactivar al primero → 200 (queda 1: two)
         first_id = next(
             u["id"]
             for u in client.get("/api/admin/users", headers=h2).json()["items"]
-            if u["email"] == "superadmin@tecnomedia.es"
+            if u["email"] == "superadmin@example.com"
         )
         ok = client.patch(
             f"/api/admin/users/{first_id}", headers=h2, json={"active": False}
@@ -484,7 +484,7 @@ class TestAdminUsersUpdate:
 
             third = User(
                 tenant_id=tecno_id,
-                email="three@tecnomedia.es",
+                email="three@example.com",
                 hashed_password=_hp("password123"),
                 display_name="Three",
                 role=ROLE_SUPERADMIN,
@@ -501,14 +501,14 @@ class TestAdminUsersUpdate:
             headers=h2,
             json={
                 "tenant_id": tecno_id,
-                "email": "four@tecnomedia.es",
+                "email": "four@example.com",
                 "password": "password123",
                 "display_name": "Four",
                 "role": ROLE_SUPERADMIN,
             },
         )
         four_id = resp4.json()["id"]
-        h4 = _login(client, "four@tecnomedia.es", "password123")
+        h4 = _login(client, "four@example.com", "password123")
         # Desde h4, desactivar h2 → queda four activo + third inactivo → OK
         ok2 = client.patch(
             f"/api/admin/users/{two_id}", headers=h4, json={"active": False}
@@ -527,13 +527,13 @@ class TestAdminUsersUpdate:
             headers=h4,
             json={
                 "tenant_id": tecno_id,
-                "email": "five@tecnomedia.es",
+                "email": "five@example.com",
                 "password": "password123",
                 "display_name": "Five",
                 "role": ROLE_SUPERADMIN,
             },
         )
-        h5 = _login(client, "five@tecnomedia.es", "password123")
+        h5 = _login(client, "five@example.com", "password123")
         # Desde h5, desactivar h4 → queda five activo, OK
         client.patch(f"/api/admin/users/{four_id}", headers=h5, json={"active": False})
         # Ahora five es el ÚNICO super activo. five intenta desactivarse a
@@ -617,7 +617,7 @@ class TestAdminUsersDelete:
         f = client.app.state.test_db_factory
         with f() as db:
             sa = db.execute(
-                select(User).where(User.email == "superadmin@tecnomedia.es")
+                select(User).where(User.email == "superadmin@example.com")
             ).scalar_one()
             sa_id = sa.id
         resp = client.delete(f"/api/admin/users/{sa_id}", headers=h)

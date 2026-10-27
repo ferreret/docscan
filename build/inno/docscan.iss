@@ -11,7 +11,7 @@
 
 #define MyAppName "DocScan Studio"
 #define MyAppVersion "0.1.0"
-#define MyAppPublisher "Tecnomedia"
+#define MyAppPublisher "Nicolás Barceló"
 #define MyAppURL "https://github.com/ferreret/docscan"
 #define MyAppExeName "DocScan Studio.exe"
 

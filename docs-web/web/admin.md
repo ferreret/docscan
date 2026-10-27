@@ -48,7 +48,7 @@ docker compose exec api python -m web.api.bootstrap superadmin \
   --display "Admin Plataforma"
 ```
 
-El comando crea (si no existe) el tenant `TecnoMedia` con plan
+El comando crea (si no existe) el tenant `Plataforma` con plan
 `enterprise` y el usuario superadmin pertenece a ese tenant. Es el único
 tenant cuyo nombre tiene significado especial — los demás son tenants
 de cliente normales.

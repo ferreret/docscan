@@ -119,7 +119,7 @@ class SplashScreen(QSplashScreen):
             _SPLASH_W,
             20,
             Qt.AlignmentFlag.AlignCenter,
-            "Tecnomedia  2026",
+            "Nicolás Barceló  2026",
         )
 
         p.end()

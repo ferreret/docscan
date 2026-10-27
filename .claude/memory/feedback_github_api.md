@@ -5,7 +5,7 @@ type: feedback
 ---
 
 Usar **`gh`** para todo lo de GitHub: releases, assets, logs de CI (`gh run view
---log-failed`), clonar repos privados como `Tecnomedia/FlexibarNET10` y llamadas con
+--log-failed`), clonar repos privados como `FlexibarNET10` y llamadas con
 `gh api`. Está autenticado como `ferreret` en el PC Linux nuevo (minis-nick-linux,
 comprobado el 2026-10-26) y ya lo estaba en el anterior.
 

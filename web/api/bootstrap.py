@@ -1,15 +1,15 @@
 """CLI de bootstrap inicial de la plataforma DocScan SaaS.
 
-Crea (o reutiliza) el tenant ``TecnoMedia`` y un usuario con rol
+Crea (o reutiliza) el tenant ``Plataforma`` y un usuario con rol
 ``superadmin``. Idempotente: ejecutarlo varias veces con los mismos
 argumentos no produce duplicados ni cambia el estado.
 
 Uso:
 
     python -m web.api.bootstrap superadmin \
-        --email admin@tecnomedia.es \
+        --email admin@example.com \
         --password ********** \
-        --display "Admin TecnoMedia"
+        --display "Admin Plataforma"
 """
 
 from __future__ import annotations
@@ -29,9 +29,9 @@ from web.api.models import ROLE_SUPERADMIN, Tenant, User
 
 logger = logging.getLogger(__name__)
 
-TECNOMEDIA_TENANT_NAME = "TecnoMedia"
-TECNOMEDIA_TENANT_SLUG = "tecnomedia"
-TECNOMEDIA_TENANT_PLAN = "enterprise"
+PLATFORM_TENANT_NAME = "Plataforma"
+PLATFORM_TENANT_SLUG = "plataforma"
+PLATFORM_TENANT_PLAN = "enterprise"
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _MIN_PASSWORD_LEN = 8
@@ -53,22 +53,22 @@ def _validate_password(password: str) -> None:
         )
 
 
-def _get_or_create_tecnomedia_tenant(db: Session) -> Tenant:
-    """Devuelve el tenant TecnoMedia, creándolo si no existe."""
+def _get_or_create_platform_tenant(db: Session) -> Tenant:
+    """Devuelve el tenant Plataforma, creándolo si no existe."""
     tenant = db.execute(
-        select(Tenant).where(Tenant.slug == TECNOMEDIA_TENANT_SLUG)
+        select(Tenant).where(Tenant.slug == PLATFORM_TENANT_SLUG)
     ).scalar_one_or_none()
     if tenant is not None:
         return tenant
     tenant = Tenant(
-        name=TECNOMEDIA_TENANT_NAME,
-        slug=TECNOMEDIA_TENANT_SLUG,
-        plan=TECNOMEDIA_TENANT_PLAN,
+        name=PLATFORM_TENANT_NAME,
+        slug=PLATFORM_TENANT_SLUG,
+        plan=PLATFORM_TENANT_PLAN,
         active=True,
     )
     db.add(tenant)
     db.flush()
-    logger.info("Tenant TecnoMedia creado (id=%s)", tenant.id)
+    logger.info("Tenant Plataforma creado (id=%s)", tenant.id)
     return tenant
 
 
@@ -79,10 +79,10 @@ def bootstrap_superadmin(
     password: str,
     display_name: str,
 ) -> User:
-    """Crea (o reutiliza) tenant TecnoMedia y un superadmin con ``email``.
+    """Crea (o reutiliza) tenant Plataforma y un superadmin con ``email``.
 
     Idempotente: si ya existe un usuario con ese email pertenecien-
-    do al tenant TecnoMedia y con rol ``superadmin``, lo devuelve
+    do al tenant Plataforma y con rol ``superadmin``, lo devuelve
     sin modificarlo.
 
     Args:
@@ -97,12 +97,12 @@ def bootstrap_superadmin(
     Raises:
         BootstrapError: si el email es inválido, la contraseña es corta,
             o el email pertenece a otro usuario que no es superadmin de
-            TecnoMedia.
+            Plataforma.
     """
     _validate_email(email)
     _validate_password(password)
 
-    tenant = _get_or_create_tecnomedia_tenant(db)
+    tenant = _get_or_create_platform_tenant(db)
 
     existing = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
     if existing is not None:
@@ -115,7 +115,7 @@ def bootstrap_superadmin(
             return existing
         raise BootstrapError(
             f"el email {email!r} ya está en uso por otro usuario "
-            "que no es superadmin de TecnoMedia"
+            "que no es superadmin de Plataforma"
         )
 
     user = User(
@@ -143,7 +143,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     sa = sub.add_parser(
         "superadmin",
-        help="Crea (o reutiliza) el tenant TecnoMedia y un superadmin.",
+        help="Crea (o reutiliza) el tenant Plataforma y un superadmin.",
     )
     sa.add_argument("--email", required=True, help="Email del superadmin")
     sa.add_argument(

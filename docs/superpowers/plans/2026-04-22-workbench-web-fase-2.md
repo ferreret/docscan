@@ -44,12 +44,12 @@
 
 - [ ] **Step 1: Instalar splitpanes**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm install splitpanes@4 --save`
+Run: `cd <repo>/web/frontend && npm install splitpanes@4 --save`
 Expected: `package.json` y `package-lock.json` actualizados con `splitpanes` ^4.x.
 
 - [ ] **Step 2: Crear carpeta workbench**
 
-Run: `mkdir -p /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend/src/components/workbench`
+Run: `mkdir -p <repo>/web/frontend/src/components/workbench`
 (No es necesario crear `.gitkeep` — los componentes posteriores la poblarán.)
 
 - [ ] **Step 3: POC mínimo de splitpanes**
@@ -67,17 +67,17 @@ Esto verifica que el import funciona. El fichero se elimina en el commit final d
 
 - [ ] **Step 4: Typecheck**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5`
 Expected: sin errores. Si falla por tipos de splitpanes, instalar `npm install --save-dev @types/splitpanes` (puede no hacer falta — splitpanes 4.x tiene tipos integrados).
 
 - [ ] **Step 5: Limpiar POC**
 
-Run: `rm /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend/src/components/workbench/_poc.ts`
+Run: `rm <repo>/web/frontend/src/components/workbench/_poc.ts`
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/package.json web/frontend/package-lock.json
+cd <repo> && git add web/frontend/package.json web/frontend/package-lock.json
 git commit -m "chore(web-frontend): añadir dependencia splitpanes 4.x
 
 Necesaria para el layout 3 paneles redimensionables del Workbench
@@ -139,7 +139,7 @@ describe('determinePageState', () => {
 
 - [ ] **Step 2: Ejecutar test, verificar que falla**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/composables/usePageState.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/composables/usePageState.test.ts 2>&1 | tail -5`
 Expected: FAIL con `Failed to resolve import "@/composables/usePageState"`.
 
 - [ ] **Step 3: Crear composable mínimo**
@@ -190,7 +190,7 @@ export function determinePageState(page: PageResponse): PageState {
 
 - [ ] **Step 4: Ejecutar test, verificar que pasa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/composables/usePageState.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/composables/usePageState.test.ts 2>&1 | tail -5`
 Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 5: Añadir tests restantes**
@@ -240,18 +240,18 @@ Añadir dentro del `describe('determinePageState', ...)`:
 
 - [ ] **Step 6: Ejecutar todos los tests**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/composables/usePageState.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/composables/usePageState.test.ts 2>&1 | tail -5`
 Expected: `Tests 9 passed (9)`.
 
 - [ ] **Step 7: Suite completa (regresión cero)**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 173 passed (173)` (164 previos + 9 nuevos).
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/composables/usePageState.ts web/frontend/tests/composables/usePageState.test.ts
+cd <repo> && git add web/frontend/src/composables/usePageState.ts web/frontend/tests/composables/usePageState.test.ts
 git commit -m "feat(web-frontend): composable usePageState con 6 estados como desktop
 
 determinePageState mapea PageResponse a uno de seis estados con
@@ -295,7 +295,7 @@ describe('useWorkbenchLayout', () => {
 
 - [ ] **Step 2: Verificar fail**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/composables/useWorkbenchLayout.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/composables/useWorkbenchLayout.test.ts 2>&1 | tail -5`
 Expected: FAIL `Failed to resolve import`.
 
 - [ ] **Step 3: Crear composable mínimo**
@@ -361,7 +361,7 @@ export function _resetLayoutForTests(): void {
 
 - [ ] **Step 4: Verificar pass**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/composables/useWorkbenchLayout.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/composables/useWorkbenchLayout.test.ts 2>&1 | tail -5`
 Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 5: Añadir tests restantes**
@@ -403,18 +403,18 @@ Añadir dentro del describe:
 
 - [ ] **Step 6: Ejecutar tests**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/composables/useWorkbenchLayout.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/composables/useWorkbenchLayout.test.ts 2>&1 | tail -5`
 Expected: `Tests 5 passed (5)`.
 
 - [ ] **Step 7: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 178 passed (178)`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/composables/useWorkbenchLayout.ts web/frontend/tests/composables/useWorkbenchLayout.test.ts
+cd <repo> && git add web/frontend/src/composables/useWorkbenchLayout.ts web/frontend/tests/composables/useWorkbenchLayout.test.ts
 git commit -m "feat(web-frontend): composable useWorkbenchLayout con persistencia
 
 Singleton que mantiene los tamaños de los splitters del Workbench
@@ -470,7 +470,7 @@ describe('PageThumbnail', () => {
 
 - [ ] **Step 2: Verificar fail**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/PageThumbnail.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/PageThumbnail.test.ts 2>&1 | tail -5`
 Expected: FAIL `Failed to resolve import`.
 
 - [ ] **Step 3: Crear componente mínimo**
@@ -535,7 +535,7 @@ const imageUrl = computed(() => store.pageImageUrl(props.batchId, props.page.id)
 
 - [ ] **Step 4: Verificar pass**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/PageThumbnail.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/PageThumbnail.test.ts 2>&1 | tail -5`
 Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 5: Añadir tests restantes**
@@ -608,18 +608,18 @@ Tests adicionales:
 
 - [ ] **Step 6: Tests pasan**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/PageThumbnail.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/PageThumbnail.test.ts 2>&1 | tail -5`
 Expected: `Tests 7 passed (7)`.
 
 - [ ] **Step 7: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 185 passed (185)`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/components/workbench/PageThumbnail.vue web/frontend/tests/components/workbench/PageThumbnail.test.ts
+cd <repo> && git add web/frontend/src/components/workbench/PageThumbnail.vue web/frontend/tests/components/workbench/PageThumbnail.test.ts
 git commit -m "feat(web-frontend): componente PageThumbnail con borde por estado
 
 Miniatura individual del Workbench: imagen via AuthImage + borde
@@ -677,7 +677,7 @@ describe('ThumbnailPanel', () => {
 
 - [ ] **Step 2: Verificar fail**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/ThumbnailPanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/ThumbnailPanel.test.ts 2>&1 | tail -5`
 Expected: FAIL.
 
 - [ ] **Step 3: Crear componente**
@@ -722,7 +722,7 @@ const emit = defineEmits<{
 
 - [ ] **Step 4: Verificar pass**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/ThumbnailPanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/ThumbnailPanel.test.ts 2>&1 | tail -5`
 Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 5: Añadir tests restantes**
@@ -756,18 +756,18 @@ Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 6: Pasan**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/ThumbnailPanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/ThumbnailPanel.test.ts 2>&1 | tail -5`
 Expected: `Tests 4 passed (4)`.
 
 - [ ] **Step 7: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 189 passed (189)`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/components/workbench/ThumbnailPanel.vue web/frontend/tests/components/workbench/ThumbnailPanel.test.ts
+cd <repo> && git add web/frontend/src/components/workbench/ThumbnailPanel.vue web/frontend/tests/components/workbench/ThumbnailPanel.test.ts
 git commit -m "feat(web-frontend): componente ThumbnailPanel scrollable
 
 Panel izquierdo del Workbench que itera sobre las páginas y renderiza
@@ -814,7 +814,7 @@ describe('BarcodePanel', () => {
 
 - [ ] **Step 2: Verificar fail**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/BarcodePanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/BarcodePanel.test.ts 2>&1 | tail -5`
 Expected: FAIL.
 
 - [ ] **Step 3: Crear componente**
@@ -878,7 +878,7 @@ function colorFor(idx: number): string {
 
 - [ ] **Step 4: Verificar pass**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/BarcodePanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/BarcodePanel.test.ts 2>&1 | tail -5`
 Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 5: Tests adicionales**
@@ -928,18 +928,18 @@ Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 6: Tests pasan**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/BarcodePanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/BarcodePanel.test.ts 2>&1 | tail -5`
 Expected: `Tests 5 passed (5)`.
 
 - [ ] **Step 7: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 194 passed (194)`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/components/workbench/BarcodePanel.vue web/frontend/tests/components/workbench/BarcodePanel.test.ts
+cd <repo> && git add web/frontend/src/components/workbench/BarcodePanel.vue web/frontend/tests/components/workbench/BarcodePanel.test.ts
 git commit -m "feat(web-frontend): componente BarcodePanel view-only
 
 Panel derecho-arriba del Workbench: tabla de 5 columnas (color,
@@ -1000,7 +1000,7 @@ describe('MetadataPanel', () => {
 
 - [ ] **Step 2: Verificar fail**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/MetadataPanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/MetadataPanel.test.ts 2>&1 | tail -5`
 Expected: FAIL.
 
 - [ ] **Step 3: Crear componente**
@@ -1158,7 +1158,7 @@ function onSave(): void {
 
 - [ ] **Step 4: Verificar pass**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/MetadataPanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/MetadataPanel.test.ts 2>&1 | tail -5`
 Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 5: Tests adicionales**
@@ -1249,18 +1249,18 @@ Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 6: Tests pasan**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/MetadataPanel.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/MetadataPanel.test.ts 2>&1 | tail -5`
 Expected: `Tests 8 passed (8)`.
 
 - [ ] **Step 7: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 202 passed (202)`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/components/workbench/MetadataPanel.vue web/frontend/tests/components/workbench/MetadataPanel.test.ts
+cd <repo> && git add web/frontend/src/components/workbench/MetadataPanel.vue web/frontend/tests/components/workbench/MetadataPanel.test.ts
 git commit -m "feat(web-frontend): componente MetadataPanel con tab Lote editable
 
 Panel derecho-abajo del Workbench. Tabs UI preparada (Lote activa,
@@ -1301,7 +1301,7 @@ Esto expone los métodos al `ref` del componente padre. `zoomBy`, `resetView`, `
 
 - [ ] **Step 2: Verificar typecheck OK**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5`
 Expected: sin errores.
 
 - [ ] **Step 3: Test failing del ViewerToolbar**
@@ -1325,7 +1325,7 @@ describe('ViewerToolbar', () => {
 
 - [ ] **Step 4: Verificar fail**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/ViewerToolbar.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/ViewerToolbar.test.ts 2>&1 | tail -5`
 Expected: FAIL.
 
 - [ ] **Step 5: Crear ViewerToolbar**
@@ -1387,7 +1387,7 @@ const emit = defineEmits<{
 
 - [ ] **Step 6: Verificar pass**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/ViewerToolbar.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/ViewerToolbar.test.ts 2>&1 | tail -5`
 Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 7: Tests adicionales**
@@ -1425,18 +1425,18 @@ Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 8: Tests pasan**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/ViewerToolbar.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/ViewerToolbar.test.ts 2>&1 | tail -5`
 Expected: `Tests 6 passed (6)`.
 
 - [ ] **Step 9: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 208 passed (208)`.
 
 - [ ] **Step 10: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/components/DocumentViewer.vue web/frontend/src/components/workbench/ViewerToolbar.vue web/frontend/tests/components/workbench/ViewerToolbar.test.ts
+cd <repo> && git add web/frontend/src/components/DocumentViewer.vue web/frontend/src/components/workbench/ViewerToolbar.vue web/frontend/tests/components/workbench/ViewerToolbar.test.ts
 git commit -m "feat(web-frontend): ViewerToolbar flotante + DocumentViewer expone métodos
 
 DocumentViewer ahora expone via defineExpose: zoomIn, zoomOut,
@@ -1488,7 +1488,7 @@ describe('WorkbenchToolbar', () => {
 
 - [ ] **Step 2: Verificar fail**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/WorkbenchToolbar.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/WorkbenchToolbar.test.ts 2>&1 | tail -5`
 Expected: FAIL.
 
 - [ ] **Step 3: Crear componente**
@@ -1576,7 +1576,7 @@ function onUpload(event: Event): void {
 
 - [ ] **Step 4: Verificar pass**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/WorkbenchToolbar.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/WorkbenchToolbar.test.ts 2>&1 | tail -5`
 
 (Si el test falla por `useRouter` sin router instalado, ajustar el mount con `global.mocks: { $router: { push: vi.fn() } }` o usar `createRouter` mínimo. Patrón sugerido para tests siguientes:)
 
@@ -1645,18 +1645,18 @@ Re-run. Expected: PASS.
 
 - [ ] **Step 6: Tests pasan**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/components/workbench/WorkbenchToolbar.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/components/workbench/WorkbenchToolbar.test.ts 2>&1 | tail -5`
 Expected: `Tests 4 passed (4)`.
 
 - [ ] **Step 7: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 212 passed (212)`.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/components/workbench/WorkbenchToolbar.vue web/frontend/tests/components/workbench/WorkbenchToolbar.test.ts
+cd <repo> && git add web/frontend/src/components/workbench/WorkbenchToolbar.vue web/frontend/tests/components/workbench/WorkbenchToolbar.test.ts
 git commit -m "feat(web-frontend): WorkbenchToolbar con 5 acciones y estados disabled
 
 Top toolbar del Workbench: navegación a Lotes, título 'Lote #N',
@@ -1730,7 +1730,7 @@ describe('WorkbenchView', () => {
 
 - [ ] **Step 2: Verificar fail**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/views/batches/WorkbenchView.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/views/batches/WorkbenchView.test.ts 2>&1 | tail -5`
 Expected: FAIL `Failed to resolve import "@/views/batches/WorkbenchView.vue"`.
 
 - [ ] **Step 3: Crear WorkbenchView**
@@ -2081,7 +2081,7 @@ function onRightResize(panes: Array<{ size: number }>): void {
 
 - [ ] **Step 4: Verificar pass**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/views/batches/WorkbenchView.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/views/batches/WorkbenchView.test.ts 2>&1 | tail -5`
 Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 5: Tests adicionales — navegación con flechas + cleanup listener**
@@ -2154,23 +2154,23 @@ Expected: `Tests 1 passed (1)`.
 
 - [ ] **Step 6: Tests pasan**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run tests/views/batches/WorkbenchView.test.ts 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run tests/views/batches/WorkbenchView.test.ts 2>&1 | tail -5`
 Expected: `Tests 4 passed (4)`. Si alguno falla por detalle de implementación (e.g. `splitpanes` component name diferente), ajustar el selector.
 
 - [ ] **Step 7: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 216 passed (216)`.
 
 - [ ] **Step 8: Typecheck**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5`
 Expected: sin errores.
 
 - [ ] **Step 9: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/views/batches/WorkbenchView.vue web/frontend/tests/views/batches/WorkbenchView.test.ts
+cd <repo> && git add web/frontend/src/views/batches/WorkbenchView.vue web/frontend/tests/views/batches/WorkbenchView.test.ts
 git commit -m "feat(web-frontend): WorkbenchView ensamblado con 3 paneles splitpanes
 
 Vista que orquesta el Workbench: WorkbenchToolbar arriba, Splitpanes
@@ -2196,7 +2196,7 @@ cleanup del listener y persistencia de splitter."
 
 - [ ] **Step 1: Modificar router**
 
-En `/media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend/src/router/index.ts`, localizar la entrada:
+En `<repo>/web/frontend/src/router/index.ts`, localizar la entrada:
 
 ```ts
         {
@@ -2220,24 +2220,24 @@ y reemplazarla por:
 
 - [ ] **Step 2: Eliminar BatchDetailView.vue**
 
-Run: `rm /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend/src/views/batches/BatchDetailView.vue`
+Run: `rm <repo>/web/frontend/src/views/batches/BatchDetailView.vue`
 
 - [ ] **Step 3: Verificar typecheck (no debe haber imports rotos)**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -10`
+Run: `cd <repo>/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -10`
 Expected: sin errores.
 
 Si aparece un error de import en algún test que aún referenciaba `BatchDetailView`, abrirlo y actualizar import a `WorkbenchView`. Si el test se vuelve obsoleto (asume estructura antigua), borrarlo.
 
 - [ ] **Step 4: Suite completa**
 
-Run: `cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5`
+Run: `cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5`
 Expected: `Tests 216 passed (216)`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git add web/frontend/src/router/index.ts web/frontend/src/views/batches/BatchDetailView.vue
+cd <repo> && git add web/frontend/src/router/index.ts web/frontend/src/views/batches/BatchDetailView.vue
 git commit -m "refactor(web-frontend): /batches/:id usa WorkbenchView
 
 Ruta batch-detail apunta a WorkbenchView (Fase 2 del Workbench web).
@@ -2260,9 +2260,9 @@ Run en orden:
 
 ```bash
 docker start docscan-pg
-source /media/nicolas/DATA/Tecnomedia/FlexiPy/.venv/bin/activate
+source <repo>/.venv/bin/activate
 uvicorn web.api.main:create_app --factory --port 8001 > /tmp/uvicorn-qa-wb2.log 2>&1 &
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run dev -- --port 5180 > /tmp/vite-qa-wb2.log 2>&1 &
+cd <repo>/web/frontend && npm run dev -- --port 5180 > /tmp/vite-qa-wb2.log 2>&1 &
 sleep 6
 curl -s -o /dev/null -w "API:%{http_code}\nFrontend:" http://localhost:8001/docs
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5180
@@ -2321,8 +2321,8 @@ pkill -f "vite.*--port 5180"
 Run:
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5
+cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5
+cd <repo>/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5
 ```
 
 Expected: tests passing, typecheck OK.
@@ -2330,7 +2330,7 @@ Expected: tests passing, typecheck OK.
 - [ ] **Step 11: Push a origin/feature/web**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git push origin feature/web 2>&1 | tail -5
+cd <repo> && git push origin feature/web 2>&1 | tail -5
 ```
 
 Expected: push OK.

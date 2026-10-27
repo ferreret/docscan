@@ -76,6 +76,7 @@
 - **OBLIGATORIO**: al final de cada sesión, crear `docs/progreso_YYYY-MM-DD.md` (resumen, cambios, estado, próximos pasos). Doc base: `docs/INFORME_PROYECTO.md`.
 
 ## Preferencias de comunicación
+- ⚠️ [La empresa de FlexibarNET10 no se nombra en ningún sitio](feedback_sin_nombre_empresa.md) — DocScan es de Nicolás Barceló; `git grep -i` del nombre vacío antes de commitear (2026-10-27).
 - [Alinear guías sin pedir OK punto a punto](feedback_alinear_sin_pedir_ok.md) — corregir de una vez docs, skills y CLAUDE.md desfasados y reportar al final.
 - [Español de España](feedback_spanish_spain.md) — castellano peninsular
 - [Actualizar docs en cada cambio](feedback_update_docs_on_changes.md) — README **bilingüe** (README.md inglés + README.es.md) y CHANGELOG sincronizados; cifras de `docs/portfolio/metricas.md`
@@ -86,9 +87,9 @@
 
 ## Entorno
 - **PC Linux actual desde 2026-10-23: minis-nick-linux** (Ubuntu 26.04, Ryzen AI 9 HX 370). Repo en `~/Projects/Personal/docscan` (clon nuevo de GitHub). Python 3.14.8 **de uv** (no hay `python3.14` del sistema): `uv venv --python 3.14 --managed-python` + `uv pip install -r requirements-dev.txt`; invocar `.venv/bin/python`. Paquetes del sistema: libzbar0t64, libsane-dev, libxcb-cursor0, build-essential. BD nueva en `~/.local/share/docscan/docscan.db` (no se migró nada del PC viejo). App probada con una App «Test PDF» (import + transferencia PDF). **Escáner sin probar en Ubuntu.** Docker no instalado: la parte web no se migra (decisión del usuario).
-- PC Xubuntu anterior: copia vieja intacta en `/media/nicolas/DATA/Tecnomedia/DocScan` (de ahí se copiaron `.env` y `.superpowers/`).
+- PC Xubuntu anterior: copia vieja intacta en `/media/nicolas/DATA/<carpeta>/DocScan` (de ahí se copiaron `.env` y `.superpowers/`).
 - Python 3.14, venv en `.venv` (`source .venv/bin/activate`)
-- **PC Windows operativo desde 2026-08-05**: repo en `F:\Tecnomedia\docscan`, venv `.venv` (Python 3.14.2, invocar `.venv\Scripts\python.exe`), BD y datos en `%LOCALAPPDATA%\docscan\` (backup `docscan.db.bak-preupgrade`). App arrancada y verificada visualmente. **Falta probar el escáner físico.**
+- **PC Windows operativo desde 2026-08-05**: repo en `F:\<carpeta>\docscan`, venv `.venv` (Python 3.14.2, invocar `.venv\Scripts\python.exe`), BD y datos en `%LOCALAPPDATA%\docscan\` (backup `docscan.db.bak-preupgrade`). App arrancada y verificada visualmente. **Falta probar el escáner físico.**
 - ⚠️ **Pins solo-Windows no los valida el CI** (corre en Linux, el marcador `sys_platform == "win32"` los salta): `pywin32==310` era insatisfacible en Python 3.14 (sin wheel cp314) y abortaba `pip install -r` ENTERA. Subido a 311. Revisar a mano al tocar `pytwain`/`pywin32`.
 - Remoto: git@github.com:ferreret/docscan.git
 - Escáner de test: Canon imageFORMULA DR-M160 (canon_dr:libusb en Linux; TWAIN en Windows)

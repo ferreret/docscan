@@ -1,7 +1,7 @@
 # Hojas separadoras y documento lógico — análisis de FlexibarNET 10 y diseño para DocScan
 
 **Fecha:** 2026-10-26
-**Fuente:** `Tecnomedia/FlexibarNET10` @ `f3ed0383` (v1.30.0)
+**Fuente:** `FlexibarNET10` @ `f3ed0383` (v1.30.0)
 **Material leído:**
 - **Código:** `Domain/Models/{Page,Document,PipelineStep}.cs`, `Application/Documents/*`,
   `PipelineExecutor.RunBarcode`, `TransferService` (agrupación y tokens),

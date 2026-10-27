@@ -27,7 +27,7 @@ const isSuperadmin = computed(() => auth.user?.role === 'superadmin')
       <div class="px-5 py-5 border-b border-surface-0">
         <h1 class="text-lg font-bold text-text tracking-tight">DocScan Studio</h1>
         <p v-if="isSuperadmin" class="text-xs text-primary mt-0.5 truncate font-medium">
-          TecnoMedia · Administración
+          Plataforma · Administración
         </p>
         <p v-else class="text-xs text-subtext mt-0.5 truncate">{{ auth.user?.tenant_name }}</p>
       </div>

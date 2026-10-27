@@ -29,7 +29,7 @@ productos.
 - Las desviaciones solo con decisión explícita de Nicolás. La primera aceptada es
   `separator_page = include|exclude`, con `include` por defecto.
 - El repo de Flexibar no está clonado de forma permanente. Para consultarlo:
-  `gh repo clone Tecnomedia/FlexibarNET10 -- --depth=400` en el scratchpad.
+  `gh repo clone $(gh api user/repos --paginate -q '.[].full_name' | grep '/FlexibarNET10$') -- --depth=400` en el scratchpad.
 - Diseño de referencia: `docs/diseno_separadores_documento_2026-10-26.md`. Propuestas
   generales: `docs/propuestas_desde_flexibarnet10_2026-10-26.md`.
 

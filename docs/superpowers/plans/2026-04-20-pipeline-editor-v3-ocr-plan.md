@@ -70,7 +70,7 @@ export type PipelineStep = BarcodeStep | ImageOpStep | OcrStep | GenericStep
 - [ ] **Step 3: Verificar tests existentes**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 44/44 PASS (sin cambios respecto a v2).
@@ -78,7 +78,7 @@ Expected: 44/44 PASS (sin cambios respecto a v2).
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy
+cd <repo>
 git add web/frontend/src/api/types-pipeline.ts
 git commit -m "feat(web-frontend): añadir tipo OcrStep al dominio TS"
 ```
@@ -169,7 +169,7 @@ describe('TagInput', () => {
 - [ ] **Step 2: Run test — MUST fail**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run TagInput
+cd <repo>/web/frontend && npm run test -- --run TagInput
 ```
 
 Expected: FAIL con `Cannot find module '@/components/pipeline/fields/TagInput.vue'`.
@@ -262,7 +262,7 @@ function removeTag(idx: number) {
 - [ ] **Step 4: Run test — must pass (6/6)**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run TagInput
+cd <repo>/web/frontend && npm run test -- --run TagInput
 ```
 
 Expected: PASS 6/6.
@@ -270,7 +270,7 @@ Expected: PASS 6/6.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy
+cd <repo>
 git add web/frontend/src/components/pipeline/fields/TagInput.vue web/frontend/tests/fields/TagInput.test.ts
 git commit -m "feat(web-frontend): widget TagInput con chips add/remove"
 ```
@@ -307,7 +307,7 @@ Abrir `web/frontend/tests/stores/pipeline.store.test.ts` y añadir al final del 
 - [ ] **Step 2: Run test — MUST fail**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run pipeline.store
+cd <repo>/web/frontend && npm run test -- --run pipeline.store
 ```
 
 Expected: FAIL porque `engine` es undefined en el step devuelto.
@@ -341,7 +341,7 @@ Añadir la rama `ocr` en `defaultsFor` después de la rama `image_op` y antes de
 - [ ] **Step 4: Run test — must pass**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run pipeline.store
+cd <repo>/web/frontend && npm run test -- --run pipeline.store
 ```
 
 Expected: PASS (10/10 — los 9 anteriores + el nuevo).
@@ -349,7 +349,7 @@ Expected: PASS (10/10 — los 9 anteriores + el nuevo).
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy
+cd <repo>
 git add web/frontend/src/stores/pipeline.ts web/frontend/tests/stores/pipeline.store.test.ts
 git commit -m "feat(web-frontend): defaultsFor ocr en el store"
 ```
@@ -435,7 +435,7 @@ describe('OcrStepForm', () => {
 - [ ] **Step 2: Run test — MUST fail**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run OcrStepForm
+cd <repo>/web/frontend && npm run test -- --run OcrStepForm
 ```
 
 Expected: FAIL por módulo no encontrado.
@@ -518,7 +518,7 @@ const ENGINE_OPTIONS = [
 - [ ] **Step 4: Run test — must pass (4/4)**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run OcrStepForm
+cd <repo>/web/frontend && npm run test -- --run OcrStepForm
 ```
 
 Expected: PASS 4/4.
@@ -526,7 +526,7 @@ Expected: PASS 4/4.
 También ejecutar la suite completa:
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: ~55/55 PASS (44 anteriores + 10 nuevos hasta aquí + los 4 del form).
@@ -534,7 +534,7 @@ Expected: ~55/55 PASS (44 anteriores + 10 nuevos hasta aquí + los 4 del form).
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy
+cd <repo>
 git add web/frontend/src/components/pipeline/forms/OcrStepForm.vue web/frontend/tests/OcrStepForm.test.ts
 git commit -m "feat(web-frontend): OcrStepForm con motor, idiomas, full_page y ROI"
 ```
@@ -633,7 +633,7 @@ Insertar ANTES del `<div v-else>`:
 - [ ] **Step 3: Verificar suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: Todos los tests siguen pasando.
@@ -641,7 +641,7 @@ Expected: Todos los tests siguen pasando.
 - [ ] **Step 4: Verificar typecheck**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -10
+cd <repo>/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -10
 ```
 
 Expected: 0 errores relacionados con estos ficheros.
@@ -649,7 +649,7 @@ Expected: 0 errores relacionados con estos ficheros.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy
+cd <repo>
 git add web/frontend/src/components/pipeline/AddStepMenu.vue web/frontend/src/components/pipeline/PipelineStepDrawer.vue
 git commit -m "feat(web-frontend): habilitar ocr en menú y drawer"
 ```
@@ -727,7 +727,7 @@ const summary = computed(() => {
 - [ ] **Step 2: Ejecutar tests**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: Todos siguen pasando.
@@ -735,7 +735,7 @@ Expected: Todos siguen pasando.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy
+cd <repo>
 git add web/frontend/src/components/pipeline/PipelineStepRow.vue
 git commit -m "feat(web-frontend): resumen compacto para ocr en la fila"
 ```
@@ -811,7 +811,7 @@ Ctrl+C en las 2 terminales de uvicorn y npm.
 - [ ] **Step 1: Suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: ~55 tests PASS (44 previos + 6 TagInput + 1 store + 4 OcrStepForm = 55). Cero fallos.
@@ -819,7 +819,7 @@ Expected: ~55 tests PASS (44 previos + 6 TagInput + 1 store + 4 OcrStepForm = 55
 - [ ] **Step 2: Push al remote**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy
+cd <repo>
 git push origin feature/web
 ```
 

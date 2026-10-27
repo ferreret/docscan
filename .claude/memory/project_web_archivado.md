@@ -32,8 +32,8 @@ en **DocScan Desktop**. Nada se borró: todo el trabajo está pusheado a origin.
 - Sin tag v0.2.0 — quedó condicionado a cerrar el sprint D.
 - Bug conocido pendiente: [[project_workbench_stale_state_bug]]
   (WorkbenchView no recarga state al navegar entre lotes; workaround F5).
-- BD docker de pruebas: [[project_bd_docker_estado]] (tenant TecnoMedia,
-  operario@tecnomedia.es / <REDACTADO — ver gestor de contraseñas>, app AppHito7, MinIO bucket docscan).
+- BD docker de pruebas: [[project_bd_docker_estado]] (tenant Plataforma,
+  operario@example.com / <REDACTADO — ver gestor de contraseñas>, app AppHito7, MinIO bucket docscan).
 
 ## Cómo retomar (si algún día se reactiva)
 

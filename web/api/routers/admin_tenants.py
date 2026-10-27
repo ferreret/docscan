@@ -18,7 +18,7 @@ from app.models.page import Page
 from web.api.audit import audit
 from web.api.auth.dependencies import CurrentUser, require_role
 from web.api.auth.security import hash_password
-from web.api.bootstrap import TECNOMEDIA_TENANT_SLUG
+from web.api.bootstrap import PLATFORM_TENANT_SLUG
 from web.api.database import SessionDep
 from web.api.models import (
     ROLE_COMPANY_ADMIN,
@@ -131,10 +131,10 @@ def create_tenant(
     _sa=require_role(ROLE_SUPERADMIN),
 ):
     slug = _slugify(data.tenant_name)
-    if slug == TECNOMEDIA_TENANT_SLUG:
+    if slug == PLATFORM_TENANT_SLUG:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "El slug 'tecnomedia' está reservado",
+            "El slug 'plataforma' está reservado",
         )
 
     if (
@@ -249,10 +249,10 @@ def update_tenant(
         tenant.plan = data.plan
 
     if data.active is not None and data.active != tenant.active:
-        if tenant.slug == TECNOMEDIA_TENANT_SLUG and not data.active:
+        if tenant.slug == PLATFORM_TENANT_SLUG and not data.active:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                "No se puede suspender el tenant TecnoMedia",
+                "No se puede suspender el tenant Plataforma",
             )
         changes["active"] = {"from": tenant.active, "to": data.active}
         tenant.active = data.active
@@ -286,10 +286,10 @@ def delete_tenant(
     _sa=require_role(ROLE_SUPERADMIN),
 ):
     tenant = _get_tenant_or_404(tenant_id, db)
-    if tenant.slug == TECNOMEDIA_TENANT_SLUG:
+    if tenant.slug == PLATFORM_TENANT_SLUG:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            "No se puede eliminar el tenant TecnoMedia",
+            "No se puede eliminar el tenant Plataforma",
         )
 
     has_active = db.execute(

@@ -72,7 +72,7 @@ export type PipelineStep = BarcodeStep | ImageOpStep | OcrStep | ScriptStep | Ge
 - [ ] **Step 3: Verificar tests existentes**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 55/55 PASS (sin cambios respecto al cierre de v3).
@@ -149,7 +149,7 @@ describe('script-context-help', () => {
 - [ ] **Step 2: Verificar que el test falla**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/api/script-context-help.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/api/script-context-help.test.ts
 ```
 
 Expected: FAIL con "Cannot find module '@/api/script-context-help'".
@@ -261,7 +261,7 @@ export const DEFAULT_SCRIPT_TEMPLATE = `def process(app, batch, page, pipeline):
 - [ ] **Step 4: Verificar que el test pasa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/api/script-context-help.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/api/script-context-help.test.ts
 ```
 
 Expected: 3/3 PASS.
@@ -269,7 +269,7 @@ Expected: 3/3 PASS.
 - [ ] **Step 5: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 58/58 PASS (55 previos + 3 nuevos).
@@ -312,7 +312,7 @@ Si el fichero no importa aún `ScriptStep`, añadirlo al import de `@/api/types-
 - [ ] **Step 2: Verificar que el test falla**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/stores/pipeline.store.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/stores/pipeline.store.test.ts
 ```
 
 Expected: FAIL. El error será algo como `entry_point` no coincide (porque la rama por defecto en `defaultsFor` devuelve `{ type, enabled: true }` genérico).
@@ -347,7 +347,7 @@ if (type === 'script') {
 - [ ] **Step 4: Verificar que el test pasa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/stores/pipeline.store.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/stores/pipeline.store.test.ts
 ```
 
 Expected: todos los tests del store PASS.
@@ -355,7 +355,7 @@ Expected: todos los tests del store PASS.
 - [ ] **Step 5: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 59/59 PASS (58 previos + 1 nuevo).
@@ -378,7 +378,7 @@ git commit -m "feat(web-frontend): defaultsFor script con plantilla process"
 - [ ] **Step 1: Instalar las deps**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm install codemirror@^6 @codemirror/lang-python@^6 @codemirror/autocomplete@^6
+cd <repo>/web/frontend && npm install codemirror@^6 @codemirror/lang-python@^6 @codemirror/autocomplete@^6
 ```
 
 Expected: actualización silenciosa de `package.json` y `package-lock.json`.
@@ -386,7 +386,7 @@ Expected: actualización silenciosa de `package.json` y `package-lock.json`.
 - [ ] **Step 2: Verificar versiones instaladas**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm list codemirror @codemirror/lang-python @codemirror/autocomplete
+cd <repo>/web/frontend && npm list codemirror @codemirror/lang-python @codemirror/autocomplete
 ```
 
 Expected: las tres versiones `6.x.x` listadas sin warnings.
@@ -394,7 +394,7 @@ Expected: las tres versiones `6.x.x` listadas sin warnings.
 - [ ] **Step 3: Verificar que la suite sigue verde**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 59/59 PASS.
@@ -463,7 +463,7 @@ describe('script-editor/editor — funciones puras', () => {
 - [ ] **Step 2: Verificar que los tests fallan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/script-editor/editor.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/script-editor/editor.test.ts
 ```
 
 Expected: FAIL con "Cannot find module".
@@ -640,7 +640,7 @@ export async function createEditor(args: CreateEditorArgs): Promise<EditorHandle
 - [ ] **Step 4: Verificar que los tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/script-editor/editor.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/script-editor/editor.test.ts
 ```
 
 Expected: 5/5 PASS.
@@ -648,7 +648,7 @@ Expected: 5/5 PASS.
 - [ ] **Step 5: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 64/64 PASS (59 previos + 5 nuevos).
@@ -780,7 +780,7 @@ describe('ScriptStepForm — campos base', () => {
 - [ ] **Step 2: Verificar que los tests fallan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: FAIL con "Cannot find module '@/components/pipeline/forms/ScriptStepForm.vue'".
@@ -864,7 +864,7 @@ function onEntryPointBlur(ev: Event): void {
 - [ ] **Step 4: Verificar que los 5 tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: 5/5 PASS.
@@ -872,7 +872,7 @@ Expected: 5/5 PASS.
 - [ ] **Step 5: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 69/69 PASS (64 previos + 5 nuevos).
@@ -926,7 +926,7 @@ describe('ScriptStepForm — editor CodeMirror', () => {
 - [ ] **Step 2: Verificar que el test falla**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: FAIL — el test nuevo da `onChangeRef.value` null porque aún no se monta el editor.
@@ -1053,7 +1053,7 @@ Sustituir el `<template>` actual por (nota: se reemplaza el `data-test="editor-p
 - [ ] **Step 4: Verificar que los 6 tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: 6/6 PASS.
@@ -1061,7 +1061,7 @@ Expected: 6/6 PASS.
 - [ ] **Step 5: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 70/70 PASS.
@@ -1127,7 +1127,7 @@ describe('ScriptStepForm — snippets', () => {
 - [ ] **Step 2: Verificar que los tests fallan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: FAIL — no existen los elementos `[data-test="snippets-button"]`/`[data-test="snippet-item"]`.
@@ -1215,7 +1215,7 @@ En el `<template>`, reemplazar el bloque actual del editor por:
 - [ ] **Step 5: Verificar que los 8 tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: 8/8 PASS.
@@ -1223,7 +1223,7 @@ Expected: 8/8 PASS.
 - [ ] **Step 6: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 72/72 PASS.
@@ -1284,7 +1284,7 @@ describe('ScriptStepForm — panel de ayuda', () => {
 - [ ] **Step 2: Verificar que el test falla**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: FAIL — no existen `[data-test="help-panel"]` ni `[data-test="help-toggle"]`.
@@ -1439,7 +1439,7 @@ Reemplazar el bloque del editor por:
 - [ ] **Step 5: Verificar que los 9 tests pasan**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
+cd <repo>/web/frontend && npm run test -- --run tests/ScriptStepForm.test.ts
 ```
 
 Expected: 9/9 PASS.
@@ -1447,7 +1447,7 @@ Expected: 9/9 PASS.
 - [ ] **Step 6: Ejecutar la suite completa**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 73/73 PASS (72 previos + 1 nuevo).
@@ -1500,7 +1500,7 @@ Resultado esperado en el template del menú:
 - [ ] **Step 2: Verificar que la suite sigue verde**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 73/73 PASS.
@@ -1612,7 +1612,7 @@ Reemplazar el bloque del `<div class="flex-1 overflow-y-auto p-4">`:
 - [ ] **Step 5: Verificar que la suite sigue verde**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 73/73 PASS.
@@ -1620,7 +1620,7 @@ Expected: 73/73 PASS.
 - [ ] **Step 6: Verificar build y chunk separado**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run build
+cd <repo>/web/frontend && npm run build
 ```
 
 Expected: build OK. Verificar visualmente en el output de Vite que aparecen al menos dos chunks nuevos:
@@ -1674,7 +1674,7 @@ if (s.type === 'script') {
 - [ ] **Step 3: Verificar que la suite sigue verde**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run test -- --run
+cd <repo>/web/frontend && npm run test -- --run
 ```
 
 Expected: 73/73 PASS.
@@ -1701,11 +1701,11 @@ Abrir tres terminales:
 docker start docscan-pg
 
 # Terminal 2
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && source .venv/bin/activate
+cd <repo> && source .venv/bin/activate
 uvicorn web.api.main:create_app --factory --reload --port 8001
 
 # Terminal 3
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run dev
+cd <repo>/web/frontend && npm run dev
 ```
 
 - [ ] **Step 2: Login y navegar al pipeline de la app de prueba**
@@ -1745,7 +1745,7 @@ Actualizar el informe diario (`docs/progreso_2026-04-21.md` o el que toque) y `m
 - [ ] **Step 9: Push al remote**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git push origin feature/web
+cd <repo> && git push origin feature/web
 ```
 
 Expected: push OK, rama `feature/web` actualizada con todos los commits de v4.

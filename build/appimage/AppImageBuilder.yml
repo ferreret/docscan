@@ -27,7 +27,7 @@ AppDir:
   path: ./AppDir
 
   app_info:
-    id: com.tecnomedia.docscan
+    id: dev.nicolasbarcelo.docscan
     name: DocScan Studio
     icon: docscan
     version: latest

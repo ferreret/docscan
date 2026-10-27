@@ -17,8 +17,10 @@ v0.1.0, tiene el estado `production` y afirmaciones sin prueba («90 % de requis
 La captura es de la interfaz antigua y nombra un hospital real en un volante ficticio.
 
 **Decisiones de Nicolás:**
-- **Se puede nombrar** FlexibarNET10, Tecnomedia y sus implantaciones en hospitales,
-  con nombres.
+- **Se puede nombrar** FlexibarNET10 y sus implantaciones en hospitales, con nombres.
+- **La empresa que comercializa FlexibarNET10 NO se nombra en ningún sitio** (decisión
+  de Nicolás, 2026-10-27): ni README, ni app, ni instaladores, ni docs, ni portfolio, ni
+  memoria. DocScan figura como desarrollado por **Nicolás Barceló**.
 - **Estado: `in-development`**: hay versiones publicadas con instaladores, pero ninguna
   instalación en producción.
 - **Se actualiza al terminar el rediseño visual** ([[project_rediseno_ui]]), con

@@ -3,7 +3,7 @@
 **Versión:** 1.0
 **Fecha:** 2026-03-26
 **Autor:** Equipo de Desarrollo
-**Destinatarios:** Dirección de Tecnomedia
+**Destinatarios:** Dirección
 
 ---
 
