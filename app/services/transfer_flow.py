@@ -300,11 +300,17 @@ def validate_before_transfer(
     if pages is not None:
         script_pages, documents = script_documents(pages)
         event_kwargs.update(pages=script_pages, documents=documents)
+    # Un ValueError es el rechazo deliberado del script («Hi ha pàgines sense
+    # codis de barra…»): el operador ve solo su mensaje. Cualquier otra
+    # excepción es un fallo del script y se presenta como tal.
     outcome: EventOutcome = script_engine.run_event_checked(
         VALIDATE_EVENT,
         validate_entry_point,
+        rejection_types=(ValueError,),
         **event_kwargs,
     )
+    if outcome.rejected:
+        return outcome.error or "La validación previa ha rechazado la transferencia"
     if outcome.failed:
         return f"Ha fallado la validación previa a la transferencia: {outcome.error}"
     if outcome.ran and outcome.value is False:

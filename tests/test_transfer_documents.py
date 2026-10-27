@@ -416,3 +416,54 @@ class TestNadaAMedias:
             config=TransferConfig(mode="csv", separator_page="exclude"),
         )
         assert reason is None
+
+
+class TestRechazoDeValidacion:
+    """Un ValueError es un rechazo: aviso sin traza y solo el mensaje."""
+
+    def _validar(self, tmp_path, cuerpo: str):
+        engine = ScriptEngine()
+        engine.compile_script(
+            "on_transfer_validate",
+            f"def on_transfer_validate(app, batch, pages):\n    {cuerpo}\n",
+        )
+        return validate_before_transfer(
+            script_engine=engine,
+            contexts={"app": AppContext(), "batch": BatchContext()},
+            fields_def=[],
+            batch_fields={},
+            pages=_pages(tmp_path, ["A"]),
+            config=TransferConfig(),
+        )
+
+    def test_value_error_es_un_rechazo_sin_traza(self, tmp_path, caplog):
+        with caplog.at_level("INFO"):
+            reason = self._validar(tmp_path, "raise ValueError('Falta el NHC')")
+        assert reason == "Falta el NHC"
+        assert not [r for r in caplog.records if r.levelname == "ERROR"]
+        assert any(
+            r.levelname == "WARNING" and "rechazado" in r.getMessage()
+            for r in caplog.records
+        )
+
+    def test_otra_excepcion_es_un_fallo_con_traza(self, tmp_path, caplog):
+        with caplog.at_level("INFO"):
+            reason = self._validar(tmp_path, "return pages[0].no_existe")
+        assert reason.startswith("Ha fallado la validación previa")
+        assert "AttributeError" in reason
+        assert any(r.levelname == "ERROR" and r.exc_info for r in caplog.records)
+
+
+def test_el_log_nombra_el_fichero_final(tmp_path, caplog):
+    pages = _pages(tmp_path, ["A"])
+    config = TransferConfig(
+        mode="tiff",
+        grouping="document",
+        destination=str(tmp_path / "out"),
+        filename_pattern="{separator}",
+    )
+    with caplog.at_level("INFO"):
+        assert TransferService().transfer(pages, config).success
+    mensajes = [r.getMessage() for r in caplog.records if r.levelname == "INFO"]
+    assert not any(".tmp" in m for m in mensajes)
+    assert any(m.endswith("A.tif: 1 página(s) escritas") for m in mensajes)

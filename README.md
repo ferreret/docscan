@@ -404,7 +404,7 @@ def on_transfer_validate(app, batch, pages):
         return False
     sin_codigo = [p.page_index + 1 for p in pages if not p.is_separator]
     if sin_codigo:
-        # El mensaje de la excepción le llega al operador
+        # ValueError = rechazo: el operador ve solo este mensaje
         raise ValueError(f"La página {sin_codigo[0]} no tiene código")
     return True
 

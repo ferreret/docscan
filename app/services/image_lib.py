@@ -286,7 +286,9 @@ class ImageLib:
             **save_kwargs,
         )
 
-        log.info("TIFF generado: %s (%d páginas)", output_path, len(images))
+        # DEBUG: la transferencia escribe en un temporal y registra ella el
+        # nombre final; en INFO el log enseñaba ".nombre.tif.tmp".
+        log.debug("TIFF generado: %s (%d páginas)", output_path, len(images))
         return output_path
 
     @staticmethod

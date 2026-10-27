@@ -66,6 +66,9 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
   Los PDF y TIFF se escriben en un temporal y se renombran.
 - Con la colisión **Fusionar**, un documento cuyo fichero ya existe se añade al
   final, también entre lotes.
+- **Un `ValueError` en `on_transfer_validate` es un rechazo**, no un fallo: el
+  operador ve solo su mensaje y el log lo registra como aviso, sin traza. Otra
+  excepción sigue siendo un fallo del script, con traza.
 - `on_transfer_validate` recibe `pages` y `documents`, y `on_transfer_advanced`
   también `documents`. Sus páginas traen `barcodes`, `is_separator` y
   `separator_value`. Son parámetros opcionales: las firmas anteriores siguen
@@ -87,6 +90,10 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
 - **La detección de blancos ya no excluye una página separadora** ni una con
   códigos: fundía dos documentos sin avisar.
 - Los botones de los diálogos desactivados se pintaban igual que activos.
+- El log de la transferencia nombra el fichero final y no el temporal
+  (`.nombre.tif.tmp`).
+- Tras una migración lanzada con la CLI de Alembic, el proceso dejaba de
+  registrar nada: `fileConfig` desactivaba los loggers ya creados.
 - **Guardar en TIFF Group4 tumbaba la aplicación** (segfault de libtiff) si la
   imagen no era de 1 bit, por ejemplo una captura en B/N guardada en escala de
   grises. Ahora se binariza antes.

@@ -114,7 +114,7 @@ Todos los eventos reciben `app` y `batch`. Además reciben estos argumentos
 | `on_key_event` | `key` (str) | ignorado |
 | `on_navigate_prev`, `on_navigate_next` | `current_page_index`, `total_pages` | índice de página a la que ir (int) |
 | `on_navigate_script` | `current_page_index`, `total_pages`, `pages` (lista de dicts) | índice de página (int) |
-| `on_transfer_validate` | `pages`, `documents` (opcionales) | `False` (o una excepción) cancela la transferencia; el mensaje de la excepción llega al operador |
+| `on_transfer_validate` | `pages`, `documents` (opcionales) | `False` (o una excepción) cancela la transferencia. Un `ValueError` es un rechazo: el operador ve solo su mensaje |
 | `on_transfer_advanced` | `pages`, `documents`, `result` (en el Workbench y en el worker) | `False` (o una excepción) hace fallar la transferencia |
 | `on_transfer_page` | `page_index`, `success` | ignorado |
 | `init_global` | — (sin `app` ni `batch`) | ignorado |
@@ -129,7 +129,9 @@ Igual en el Workbench y en el worker desatendido (lógica de FlexibarNET 10):
    valor, o si con la página separadora descartada un documento quedaría vacío
    o hay páginas antes de la primera hoja, la transferencia no empieza.
 3. **`on_transfer_validate`**: si devuelve `False` **o lanza una excepción**, la
-   transferencia no empieza.
+   transferencia no empieza. Un `ValueError` se toma como rechazo deliberado
+   (aviso en el log, solo el mensaje al operador); otra excepción, como fallo
+   del script (error con traza).
 4. **Transferencia simple**, si está activada (con «solo script» no hace falta
    carpeta de destino). Antes de escribir nada calcula todos los nombres: si el
    script de nombre falla, no queda salida a medias.

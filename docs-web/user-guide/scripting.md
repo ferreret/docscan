@@ -108,9 +108,13 @@ def on_transfer_validate(app, batch, pages):
 
 `pages` y `documents` son parámetros **opcionales**: declara solo los que uses
 (`def on_transfer_validate(app, batch)` sigue funcionando). Devolver `False`
-cancela la transferencia; una excepción también, y su mensaje es lo que ve el
-operador. Es la validación de las Apps de archivo del Hospital Arnau de
-Vilanova: toda página tiene que llevar su código.
+cancela la transferencia; una excepción también. Para rechazar con un motivo,
+lanza un **`ValueError`**: es un rechazo deliberado, el operador ve solo su
+mensaje y el log lo registra como aviso. Cualquier otra excepción
+(`TypeError`, `AttributeError`…) se trata como un fallo del script: se muestra
+como «Ha fallado la validación previa…» y queda en el log con la traza. Es la
+validación de las Apps de archivo del Hospital Arnau de Vilanova: toda página
+tiene que llevar su código.
 
 Para campos que solo tienen que estar rellenos no hace falta script: marca el
 campo como **obligatorio** en la pestaña Campos de Lote.

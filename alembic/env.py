@@ -30,7 +30,10 @@ config = context.config
 if config.config_file_name is not None and config.attributes.get(
     "configure_logger", True
 ):
-    fileConfig(config.config_file_name)
+    # Sin disable_existing_loggers=False, fileConfig desactiva todos los
+    # loggers ya creados (app.*): tras una migración por CLI o desde un test,
+    # el resto del proceso dejaba de registrar nada.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Resolver URL de la BD:
 # - Si DOCSCAN_WEB_DATABASE__URL está en el entorno, usarla (modo web/contenedor).

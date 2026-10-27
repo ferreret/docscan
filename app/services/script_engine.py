@@ -46,11 +46,14 @@ class EventOutcome:
         ran: False si el evento no está definido en la aplicación.
         value: Valor devuelto por la función del script.
         error: Descripción del fallo; vacío si terminó bien.
+        rejected: El script rechazó la operación a propósito (lanzó una de
+            las excepciones de rechazo): ``error`` es solo su mensaje.
     """
 
     ran: bool
     value: Any = None
     error: str = ""
+    rejected: bool = False
 
     @property
     def failed(self) -> bool:
@@ -382,6 +385,8 @@ class ScriptEngine:
         self,
         script_id: str,
         entry_point: str | None = None,
+        *,
+        rejection_types: tuple[type[BaseException], ...] = (),
         **kwargs: Any,
     ) -> EventOutcome:
         """Ejecuta un evento distinguiendo «no definido», «falló» y «devolvió».
@@ -395,6 +400,10 @@ class ScriptEngine:
         Args:
             script_id: ID del script compilado.
             entry_point: Función a llamar (por defecto, ``script_id``).
+            rejection_types: Excepciones que el script lanza a propósito para
+                rechazar (p. ej. ``ValueError`` en la validación). Se
+                registran como aviso, sin traza: son una regla de negocio, no
+                un fallo del programa.
             **kwargs: Argumentos para la función (app, batch, pages…).
 
         Returns:
@@ -405,6 +414,9 @@ class ScriptEngine:
             return EventOutcome(ran=False)
         try:
             value = self.run_event_raw(script_id, entry_point or script_id, **kwargs)
+        except rejection_types as e:
+            log.warning("Evento '%s' rechazado: %s", script_id, e)
+            return EventOutcome(ran=True, error=str(e), rejected=True)
         except Exception as e:
             log.exception("Error ejecutando evento '%s'", script_id)
             return EventOutcome(ran=True, error=f"{type(e).__name__}: {e}")

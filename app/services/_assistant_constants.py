@@ -147,7 +147,8 @@ EVENT_SIGNATURES: dict[str, str] = {
         "    `pages` and `documents` are optional parameters (declare only what you use).\n"
         "    pages: .page_index, .fields, .barcodes (.value, .symbology), .is_separator,\n"
         "    .separator_value. documents: .index, .separator_value, .pages, .fields.\n"
-        '    Return False to cancel. An exception also cancels it and its message reaches the operator."""'
+        '    Return False to cancel. Raise ValueError("reason") to reject: the operator sees only\n'
+        '    the reason. Any other exception is reported as a script failure."""'
     ),
     "on_transfer_advanced": (
         "def on_transfer_advanced(app, batch, pages, result):\n"

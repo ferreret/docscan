@@ -634,6 +634,12 @@ class TransferService:
             tmp.replace(path)
         finally:
             tmp.unlink(missing_ok=True)
+        log.info(
+            "%s: %d página(s) %s",
+            path,
+            len(images),
+            "añadidas al final" if append else "escritas",
+        )
         return len(images)
 
     def _write_pdf(
