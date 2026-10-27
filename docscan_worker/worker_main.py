@@ -481,6 +481,9 @@ def _transfer_batch(
         fields_def = json.loads(app_record.batch_fields_json or "[]")
     except json.JSONDecodeError, TypeError:
         fields_def = []
+    # Los scripts de transferencia leen batch.fields (p. ej. la fecha del
+    # lote); el BatchContext del worker se crea sin ellos.
+    batch_ctx.fields = dict(batch_fields)
     contexts = {"app": app_ctx, "batch": batch_ctx}
 
     pages_data = [

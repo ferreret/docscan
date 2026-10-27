@@ -236,3 +236,34 @@ class TestColorMode:
         bw = np.zeros((50, 50), dtype=np.uint8)
         bw[:25] = 255
         assert ImageLib.get_color_mode(bw) == "bw"
+
+
+class TestGroup4:
+    """Group4 solo admite 1 bit: con otra profundidad libtiff tumbaba el proceso."""
+
+    def test_save_binariza_una_imagen_en_gris(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        from app.services.image_lib import ImageLib
+
+        img = np.full((40, 40), 200, np.uint8)
+        img[10:20] = 30
+        path = ImageLib.save(img, tmp_path / "g4.tif", compression="group4")
+        with Image.open(path) as im:
+            assert im.mode == "1"
+            assert im.info.get("compression") == "group4"
+
+    def test_merge_to_tiff_binariza_en_color(self, tmp_path):
+        import numpy as np
+        from PIL import Image
+
+        from app.services.image_lib import ImageLib
+
+        color = np.full((30, 30, 3), 255, np.uint8)
+        path = ImageLib.merge_to_tiff(
+            [color, color[:, :, 0]], tmp_path / "m.tif", compression="group4"
+        )
+        with Image.open(path) as im:
+            assert im.mode == "1"
+            assert im.n_frames == 2
