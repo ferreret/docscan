@@ -45,3 +45,10 @@ cada lección con su evidencia o su número.
   - Las migraciones SQLite con recreación de tabla borraban datos: se prueban sobre una
     copia, comparando `COUNT(*)`.
 - **Opcional:** un artículo en el blog relacionado (`relatedPostId`).
+
+**Paquete listo (2026-10-27).** `docs/portfolio/ficha_portfolio.md` en el repo de DocScan reúne hechos
+con fuente, métricas (`docs/portfolio/metricas.md`), lo que está mal en la ficha actual, las seis
+lecciones con su commit y la captura `docs/portfolio/docscan-studio.webp`. Lo aplica una sesión en el repo
+del portfolio con sus skills. Ojo: el nginx del portfolio sirve `.webp` como inmutable un año → la captura
+va con **nombre nuevo**. La ficha actual afirma «AI-powered field extraction», que **no existe**: la IA
+solo configura (AI Mode). A confirmar por Nicolás: `role`, `demoUrl`, `relatedPostId`.

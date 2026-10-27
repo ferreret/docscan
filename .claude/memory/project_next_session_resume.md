@@ -28,6 +28,16 @@ metadata:
 
 ## Siguiente (en orden)
 
+0. **Documentación puesta al día (2026-10-27, rama `docs/actualizacion-v0.1.8`)**: README bilingüe,
+   capturas, manual web auditado contra el código, informe del proyecto v1.2, `.docx` retirado y
+   paquete del portfolio en `docs/portfolio/`. Falta que una sesión del repo del portfolio aplique
+   la ficha. La auditoría destapó **bugs de código** sin corregir (documentados como «conocidos»):
+   `http` vale `None` en scripts (nadie pasa `http_client` a `ScriptEngine`), `on_key_event` nunca se
+   dispara (`.decode()` sobre `str` en `workbench_window.py`), `script_timeout_seconds` no se lee,
+   `AppContext.pipeline_steps` siempre vacío, el Pipeline Assistant nunca se conectó a la UI, el
+   diálogo Barcode no avisa de que PDF417/DataMatrix solo los lee el motor 2, etiquetas sin tilde
+   («Confirmar eliminacion», «Nueva conversacion») y muchas cadenas nuevas sin traducir en
+   `docscan_en.ts`. El modelo Anthropic por defecto del AI Mode es `claude-sonnet-4-20250514`.
 1. Probar las Apps del Arnau con escáner real (DR-M160) y escaneos de verdad.
 2. Familia eCAP del Arnau (04, 08): secretos en scripts + ODBC contra BD simulada.
 3. Pendientes de la revisión de código (anteriores al lote 6): eventos que no compilan

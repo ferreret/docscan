@@ -30,3 +30,8 @@ Decisiones tomadas 2026-03-20:
 **Why:** El usuario quiere estabilizar y publicar antes de añadir más features.
 
 **How to apply:** Release 1 es estabilización. Release 2 agrupa las funcionalidades de usabilidad y distribución.
+
+**Corrección 2026-10-27:** el «asistente IA de pipelines» se implementó en `381cc10` (servicio
+`pipeline_assistant.py`, `PipelineAssistantPanel`, `EventAssistantDialog`), pero **los paneles nunca se han
+instanciado en la interfaz**: el usuario solo llega al AI Mode del launcher. No anunciarlo como disponible;
+conectarlo (o retirarlo) es trabajo pendiente.
