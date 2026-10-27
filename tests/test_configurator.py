@@ -6,7 +6,6 @@ import json
 
 import pytest
 from PySide6.QtCore import QModelIndex, Qt
-from PySide6.QtWidgets import QCheckBox, QComboBox, QSpinBox, QLineEdit
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -257,28 +256,36 @@ class TestEventsTab:
     def test_apply_saves_current(self, qtbot, sample_app):
         tab = EventsTab(sample_app)
         qtbot.addWidget(tab)
-        tab._code_edit.setPlainText("def on_app_start(app, batch):\n    print('hi')")
+        tab.set_event_code(
+            "on_app_start", "def on_app_start(app, batch):\n    print('hi')"
+        )
         tab.apply_to(sample_app)
         events = json.loads(sample_app.events_json)
-        assert "on_app_start" in events
+        assert "print('hi')" in events["on_app_start"]
 
     def test_empty_event_removed(self, qtbot, sample_app):
         tab = EventsTab(sample_app)
         qtbot.addWidget(tab)
-        tab._code_edit.setPlainText("")
+        tab.set_event_code("on_app_start", "")
         tab.apply_to(sample_app)
         events = json.loads(sample_app.events_json)
         assert "on_app_start" not in events
 
     def test_event_names_includes_on_batch_loaded_and_on_page_changed(self):
         """v0.1.1: ambos eventos deben aparecer en el catálogo."""
-        from app.ui.configurator.tabs.tab_events import EVENT_NAMES, EVENT_DESCRIPTIONS
+        from app.ui.configurator.tabs.tab_events import (
+            EVENT_DESCRIPTIONS,
+            EVENT_NAMES,
+            EVENT_TITLES,
+        )
 
         assert "on_batch_loaded" in EVENT_NAMES
         assert "on_page_changed" in EVENT_NAMES
         descriptions = EVENT_DESCRIPTIONS()
         assert descriptions.get("on_batch_loaded")
         assert descriptions.get("on_page_changed")
+        # Todos los eventos tienen nombre legible
+        assert set(EVENT_TITLES()) == set(EVENT_NAMES)
 
     def test_placeholder_changes_with_selected_event(self, qtbot, sample_app):
         """v0.1.1: el placeholder del editor debe reflejar la firma del
@@ -289,15 +296,10 @@ class TestEventsTab:
         qtbot.addWidget(tab)
         # Al cargar, el primer evento es on_app_start.
         assert "on_app_start" in tab._code_edit.placeholderText()
-        # Cambiar a on_page_changed → placeholder debe llevar `page` en la firma.
-        idx = tab._event_combo.findData("on_page_changed")
-        assert idx >= 0, "on_page_changed no está en el combo"
-        tab._event_combo.setCurrentIndex(idx)
+        tab.select_event("on_page_changed")
         ph = tab._code_edit.placeholderText()
         assert "def on_page_changed(app, batch, page, page_index):" in ph
-        # Cambiar a on_key_event → debe llevar `key` en la firma.
-        idx2 = tab._event_combo.findData("on_key_event")
-        tab._event_combo.setCurrentIndex(idx2)
+        tab.select_event("on_key_event")
         ph2 = tab._code_edit.placeholderText()
         assert "def on_key_event(app, batch, key):" in ph2
 
@@ -314,6 +316,125 @@ class TestEventsTab:
             "def on_page_changed(app, batch, page, page_index):"
             in EVENT_SIGNATURES["on_page_changed"]
         )
+
+
+class TestEventsTabParidad:
+    """Lista con estado, casilla «Activado» y diálogo «Editar script…»."""
+
+    def _tab(self, qtbot, events: dict) -> EventsTab:
+        app = Application(name="E", events_json=json.dumps(events))
+        tab = EventsTab(app)
+        qtbot.addWidget(tab)
+        return tab
+
+    def test_lista_en_lugar_de_combo(self, qtbot, sample_app):
+        from app.ui.configurator.tabs.tab_events import EVENT_NAMES
+
+        tab = EventsTab(sample_app)
+        qtbot.addWidget(tab)
+        assert not hasattr(tab, "_event_combo")
+        assert tab._event_list.count() == len(EVENT_NAMES)
+
+    def test_estados_vacio_activo_y_pausado(self, qtbot):
+        from app.ui.configurator.tabs.tab_events import (
+            STATE_ACTIVE,
+            STATE_EMPTY,
+            STATE_PAUSED,
+        )
+
+        tab = self._tab(
+            qtbot,
+            {
+                "on_app_start": "def on_app_start(app, batch):\n    pass",
+                "on_app_end": {
+                    "script": "def on_app_end(app, batch):\n    pass",
+                    "enabled": False,
+                },
+            },
+        )
+        assert tab.state_of("on_app_start") == STATE_ACTIVE
+        assert tab.state_of("on_app_end") == STATE_PAUSED
+        assert tab.state_of("on_import") == STATE_EMPTY
+        assert tab._rows["on_app_end"].state == STATE_PAUSED
+        assert tab._rows["on_app_end"]._pill.text() == "PAUSADO"
+
+    def test_desactivar_guarda_dict_y_reactivar_vuelve_a_texto(self, qtbot):
+        code = "def on_app_start(app, batch):\n    pass"
+        tab = self._tab(qtbot, {"on_app_start": code})
+        tab.select_event("on_app_start")
+        tab._chk_enabled.setChecked(False)
+        out = Application(name="R")
+        tab.apply_to(out)
+        assert json.loads(out.events_json)["on_app_start"] == {
+            "script": code,
+            "enabled": False,
+        }
+        tab._chk_enabled.setChecked(True)
+        tab.apply_to(out)
+        assert json.loads(out.events_json)["on_app_start"] == code
+
+    def test_conserva_claves_que_no_edita(self, qtbot):
+        tab = self._tab(
+            qtbot,
+            {
+                "on_app_start": {
+                    "script": "def inicio(app, batch):\n    pass",
+                    "entry_point": "inicio",
+                },
+                "evento_desconocido": "x = 1",
+            },
+        )
+        out = Application(name="R")
+        tab.apply_to(out)
+        events = json.loads(out.events_json)
+        assert events["on_app_start"]["entry_point"] == "inicio"
+        assert "enabled" not in events["on_app_start"]
+        assert events["evento_desconocido"] == "x = 1"
+
+    def test_casilla_inhabilitada_sin_codigo(self, qtbot):
+        tab = self._tab(qtbot, {})
+        tab.select_event("on_import")
+        assert not tab._chk_enabled.isEnabled()
+        tab.set_event_code("on_import", "def on_import(app, batch):\n    pass")
+        assert tab._chk_enabled.isEnabled()
+
+    def test_editar_script_abre_el_dialogo(self, qtbot, monkeypatch):
+        from app.ui.configurator import event_script_dialog
+
+        tab = self._tab(qtbot, {})
+        tab.select_event("on_transfer_validate")
+        nuevo = "def on_transfer_validate(app, batch):\n    return True"
+        monkeypatch.setattr(
+            event_script_dialog.EventScriptDialog, "exec", lambda self: 1
+        )
+        monkeypatch.setattr(
+            event_script_dialog.EventScriptDialog, "code", lambda self: nuevo
+        )
+        tab._btn_edit.click()
+        assert tab._code_edit.toPlainText() == nuevo
+        assert tab._code_edit.isReadOnly()
+
+
+class TestEventScriptDialog:
+    def test_variables_de_la_firma_y_del_motor(self):
+        from app.ui.configurator.event_script_dialog import available_variables
+
+        names = [n for n, _ in available_variables("on_transfer_validate")]
+        assert names[:4] == ["app", "batch", "pages", "documents"]
+        assert {"log", "http", "re", "json", "datetime", "Path"} <= set(names)
+        assert [n for n, _ in available_variables("init_global")][0] == "log"
+
+    def test_dialogo_con_editor_y_panel(self, qtbot):
+        from app.ui.configurator.event_script_dialog import EventScriptDialog
+        from app.ui.widgets.code_editor import CodeEditor
+
+        dlg = EventScriptDialog(
+            "on_page_changed", "Al cambiar de página", "x = 1", "placeholder"
+        )
+        qtbot.addWidget(dlg)
+        assert isinstance(dlg._code_edit, CodeEditor)
+        assert dlg.code() == "x = 1"
+        assert "page_index" in dlg._variable_names
 
 
 # ------------------------------------------------------------------
@@ -338,7 +459,6 @@ class TestTransferTab:
         config = json.loads(sample_app.transfer_json)
         assert config["mode"] == "csv"
         assert config["csv_fields"] == ["ref", "tipo"]
-
 
     def test_documentos_y_script_de_nombre_ida_y_vuelta(self, qtbot, sample_app):
         """Lote 6: las claves nuevas no se pierden al guardar."""
@@ -408,10 +528,74 @@ class TestBarcodeStepDialog:
         dialog = BarcodeStepDialog(step)
         qtbot.addWidget(dialog)
         dialog._engine_combo.setCurrentText("motor2")
-        dialog._symb_edit.setText("QR, Code128")
+        dialog._symb_checks["QR"].setChecked(True)
+        dialog._symb_checks["Code128"].setChecked(True)
         result = dialog.get_step()
         assert result.engine == "motor2"
-        assert result.symbologies == ["QR", "Code128"]
+        assert set(result.symbologies) == {"QR", "Code128"}
+
+    def test_casillas_por_familia(self, qtbot):
+        from app.ui.configurator.step_dialogs.barcode_step_dialog import (
+            SYMBOLOGY_FAMILIES,
+        )
+
+        dialog = BarcodeStepDialog(BarcodeStep(id="s", symbologies=["ITF", "QR"]))
+        qtbot.addWidget(dialog)
+        assert [f for f, _ in SYMBOLOGY_FAMILIES] == ["1D lineal", "EAN/UPC", "2D"]
+        assert dialog._symb_checks["ITF"].isChecked()
+        assert dialog._symb_checks["QR"].isChecked()
+        assert not dialog._symb_checks["Code39"].isChecked()
+
+    def test_sin_tocar_nada_el_paso_no_cambia(self, qtbot):
+        step = BarcodeStep(
+            id="s",
+            engine="motor2",
+            symbologies=["Code128", "QR"],
+            regex=r"^\d+$",
+            regex_include_symbology=True,
+            orientations=["horizontal", "diagonal"],
+            quality_threshold=0.5,
+            window=(10, 20, 300, 400),
+        )
+        before = BarcodeStep(**{**step.__dict__})
+        dialog = BarcodeStepDialog(step)
+        qtbot.addWidget(dialog)
+        after = dialog.get_step()
+        assert after == before
+
+    def test_simbologia_desconocida_se_conserva(self, qtbot):
+        dialog = BarcodeStepDialog(BarcodeStep(id="s", symbologies=["Code 11", "QR"]))
+        qtbot.addWidget(dialog)
+        assert set(dialog.get_step().symbologies) == {"Code 11", "QR"}
+
+    def test_ninguna_marcada_es_todas(self, qtbot):
+        dialog = BarcodeStepDialog(BarcodeStep(id="s"))
+        qtbot.addWidget(dialog)
+        assert dialog.get_step().symbologies == []
+
+    def test_region_a_cero_es_pagina_completa(self, qtbot):
+        dialog = BarcodeStepDialog(BarcodeStep(id="s", window=(1, 2, 3, 4)))
+        qtbot.addWidget(dialog)
+        for spin in dialog._window_spins:
+            spin.setValue(0)
+        assert dialog.get_step().window is None
+
+    def test_leyenda_visible_bajo_la_regex(self, qtbot):
+        from PySide6.QtWidgets import QLabel
+
+        dialog = BarcodeStepDialog(BarcodeStep(id="s"))
+        qtbot.addWidget(dialog)
+        legends = dialog.findChildren(QLabel, "symbologyLegend")
+        assert len(legends) == 2  # Filtrado y separador por regex
+        assert all("Code128 = 02" in lbl.text() for lbl in legends)
+
+    def test_avanzado_muestra_el_json(self, qtbot):
+        dialog = BarcodeStepDialog(BarcodeStep(id="s"))
+        qtbot.addWidget(dialog)
+        dialog._regex_edit.setText("^FAC")
+        assert json.loads(dialog._json_view.toPlainText())["regex"] == "^FAC"
+        # La vista previa no toca el paso hasta aceptar
+        assert dialog._step.regex == ""
 
 
 class TestOcrStepDialog:
@@ -448,24 +632,33 @@ class TestScriptStepDialog:
 
 
 class TestBatchFieldsTab:
+    def _tab(self, qtbot, fields: list) -> BatchFieldsTab:
+        app = Application(name="F", batch_fields_json=json.dumps(fields))
+        tab = BatchFieldsTab(app)
+        qtbot.addWidget(tab)
+        return tab
+
+    @staticmethod
+    def _labels(tab) -> list[str]:
+        return [f["label"] for f in tab._fields]
+
+    @staticmethod
+    def _saved(tab) -> list[dict]:
+        out = Application(name="R")
+        tab.apply_to(out)
+        return json.loads(out.batch_fields_json)
+
     def test_empty_fields(self, qtbot, sample_app):
         sample_app.batch_fields_json = "[]"
         tab = BatchFieldsTab(sample_app)
         qtbot.addWidget(tab)
-        assert tab._table.rowCount() == 0
+        assert tab._list.count() == 0
+        # Sin selección se ve «Sin campo seleccionado»
+        assert tab._detail_stack.currentIndex() == 0
 
-    @staticmethod
-    def _get_label(tab, row):
-        """Obtiene el QLineEdit de etiqueta de una fila."""
-        return tab._table.cellWidget(row, 0).findChild(QLineEdit)
-
-    @staticmethod
-    def _get_type_combo(tab, row):
-        """Obtiene el QComboBox de tipo de una fila."""
-        return tab._table.cellWidget(row, 1).findChild(QComboBox)
-
-    def test_loads_existing_fields(self, qtbot, sample_app):
-        sample_app.batch_fields_json = json.dumps(
+    def test_loads_existing_fields(self, qtbot):
+        tab = self._tab(
+            qtbot,
             [
                 {"label": "Expediente", "type": "texto", "required": True},
                 {
@@ -480,152 +673,138 @@ class TestBatchFieldsTab:
                     "required": False,
                     "config": {"min": 1, "max": 500, "step": 1},
                 },
-            ]
+            ],
         )
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-        assert tab._table.rowCount() == 3
+        assert tab._list.count() == 3
+        # Se abre con el primero seleccionado en el detalle
+        assert tab._label_edit.text() == "Expediente"
+        assert tab._type_combo.currentText() == "texto"
+        assert tab._required_check.isChecked()
 
-        # Verificar primera fila: texto
-        label_w = self._get_label(tab, 0)
-        assert isinstance(label_w, QLineEdit)
-        assert label_w.text() == "Expediente"
-        type_w = self._get_type_combo(tab, 0)
-        assert isinstance(type_w, QComboBox)
-        assert type_w.currentText() == "texto"
+        tab._list.setCurrentRow(1)
+        assert tab._label_edit.text() == "Prioridad"
+        assert "Alta" in tab._list_values.text()
 
-        # Verificar segunda fila: lista
-        label_w = self._get_label(tab, 1)
-        assert label_w.text() == "Prioridad"
-        config_w = tab._table.cellWidget(1, 2)
-        values_edit = config_w.findChild(QLineEdit, "listValues")
-        assert values_edit is not None
-        assert "Alta" in values_edit.text()
+        tab._list.setCurrentRow(2)
+        assert tab._num_min.value() == 1
+        assert tab._num_max.value() == 500
 
-        # Verificar tercera fila: numérico
-        config_w = tab._table.cellWidget(2, 2)
-        spin_min = config_w.findChild(QSpinBox, "numMin")
-        assert spin_min is not None
-        assert spin_min.value() == 1
+    def test_fila_con_nombre_tipo_y_obligatorio(self, qtbot):
+        from app.ui.configurator.tabs.tab_batch_fields import field_summary
 
-    def test_add_field(self, qtbot, sample_app):
-        sample_app.batch_fields_json = "[]"
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-        assert tab._table.rowCount() == 0
+        assert field_summary({"label": "NIF", "type": "texto", "required": True}) == (
+            "NIF",
+            "texto · obligatorio",
+        )
+        assert field_summary({"label": "", "type": "fecha"}) == (
+            "(sin nombre)",
+            "fecha",
+        )
 
-        # Simular click en "Añadir campo"
+    def test_add_field(self, qtbot):
+        tab = self._tab(qtbot, [])
         tab._add_empty_row()
-        assert tab._table.rowCount() == 1
+        assert tab._list.count() == 1
+        assert tab._list.currentRow() == 0
+        assert tab._type_combo.currentText() == "texto"
 
-        # La fila nueva tiene tipo "texto" por defecto
-        type_w = self._get_type_combo(tab, 0)
-        assert type_w.currentText() == "texto"
+    def test_change_type_updates_config_widget(self, qtbot):
+        tab = self._tab(qtbot, [{"label": "Campo1", "type": "texto"}])
+        tab._type_combo.setCurrentText("numérico")
+        assert tab._config_stack.currentIndex() == tab._config_pages["numérico"]
+        assert tab._fields[0]["config"] == {"min": 0, "max": 100, "step": 1}
+        tab._type_combo.setCurrentText("lista")
+        assert tab._config_stack.currentIndex() == tab._config_pages["lista"]
+        # Al cambiar de tipo no quedan claves del tipo anterior
+        assert tab._fields[0]["config"] == {"values": []}
+        tab._type_combo.setCurrentText("texto")
+        assert "config" not in tab._fields[0]
 
-    def test_change_type_updates_config_widget(self, qtbot, sample_app):
-        sample_app.batch_fields_json = json.dumps(
-            [
-                {"label": "Campo1", "type": "texto", "required": False},
-            ]
-        )
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
+    def test_apply_to_serializes_all_types(self, qtbot):
+        fields = [
+            {"label": "Nombre", "type": "texto", "required": True},
+            {
+                "label": "Estado",
+                "type": "lista",
+                "required": False,
+                "config": {"values": ["Abierto", "Cerrado"]},
+            },
+            {
+                "label": "Cantidad",
+                "type": "numérico",
+                "required": True,
+                "config": {"min": 0, "max": 999, "step": 5},
+            },
+        ]
+        tab = self._tab(qtbot, fields)
+        # Recorrer los campos en el detalle no cambia nada
+        for row in range(3):
+            tab._list.setCurrentRow(row)
+        assert self._saved(tab) == fields
 
-        # Cambiar a numérico
-        type_w = self._get_type_combo(tab, 0)
-        type_w.setCurrentText("numérico")
+    def test_descripcion_y_valor_por_defecto(self, qtbot):
+        tab = self._tab(qtbot, [{"label": "Data", "type": "fecha"}])
+        tab._default_edit.setText("01/01/2026")
+        tab._description_edit.setPlainText("Data del lot. Buida = avui.")
+        saved = self._saved(tab)[0]
+        assert saved["default"] == "01/01/2026"
+        assert saved["description"] == "Data del lot. Buida = avui."
+        # Vaciarlos quita la clave en lugar de guardar ""
+        tab._default_edit.setText("")
+        tab._description_edit.setPlainText("")
+        saved = self._saved(tab)[0]
+        assert "default" not in saved and "description" not in saved
 
-        config_w = tab._table.cellWidget(0, 2)
-        assert config_w.findChild(QSpinBox, "numMin") is not None
+    def test_apply_to_no_descarta_claves(self, qtbot):
+        """Regresión: apply_to rehacía cada campo con 4 claves y perdía el resto."""
+        fields = [
+            {
+                "label": "Data",
+                "type": "fecha",
+                "config": {"format": "dd/MM/yyyy", "extra": 1},
+                "required": False,
+                "description": "Data del lot",
+                "default": "01/01/2026",
+                "clave_futura": {"x": [1, 2]},
+            }
+        ]
+        tab = self._tab(qtbot, fields)
+        tab._required_check.setChecked(True)  # editar otra clave
+        saved = self._saved(tab)[0]
+        assert saved["clave_futura"] == {"x": [1, 2]}
+        assert saved["description"] == "Data del lot"
+        assert saved["default"] == "01/01/2026"
+        assert saved["config"] == {"format": "dd/MM/yyyy", "extra": 1}
+        assert saved["required"] is True
 
-        # Cambiar a lista
-        type_w = self._get_type_combo(tab, 0)
-        type_w.setCurrentText("lista")
-
-        config_w = tab._table.cellWidget(0, 2)
-        assert config_w.findChild(QLineEdit, "listValues") is not None
-
-    def test_apply_to_serializes_all_types(self, qtbot, sample_app):
-        sample_app.batch_fields_json = json.dumps(
-            [
-                {"label": "Nombre", "type": "texto", "required": True},
-                {
-                    "label": "Estado",
-                    "type": "lista",
-                    "required": False,
-                    "config": {"values": ["Abierto", "Cerrado"]},
-                },
-                {
-                    "label": "Cantidad",
-                    "type": "numérico",
-                    "required": True,
-                    "config": {"min": 0, "max": 999, "step": 5},
-                },
-            ]
-        )
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-
-        result_app = Application(name="Result")
-        tab.apply_to(result_app)
-
-        fields = json.loads(result_app.batch_fields_json)
-        assert len(fields) == 3
-
-        assert fields[0]["label"] == "Nombre"
-        assert fields[0]["type"] == "texto"
-        assert fields[0]["required"] is True
-
-        assert fields[1]["label"] == "Estado"
-        assert fields[1]["type"] == "lista"
-        assert fields[1]["config"]["values"] == ["Abierto", "Cerrado"]
-
-        assert fields[2]["label"] == "Cantidad"
-        assert fields[2]["type"] == "numérico"
-        assert fields[2]["config"]["min"] == 0
-        assert fields[2]["config"]["max"] == 999
-        assert fields[2]["config"]["step"] == 5
-
-    def test_empty_label_rows_skipped_on_apply(self, qtbot, sample_app):
-        sample_app.batch_fields_json = "[]"
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-
-        tab._add_empty_row()  # Label vacío
+    def test_empty_label_rows_skipped_on_apply(self, qtbot):
+        tab = self._tab(qtbot, [])
+        tab._add_empty_row()  # Nombre vacío
         tab._add_empty_row()
-        # Poner label solo en la segunda
-        label_w = self._get_label(tab, 1)
-        label_w.setText("Campo Real")
+        tab._label_edit.setText("Campo Real")
+        saved = self._saved(tab)
+        assert [f["label"] for f in saved] == ["Campo Real"]
 
-        result_app = Application(name="R")
-        tab.apply_to(result_app)
-        fields = json.loads(result_app.batch_fields_json)
-        assert len(fields) == 1
-        assert fields[0]["label"] == "Campo Real"
-
-    def test_remove_row(self, qtbot, sample_app):
-        sample_app.batch_fields_json = json.dumps(
-            [
-                {"label": "A", "type": "texto", "required": False},
-                {"label": "B", "type": "texto", "required": False},
-                {"label": "C", "type": "texto", "required": False},
-            ]
+    def test_remove_row(self, qtbot):
+        tab = self._tab(
+            qtbot,
+            [{"label": n, "type": "texto", "required": False} for n in "ABC"],
         )
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-        assert tab._table.rowCount() == 3
-
         tab._remove_row(1)  # Eliminar "B"
-        assert tab._table.rowCount() == 2
+        assert tab._list.count() == 2
+        assert self._labels(tab) == ["A", "C"]
+        assert tab._label_edit.text() == "C"
 
-        labels = []
-        for r in range(tab._table.rowCount()):
-            w = self._get_label(tab, r)
-            labels.append(w.text())
-        assert labels == ["A", "C"]
+    def test_boton_eliminar_quita_el_seleccionado(self, qtbot):
+        tab = self._tab(qtbot, [{"label": "A", "type": "texto"}])
+        tab._btn_remove.click()
+        assert tab._list.count() == 0
+        assert tab._detail_stack.currentIndex() == 0
+        assert not tab._btn_remove.isEnabled()
 
-    def test_move_row_down(self, qtbot, sample_app):
-        sample_app.batch_fields_json = json.dumps(
+    def test_move_row_down(self, qtbot):
+        tab = self._tab(
+            qtbot,
             [
                 {"label": "Primero", "type": "texto", "required": False},
                 {
@@ -634,20 +813,16 @@ class TestBatchFieldsTab:
                     "required": True,
                     "config": {"values": ["X", "Y"]},
                 },
-            ]
+            ],
         )
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-
         tab._move_row(0, 1)  # Mover "Primero" abajo
+        assert self._labels(tab) == ["Segundo", "Primero"]
+        assert tab._list.currentRow() == 1
+        assert tab._label_edit.text() == "Primero"
 
-        label_0 = self._get_label(tab, 0).text()
-        label_1 = self._get_label(tab, 1).text()
-        assert label_0 == "Segundo"
-        assert label_1 == "Primero"
-
-    def test_move_row_up(self, qtbot, sample_app):
-        sample_app.batch_fields_json = json.dumps(
+    def test_move_row_up(self, qtbot):
+        tab = self._tab(
+            qtbot,
             [
                 {"label": "A", "type": "texto", "required": False},
                 {
@@ -656,48 +831,29 @@ class TestBatchFieldsTab:
                     "required": True,
                     "config": {"min": 0, "max": 10, "step": 1},
                 },
-            ]
+            ],
         )
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-
         tab._move_row(1, -1)  # Mover "B" arriba
+        assert self._labels(tab) == ["B", "A"]
+        assert self._saved(tab)[0]["config"] == {"min": 0, "max": 10, "step": 1}
 
-        label_0 = self._get_label(tab, 0).text()
-        label_1 = self._get_label(tab, 1).text()
-        assert label_0 == "B"
-        assert label_1 == "A"
-
-    def test_move_row_boundary_no_crash(self, qtbot, sample_app):
-        sample_app.batch_fields_json = json.dumps(
-            [
-                {"label": "Solo", "type": "texto", "required": False},
-            ]
-        )
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-
+    def test_move_row_boundary_no_crash(self, qtbot):
+        tab = self._tab(qtbot, [{"label": "Solo", "type": "texto"}])
         tab._move_row(0, -1)  # No puede subir más
         tab._move_row(0, 1)  # No puede bajar más
-        assert tab._table.rowCount() == 1
+        assert tab._list.count() == 1
 
-    def test_required_checkbox_state(self, qtbot, sample_app):
-        sample_app.batch_fields_json = json.dumps(
+    def test_required_checkbox_state(self, qtbot):
+        tab = self._tab(
+            qtbot,
             [
                 {"label": "Req", "type": "texto", "required": True},
                 {"label": "Opt", "type": "texto", "required": False},
-            ]
+            ],
         )
-        tab = BatchFieldsTab(sample_app)
-        qtbot.addWidget(tab)
-
-        req_w = tab._table.cellWidget(0, 3)
-        cb0 = req_w.findChild(QCheckBox)
-        assert cb0.isChecked() is True
-
-        opt_w = tab._table.cellWidget(1, 3)
-        cb1 = opt_w.findChild(QCheckBox)
-        assert cb1.isChecked() is False
+        assert tab._required_check.isChecked() is True
+        tab._list.setCurrentRow(1)
+        assert tab._required_check.isChecked() is False
 
 
 # ------------------------------------------------------------------
@@ -747,7 +903,7 @@ class TestAppConfigurator:
         qtbot.addWidget(dialog)
         tab = dialog._tab_events
         assert tab._current_event == "on_app_start"
-        tab._code_edit.setPlainText("def on_app_start(app, batch:\n")
+        tab.set_event_code("on_app_start", "def on_app_start(app, batch:\n")
         with patch("app.ui.configurator.app_configurator.QMessageBox.warning") as aviso:
             dialog._on_save()
         aviso.assert_called_once()
@@ -850,7 +1006,7 @@ class TestBarcodeStepDialogSeparador:
         )
         dialog = BarcodeStepDialog(step)
         qtbot.addWidget(dialog)
-        assert dialog._sep_group.isChecked()
+        assert dialog._sep_auto.isChecked()
         assert dialog._sep_regex.isEnabled()
         assert not dialog._sep_fixed.isEnabled()
         out = dialog.get_step()
@@ -863,11 +1019,35 @@ class TestBarcodeStepDialogSeparador:
         step = BarcodeStep(id="b", separator_enabled=True)
         dialog = BarcodeStepDialog(step)
         qtbot.addWidget(dialog)
-        dialog._sep_group.setChecked(False)
+        dialog._sep_auto.setChecked(False)
         dialog._sep_mode.setCurrentIndex(dialog._sep_mode.findData("fixed_value"))
         out = dialog.get_step()
         assert not out.separator_enabled
         assert out.separator_by == "fixed_value"
+
+    def test_solo_se_ve_el_campo_de_la_condicion(self, qtbot):
+        dialog = BarcodeStepDialog(BarcodeStep(id="b", separator_by="symbology"))
+        qtbot.addWidget(dialog)
+        form = dialog._sep_form
+        assert form.isRowVisible(dialog._sep_symbology)
+        assert not form.isRowVisible(dialog._sep_regex)
+        assert not form.isRowVisible(dialog._sep_fixed)
+        dialog._sep_mode.setCurrentIndex(dialog._sep_mode.findData("regex"))
+        assert form.isRowVisible(dialog._sep_regex)
+        assert form.isRowVisible(dialog._sep_legend)
+        assert not form.isRowVisible(dialog._sep_symbology)
+
+    def test_marca_manual_independiente_de_la_deteccion(self, qtbot):
+        """Bloque «Marca manual»: editable aunque no haya detección automática."""
+        dialog = BarcodeStepDialog(BarcodeStep(id="b", separator_enabled=False))
+        qtbot.addWidget(dialog)
+        assert not dialog._sep_auto_body.isEnabled()
+        assert dialog._sep_manual_regex.isEnabled()
+        dialog._sep_manual_regex.setText(r"^\d{6}$")
+        dialog._sep_default.setText("000000")
+        out = dialog.get_step()
+        assert out.separator_manual_regex == r"^\d{6}$"
+        assert out.separator_default_value == "000000"
 
 
 class TestGeneralTabParidad:

@@ -189,11 +189,17 @@ PIPELINE = [
 ]
 
 BATCH_FIELDS = [
-    {"label": "Proveedor", "type": "texto", "required": True},
+    {
+        "label": "Proveedor",
+        "type": "texto",
+        "required": True,
+        "description": "NIF o nombre del proveedor tal como figura en la factura.",
+    },
     {
         "label": "Fecha de recepción",
         "type": "fecha",
         "config": {"format": "dd/MM/yyyy"},
+        "description": "Fecha de entrada en el registro. Vacía = hoy.",
     },
     {"label": "Cajas", "type": "numérico", "config": {"min": 0, "max": 999, "step": 1}},
 ]
@@ -206,7 +212,15 @@ EVENTS = {
         "        log.warning('Falta el proveedor')\n"
         "        return False\n"
         "    return True\n"
-    )
+    ),
+    # Evento pausado: conserva el código pero no se ejecuta
+    "on_batch_loaded": {
+        "script": (
+            "def on_batch_loaded(app, batch):\n"
+            "    log.info('Lote %s abierto', batch.id)\n"
+        ),
+        "enabled": False,
+    },
 }
 
 _TRANSFER_PDF = {
@@ -490,10 +504,7 @@ class Shooter:
         dlg.show()
         dlg._tabs.setCurrentIndex(self._CONFIG_TABS[name])
         if name == "configurator_events":
-            events = dlg._tab_events
-            idx = events._event_combo.findData("on_transfer_validate")
-            if idx >= 0:
-                events._event_combo.setCurrentIndex(idx)
+            dlg._tab_events.select_event("on_transfer_validate")
         self._save(name, dlg)
         dlg.close()
 
@@ -506,8 +517,17 @@ class Shooter:
         )
 
         dlg = BarcodeStepDialog(
-            BarcodeStep(id="codigos", engine="motor2", symbologies=["Code128", "QR"])
+            BarcodeStep(
+                id="codigos",
+                engine="motor2",
+                symbologies=["Code128", "QR"],
+                separator_enabled=True,
+                separator_by="regex",
+                separator_regex="^22SEP",
+                separator_regex_include_symbology=True,
+            )
         )
+        dlg.resize(720, 1400)
         dlg.show()
         self._save("dialog_barcode", dlg)
         dlg.close()
@@ -530,6 +550,18 @@ class Shooter:
         dlg.resize(760, 560)
         dlg.show()
         self._save("dialog_script", dlg)
+        dlg.close()
+
+    def dialog_event_script(self) -> None:
+        from app.ui.configurator.event_script_dialog import EventScriptDialog
+
+        dlg = EventScriptDialog(
+            "on_transfer_validate",
+            "Antes de transferir",
+            EVENTS["on_transfer_validate"],
+        )
+        dlg.show()
+        self._save("dialog_event_script", dlg)
         dlg.close()
 
     # -- workbench y gestor de lotes ---------------------------------------
@@ -573,6 +605,7 @@ class Shooter:
             "dialog_barcode": self.dialog_barcode,
             "dialog_ocr": self.dialog_ocr,
             "dialog_script": self.dialog_script,
+            "dialog_event_script": self.dialog_event_script,
             "workbench_full": self.workbench_full,
             "batch_manager": self.batch_manager,
         }
@@ -595,6 +628,7 @@ SHOT_NAMES = (
     "dialog_barcode",
     "dialog_ocr",
     "dialog_script",
+    "dialog_event_script",
     "workbench_full",
     "batch_manager",
 )

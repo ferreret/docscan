@@ -267,6 +267,7 @@ def transferencia(app: ArnauApp, raiz: str) -> dict[str, Any]:
 CAMPOS_DE_LOTE = [
     {
         "label": "Data",
+        "description": "Data del lot (dd/MM/yyyy). Buida = avui.",
         "type": "fecha",
         "config": {"format": "dd/MM/yyyy"},
         "required": False,
@@ -278,9 +279,8 @@ def columnas(app: ArnauApp, raiz: str, escaner: str = "twain") -> dict[str, Any]
     """Valores de las columnas de ``Application`` para una App del Arnau.
 
     Todas las opciones de la App de Flexibar que tienen equivalente en
-    DocScan (``Program.Sembrar`` de SeedAppsArnau). Sin equivalente quedan el
-    grupo del launcher («Hospital Arnau de Vilanova») y la descripción del
-    campo de lote, que el operador no ve.
+    DocScan (``Program.Sembrar`` de SeedAppsArnau). Sin equivalente queda el
+    grupo del launcher («Hospital Arnau de Vilanova»).
     """
     return {
         "name": app.nombre,

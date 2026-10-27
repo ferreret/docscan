@@ -223,6 +223,7 @@ def _run_init_global(session_factory) -> None:
     """Busca y ejecuta init_global en las aplicaciones configuradas."""
     _log = logging.getLogger(__name__)
     from app.db.repositories.application_repo import ApplicationRepository
+    from app.services.event_config import active_event_sources
     from app.services.script_engine import ScriptEngine
 
     with session_factory() as session:
@@ -231,10 +232,7 @@ def _run_init_global(session_factory) -> None:
         for app_record in apps:
             if not app_record.active:
                 continue
-            try:
-                events = json.loads(app_record.events_json or "{}")
-            except Exception:
-                continue
+            events = active_event_sources(app_record.events_json)
             source = events.get("init_global", "")
             if source and source.strip():
                 engine = ScriptEngine()

@@ -65,6 +65,8 @@ class MetadataPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._batch_widgets: dict[str, QWidget] = {}
+        # Valor por defecto de cada campo (pestaña Campos de lote)
+        self._batch_defaults: dict[str, str] = {}
         self._index_widgets: dict[str, QWidget] = {}
         self._setup_ui()
 
@@ -180,8 +182,12 @@ class MetadataPanel(QWidget):
     ) -> None:
         """Crea los widgets de campos según la definición de la app.
 
-        Cada definición es un dict con: name, type, required, choices.
+        Cada definición es un dict con: name, type, required, choices y,
+        opcionalmente, default (valor que se propone en un lote nuevo).
         """
+        self._batch_defaults = {
+            f.get("name", ""): str(f.get("default", "") or "") for f in batch_fields_def
+        }
         self._build_fields(
             batch_fields_def,
             self._lote_layout,
@@ -309,9 +315,15 @@ class MetadataPanel(QWidget):
     # ------------------------------------------------------------------
 
     def set_batch_fields(self, values: dict[str, str]) -> None:
-        """Carga los valores de los campos de lote."""
+        """Carga los valores de los campos de lote.
+
+        Un campo que el lote aún no tiene (lote nuevo) toma su valor por
+        defecto, como en FlexibarNET10.
+        """
         for name, widget in self._batch_widgets.items():
-            val = values.get(name, "")
+            val = values.get(name)
+            if val is None:
+                val = self._batch_defaults.get(name, "")
             self._set_widget_value(widget, val)
 
     def set_index_fields(self, values: dict[str, str]) -> None:

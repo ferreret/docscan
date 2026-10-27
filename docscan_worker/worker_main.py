@@ -41,6 +41,12 @@ from app.pipeline.serializer import deserialize
 from app.pipeline.steps import ScriptStep
 from app.services.barcode_service import BarcodeService
 from app.services.batch_service import BatchService
+from app.services.event_config import (
+    event_enabled,
+    event_entry_point,
+    event_source,
+    parse_events,
+)
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
 from app.services.notification_service import (
@@ -190,25 +196,13 @@ def _compile_lifecycle_events(
         Diccionario {event_name: entry_point_name} de eventos compilados.
     """
     events: dict[str, str] = {}
-    try:
-        events_data = json.loads(app_record.events_json)
-    except json.JSONDecodeError, TypeError:
-        return events
-
-    for event_name, event_config in events_data.items():
-        # Soportar ambos formatos:
-        #   - str: código fuente directo (formato de tab_events.py)
-        #   - dict: {"script": "...", "entry_point": "..."} (formato extendido)
-        if isinstance(event_config, str):
-            source = event_config
-            entry_point = event_name
-        elif isinstance(event_config, dict):
-            source = event_config.get("script", "")
-            entry_point = event_config.get("entry_point", event_name)
-        else:
+    # Ambos formatos: str (código directo) o dict {"script", "entry_point",
+    # "enabled"}. Un evento desactivado («PAUSADO») no se compila: no corre.
+    for event_name, event_config in parse_events(app_record.events_json).items():
+        source = event_source(event_config)
+        if not source.strip() or not event_enabled(event_config):
             continue
-        if not source or not source.strip():
-            continue
+        entry_point = event_entry_point(event_name, event_config)
         try:
             script_engine.compile_script(event_name, source, label=event_name)
             events[event_name] = entry_point
