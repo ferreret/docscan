@@ -219,3 +219,24 @@ def test_el_workbench_compila_el_script_de_nombre(entorno, qtbot, tmp_path):
     assert window._separator_step().separator_regex == "^(02|10)"
     window.close()
     engine.dispose()
+
+
+def test_los_scripts_del_arnau_salen_formateados():
+    """El integrador los ve y edita en el Configurador: formato de ruff."""
+    import subprocess
+
+    arnau = _load_tool("arnau_apps")
+    fuentes = [arnau.VALIDAR] + [
+        arnau.nombre_fichero(app.max_digitos, app.prefijo_mdd) for app in arnau.APPS
+    ]
+    for fuente in fuentes:
+        compile(fuente, "<arnau>", "exec")
+        r = subprocess.run(
+            [sys.executable, "-m", "ruff", "format", "--diff", "-"],
+            input=fuente,
+            text=True,
+            capture_output=True,
+        )
+        if "No module named ruff" in r.stderr:
+            pytest.skip("ruff no está instalado")
+        assert r.returncode == 0, r.stdout

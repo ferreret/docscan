@@ -205,7 +205,12 @@ def card_info(app: Any) -> AppCardInfo:
     steps = pipeline_step_types(app.pipeline_json, app.id)
     return AppCardInfo(
         icon_key=derive_icon_key(app, steps),
-        accent=resolve_accent(app.name),
+        # Un color fijado en el Configurador gana al automático por el nombre
+        accent=(
+            app.icon_accent
+            if getattr(app, "icon_accent", "") in ACCENTS
+            else resolve_accent(app.name)
+        ),
         tags=derive_tags(app, steps),
         updated=format_date(getattr(app, "updated_at", None) or app.created_at),
     )

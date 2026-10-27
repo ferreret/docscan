@@ -11,10 +11,12 @@ Configuración básica de la aplicación.
 
 | Opción | Descripción |
 |--------|-------------|
-| Nombre | Nombre visible en el Launcher. De él sale también el color de su tarjeta |
+| Nombre | Nombre visible en el Launcher |
 | Descripción | Texto descriptivo del propósito |
 | Activa | Las inactivas se ven con el indicador gris en el Launcher |
-| Backend escáner | SANE (Linux) o TWAIN/WIA (Windows), según el sistema |
+| Backend escáner | SANE (Linux) o TWAIN/WIA (Windows), según el sistema. Un backend de otra plataforma (una App preparada para Windows abierta en Linux) se conserva al guardar |
+| Mostrar el diálogo del escáner al capturar | Valor por defecto de la casilla de ⚙ en los equipos donde el operador no la ha cambiado |
+| Color del icono | Color de la tarjeta en el Launcher. «Automático» lo saca del nombre, como FlexibarNET 10 |
 | Transferir automáticamente | Transferir al completar el pipeline |
 | Cerrar tras transferir | Cierra el Workbench después de transferir |
 | Barcode manual | Expresión regex o valor fijo para los códigos añadidos a mano, y la casilla que oculta «+ Añadir» |
@@ -60,7 +62,18 @@ Ver [Pipeline](pipeline.md) para la documentación completa.
 
 ## Pestaña Eventos
 
-Ver [Scripting](scripting.md) para los eventos del ciclo de vida.
+Ver [Scripting](scripting.md) para los eventos del ciclo de vida. El desplegable
+marca con ● los eventos que tienen código y la pestaña se abre en el primero
+de ellos.
+
+## Editor de scripts
+
+Todos los scripts (eventos, pasos Script, script de nombre de fichero y las
+vistas previas de los asistentes) se editan con el mismo editor: fuente
+monoespaciada, colores de Python según el tema, números de línea y resaltado
+de la línea actual. **Tab** inserta cuatro espacios (o sangra la selección),
+**Mayús+Tab** quita un nivel e **Intro** mantiene la sangría y añade un nivel
+después de `:`.
 
 ## Pestaña Transferencia
 

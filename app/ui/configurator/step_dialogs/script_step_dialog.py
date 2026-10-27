@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, QThread, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -14,7 +13,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -22,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from app.pipeline.steps import ScriptStep
 from app.services.external_editor_service import detect_editor, edit_script
+from app.ui.widgets.code_editor import CodeEditor
 
 log = logging.getLogger(__name__)
 
@@ -127,13 +126,7 @@ class ScriptStepDialog(QDialog):
         code_layout.addLayout(code_bar)
 
         # Editor de código
-        self._code_edit = QPlainTextEdit()
-        font = QFont("Monospace", 10)
-        font.setStyleHint(QFont.StyleHint.Monospace)
-        self._code_edit.setFont(font)
-        self._code_edit.setTabStopDistance(
-            self._code_edit.fontMetrics().horizontalAdvance(" ") * 4
-        )
+        self._code_edit = CodeEditor()
 
         # Plantilla por defecto si el script está vacío
         code = step.script if step.script and step.script.strip() else _DEFAULT_TEMPLATE

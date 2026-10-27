@@ -63,7 +63,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_foo.py::TestClas
 
 # Hospital Arnau archive apps (ported from FlexibarNET10) into a test DB, plus
 # synthetic pages with real barcodes. Never seeds the user's DB by default.
-.venv/bin/python tools/seed_apps_arnau.py --db /tmp/arnau.db --export-base /tmp/out --paginas /tmp/pages
+.venv/bin/python tools/seed_apps_arnau.py --db /tmp/arnau.db --export-base /tmp/out --paginas /tmp/pages --escaner sane
 
 # Linux/Wayland: icon in the dock when running from source (writes
 # ~/.local/share/applications/docscan.desktop; --uninstall removes it)

@@ -2832,7 +2832,14 @@ class WorkbenchWindow(QMainWindow):
         prefix = f"source/{self._app_id}"
         scanner_name = s.value(f"{prefix}/scanner_name", "")
         source_type = s.value(f"{prefix}/source_type", "flatbed")
-        show_config = s.value(f"{prefix}/show_config", False)
+        # Sin preferencia guardada en este equipo manda la de la App
+        # (FlexibarNET10 ShowScannerUi).
+        app_default = bool(
+            getattr(self._application, "show_scanner_ui", False)
+            if self._application
+            else False
+        )
+        show_config = s.value(f"{prefix}/show_config", app_default)
         scan_options_json = s.value(f"{prefix}/scan_options", "")
 
         # Convertir string "true"/"false" de QSettings a bool

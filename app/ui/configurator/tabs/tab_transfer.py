@@ -4,24 +4,25 @@ from __future__ import annotations
 
 import json
 
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from app.models.application import Application
+from app.ui.widgets.code_editor import CodeEditor
 
 _SENTINEL_ORIGINAL = "(original)"
 
@@ -45,7 +46,17 @@ class TransferTab(QWidget):
         self._load_from_app(app)
 
     def _setup_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
+        # Con scroll, como la pestaña General: con el script de nombre la
+        # pestaña no cabe y Qt aplastaba los controles unos sobre otros.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+        main_layout = QVBoxLayout(content)
 
         # ── Grupo: Configuración general ──
         general_group = QGroupBox(self.tr("Configuración general"))
@@ -95,45 +106,6 @@ class TransferTab(QWidget):
         dest_layout.addWidget(btn_browse)
         gen_form.addRow(self.tr("Destino:"), dest_row)
 
-        self._pattern_edit = QLineEdit()
-        self._pattern_edit.setPlaceholderText("{batch_id}_{page_index:04d}")
-        self._pattern_edit.setToolTip(
-            self.tr(
-                "Plantilla para nombrar los archivos.\n"
-                "Variables disponibles:\n"
-                "  {batch_id} — ID del lote\n"
-                "  {page_index} — Índice de página (base 0)\n"
-                "  {first_barcode} — Valor del primer barcode detectado\n"
-                "  {nombre_campo} — Campo de lote (espacios → guiones bajos)\n"
-                "  :04d — Rellena con ceros (ej: 0001)\n"
-                "  / — Crea subdirectorios\n\n"
-                "Ejemplo: {fecha_lote}/{first_barcode}_{page_index:04d}"
-            )
-        )
-        gen_form.addRow(self.tr("Patrón nombre:"), self._pattern_edit)
-
-        self._name_mode_combo = QComboBox()
-        self._name_mode_combo.addItem(self.tr("Patrón"), "pattern")
-        self._name_mode_combo.addItem(self.tr("Script"), "script")
-        self._name_mode_combo.setToolTip(
-            self.tr(
-                "Script: una función file_name(page, document, batch, app) "
-                "calcula la subruta y el nombre. Si devuelve None se usa el "
-                "patrón; si falla, la transferencia no se hace."
-            )
-        )
-        gen_form.addRow(self.tr("Nombre por:"), self._name_mode_combo)
-
-        self._name_script_edit = QPlainTextEdit()
-        self._name_script_edit.setObjectName("fileNameScript")
-        font = QFont("Monospace", 10)
-        font.setStyleHint(QFont.StyleHint.Monospace)
-        self._name_script_edit.setFont(font)
-        self._name_script_edit.setMinimumHeight(160)
-        self._name_script_edit.setPlaceholderText(FILE_NAME_TEMPLATE)
-        gen_form.addRow(self._name_script_edit)
-        self._name_mode_combo.currentIndexChanged.connect(self._on_name_mode_changed)
-
         self._subdirs = QCheckBox(self.tr("Crear subdirectorios por lote"))
         self._subdirs.setToolTip(
             self.tr("Crea una subcarpeta por cada lote (ej: batch_123/)")
@@ -175,6 +147,49 @@ class TransferTab(QWidget):
 
         main_layout.addWidget(general_group)
 
+        # ── Grupo: Nombre de los ficheros (patrón o script) ──
+        name_group = QGroupBox(self.tr("Nombre de los ficheros"))
+        name_form = QFormLayout(name_group)
+        name_form.setVerticalSpacing(8)
+        name_form.setContentsMargins(12, 12, 12, 12)
+        # Primero cómo se nombra; debajo, el patrón o el script.
+        self._pattern_edit = QLineEdit()
+        self._pattern_edit.setPlaceholderText("{batch_id}_{page_index:04d}")
+        self._pattern_edit.setToolTip(
+            self.tr(
+                "Plantilla para nombrar los archivos.\n"
+                "Variables disponibles:\n"
+                "  {batch_id} — ID del lote\n"
+                "  {page_index} — Índice de página (base 0)\n"
+                "  {first_barcode} — Valor del primer barcode detectado\n"
+                "  {nombre_campo} — Campo de lote (espacios → guiones bajos)\n"
+                "  :04d — Rellena con ceros (ej: 0001)\n"
+                "  / — Crea subdirectorios\n\n"
+                "Ejemplo: {fecha_lote}/{first_barcode}_{page_index:04d}"
+            )
+        )
+
+        self._name_mode_combo = QComboBox()
+        self._name_mode_combo.addItem(self.tr("Patrón"), "pattern")
+        self._name_mode_combo.addItem(self.tr("Script"), "script")
+        self._name_mode_combo.setToolTip(
+            self.tr(
+                "Script: una función file_name(page, document, batch, app) "
+                "calcula la subruta y el nombre. Si devuelve None se usa el "
+                "patrón; si falla, la transferencia no se hace."
+            )
+        )
+        name_form.addRow(self.tr("Nombre por:"), self._name_mode_combo)
+        name_form.addRow(self.tr("Patrón:"), self._pattern_edit)
+
+        self._name_script_edit = CodeEditor()
+        self._name_script_edit.setMinimumHeight(320)
+        self._name_script_edit.setPlaceholderText(FILE_NAME_TEMPLATE)
+        name_form.addRow(self._name_script_edit)
+        self._name_mode_combo.currentIndexChanged.connect(self._on_name_mode_changed)
+
+        main_layout.addWidget(name_group)
+
         # ── Grupo: Documentos (separadores) ──
         self._documents_group = QGroupBox(self.tr("Documentos"))
         doc_form = QFormLayout(self._documents_group)
@@ -215,9 +230,7 @@ class TransferTab(QWidget):
         main_layout.addWidget(self._documents_group)
 
         # ── Grupo: Formato de salida (solo modo carpeta) ──
-        self._output_group = QGroupBox(
-            self.tr("Conversión al transferir (modo carpeta)")
-        )
+        self._output_group = QGroupBox(self.tr("Imágenes de salida"))
         out_form = QFormLayout(self._output_group)
         out_form.setVerticalSpacing(8)
         out_form.setContentsMargins(12, 12, 12, 12)

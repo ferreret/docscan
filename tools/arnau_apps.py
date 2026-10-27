@@ -152,11 +152,8 @@ APPS: tuple[ArnauApp, ...] = (
 # del legacy. El campo se llama «Data» porque es la etiqueta que ve el
 # operador (en catalán): si se renombra, hay que cambiarlo también aquí o
 # todo se archivará con la fecha de hoy.
-_FECHA_DE_LOTE = """
-from datetime import date, datetime
-
-
-def _fecha_de_lote(batch):
+_FECHA_DE_LOTE = """def _fecha_de_lote(batch):
+    \"\"\"Fecha del campo de lote «Data» (dd/mm/aaaa); vacía o ilegible = hoy.\"\"\"
     raw = str((batch.fields or {}).get("Data") or "").strip()
     if not raw:
         return date.today()
@@ -170,12 +167,22 @@ def _fecha_de_lote(batch):
 
 
 def nombre_fichero(max_digitos: int, prefijo_mdd: bool) -> str:
-    """Script de nombre: subruta ``aaaammdd/código`` sin extensión."""
-    return f"""MAX_DIGITOS = {max_digitos}
-PREFIJO_MDD = {prefijo_mdd}
+    """Script de nombre: subruta ``aaaammdd/código`` sin extensión.
+
+    Sale con el formato de ``ruff format``: es lo que el integrador verá y
+    editará en el Configurador.
+    """
+    return f"""from datetime import date, datetime
+
+# Configuración de esta App (en Flexibar, MaxDigitos y PrefijoMdd)
+MAX_DIGITOS = {max_digitos}  # 0 = el código entero; si no, los últimos N
+PREFIJO_MDD = {prefijo_mdd}  # antepone mes (sin cero) y día al código
+
+
 {_FECHA_DE_LOTE}
 
 def file_name(page, document, batch, app):
+    \"\"\"Subruta aaaammdd/código, sin extensión.\"\"\"
     codigo = document.separator_value if document else ""
     if not codigo:
         raise ValueError(
@@ -264,8 +271,14 @@ CAMPOS_DE_LOTE = [
 ]
 
 
-def columnas(app: ArnauApp, raiz: str) -> dict[str, Any]:
-    """Valores de las columnas de ``Application`` para una App del Arnau."""
+def columnas(app: ArnauApp, raiz: str, escaner: str = "twain") -> dict[str, Any]:
+    """Valores de las columnas de ``Application`` para una App del Arnau.
+
+    Todas las opciones de la App de Flexibar que tienen equivalente en
+    DocScan (``Program.Sembrar`` de SeedAppsArnau). Sin equivalente quedan el
+    grupo del launcher («Hospital Arnau de Vilanova») y la descripción del
+    campo de lote, que el operador no ve.
+    """
     return {
         "name": app.nombre,
         "description": app.descripcion,
@@ -274,11 +287,16 @@ def columnas(app: ArnauApp, raiz: str) -> dict[str, Any]:
         "events_json": json.dumps({"on_transfer_validate": VALIDAR}),
         "transfer_json": json.dumps(transferencia(app, raiz), ensure_ascii=False),
         "batch_fields_json": json.dumps(CAMPOS_DE_LOTE, ensure_ascii=False),
-        # legacy enCompressionBN = Group4: captura en blanco y negro
+        # legacy enCompressionBN = Group4. Como en Flexibar, la captura
+        # conserva la profundidad del escáner: B/N va en Group4 y una página
+        # en gris o color, en LZW (ImageLib), sin binarizarla.
         "image_config_json": json.dumps(
-            {"format": "tiff", "color_mode": "bw", "tiff_compression": "group4"}
+            {"format": "tiff", "tiff_compression": "group4"}
         ),
         "auto_transfer": False,  # legacy ActivateAutotransfer = false
         "close_after_transfer": True,  # legacy CloseAfterExport = true
         "output_format": "tiff",
+        "scanner_backend": escaner,  # Flexibar: Twain (estaciones Windows)
+        "show_scanner_ui": True,  # legacy ShowScanConfigInterface = true
+        "icon_accent": "blue",  # Flexibar IconAccent de la familia A
     }

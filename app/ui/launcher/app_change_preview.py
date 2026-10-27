@@ -9,16 +9,15 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
+from app.ui.widgets.code_editor import CodeEditor
 
 log = logging.getLogger(__name__)
 
@@ -123,10 +122,8 @@ class AppChangePreview(QFrame):
         # Preview de codigo si hay eventos o scripts
         code_preview = self._get_code_preview()
         if code_preview:
-            code_edit = QPlainTextEdit()
-            code_edit.setReadOnly(True)
+            code_edit = CodeEditor(read_only=True)
             code_edit.setPlainText(code_preview)
-            code_edit.setFont(QFont("monospace", 9))
             code_edit.setMaximumHeight(150)
             layout.addWidget(code_edit)
 

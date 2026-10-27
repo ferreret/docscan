@@ -9,8 +9,8 @@ Uso::
 
     # Sembrar en una BD concreta (nunca toca la del usuario por defecto)
     .venv/bin/python tools/seed_apps_arnau.py --db /ruta/docscan.db
-    # Raíz de destino distinta de W:\\ (p. ej. para el smoke)
-    .venv/bin/python tools/seed_apps_arnau.py --db /tmp/a.db --export-base /tmp/salida
+    # Raíz de destino distinta de W:\\ y escáner SANE (pruebas en Linux)
+    .venv/bin/python tools/seed_apps_arnau.py --db /tmp/a.db --export-base /tmp/salida --escaner sane
     # Exportar un .json por App con el exportador real del launcher
     .venv/bin/python tools/seed_apps_arnau.py --db /tmp/a.db --packs /tmp/packs
     # Generar las páginas de prueba (y comprobar que el lector las lee)
@@ -116,7 +116,7 @@ def generar_paginas(carpeta: Path) -> list[Path]:
 # ------------------------------------------------------------------
 
 
-def sembrar(db_path: Path, raiz: str) -> list[int]:
+def sembrar(db_path: Path, raiz: str, escaner: str = "twain") -> list[int]:
     """Crea o actualiza las Apps en la BD. Idempotente (upsert por nombre).
 
     Returns:
@@ -142,7 +142,7 @@ def sembrar(db_path: Path, raiz: str) -> list[int]:
     ids: list[int] = []
     with session_factory() as session:
         for definicion in arnau_apps.APPS:
-            columnas = arnau_apps.columnas(definicion, raiz)
+            columnas = arnau_apps.columnas(definicion, raiz, escaner)
             errores = find_script_errors(
                 columnas["pipeline_json"],
                 columnas["events_json"],
@@ -200,6 +200,12 @@ def main(argv: list[str] | None = None) -> int:
         default=arnau_apps.RAIZ_PRODUCCION,
         help="Raíz de destino de las transferencias (por defecto W:\\)",
     )
+    parser.add_argument(
+        "--escaner",
+        default="twain",
+        choices=["twain", "wia", "sane"],
+        help="Backend de escáner de las Apps (por defecto twain, como en el hospital)",
+    )
     parser.add_argument("--packs", type=Path, help="Carpeta para exportar las Apps")
     parser.add_argument(
         "--paginas", type=Path, help="Carpeta para generar las páginas de prueba"
@@ -218,7 +224,7 @@ def main(argv: list[str] | None = None) -> int:
             generar_paginas(args.paginas)
         if args.db:
             log.info("BD:   %s\nRaíz: %s", args.db, args.export_base)
-            sembrar(args.db, args.export_base)
+            sembrar(args.db, args.export_base, args.escaner)
             log.info("Listo: %d App(s)", len(arnau_apps.APPS))
         if args.packs:
             log.info("Exportando packs a %s", args.packs)

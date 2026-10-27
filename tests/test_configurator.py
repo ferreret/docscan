@@ -843,3 +843,27 @@ class TestBarcodeStepDialogSeparador:
         out = dialog.get_step()
         assert not out.separator_enabled
         assert out.separator_by == "fixed_value"
+
+
+class TestGeneralTabParidad:
+    """Opciones de FlexibarNET10 que siembran las Apps del Arnau."""
+
+    def test_dialogo_del_escaner_y_color_ida_y_vuelta(self, qtbot, sample_app):
+        sample_app.show_scanner_ui = True
+        sample_app.icon_accent = "blue"
+        tab = GeneralTab(sample_app)
+        qtbot.addWidget(tab)
+        assert tab._show_scanner_ui.isChecked()
+        assert tab._accent_combo.currentData() == "blue"
+        tab._accent_combo.setCurrentIndex(0)  # automático
+        tab._show_scanner_ui.setChecked(False)
+        tab.apply_to(sample_app)
+        assert sample_app.icon_accent == ""
+        assert sample_app.show_scanner_ui is False
+
+    def test_un_backend_de_otra_plataforma_se_conserva(self, qtbot, sample_app):
+        sample_app.scanner_backend = "twain"
+        tab = GeneralTab(sample_app)
+        qtbot.addWidget(tab)
+        tab.apply_to(sample_app)
+        assert sample_app.scanner_backend == "twain"

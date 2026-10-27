@@ -48,6 +48,12 @@ class Application(Base):
     output_format: Mapped[str] = mapped_column(String(20), default="tiff")
     default_tab: Mapped[str] = mapped_column(String(20), default="lote")
     scanner_backend: Mapped[str] = mapped_column(String(10), default="")
+    # Mostrar el diálogo del escáner al capturar, por defecto (FlexibarNET10
+    # ShowScannerUi). El operador puede cambiarlo en ⚙ y se recuerda por equipo.
+    show_scanner_ui: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Color del icono en el launcher ("" = automático por el nombre, como
+    # FlexibarNET10 IconAccent).
+    icon_accent: Mapped[str] = mapped_column(String(20), default="")
 
     # Panel derecho del Workbench (paridad FlexibarNET10): orden y
     # visibilidad de paneles y pestañas (app/models/workbench_layout.py) y

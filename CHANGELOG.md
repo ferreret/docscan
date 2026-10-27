@@ -74,6 +74,28 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
   `separator_value`. Son parámetros opcionales: las firmas anteriores siguen
   funcionando.
 
+### 🎨 Configurador
+
+- **Editor de scripts con colores, números de línea y sangría automática** en
+  los eventos, los pasos Script, el script de nombre y las vistas previas de
+  los asistentes. Antes los scripts salían en la fuente proporcional del tema:
+  el QSS pisaba la monoespaciada.
+- **La pestaña Transferencia tiene scroll** y el nombre de los ficheros
+  (patrón o script) va en su propio grupo. Con el script de nombre, la pestaña
+  no cabía y Qt aplastaba los controles unos sobre otros.
+- **Eventos se abre en el primer evento con código**, marcado con ●.
+- **Opciones nuevas en General**, de FlexibarNET 10: *Mostrar el diálogo del
+  escáner al capturar* (`ShowScannerUi`), como valor por defecto de la casilla
+  de ⚙, y *Color del icono* (`IconAccent`), que fija el color de la tarjeta en
+  el launcher. Migración `e2c7b9a4f160`, solo `ADD COLUMN`. Las dos viajan en
+  la exportación.
+- Un backend de escáner de otra plataforma (`twain` abierto en Linux) se
+  conserva al guardar; antes se cambiaba al primero de la lista.
+- La lista de pasos indica la condición de separador del paso Barcode.
+- **Group4 solo para páginas en blanco y negro**, como el ExportConfig de
+  FlexibarNET 10: un TIFF con alguna página en gris o color va en LZW y no se
+  binariza.
+
 ### 🐛 Corregido
 
 - **Borrar una página y capturar otra sobrescribía una imagen.** El índice de
@@ -98,7 +120,7 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
   registrar nada: `fileConfig` desactivaba los loggers ya creados.
 - **Guardar en TIFF Group4 tumbaba la aplicación** (segfault de libtiff) si la
   imagen no era de 1 bit, por ejemplo una captura en B/N guardada en escala de
-  grises. Ahora se binariza antes.
+  grises. Ahora una página B/N se pasa a 1 bit y una en gris o color va en LZW.
 - **Los scripts de transferencia del worker desatendido no veían los campos
   del lote**: un script que leyera la fecha del lote recibía siempre la de hoy.
 - **El modo directo** (`--direct-mode`) transfiere por el mismo camino que el

@@ -170,3 +170,16 @@ class TestFecha:
     def test_usa_la_ultima_modificacion(self):
         assert card_info(_app()).updated == "26/10/2026"
         assert card_info(_app(updated_at=None)).updated == "01/10/2026"
+
+
+class TestColorFijado:
+    """Color del icono fijado en el Configurador (FlexibarNET10 IconAccent)."""
+
+    def test_el_fijado_gana_al_automatico(self):
+        assert card_info(_app(icon_accent="blue")).accent == "blue"
+
+    def test_vacio_o_desconocido_es_automatico(self):
+        auto = resolve_accent("Facturas")
+        assert card_info(_app(icon_accent="")).accent == auto
+        assert card_info(_app(icon_accent="fucsia")).accent == auto
+        assert card_info(_app()).accent == auto  # App sin la columna

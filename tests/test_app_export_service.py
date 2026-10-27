@@ -296,3 +296,13 @@ class TestCopiaDeConfiguracion:
         assert copia.notifications_json == origen.notifications_json
         assert copia.pipeline_json == origen.pipeline_json
         assert copia.close_after_transfer is True
+
+
+def test_exporta_el_dialogo_del_escaner_y_el_color(sample_app):
+    from app.services.app_export_service import export_application
+
+    sample_app.show_scanner_ui = True
+    sample_app.icon_accent = "blue"
+    data = export_application(sample_app)["application"]
+    assert data["show_scanner_ui"] is True
+    assert data["icon_accent"] == "blue"

@@ -10,12 +10,10 @@ import json
 import logging
 
 from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, QThread, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
-    QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -24,6 +22,7 @@ from PySide6.QtWidgets import (
 from app.models.application import Application
 from app.services._assistant_constants import EVENT_SIGNATURES
 from app.services.external_editor_service import detect_editor, edit_script
+from app.ui.widgets.code_editor import CodeEditor
 
 log = logging.getLogger(__name__)
 
@@ -147,17 +146,11 @@ class EventsTab(QWidget):
         layout.addLayout(code_bar)
 
         # Editor de código
-        self._code_edit = QPlainTextEdit()
+        self._code_edit = CodeEditor()
         self._code_edit.setToolTip(
             self.tr(
                 "Código Python para este evento. Variables: app, batch, page, log, http"
             )
-        )
-        font = QFont("Monospace", 10)
-        font.setStyleHint(QFont.StyleHint.Monospace)
-        self._code_edit.setFont(font)
-        self._code_edit.setTabStopDistance(
-            self._code_edit.fontMetrics().horizontalAdvance(" ") * 4
         )
         layout.addWidget(self._code_edit)
 
@@ -187,7 +180,17 @@ class EventsTab(QWidget):
         self._refresh_combo_labels()
 
         if EVENT_NAMES:
-            self._current_event = EVENT_NAMES[0]
+            # Se abre en el primer evento con código: una App que solo define
+            # on_transfer_validate se abría en on_app_start, vacío.
+            self._current_event = next(
+                (n for n in EVENT_NAMES if self._events.get(n, "").strip()),
+                EVENT_NAMES[0],
+            )
+            self._event_combo.blockSignals(True)
+            self._event_combo.setCurrentIndex(
+                max(self._event_combo.findData(self._current_event), 0)
+            )
+            self._event_combo.blockSignals(False)
             self._code_edit.setPlainText(self._events.get(self._current_event, ""))
             self._code_edit.setPlaceholderText(
                 self._placeholder_for(self._current_event)
@@ -215,7 +218,7 @@ class EventsTab(QWidget):
             name = self._event_combo.itemData(i)
             desc = EVENT_DESCRIPTIONS().get(name, "")
             has_code = bool(self._events.get(name, "").strip())
-            marker = "[*] " if has_code else ""
+            marker = "● " if has_code else ""
             self._event_combo.setItemText(i, f"{marker}{name} — {desc}")
         self._event_combo.blockSignals(False)
 
