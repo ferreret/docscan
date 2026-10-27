@@ -11,7 +11,7 @@ DocScan Studio incluye un motor de scripting Python completo.
 | `page` | PageContext | ScriptStep y `on_page_changed` |
 | `pipeline` | PipelineContext | Solo ScriptStep |
 | `log` | Logger | Todos |
-| `http` | — | No disponible: hoy vale `None`. Para llamar a una API, `import httpx` dentro del script |
+| `http` | `httpx.Client` | Todos |
 | `re`, `json`, `datetime`, `Path` | módulos | Todos |
 
 Los argumentos que recibe cada evento, y lo que significa su valor de retorno,
@@ -32,7 +32,7 @@ están en la [referencia de la API](../reference/scripting-api.md#argumentos-de-
 | `on_transfer_page` | Tras copiar cada página en la transferencia simple (solo en el Workbench) |
 | `on_navigate_prev/next` | Navegación personalizable |
 | `on_navigate_script` | Botón de navegación programable del visor |
-| `on_key_event` | Tecla personalizada. **Hoy no se dispara** (error conocido) |
+| `on_key_event` | Tecla con Ctrl, Alt o Shift en el Workbench |
 | `init_global` | Al iniciar el programa |
 | `verification_panel` | Panel de verificación |
 
@@ -124,18 +124,19 @@ campo como **obligatorio** en la pestaña Campos de Lote.
 
 ### Llamar a una API externa
 
-La variable `http` no está disponible hoy (vale `None`). Los scripts pueden
-importar módulos, así que se usa `httpx` directamente:
+La variable `http` es un cliente `httpx.Client` compartido, con 20 s de tiempo
+máximo por petición:
 
 ```python
 def clasificar(app, batch, page, pipeline):
-    import httpx
-
-    resp = httpx.post("https://api.ejemplo.com/clasificar",
-                      json={"text": page.ocr_text}, timeout=10)
+    resp = http.post("https://api.ejemplo.com/clasificar",
+                     json={"text": page.ocr_text})
     if resp.status_code == 200:
         page.fields["tipo_doc"] = resp.json()["tipo"]
 ```
+
+Si la API no responde, la petición lanza una excepción de `httpx` y el error
+queda en `page.flags.script_errors`, como cualquier otro fallo del script.
 
 ## Buenas prácticas
 
@@ -148,6 +149,7 @@ def clasificar(app, batch, page, pipeline):
     - `pipeline.set_metadata()` comparte datos entre pasos **de la misma página**
     - Todo valor que venga del papel (barcodes, OCR) y acabe en una ruta debe
       sanearse antes
-    - Un paso Script se corta a los **30 segundos** (no es configurable) y el
-      error queda en `page.flags.script_errors`. Los eventos no tienen límite
-      de tiempo: un evento que se cuelga bloquea la operación
+    - Un paso Script se corta a los **30 segundos** y el error queda en
+      `page.flags.script_errors`. El límite se cambia con la variable de
+      entorno `DOCSCAN_PIPELINE__SCRIPT_TIMEOUT_SECONDS`. Los eventos no tienen
+      límite de tiempo: un evento que se cuelga bloquea la operación

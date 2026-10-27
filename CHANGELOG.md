@@ -19,6 +19,31 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 - En la versión web archivada, el tenant especial del superadmin pasa a llamarse
   «Plataforma» (slug `plataforma`).
 
+### 🐛 Corregido
+
+Errores de código que destapó el repaso del manual web (2026-10-27):
+
+- **`http` ya no vale `None` en los scripts**: es un `httpx.Client` compartido
+  (20 s por petición, 10 s para conectar, sigue redirecciones), en el Workbench,
+  el worker desatendido, el modo directo, `init_global` y la prueba del pipeline
+  del Configurador. Se cierra al cerrar la aplicación.
+- **`on_key_event` se dispara**: `keyPressEvent` llamaba a `.decode()` sobre el
+  nombre de la tecla, que en PySide6 ya es `str`, y el `AttributeError` impedía
+  que el evento llegara a ejecutarse.
+- **El tiempo máximo de los pasos Script se puede configurar**:
+  `pipeline.script_timeout_seconds` (variable de entorno
+  `DOCSCAN_PIPELINE__SCRIPT_TIMEOUT_SECONDS`, 30 s por defecto) no se leía en
+  ningún sitio.
+- **`AppContext.pipeline_steps` lleva los pasos del pipeline** en vez de ir
+  siempre vacío. Además el worker y el modo directo pasan ahora a los scripts el
+  `AppContext` completo, igual que el Workbench (antes solo `id`, `name` y
+  `description`).
+- **Paso Barcode**: el aviso «Solo la lee el motor 2 (zxing-cpp)» sale también en
+  PDF417 y DataMatrix, que pyzbar tampoco decodifica, y el mapa de simbologías del
+  motor 1 ya no las lista. Un paso `motor1` que solo pide simbologías que zbar no
+  lee no encuentra nada; antes el filtro quedaba vacío y leía todas.
+- Tildes en las etiquetas «Confirmar eliminación» y «Nueva conversación».
+
 ### 📚 Documentación
 
 - **README bilingüe**: `README.md` en inglés (el que muestra GitHub) y
@@ -39,10 +64,6 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
   cada evento, panel de verificación y la versión web marcada como archivada.
   Quita el *Pipeline Assistant* del manual: su panel existe en el código pero
   nunca se ha conectado a la interfaz.
-- **Documentados como errores conocidos**, pendientes de corregir: `http` vale
-  `None` en los scripts, `on_key_event` no se dispara, el ajuste
-  `script_timeout_seconds` no se lee (los pasos Script se cortan siempre a los
-  30 s) y `AppContext.pipeline_steps` va siempre vacío.
 - **Informe del proyecto** (`docs/INFORME_PROYECTO.md`) puesto al día con la v0.1.8
   (versión 1.2 del documento). Corrige afirmaciones que ya no eran ciertas: pasos
   de IA, de condición y de petición HTTP que no existen, modo supervisor con

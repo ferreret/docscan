@@ -123,7 +123,7 @@ script…**. La pestaña se abre en el primer evento con código.
 **Editar script…** (o doble clic en el resumen) abre el editor del evento con el
 panel **Variables disponibles**: la firma del evento y lo que recibe el script
 (`app`, `batch`, `pages`…, más `log`, `http`, `re`, `json`, `datetime` y
-`Path`; hoy `http` vale `None`, ver [Scripting](scripting.md#llamar-a-una-api-externa)).
+`Path`; ver [Scripting](scripting.md#llamar-a-una-api-externa)).
 *Abrir en VS Code* aparece si está instalado. **Guardar** devuelve el
 código a la pestaña; **Cancelar** lo descarta.
 
