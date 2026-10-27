@@ -762,9 +762,9 @@ Run en orden:
 
 ```bash
 docker start docscan-pg
-source /media/nicolas/DATA/Tecnomedia/FlexiPy/.venv/bin/activate
+source <repo>/.venv/bin/activate
 uvicorn web.api.main:create_app --factory --port 8001 > /tmp/uvicorn-qa-theme.log 2>&1 &
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npm run dev -- --port 5180 > /tmp/vite-qa-theme.log 2>&1 &
+cd <repo>/web/frontend && npm run dev -- --port 5180 > /tmp/vite-qa-theme.log 2>&1 &
 sleep 6
 curl -s -o /dev/null -w "API:%{http_code}\nFrontend:" http://localhost:8001/docs
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5180
@@ -843,8 +843,8 @@ pkill -f "vite.*--port 5180"
 Run:
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vitest run 2>&1 | tail -5
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5
+cd <repo>/web/frontend && npx vitest run 2>&1 | tail -5
+cd <repo>/web/frontend && npx vue-tsc --noEmit 2>&1 | tail -5
 ```
 
 Expected: `Tests 164 passed (164)`, typecheck OK.
@@ -852,7 +852,7 @@ Expected: `Tests 164 passed (164)`, typecheck OK.
 - [ ] **Step 8: Push a origin/feature/web**
 
 ```bash
-cd /media/nicolas/DATA/Tecnomedia/FlexiPy && git push origin feature/web 2>&1 | tail -5
+cd <repo> && git push origin feature/web 2>&1 | tail -5
 ```
 
 Expected: push OK, commits visibles en remote.

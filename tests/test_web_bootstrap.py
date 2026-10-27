@@ -47,24 +47,24 @@ def db_session():
 
 
 class TestBootstrapSuperadmin:
-    def test_crea_tenant_tecnomedia_y_primer_superadmin(self, db_session):
+    def test_crea_tenant_plataforma_y_primer_superadmin(self, db_session):
         user = bootstrap_superadmin(
             db_session,
-            email="admin@tecnomedia.es",
+            email="admin@example.com",
             password="secreto1234",
-            display_name="Admin TecnoMedia",
+            display_name="Admin Plataforma",
         )
         assert user.id > 0
-        assert user.email == "admin@tecnomedia.es"
+        assert user.email == "admin@example.com"
         assert user.role == ROLE_SUPERADMIN
-        assert user.display_name == "Admin TecnoMedia"
+        assert user.display_name == "Admin Plataforma"
         assert user.active is True
         assert verify_password("secreto1234", user.hashed_password)
 
         tenant = db_session.execute(
-            select(Tenant).where(Tenant.slug == "tecnomedia")
+            select(Tenant).where(Tenant.slug == "plataforma")
         ).scalar_one()
-        assert tenant.name == "TecnoMedia"
+        assert tenant.name == "Plataforma"
         assert tenant.plan == "enterprise"
         assert tenant.active is True
         assert user.tenant_id == tenant.id
@@ -72,7 +72,7 @@ class TestBootstrapSuperadmin:
     def test_password_no_se_guarda_en_claro(self, db_session):
         user = bootstrap_superadmin(
             db_session,
-            email="admin@tecnomedia.es",
+            email="admin@example.com",
             password="secreto1234",
             display_name="X",
         )
@@ -82,14 +82,14 @@ class TestBootstrapSuperadmin:
     def test_idempotente_email_existente_devuelve_mismo_usuario(self, db_session):
         first = bootstrap_superadmin(
             db_session,
-            email="admin@tecnomedia.es",
+            email="admin@example.com",
             password="secreto1234",
             display_name="Original",
         )
 
         again = bootstrap_superadmin(
             db_session,
-            email="admin@tecnomedia.es",
+            email="admin@example.com",
             password="otropassword",
             display_name="Cambiado",
         )
@@ -100,16 +100,16 @@ class TestBootstrapSuperadmin:
         tenants = db_session.execute(select(Tenant)).scalars().all()
         assert len(tenants) == 1
 
-    def test_segundo_superadmin_se_anade_al_tenant_tecnomedia(self, db_session):
+    def test_segundo_superadmin_se_anade_al_tenant_plataforma(self, db_session):
         primero = bootstrap_superadmin(
             db_session,
-            email="primero@tecnomedia.es",
+            email="primero@example.com",
             password="x12345678",
             display_name="P",
         )
         segundo = bootstrap_superadmin(
             db_session,
-            email="segundo@tecnomedia.es",
+            email="segundo@example.com",
             password="y12345678",
             display_name="S",
         )
@@ -141,16 +141,16 @@ class TestBootstrapSuperadmin:
                 display_name="X",
             )
 
-    def test_email_existente_en_tecnomedia_pero_no_superadmin_lanza_error(
+    def test_email_existente_en_plataforma_pero_no_superadmin_lanza_error(
         self, db_session
     ):
-        tecno = Tenant(name="TecnoMedia", slug="tecnomedia", plan="enterprise")
+        tecno = Tenant(name="Plataforma", slug="plataforma", plan="enterprise")
         db_session.add(tecno)
         db_session.flush()
         db_session.add(
             User(
                 tenant_id=tecno.id,
-                email="rebajado@tecnomedia.es",
+                email="rebajado@example.com",
                 hashed_password="dummy",
                 display_name="Rebajado",
                 role=ROLE_COMPANY_ADMIN,
@@ -161,7 +161,7 @@ class TestBootstrapSuperadmin:
         with pytest.raises(BootstrapError, match="email"):
             bootstrap_superadmin(
                 db_session,
-                email="rebajado@tecnomedia.es",
+                email="rebajado@example.com",
                 password="x12345678",
                 display_name="X",
             )
@@ -172,7 +172,7 @@ class TestBootstrapValidation:
         with pytest.raises(BootstrapError, match="contraseña"):
             bootstrap_superadmin(
                 db_session,
-                email="admin@tecnomedia.es",
+                email="admin@example.com",
                 password="corto",
                 display_name="X",
             )
@@ -193,7 +193,7 @@ class TestParseArgs:
             [
                 "superadmin",
                 "--email",
-                "admin@tecnomedia.es",
+                "admin@example.com",
                 "--password",
                 "secreto1234",
                 "--display",
@@ -201,7 +201,7 @@ class TestParseArgs:
             ]
         )
         assert ns.command == "superadmin"
-        assert ns.email == "admin@tecnomedia.es"
+        assert ns.email == "admin@example.com"
         assert ns.password == "secreto1234"
         assert ns.display == "Admin"
 
@@ -211,7 +211,7 @@ class TestParseArgs:
                 [
                     "superadmin",
                     "--email",
-                    "admin@tecnomedia.es",
+                    "admin@example.com",
                     "--display",
                     "Admin",
                 ]

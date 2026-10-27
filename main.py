@@ -285,7 +285,7 @@ def main() -> int:
         import ctypes
 
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-            "tecnomedia.docscan.studio",
+            "nicolasbarcelo.docscan.studio",
         )
 
     from PySide6.QtWidgets import QApplication

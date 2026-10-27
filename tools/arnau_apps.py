@@ -1,6 +1,6 @@
 """Apps del Hospital Arnau de Vilanova portadas de FlexibarNET10 a DocScan.
 
-Fuente: ``tools/SeedAppsArnau`` de ``Tecnomedia/FlexibarNET10`` (v1.30),
+Fuente: ``tools/SeedAppsArnau`` del repositorio de FlexibarNET10 (v1.30),
 que a su vez porta 1:1 los XML del Flexibar.NET original. Aquí están las seis
 Apps de **archivo simple** (familia A). Las dos de **control eCAP** (04 y 08),
 que registran en la base de datos PSM_SCANECAP por ODBC, quedan para después.

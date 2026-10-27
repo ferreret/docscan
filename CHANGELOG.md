@@ -8,6 +8,17 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🏷️ Autoría
+
+- DocScan Studio figura como **desarrollado por Nicolás Barceló**: README, «Acerca
+  de», pantalla de inicio, editor del instalador de Windows y pie del manual web.
+- Nuevos identificadores de la aplicación: `dev.nicolasbarcelo.docscan` (AppImage) y
+  `nicolasbarcelo.docscan.studio` (AppUserModelID de Windows; un acceso anclado a la
+  barra de tareas con el identificador anterior puede tener que volver a anclarse). El
+  `AppId` del instalador no cambia, así que se actualiza sobre la instalación existente.
+- En la versión web archivada, el tenant especial del superadmin pasa a llamarse
+  «Plataforma» (slug `plataforma`).
+
 ### 📚 Documentación
 
 - **README bilingüe**: `README.md` en inglés (el que muestra GitHub) y
@@ -631,17 +642,17 @@ Desktop. Auditoría completa en `docs/auditoria_desktop_2026-07-21.md`.
 
 #### 🛡️ Sprint Superadmin (versión web SaaS) — 2026-05-05
 
-Plataforma multi-tenant lista para SaaS con jerarquía de roles `superadmin > company_admin > operator`. Sólo el equipo de TecnoMedia (rol `superadmin`) puede crear tenants y administradores; el registro público está deshabilitado.
+Plataforma multi-tenant lista para SaaS con jerarquía de roles `superadmin > company_admin > operator`. Sólo el equipo de la plataforma (rol `superadmin`) puede crear tenants y administradores; el registro público está deshabilitado.
 
 #### ✨ Backend (`web/api/`)
 
 - **CLI bootstrap idempotente** del primer superadmin:
   ```
   docker compose exec api python -m web.api.bootstrap superadmin \
-      --email admin@tecnomedia.es --password ********** \
-      --display "Admin TecnoMedia"
+      --email admin@example.com --password ********** \
+      --display "Admin Plataforma"
   ```
-  Crea (o reutiliza) el tenant especial `TecnoMedia` y un usuario con rol `superadmin`. Volver a ejecutarlo con el mismo email es no-op.
+  Crea (o reutiliza) el tenant especial `Plataforma` y un usuario con rol `superadmin`. Volver a ejecutarlo con el mismo email es no-op.
 - **Registro público eliminado**: `POST /api/auth/register` devuelve 404. La aceptación de invitaciones (`/accept-invitation/:token`) sigue siendo el camino para usuarios añadidos por invitación.
 - **Login bloqueado en tenants suspendidos**: `tenant.active=False` rechaza el login con 401 y el `/auth/me` también, aunque el JWT siga vigente.
 - **Modelo `AuditLog`** + helper `web/api/audit.py::audit(...)`: registra cada mutación administrativa (`tenant.created/updated/deleted`, `user.created/updated/deleted`) con actor, target y payload JSON.
@@ -650,7 +661,7 @@ Plataforma multi-tenant lista para SaaS con jerarquía de roles `superadmin > co
   - `POST /admin/tenants` (crea tenant + primer company_admin)
   - `GET /admin/tenants/{id}` (detalle + lista de usuarios)
   - `PATCH /admin/tenants/{id}` (name | plan | active)
-  - `DELETE /admin/tenants/{id}` (hard-cascade BD + storage; rechaza con 409 si hay batches `running`/`transferring` o si el tenant es TecnoMedia)
+  - `DELETE /admin/tenants/{id}` (hard-cascade BD + storage; rechaza con 409 si hay batches `running`/`transferring` o si el tenant es Plataforma)
 - **Endpoints `/api/admin/users`** (4) — superadmin sólo, cross-tenant:
   - `GET /admin/users` (filtra por `?tenant_id=`)
   - `POST /admin/users` (crea directamente en cualquier tenant)
@@ -665,7 +676,7 @@ Plataforma multi-tenant lista para SaaS con jerarquía de roles `superadmin > co
 - **Guard global `enforceRoleAccess`** en el router:
   - `superadmin` en una ruta no `/admin/*` → redirige a `/admin/tenants`.
   - cualquier rol distinto de `superadmin` accediendo a `/admin/*` → redirige a `/`.
-- **AppLayout dual**: sidebar reducido a "Tenants" + header "TecnoMedia · Administración" cuando el rol es `superadmin`. Sidebar normal para `company_admin`/`operator`.
+- **AppLayout dual**: sidebar reducido a "Tenants" + header "Plataforma · Administración" cuando el rol es `superadmin`. Sidebar normal para `company_admin`/`operator`.
 - **Vista de listado**: tabla con stats por tenant, badge coloreado por plan, toggle Activo/Suspendido inline, eliminar con confirmación del nombre exacto.
 - **Vista de creación**: formulario tenant + primer admin con validación local de password (≥8 caracteres) y feedback de errores 409 (email duplicado, plan inválido).
 - **Vista de detalle**: edita name/plan/active del tenant + CRUD completo de sus usuarios (cambio de rol, toggle activo, delete con confirm, modal "Crear usuario").
@@ -677,7 +688,7 @@ Plataforma multi-tenant lista para SaaS con jerarquía de roles `superadmin > co
 
 #### 🔍 Smoke e2e
 
-- `scripts/smoke_superadmin.sh` — matriz curl de 21 casos contra `docker compose` (registro 404, login + me, /admin/* con 3 roles, CRUD tenants, CRUD users cross-tenant, guards 409 último-admin / self-modify, suspensión + login bloqueado, cascade delete, protección de TecnoMedia).
+- `scripts/smoke_superadmin.sh` — matriz curl de 21 casos contra `docker compose` (registro 404, login + me, /admin/* con 3 roles, CRUD tenants, CRUD users cross-tenant, guards 409 último-admin / self-modify, suspensión + login bloqueado, cascade delete, protección de Plataforma).
 - Smoke visual con Playwright recogido en `docs/screenshots/smoke-superadmin/`: listado, formulario de creación, detalle del tenant y bloqueo del guard cuando un company_admin intenta entrar a `/admin/*`.
 
 #### 📝 Notas de migración

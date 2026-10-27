@@ -1,7 +1,7 @@
 # Propuestas para DocScan Studio a partir de FlexibarNET 10 — segunda pasada
 
 **Fecha:** 2026-10-26
-**Fuente analizada:** `Tecnomedia/FlexibarNET10` @ `f3ed0383` (v1.30.0, 2026-10-06)
+**Fuente analizada:** `FlexibarNET10` @ `f3ed0383` (v1.30.0, 2026-10-06)
 **Estado DocScan de referencia:** v0.1.6 + `82eeeb4` (fix de migraciones), 937 tests verdes
 **Informe anterior:** `docs/propuestas_desde_flexibarnet10_2026-07-27.md` (contra v1.11.0)
 

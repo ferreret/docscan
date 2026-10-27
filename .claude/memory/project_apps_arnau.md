@@ -12,9 +12,9 @@ Desde el 2026-10-27, Nicolás quiere **replicar en DocScan las Apps que Flexibar
 desplegadas en el Hospital Arnau de Vilanova**. Es el caso de aceptación del lote 6
 (separador de documento).
 
-**Fuente de verdad:** `tools/SeedAppsArnau` del repo `Tecnomedia/FlexibarNET10`
+**Fuente de verdad:** `tools/SeedAppsArnau` del repo `FlexibarNET10`
 (`ArnauApps.cs`, `ArnauScripts.cs`, `PaginasSinteticas.cs`), que a su vez porta 1:1 los XML
-del Flexibar.NET legacy. Se clona con `gh repo clone Tecnomedia/FlexibarNET10 -- --depth=50`
+del Flexibar.NET legacy. Se clona con `gh repo clone $(gh api user/repos --paginate -q '.[].full_name' | grep '/FlexibarNET10$') -- --depth=50`
 en el scratchpad.
 
 **Hecho (lote 6, mergeado en `main` el 2026-10-27 vía PR #3 merge `985bcad`, publicado en **v0.1.8**; probado a mano por Nicolás en `~/DocScanArnau`; incluye grupo «Hospital Arnau de Vilanova», icono azul, twain + diálogo del escáner y descripción de «Data»):** las 6 Apps de archivo simple

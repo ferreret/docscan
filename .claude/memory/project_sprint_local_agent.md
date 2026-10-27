@@ -68,8 +68,8 @@ Sprint para que la web SaaS pueda escanear desde el PC del operario sin que el n
 - Total: **1818 passing, 0 failed**.
 
 ## Datos en BD docker tras el smoke (volumen persistente)
-- Tenant TecnoMedia (id=2, plan enterprise).
-- Users: `superadmin@tecnomedia.es` (id=11, superadmin), `operario@tecnomedia.es` (id=14, operator, password `<REDACTADO — ver gestor de contraseñas>` — creado para el smoke).
+- Tenant Plataforma (id=2, plan enterprise).
+- Users: `superadmin@example.com` (id=11, superadmin), `operario@example.com` (id=14, operator, password `<REDACTADO — ver gestor de contraseñas>` — creado para el smoke).
 - App AppHito7 (id=2, pipeline vacío).
 - Batches: #2 (1 página, state=created), #3 (4 páginas escaneadas con ADF, state=read).
 - AgentDevices: #4 (Smoke H7), #5 (PC-Smoke-Hito12, paired al usuario operario).

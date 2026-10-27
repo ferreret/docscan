@@ -2,7 +2,7 @@
 
 Cubre auth, listado, creación, detalle, actualización y borrado
 hard-cascade. Incluye verificación de audit_logs y de los guards
-especiales (tenant TecnoMedia, lotes activos, slug reservado).
+especiales (tenant Plataforma, lotes activos, slug reservado).
 """
 
 from __future__ import annotations
@@ -92,11 +92,11 @@ def client(_test_engine, storage_dir):
 def _superadmin_header(
     client: TestClient,
     *,
-    email: str = "superadmin@tecnomedia.es",
+    email: str = "superadmin@example.com",
     password: str = "superpass123",
     display: str = "SA",
 ) -> dict[str, str]:
-    """Crea (idempotente) un superadmin TecnoMedia y devuelve su Authorization."""
+    """Crea (idempotente) un superadmin Plataforma y devuelve su Authorization."""
     factory = client.app.state.test_db_factory
     with factory() as db:
         bootstrap_superadmin(db, email=email, password=password, display_name=display)
@@ -201,12 +201,12 @@ class TestAdminTenantsAuth:
 
 
 class TestAdminTenantsList:
-    def test_lista_incluye_tecnomedia(self, client):
+    def test_lista_incluye_plataforma(self, client):
         h = _superadmin_header(client)
         resp = client.get("/api/admin/tenants", headers=h)
         data = resp.json()
         slugs = {t["slug"] for t in data["items"]}
-        assert "tecnomedia" in slugs
+        assert "plataforma" in slugs
 
     def test_lista_incluye_stats(self, client):
         h = _superadmin_header(client)
@@ -232,7 +232,7 @@ class TestAdminTenantsList:
             )
         resp = client.get("/api/admin/tenants?limit=3&offset=0", headers=h)
         data = resp.json()
-        assert data["total"] >= 6  # 5 + tecnomedia
+        assert data["total"] >= 6  # 5 + plataforma
         assert len(data["items"]) == 3
 
 
@@ -322,12 +322,12 @@ class TestAdminTenantsCreate:
         )
         assert resp.status_code == 422
 
-    def test_slug_tecnomedia_reservado_409(self, client):
+    def test_slug_plataforma_reservado_409(self, client):
         h = _superadmin_header(client)
         resp = client.post(
             "/api/admin/tenants",
             headers=h,
-            json=self._payload(tenant_name="TecnoMedia"),
+            json=self._payload(tenant_name="Plataforma"),
         )
         assert resp.status_code == 409
 
@@ -449,13 +449,13 @@ class TestAdminTenantsPatch:
         )
         assert resp.status_code == 422
 
-    def test_no_se_puede_suspender_tecnomedia(self, client):
+    def test_no_se_puede_suspender_plataforma(self, client):
         h = _superadmin_header(client)
-        # Buscar el id del tenant TecnoMedia
+        # Buscar el id del tenant Plataforma
         factory = client.app.state.test_db_factory
         with factory() as db:
             tecno = db.execute(
-                select(Tenant).where(Tenant.slug == "tecnomedia")
+                select(Tenant).where(Tenant.slug == "plataforma")
             ).scalar_one()
             tecno_id = tecno.id
         resp = client.patch(
@@ -519,12 +519,12 @@ class TestAdminTenantsDelete:
             assert db.get(Tenant, tid) is None
             assert db.get(User, uid) is None
 
-    def test_protege_tenant_tecnomedia(self, client):
+    def test_protege_tenant_plataforma(self, client):
         h = _superadmin_header(client)
         factory = client.app.state.test_db_factory
         with factory() as db:
             tecno = db.execute(
-                select(Tenant).where(Tenant.slug == "tecnomedia")
+                select(Tenant).where(Tenant.slug == "plataforma")
             ).scalar_one()
             tecno_id = tecno.id
         resp = client.delete(f"/api/admin/tenants/{tecno_id}", headers=h)

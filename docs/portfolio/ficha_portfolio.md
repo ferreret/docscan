@@ -30,7 +30,7 @@ lenguas y borrar la antigua.
 | `timeline` | «Released v0.1.0 — 2026-03-26» | Última versión **v0.1.8, 2026-10-27** |
 | `description` | «…AI-powered field extraction…» | **No hay extracción de campos con IA.** La IA (Claude u OpenAI) se usa para *configurar*, en el AI Mode. El proceso de cada página es determinista (imagen, barcode, OCR, scripts) |
 | `businessMetrics` | 849 tests, 19.776 líneas, 94 ficheros, v0.1.0 | Ver §4 |
-| `problem` | Sistema legacy genérico, sin nombre | Se puede nombrar: FlexibarNET 10 de Tecnomedia, en hospitales (§3) |
+| `problem` | Sistema legacy genérico, sin nombre | Se puede nombrar FlexibarNET 10 y sus hospitales; **nunca la empresa** (§3) |
 | `lessonsLearned` | «absorbe el 90 % de los requisitos» | Sin prueba; decidido sustituir por lecciones con evidencia (§5) |
 | `lessonsLearned` | «849 tests hicieron segura la subida a 3.14» | Cifra desfasada |
 | Captura | Interfaz antigua, con un hospital real en un volante ficticio | Captura nueva con datos neutros (§7) |
@@ -39,13 +39,14 @@ lenguas y borrar la antigua.
 
 **Problema**
 
-- **FlexibarNET 10** es el producto de captura documental de **Tecnomedia**, en .NET 10
-  y WPF: **solo Windows**, con un SDK de imagen comercial con licencia.
+- **FlexibarNET 10** es un producto de captura documental en .NET 10 y WPF: **solo Windows**, con un SDK de imagen comercial con licencia.
 - Está **en producción en hospitales**; su primera implantación hospitalaria real es
   el **Hospital Arnau de Vilanova** (escáneres Kodak).
   Fuente: `docs/propuestas_desde_flexibarnet10_2026-10-26.md` §1.
-- Se puede nombrar Flexibar, Tecnomedia y sus implantaciones en hospitales, con
-  nombres (decisión de Nicolás, 2026-10-26).
+- Se puede nombrar FlexibarNET 10 y sus implantaciones en hospitales, con nombres
+  (decisión de Nicolás, 2026-10-26). **La empresa que lo comercializa no se nombra
+  en ningún sitio** (decisión de Nicolás, 2026-10-27): ni en la ficha, ni en el
+  README, ni en la aplicación. DocScan figura como desarrollado por Nicolás Barceló.
 
 **Solución**
 
@@ -139,7 +140,7 @@ Flexibar).
 | Campo | Valor |
 |-------|-------|
 | `status` | `in-development` |
-| `role` | La ficha actual dice «Sole developer» / «Desarrollador único». **[A CONFIRMAR]** si sigue siendo así |
+| `role` | La ficha actual dice «Sole developer» / «Desarrollador único», coherente con el README («Desarrollado por Nicolás Barceló») |
 | `timeline` | Inicio 2026-03-07 (primer commit); v0.1.0 el 2026-03-26; v0.1.8 el 2026-10-27 |
 | `link` / `repoUrl` | https://github.com/ferreret/docscan |
 | `demoUrl` | No hay demo pública. El manual (https://ferreret.github.io/docscan/) o la última release (https://github.com/ferreret/docscan/releases/latest) pueden servir de enlace secundario. **[A CONFIRMAR]** |

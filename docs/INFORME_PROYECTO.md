@@ -7,7 +7,7 @@
 
 ## 1. Resumen Ejecutivo
 
-DocScan Studio es una aplicación de escritorio para la **captura por lotes, el procesamiento y la indexación de documentos**. Es la **reimplementación multiplataforma** de FlexibarNET 10, el producto de captura de Tecnomedia en .NET (solo Windows) que está en producción en hospitales. Mantiene **paridad funcional** con él (la misma lógica, las mismas claves de configuración y los mismos tokens), funciona en Linux y Windows, y añade **IA generativa** (Claude de Anthropic u OpenAI) para crear y configurar aplicaciones conversando.
+DocScan Studio es una aplicación de escritorio para la **captura por lotes, el procesamiento y la indexación de documentos**. Es la **reimplementación multiplataforma** de FlexibarNET 10, un producto de captura documental en .NET (solo Windows) que está en producción en hospitales. Mantiene **paridad funcional** con él (la misma lógica, las mismas claves de configuración y los mismos tokens), funciona en Linux y Windows, y añade **IA generativa** (Claude de Anthropic u OpenAI) para crear y configurar aplicaciones conversando.
 
 El sistema digitaliza documentos desde escáneres físicos o importando ficheros (imágenes y PDF), los procesa con un pipeline configurable (operaciones de imagen, códigos de barras, OCR y scripts Python), los divide en documentos por código de barras, permite revisarlos e indexarlos, y los transfiere al archivo de destino.
 
@@ -280,4 +280,4 @@ Lo que queda para la primera instalación en producción es la validación en ca
 ---
 
 *Documento generado el 10 de marzo de 2026; actualizado el 22 de julio de 2026 (v1.1) y el 27 de octubre de 2026 (v1.2).*
-*DocScan Studio — Tecnomedia*
+*DocScan Studio — Nicolás Barceló*

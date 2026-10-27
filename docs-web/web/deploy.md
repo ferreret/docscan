@@ -75,7 +75,7 @@ docker compose exec api python -m web.api.bootstrap superadmin \
   --display "Admin Plataforma"
 ```
 
-Crea el tenant `TecnoMedia` (si no existe) y un usuario con rol
+Crea el tenant `Plataforma` (si no existe) y un usuario con rol
 `superadmin` dentro de él. Lanzarlo dos veces no duplica nada.
 
 ## Frontend en desarrollo

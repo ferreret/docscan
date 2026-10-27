@@ -1,6 +1,6 @@
 """Router de autenticación: login, perfil.
 
-El registro público fue eliminado: solo el superadmin de TecnoMedia
+El registro público fue eliminado: solo el superadmin de Plataforma
 crea tenants. Ver ``web/api/bootstrap.py`` y los endpoints
 ``/api/admin/tenants``.
 """

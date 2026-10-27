@@ -27,21 +27,21 @@ describe('AppLayout — sidebar por rol', () => {
     setActivePinia(createPinia())
   })
 
-  it('superadmin: muestra sólo Tenants y header TecnoMedia · Administración', async () => {
+  it('superadmin: muestra sólo Tenants y header Plataforma · Administración', async () => {
     const router = await makeRouter('/admin/tenants')
     const auth = useAuthStore()
     auth.user = {
       id: 1,
-      email: 'super@tecnomedia.test',
+      email: 'super@example.test',
       display_name: 'Super',
       role: 'superadmin',
       tenant_id: 1,
-      tenant_name: 'TecnoMedia',
+      tenant_name: 'Plataforma',
     }
     const wrapper = mount(AppLayout, { global: { plugins: [router] } })
 
     expect(wrapper.find('aside').attributes('data-superadmin')).toBe('true')
-    expect(wrapper.text()).toContain('TecnoMedia · Administración')
+    expect(wrapper.text()).toContain('Plataforma · Administración')
     expect(wrapper.text()).toContain('Tenants')
     expect(wrapper.text()).not.toContain('Aplicaciones')
     expect(wrapper.text()).not.toContain('Lotes')
@@ -64,7 +64,7 @@ describe('AppLayout — sidebar por rol', () => {
 
     expect(wrapper.find('aside').attributes('data-superadmin')).toBe('false')
     expect(wrapper.text()).toContain('Acme')
-    expect(wrapper.text()).not.toContain('TecnoMedia · Administración')
+    expect(wrapper.text()).not.toContain('Plataforma · Administración')
     expect(wrapper.text()).toContain('Inicio')
     expect(wrapper.text()).toContain('Aplicaciones')
     expect(wrapper.text()).toContain('Lotes')

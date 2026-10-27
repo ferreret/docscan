@@ -20,7 +20,7 @@ from app._version import __version__ as _VERSION
 log = logging.getLogger(__name__)
 
 _APP_NAME = "DocScan Studio"
-_COPYRIGHT = "© 2026 Tecnomedia"
+_COPYRIGHT = "© 2026 Nicolás Barceló"
 _DESCRIPTION = (
     "Plataforma de captura, procesamiento e indexación de documentos "
     "con pipeline composable e IA generativa."

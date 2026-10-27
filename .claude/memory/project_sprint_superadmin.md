@@ -6,19 +6,19 @@ originSessionId: 3c3fb8c5-7b21-4ae7-aaee-d12d5eb5a6b5
 ---
 Sprint **superadmin + creación de tenants y usuarios** — primer item del roadmap post-QA. **Cerrado 2026-05-05** (sesión noche del mismo día en que se cerró el backend).
 
-**Why:** Base de plataforma para SaaS. Antes `RegisterView` permitía registro público; ahora sólo TecnoMedia (rol `superadmin`) puede dar de alta tenants. Prerequisito conceptual de AI Mode (gestión API keys por tenant) y útil para cliente local web.
+**Why:** Base de plataforma para SaaS. Antes `RegisterView` permitía registro público; ahora sólo Plataforma (rol `superadmin`) puede dar de alta tenants. Prerequisito conceptual de AI Mode (gestión API keys por tenant) y útil para cliente local web.
 
 **How to apply:** Sprint cerrado, no quedan tareas. Si en sesión futura aparece un bug de los endpoints/vistas admin: leer este memo + `progreso_2026-05-05.md` (sección "Sesión de noche"). Las decisiones de diseño están abajo. Para retomar el roadmap, leer `project_roadmap_post_qa.md` — siguiente prioridad: cliente local web (TWAIN+transfer).
 
 ## Decisiones de diseño consensuadas (referencia)
 
-1. **Jerarquía**: `superadmin (TecnoMedia, cross-tenant) > company_admin (por tenant) > operator`.
-2. **Superadmin pertenece al tenant especial "TecnoMedia"** (slug `tecnomedia`, plan `enterprise`). Sus poderes vienen del rol, no de pertenencia. `tenant_id` sigue NOT NULL.
+1. **Jerarquía**: `superadmin (Plataforma, cross-tenant) > company_admin (por tenant) > operator`.
+2. **Superadmin pertenece al tenant especial "Plataforma"** (slug `plataforma`, plan `enterprise`). Sus poderes vienen del rol, no de pertenencia. `tenant_id` sigue NOT NULL.
 3. **Bootstrap por CLI idempotente**: `python -m web.api.bootstrap superadmin --email X --password Y --display Z`. **Cuidado**: el bootstrap usa regex laxa para email; el endpoint `/auth/login` valida con `EmailStr` y rechaza TLDs reservados (`.test`/`.example`/`.invalid`/`.localhost`) con 422. Usar `.es`, `.com`, `.io`, etc. en credenciales reales.
 4. **Registro público eliminado**. `POST /api/auth/register` devuelve 404. `RegisterView.vue` borrada. La aceptación de invitaciones se mantiene.
 5. **Sin impersonación en este sprint**. Si se necesita debuggear un cliente, crear company_admin temporal vía `/api/admin/users`.
 6. **Auditoría**: tabla `audit_logs` (id, actor_user_id [FK users, nullable], tenant_id [FK tenants, nullable], action, target_type, target_id, payload_json, created_at). Helper `web/api/audit.py::audit(...)` solo `add+flush`. Migración `a3b8d4e2f7c9_add_audit_logs.py`.
-7. **Hard-delete tenant cascade real**: rechaza si batches `running`/`transferring` (409); protege TecnoMedia (409); borra applications (cascade BD a batches → pages, history), invitations, users, tenant; limpia archivos del storage.
+7. **Hard-delete tenant cascade real**: rechaza si batches `running`/`transferring` (409); protege Plataforma (409); borra applications (cascade BD a batches → pages, history), invitations, users, tenant; limpia archivos del storage.
 8. **Plan = enum cerrado** `free | basic | enterprise` (`ALLOWED_PLANS` en `web/api/schemas/admin.py`). Sin lógica de cuotas.
 9. **Multi-superadmin permitido** con guard "al menos uno activo". `_check_demote_or_deactivate` cubre tanto último superadmin global como último company_admin del tenant.
 10. **Self-modify bloqueado** desde `/api/admin/users` (defense-in-depth): un superadmin no puede modificarse a sí mismo desde aquí — debe pedirlo a otro superadmin o usar `/api/users` (team).
@@ -27,7 +27,7 @@ Sprint **superadmin + creación de tenants y usuarios** — primer item del road
 
 | Archivo | Propósito |
 |---|---|
-| `web/api/bootstrap.py` | CLI bootstrap. `bootstrap_superadmin(db, *, email, password, display_name)` + argparse. Constantes `TECNOMEDIA_TENANT_NAME/SLUG/PLAN`. |
+| `web/api/bootstrap.py` | CLI bootstrap. `bootstrap_superadmin(db, *, email, password, display_name)` + argparse. Constantes `PLATFORM_TENANT_NAME/SLUG/PLAN`. |
 | `web/api/audit.py` | Helper `audit(db, *, actor, action, target_type, target_id, payload=None)`. |
 | `web/api/models.py` | `Tenant`, `User`, `Invitation`, **`AuditLog`**. `ROLE_SUPERADMIN`/`ROLE_COMPANY_ADMIN`/`ROLE_OPERATOR` constantes. |
 | `web/api/schemas/admin.py` | `ALLOWED_PLANS`, `ALLOWED_ADMIN_ROLES`, schemas `Tenant*` y `AdminUser*`. |
@@ -45,7 +45,7 @@ Sprint **superadmin + creación de tenants y usuarios** — primer item del road
 | `web/frontend/src/stores/admin.ts` | `useAdminStore` con CRUD tenants + users cross-tenant. `updateUser`/`deleteUser` refrescan `currentTenant` si coincide. |
 | `web/frontend/src/router/roleGuard.ts` | `enforceRoleAccess(to, user)` función pura testeable. |
 | `web/frontend/src/router/index.ts` | Rutas `/admin/tenants[/new\|/:id]` con `meta.superadmin`. `beforeEach` async hidrata `auth.user` antes del guard. |
-| `web/frontend/src/layouts/AppLayout.vue` | Sidebar dual: "Tenants" + header "TecnoMedia · Administración" si role=superadmin; sidebar normal si no. Atributo `data-superadmin` en `<aside>`. |
+| `web/frontend/src/layouts/AppLayout.vue` | Sidebar dual: "Tenants" + header "Plataforma · Administración" si role=superadmin; sidebar normal si no. Atributo `data-superadmin` en `<aside>`. |
 | `web/frontend/src/views/admin/TenantListView.vue` | Tabla con stats, toggle Activo, delete con prompt del nombre exacto. |
 | `web/frontend/src/views/admin/CreateTenantView.vue` | Form 2 fieldsets, validación local password ≥8, redirect al detalle tras éxito. |
 | `web/frontend/src/views/admin/TenantDetailView.vue` | Edita name/plan/active (dirty-aware) + CRUD usuarios + modal crear con `role=dialog` `aria-modal=true`. |
@@ -84,7 +84,7 @@ DELETE /api/admin/users/{id}           superadmin — con guards
 
 ## Patrones aprendidos en el sprint
 
-- **TLD reservados en EmailStr**: el primer bootstrap fue con `super@tecnomedia.test` y todos los logins curl fallaron con 422. La regex de bootstrap es laxa pero `EmailStr` rechaza `.test`/`.example`/`.invalid`/`.localhost`. Usar `.es`/`.com`/etc.
+- **TLD reservados en EmailStr**: el primer bootstrap fue con `super@example.test` y todos los logins curl fallaron con 422. La regex de bootstrap es laxa pero `EmailStr` rechaza `.test`/`.example`/`.invalid`/`.localhost`. Usar `.es`/`.com`/etc.
 - **Imagen API obsoleta tras añadir módulos**: `web/api/bootstrap.py` no estaba en la imagen porque compose no rebuild automáticamente. `docker compose build api worker` necesario tras cambios estructurales en `web/api`.
 - **Hook ruff-format borra imports recién añadidos como "unused"** entre dos `Edit` consecutivos. Workaround: usar `mcp__filesystem__edit_file` para imports cuando el siguiente paso depende de su uso.
 - **`trigger('click')` en submit no dispara `submit.prevent`** del form en vue-test-utils. Usar `wrapper.find('form').trigger('submit.prevent')` directo.

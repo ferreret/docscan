@@ -2401,7 +2401,7 @@ pkill -f "uvicorn.*web.api"; pkill -f "vite"; docker compose down
 
 - [ ] **Step 1: Actualizar MEMORY**
 
-Editar `~/.claude/projects/-media-nicolas-DATA-Tecnomedia-FlexiPy/memory/MEMORY.md`:
+Editar `~/.claude/projects/-media-nicolas-DATA-<carpeta>-FlexiPy/memory/MEMORY.md`:
 - Actualizar la línea de estado para marcar Fase 4 como cerrada.
 - Actualizar el conteo de tests: 186 backend + 353 frontend.
 - Eliminar de "Pendiente" la línea de Fase 4.

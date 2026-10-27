@@ -41,12 +41,12 @@ def db_session():
 
 @pytest.fixture
 def superadmin(db_session):
-    tenant = Tenant(name="TecnoMedia", slug="tecnomedia", plan="enterprise")
+    tenant = Tenant(name="Plataforma", slug="plataforma", plan="enterprise")
     db_session.add(tenant)
     db_session.flush()
     u = User(
         tenant_id=tenant.id,
-        email="admin@tecnomedia.es",
+        email="admin@example.com",
         hashed_password="dummy",
         display_name="Admin",
         role=ROLE_SUPERADMIN,

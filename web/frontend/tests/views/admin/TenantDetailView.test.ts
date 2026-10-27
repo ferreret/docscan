@@ -79,11 +79,11 @@ function seedSuperadmin() {
   const auth = useAuthStore()
   auth.user = {
     id: 1,
-    email: 'super@tecnomedia.test',
+    email: 'super@example.test',
     display_name: 'Super',
     role: 'superadmin',
     tenant_id: 1,
-    tenant_name: 'TecnoMedia',
+    tenant_name: 'Plataforma',
   }
 }
 

@@ -15,7 +15,7 @@ por máquina:
 
 El slug deriva de la ruta absoluta del proyecto, así que ni siquiera copiándolo
 a mano coincide entre máquinas: en Linux es
-`-media-nicolas-DATA-Tecnomedia-DocScan` y en Windows sería otro distinto. Sin
+`-media-nicolas-DATA-<carpeta>-DocScan` y en Windows sería otro distinto. Sin
 esta copia, un equipo nuevo empieza sin saber nada de las decisiones ya
 cerradas, los bugs conocidos ni las preferencias de trabajo.
 

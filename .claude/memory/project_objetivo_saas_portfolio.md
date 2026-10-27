@@ -6,7 +6,7 @@ originSessionId: 7b6bd88f-a10c-476b-a06b-b548ac8a163e
 ---
 DocScan Studio Web SaaS no es solo un producto vendible — es **pieza de portfolio profesional del usuario**, alojada por él mismo (cloud) como un SaaS al que se accede desde internet. Decisión confirmada en sesión 2026-05-06.
 
-**Why:** El usuario quiere mostrar la SaaS funcionando en su portfolio (probablemente `docscan.tecnomedia.es` o dominio similar). El producto desktop está en otro plano — clientes existentes y un programa estable. El SaaS web es la cara pública nueva.
+**Why:** El usuario quiere mostrar la SaaS funcionando en su portfolio (probablemente `docscan.example.com` o dominio similar). El producto desktop está en otro plano — clientes existentes y un programa estable. El SaaS web es la cara pública nueva.
 
 **How to apply:**
 
@@ -14,7 +14,7 @@ DocScan Studio Web SaaS no es solo un producto vendible — es **pieza de portfo
 
 2. **Cuidar la experiencia visual** del frontend web por encima de la funcional pura. La UI será evaluada por terceros (reclutadores, clientes potenciales, comunidad). Pixel-perfect y interacciones pulidas tienen valor de portfolio que no tendrían en producto interno.
 
-3. **Demo pública accesible**: en algún momento habrá que tener un endpoint público (`docscan.tecnomedia.es` o similar) con datos demo y cuenta de prueba para visitantes. Considerar esto al planificar deploy y multi-tenancy.
+3. **Demo pública accesible**: en algún momento habrá que tener un endpoint público (`docscan.example.com` o similar) con datos demo y cuenta de prueba para visitantes. Considerar esto al planificar deploy y multi-tenancy.
 
 4. **Documentación de arquitectura** importa: el usuario probablemente la mostrará a reclutadores. Diagramas claros, README profesional, manual MkDocs cuidado.
 
