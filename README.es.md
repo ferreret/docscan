@@ -108,7 +108,7 @@ Detalle en el [CHANGELOG](CHANGELOG.md).
 ### 🔍 Reconocimiento
 - **Barcodes**: dos motores (pyzbar y zxing-cpp), 15 simbologías
 - **OCR**: RapidOCR, EasyOCR y Tesseract
-- **IA**: Claude (Anthropic) y modelos de OpenAI
+- Lectura en toda la página o en una zona, con filtro por regex
 - Alta manual de códigos con validación por regex
 
 </td>
@@ -148,7 +148,8 @@ Detalle en el [CHANGELOG](CHANGELOG.md).
 ### 🤖 IA generativa
 - **AI Mode**: crea y modifica aplicaciones conversando
 - **Pipeline Assistant**: genera pasos y código de eventos
-- Claves de API cifradas con Fernet
+- Claude (Anthropic) u OpenAI, con claves cifradas con Fernet
+- La IA configura; el proceso de cada página es determinista
 
 </td>
 <td valign="top">

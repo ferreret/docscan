@@ -108,7 +108,7 @@ Details in the [CHANGELOG](CHANGELOG.md) (in Spanish).
 ### 🔍 Recognition
 - **Barcodes**: two engines (pyzbar and zxing-cpp), 15 symbologies
 - **OCR**: RapidOCR, EasyOCR and Tesseract
-- **AI**: Claude (Anthropic) and OpenAI models
+- Reading on the whole page or in a zone, with a regex filter
 - Manual barcode entry validated by regex
 
 </td>
@@ -148,7 +148,8 @@ Details in the [CHANGELOG](CHANGELOG.md) (in Spanish).
 ### 🤖 Generative AI
 - **AI Mode**: creates and edits applications from a conversation
 - **Pipeline Assistant**: generates steps and event code
-- API keys encrypted with Fernet
+- Claude (Anthropic) or OpenAI, with keys encrypted with Fernet
+- AI configures; processing each page stays deterministic
 
 </td>
 <td valign="top">
