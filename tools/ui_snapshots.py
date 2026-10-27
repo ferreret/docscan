@@ -221,7 +221,12 @@ APPS = [
     (
         "Facturas de proveedores",
         "Un PDF por factura, separado por su código Code128",
-        {"pipeline": PIPELINE, "events": EVENTS, "transfer": _TRANSFER_PDF},
+        {
+            "pipeline": PIPELINE,
+            "events": EVENTS,
+            "transfer": _TRANSFER_PDF,
+            "group": "Administración",
+        },
     ),
     (
         "Albaranes de entrada",
@@ -233,6 +238,7 @@ APPS = [
                 "destination": "/archivo/albaranes",
                 "output_format": "tiff",
             },
+            "group": "Administración",
         },
     ),
     (
@@ -277,6 +283,7 @@ def seed(session_factory, images_dir: Path) -> dict:
                     events_json=json.dumps(profile.get("events", {})),
                     transfer_json=json.dumps(profile.get("transfer", {})),
                     active=profile.get("active", True),
+                    group=profile.get("group", ""),
                 )
             )
         s.commit()

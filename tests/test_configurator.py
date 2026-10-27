@@ -712,6 +712,31 @@ class TestAppConfigurator:
         assert dialog._tabs.count() == 7
         assert dialog.windowTitle().startswith("Configurar")
 
+    def test_grupo_sugiere_los_existentes_y_se_guarda(
+        self, qtbot, sample_app, session_factory
+    ):
+        with session_factory() as session:
+            session.add_all(
+                [
+                    Application(name="A", group="hospital Arnau"),
+                    Application(name="B", group="Ayuntamiento"),
+                    Application(name="C", group="Ayuntamiento"),
+                ]
+            )
+            session.commit()
+        dialog = AppConfigurator(sample_app, session_factory)
+        qtbot.addWidget(dialog)
+        combo = dialog._tab_general._group_combo
+        assert [combo.itemText(i) for i in range(combo.count())] == [
+            "Ayuntamiento",
+            "hospital Arnau",
+        ]
+        combo.setEditText("Ayuntamiento")
+        dialog._on_save()
+        with session_factory() as session:
+            saved = session.get(Application, sample_app.id)
+            assert saved.group == "Ayuntamiento"
+
     def test_no_guarda_si_un_evento_no_compila(
         self, qtbot, sample_app, session_factory
     ):
@@ -860,6 +885,34 @@ class TestGeneralTabParidad:
         tab.apply_to(sample_app)
         assert sample_app.icon_accent == ""
         assert sample_app.show_scanner_ui is False
+
+    def test_grupo_ida_y_vuelta(self, qtbot, sample_app):
+        sample_app.group = "Hospital Arnau de Vilanova"
+        tab = GeneralTab(sample_app, ["Ayuntamiento", "Hospital Arnau de Vilanova"])
+        qtbot.addWidget(tab)
+        combo = tab._group_combo
+        assert combo.isEditable()
+        assert [combo.itemText(i) for i in range(combo.count())] == [
+            "Ayuntamiento",
+            "Hospital Arnau de Vilanova",
+        ]
+        assert combo.currentText() == "Hospital Arnau de Vilanova"
+        # Escribir un grupo nuevo lo crea; los espacios de los extremos sobran
+        combo.setEditText("  Clínica  ")
+        tab.apply_to(sample_app)
+        assert sample_app.group == "Clínica"
+        # Vacío = sin grupo
+        combo.setEditText("")
+        tab.apply_to(sample_app)
+        assert sample_app.group == ""
+
+    def test_sin_grupo_el_combo_queda_vacio(self, qtbot, sample_app):
+        sample_app.group = ""
+        tab = GeneralTab(sample_app, ["Ayuntamiento"])
+        qtbot.addWidget(tab)
+        assert tab._group_combo.currentText() == ""
+        tab.apply_to(sample_app)
+        assert sample_app.group == ""
 
     def test_un_backend_de_otra_plataforma_se_conserva(self, qtbot, sample_app):
         sample_app.scanner_backend = "twain"

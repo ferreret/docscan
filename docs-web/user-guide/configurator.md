@@ -13,6 +13,7 @@ Configuración básica de la aplicación.
 |--------|-------------|
 | Nombre | Nombre visible en el Launcher |
 | Descripción | Texto descriptivo del propósito |
+| Grupo (launcher) | Agrupa la tarjeta bajo una cabecera en el Launcher. Sugiere los grupos que ya usan otras aplicaciones y escribir uno nuevo lo crea. Vacío = sin grupo. Los espacios de los extremos se quitan al guardar |
 | Activa | Las inactivas se ven con el indicador gris en el Launcher |
 | Backend escáner | SANE (Linux) o TWAIN/WIA (Windows), según el sistema. Un backend de otra plataforma (una App preparada para Windows abierta en Linux) se conserva al guardar |
 | Mostrar el diálogo del escáner al capturar | Valor por defecto de la casilla de ⚙ en los equipos donde el operador no la ha cambiado |
