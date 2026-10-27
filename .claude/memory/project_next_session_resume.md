@@ -16,14 +16,22 @@ metadata:
   setup.exe y SHA256SUMS.txt). Las ramas `docs/paridad-flexibarnet10`,
   `fix/lote3-nada-falla-en-silencio` y `feat/rediseno-ui` están subsumidas en main
   (borrables).
-- **Rama `feat/lote6-separadores`** (pusheada, **PR #3** abierto contra main el 2026-10-27): lote 6 S1+S2 + nombre por
-  script + Apps de archivo del Arnau. 1172 tests verdes. Estado detallado en §8 de
-  `docs/diseno_separadores_documento_2026-10-26.md`. Ver [[project-apps-arnau]].
+- **Rama `feat/lote6-separadores`** = **PR #3** contra main (abierto, Auto-fix activo).
+  Lleva el lote 6 (separadores + Apps de archivo del Arnau), el Configurador revisado
+  frente a Flexibar (editor de scripts con colores, ShowScannerUi, IconAccent, Group4
+  solo B/N) y los PR **#4** (grupos en el launcher) y **#5** (Configurador al estilo
+  Flexibar: Barcode por secciones, Eventos en lista con «Activado», campos de lote
+  maestro-detalle), ya mergeados en ella el 2026-10-27. 1237 tests verdes.
+- **Pendiente para mergear #3 en main:** la pasada manual de Nicolás con
+  `~/DocScanArnau/arrancar.sh` (entorno aislado con las 6 Apps, ya resembrado).
+- `.mcp.json`: el servidor sqlite recibía `--db-path` como ruta y creaba un fichero
+  vacío con ese nombre en la raíz del repo; arreglado (7991c0c). Si vuelve a aparecer,
+  es otra cosa.
 
 ## Siguiente (en orden)
 
-1. Nicolás revisa `feat/lote6-separadores` → PR a main (el CHANGELOG ya está en
-   `[Unreleased]`).
+1. Tras la prueba manual de Nicolás, mergear el PR #3 en main (el CHANGELOG está en
+   `[Unreleased]`; luego valorar release v0.1.8).
 2. Probar las Apps del Arnau con escáner real (DR-M160) y escaneos de verdad.
 3. Familia eCAP del Arnau (04, 08): secretos en scripts + ODBC contra BD simulada.
 4. Pendientes de la revisión de código (anteriores al lote 6): eventos que no compilan
