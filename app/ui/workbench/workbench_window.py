@@ -14,7 +14,7 @@ from typing import Any
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QSize, Qt, Signal, QSettings
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QSize, Qt, Signal, QSettings
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QDialog,
@@ -92,8 +92,12 @@ log = logging.getLogger(__name__)
 
 def format_lot_counters(stats: dict[str, int], tr: Any = lambda t: t) -> str:
     """Texto de los contadores del lote para la barra de estado."""
+    # Contexto WorkbenchWindow: a ``tr`` le llega self.tr de la ventana.
     return tr(
-        "{0} páginas · {1} con barcode · {2} separadores · {3} a revisión"
+        QT_TRANSLATE_NOOP(
+            "WorkbenchWindow",
+            "{0} páginas · {1} con barcode · {2} separadores · {3} a revisión",
+        )
     ).format(
         stats.get("total_pages", 0),
         stats.get("with_barcode", 0),
@@ -104,8 +108,14 @@ def format_lot_counters(stats: dict[str, int], tr: Any = lambda t: t) -> str:
 
 def format_processed(done: int, total: int, errors: int, tr: Any = lambda t: t) -> str:
     """«Procesado N/M» al terminar el pipeline, como Flexibar."""
-    suffix = tr(" ({0} errores)").format(errors) if errors else ""
-    return tr("Procesado {0}/{1}{2}").format(done, total, suffix)
+    suffix = (
+        tr(QT_TRANSLATE_NOOP("WorkbenchWindow", " ({0} errores)")).format(errors)
+        if errors
+        else ""
+    )
+    return tr(QT_TRANSLATE_NOOP("WorkbenchWindow", "Procesado {0}/{1}{2}")).format(
+        done, total, suffix
+    )
 
 
 def format_image_info(width: int, height: int, dpi: int | None) -> str:
@@ -156,12 +166,20 @@ def page_review_message(
     parts = []
     if needs_review:
         parts.append(
-            tr("A revisión: {0}").format(review_reason)
+            tr(QT_TRANSLATE_NOOP("WorkbenchWindow", "A revisión: {0}")).format(
+                review_reason
+            )
             if review_reason
-            else tr("Página a revisión")
+            else tr(QT_TRANSLATE_NOOP("WorkbenchWindow", "Página a revisión"))
         )
     if errors:
-        parts.append(tr("{0} error(es) de procesado; detalle en el Log").format(errors))
+        parts.append(
+            tr(
+                QT_TRANSLATE_NOOP(
+                    "WorkbenchWindow", "{0} error(es) de procesado; detalle en el Log"
+                )
+            ).format(errors)
+        )
     return " · ".join(parts)
 
 

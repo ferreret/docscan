@@ -33,5 +33,6 @@ Decisiones tomadas 2026-03-20:
 
 **Corrección 2026-10-27:** el «asistente IA de pipelines» se implementó en `381cc10` (servicio
 `pipeline_assistant.py`, `PipelineAssistantPanel`, `EventAssistantDialog`), pero **los paneles nunca se han
-instanciado en la interfaz**: el usuario solo llega al AI Mode del launcher. No anunciarlo como disponible;
-conectarlo (o retirarlo) es trabajo pendiente.
+instanciado en la interfaz**: el usuario solo llega al AI Mode del launcher. No anunciarlo como disponible.
+**Retirado del código el 2026-10-27** por decisión de Nicolás (PR «retira el Pipeline Assistant»): el
+AI Mode cubre crear y modificar aplicaciones con IA. No proponer recuperarlo salvo que él lo pida.

@@ -147,7 +147,7 @@ All scripts (ScriptStep + lifecycle events) receive: `app` (AppContext), `batch`
 - `app/services/barcode_service.py` -- Motor 1 (pyzbar) + Motor 2 (zxing-cpp)
 - `app/services/image_pipeline.py` -- all ImageOp implementations
 - `app/services/scanner_service.py` -- BaseScanner ABC with SaneScanner (Linux) + TwainScanner + WiaScanner (Windows). Auto-selects by platform.
-- `app/services/ai_mode_assistant.py` + `app/services/pipeline_assistant.py` -- AI assistants using the `anthropic` SDK directly (shared constants in `_assistant_constants.py`)
+- `app/services/ai_mode_assistant.py` -- AI Mode assistant (launcher) using the `anthropic`/`openai` SDKs directly (shared constants, including `EVENT_SIGNATURES`, in `_assistant_constants.py`). The per-pipeline assistant was removed on 2026-10-27: it was never wired into the UI
 - `app/workers/` -- QThread workers (scan, recognition, transfer)
 
 ### Database

@@ -33,8 +33,7 @@ metadata:
    retirada de todo el repo (PR #8, DocScan = Nicolás Barceló; ver [[feedback-sin-nombre-empresa]]) y
    los bugs que destapó la auditoría corregidos (PR #7: `http` en scripts, `on_key_event`,
    `script_timeout_seconds`, `pipeline_steps`, aviso PDF417/DataMatrix, tildes). 1256 tests.
-   **Pendiente**: aplicar la ficha en el repo del portfolio; decidir si se conecta o retira el
-   Pipeline Assistant (nunca se cableó a la UI); traducciones al inglés de las pantallas nuevas;
+   **Pendiente**: aplicar la ficha en el repo del portfolio; traducciones al inglés de las pantallas nuevas;
    modelo Anthropic por defecto del AI Mode (`claude-sonnet-4-20250514`); release v0.1.9 cuando toque
    (los binarios ≤ v0.1.8 aún muestran la empresa en «Acerca de»).
 1. Probar las Apps del Arnau con escáner real (DR-M160) y escaneos de verdad.
