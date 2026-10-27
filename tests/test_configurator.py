@@ -1100,3 +1100,46 @@ class TestGeneralTabParidad:
         qtbot.addWidget(tab)
         tab.apply_to(sample_app)
         assert sample_app.scanner_backend == "twain"
+
+
+class TestScriptDeNombreEnVSCode:
+    """El script de nombre se puede editar en VS Code, como los eventos."""
+
+    def test_boton_solo_en_modo_script(self, qtbot, sample_app):
+        from unittest.mock import patch
+
+        sample_app.transfer_json = json.dumps({"mode": "tiff", "name_mode": "pattern"})
+        with patch(
+            "app.ui.configurator.tabs.tab_transfer.detect_editor",
+            return_value="/usr/bin/code",
+        ):
+            tab = TransferTab(sample_app)
+            qtbot.addWidget(tab)
+            tab.show()
+            assert not tab._vscode_bar.isVisible()
+            tab._name_mode_combo.setCurrentIndex(
+                tab._name_mode_combo.findData("script")
+            )
+            assert tab._vscode_bar.isVisible()
+
+    def test_lo_que_vuelve_de_vscode_queda_en_el_editor(self, qtbot, sample_app):
+        tab = TransferTab(sample_app)
+        qtbot.addWidget(tab)
+        tab._on_editor_done(
+            "def file_name(page, document, batch, app):\n    return 'x'\n"
+        )
+        assert "return 'x'" in tab._name_script_edit.toPlainText()
+        tab._on_editor_done(None)  # cancelado: no se toca
+        assert "return 'x'" in tab._name_script_edit.toPlainText()
+
+
+def test_stubs_del_script_de_nombre():
+    from app.services.script_stubs import generate_stubs
+
+    stubs = generate_stubs("file_name")
+    compile(stubs, "<stubs>", "exec")
+    assert "class TransferPage" in stubs and "class LogicalDocument" in stubs
+    assert "document: LogicalDocument" in stubs
+    assert "documents: list[LogicalDocument]" in generate_stubs(
+        "event", "on_transfer_validate"
+    )

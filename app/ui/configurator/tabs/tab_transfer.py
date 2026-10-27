@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.models.application import Application
+from app.services.external_editor_service import detect_editor, edit_script
 from app.ui.widgets.code_editor import CodeEditor
 
 _SENTINEL_ORIGINAL = "(original)"
@@ -35,6 +37,19 @@ FILE_NAME_TEMPLATE = """def file_name(page, document, batch, app):
     # o None para usar el patrón.
     return None
 """
+
+
+class _EditorWorker(QThread):
+    """Edición bloqueante en VS Code (espera a que se cierre la pestaña)."""
+
+    finished = Signal(object)  # str | None
+
+    def __init__(self, code: str) -> None:
+        super().__init__()
+        self._code = code
+
+    def run(self) -> None:
+        self.finished.emit(edit_script(self._code, "file_name"))
 
 
 class TransferTab(QWidget):
@@ -181,6 +196,21 @@ class TransferTab(QWidget):
         )
         name_form.addRow(self.tr("Nombre por:"), self._name_mode_combo)
         name_form.addRow(self.tr("Patrón:"), self._pattern_edit)
+
+        # «Abrir en VS Code», como en Eventos y en los pasos Script
+        self._btn_vscode = QPushButton(self.tr("Abrir en VS Code"))
+        self._btn_vscode.setToolTip(
+            self.tr("Editar el script en VS Code con autocompletado y sintaxis")
+        )
+        self._btn_vscode.clicked.connect(self._open_in_vscode)
+        self._editor_worker: _EditorWorker | None = None
+        vscode_bar = QHBoxLayout()
+        vscode_bar.addStretch()
+        vscode_bar.addWidget(self._btn_vscode)
+        self._vscode_bar = QWidget()
+        self._vscode_bar.setLayout(vscode_bar)
+        vscode_bar.setContentsMargins(0, 0, 0, 0)
+        name_form.addRow(self._vscode_bar)
 
         self._name_script_edit = CodeEditor()
         self._name_script_edit.setMinimumHeight(320)
@@ -387,6 +417,7 @@ class TransferTab(QWidget):
         self._documents_group.setEnabled(enabled)
         self._name_mode_combo.setEnabled(enabled)
         self._name_script_edit.setEnabled(enabled)
+        self._btn_vscode.setEnabled(enabled)
 
     def _on_mode_changed(self, mode: str) -> None:
         """Muestra/oculta grupos según el modo de transferencia."""
@@ -410,8 +441,24 @@ class TransferTab(QWidget):
     def _on_name_mode_changed(self) -> None:
         is_script = self._name_mode_combo.currentData() == "script"
         self._name_script_edit.setVisible(is_script)
+        self._vscode_bar.setVisible(is_script and detect_editor() is not None)
         if is_script and not self._name_script_edit.toPlainText().strip():
             self._name_script_edit.setPlainText(FILE_NAME_TEMPLATE)
+
+    def _open_in_vscode(self) -> None:
+        """Abre el script de nombre en VS Code, en un hilo aparte."""
+        self._btn_vscode.setEnabled(False)
+        self._btn_vscode.setText(self.tr("Editando en VS Code..."))
+        self._editor_worker = _EditorWorker(self._name_script_edit.toPlainText())
+        self._editor_worker.finished.connect(self._on_editor_done)
+        self._editor_worker.start()
+
+    def _on_editor_done(self, result: str | None) -> None:
+        """Recoge el script al cerrar la pestaña de VS Code."""
+        self._btn_vscode.setEnabled(True)
+        self._btn_vscode.setText(self.tr("Abrir en VS Code"))
+        if result is not None:
+            self._name_script_edit.setPlainText(result)
 
     def _on_out_format_changed(self, fmt: str) -> None:
         """Muestra/oculta opciones de formato de salida."""
