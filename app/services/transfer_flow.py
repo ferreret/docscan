@@ -79,9 +79,7 @@ def transfer_page_dict(page: Any) -> dict[str, Any]:
         "first_barcode": barcodes[0].value if barcodes else "",
         "is_separator": bool(getattr(page, "is_separator", False)),
         "separator_value": getattr(page, "separator_value", "") or "",
-        "barcodes": [
-            {"value": b.value, "symbology": b.symbology} for b in barcodes
-        ],
+        "barcodes": [{"value": b.value, "symbology": b.symbology} for b in barcodes],
     }
 
 

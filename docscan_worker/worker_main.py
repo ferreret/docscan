@@ -783,7 +783,9 @@ def main(argv: list[str] | None = None) -> int:
     # Servicios
     script_engine = ScriptEngine()
     lifecycle_events = _compile_lifecycle_events(app_record, script_engine)
-    compile_transfer_scripts(script_engine, parse_transfer_config(app_record.transfer_json))
+    compile_transfer_scripts(
+        script_engine, parse_transfer_config(app_record.transfer_json)
+    )
     executor = _build_executor(app_record, script_engine)
     import_service = ImportService()
     images_dir = APP_IMAGES_DIR

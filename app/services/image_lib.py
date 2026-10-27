@@ -264,9 +264,7 @@ class ImageLib:
         pil_images: list[Image.Image] = []
         for item in images:
             img = ImageLib._resolve_image(item)
-            pil_images.append(
-                _to_tiff_mode(ImageLib._ndarray_to_pil(img), compression)
-            )
+            pil_images.append(_to_tiff_mode(ImageLib._ndarray_to_pil(img), compression))
 
         if not pil_images:
             raise ValueError("No hay imágenes para combinar")

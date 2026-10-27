@@ -163,7 +163,9 @@ def missing_images(pages: list[dict[str, Any]]) -> list[int]:
     ]
 
 
-def document_problems(pages: list[dict[str, Any]], config: TransferConfig) -> str | None:
+def document_problems(
+    pages: list[dict[str, Any]], config: TransferConfig
+) -> str | None:
     """Comprueba los documentos del lote antes de transferir.
 
     Returns:
@@ -390,7 +392,11 @@ class TransferService:
         for document in documents:
             for page in self._output_pages(document, config):
                 name = self._resolve_name(
-                    config, page, by_page.get(id(page)), batch_fields, batch_id,
+                    config,
+                    page,
+                    by_page.get(id(page)),
+                    batch_fields,
+                    batch_id,
                     name_resolver,
                 )
                 planned.append((page, name))
