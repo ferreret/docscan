@@ -37,6 +37,12 @@ class Page(Base):
     is_blank: Mapped[bool] = mapped_column(Boolean, default=False)
     is_excluded: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Separador de documento (paridad FlexibarNET10): la página abre un
+    # documento lógico. ``separator_value`` es una instantánea del valor que
+    # lo identifica, independiente de ``barcodes``.
+    is_separator: Mapped[bool] = mapped_column(Boolean, default=False)
+    separator_value: Mapped[str] = mapped_column(Text, default="")
+
     # Pipeline
     pipeline_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 

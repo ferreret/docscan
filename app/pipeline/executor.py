@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.pipeline import separator
 from app.pipeline.context import PipelineAbortError, PipelineContext
 from app.pipeline.steps import (
     BarcodeStep,
@@ -206,7 +207,40 @@ class PipelineExecutor:
         # Acumular en page.barcodes (no reemplazar)
         if hasattr(page, "barcodes"):
             page.barcodes.extend(results)
+        if step.separator_enabled:
+            self._apply_separator_detection(step, page, results, ctx)
         return results
+
+    def _apply_separator_detection(
+        self,
+        step: BarcodeStep,
+        page: Any,
+        results: list[Any],
+        ctx: PipelineContext,
+    ) -> None:
+        """Marca o desmarca la página como separador de documento.
+
+        Autoritativo, como en FlexibarNET10: con la detección activa, el
+        resultado pisa la marca manual (true o false). Con varios pasos con
+        detección, la página es separador si casa **cualquiera** y el valor
+        es el del primero que casa (en Flexibar el último paso pisaba al
+        anterior).
+        """
+        value = separator.find_matching_value(step, results)
+        if value is not None:
+            if not ctx.separator_matched:
+                log.info(
+                    "Separador en página %s (paso %s): '%s'",
+                    getattr(page, "page_index", "?"),
+                    step.id,
+                    value,
+                )
+                page.is_separator = True
+                page.separator_value = value
+                ctx.separator_matched = True
+        elif not ctx.separator_matched:
+            page.is_separator = False
+            page.separator_value = ""
 
     def _run_ocr(
         self,

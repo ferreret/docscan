@@ -69,6 +69,8 @@ class PageContext:
     ocr_text: str                       # Texto OCR extraído
     flags: PageFlags                    # Flags de revisión y errores
     fields: dict[str, Any]              # Campos de página (indexación, IA, etc.)
+    is_separator: bool                  # La página abre un documento (separador)
+    separator_value: str                # Valor que identifica el documento ("" si no tiene)
 
 class PipelineContext:
     \"\"\"Control de flujo del pipeline (solo disponible en ScriptStep).\"\"\"

@@ -25,6 +25,24 @@ _TIFF_COMPRESSION = {
     "group4": "group4",
 }
 
+# Compresiones que solo admiten imágenes de 1 bit. Con otra profundidad,
+# libtiff no lanza una excepción: tumba el proceso (segfault).
+_BILEVEL_ONLY = frozenset({"group4"})
+
+
+def _to_tiff_mode(pil_img: Image.Image, compression: str) -> Image.Image:
+    """Adapta la imagen a lo que exige la compresión TIFF.
+
+    Group4 es solo para blanco y negro: la imagen se binariza con umbral
+    fijo (128, sin tramado), igual que un escaneo en B/N.
+    """
+    if compression not in _BILEVEL_ONLY or pil_img.mode == "1":
+        return pil_img
+    gray = pil_img.convert("L")
+    return gray.point(lambda v: 255 if v >= 128 else 0).convert(
+        "1", dither=Image.Dither.NONE
+    )
+
 
 class ImageLib:
     """Librería de tratamiento de imágenes con métodos estáticos.
@@ -111,6 +129,7 @@ class ImageLib:
             tiff_comp = _TIFF_COMPRESSION.get(compression)
             if tiff_comp:
                 save_kwargs["compression"] = tiff_comp
+            pil_img = _to_tiff_mode(pil_img, compression)
             pil_img.save(str(path), "TIFF", **save_kwargs)
 
         elif suffix == ".png":
@@ -245,7 +264,9 @@ class ImageLib:
         pil_images: list[Image.Image] = []
         for item in images:
             img = ImageLib._resolve_image(item)
-            pil_images.append(ImageLib._ndarray_to_pil(img))
+            pil_images.append(
+                _to_tiff_mode(ImageLib._ndarray_to_pil(img), compression)
+            )
 
         if not pil_images:
             raise ValueError("No hay imágenes para combinar")

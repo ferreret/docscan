@@ -67,10 +67,22 @@ class RecognitionWorker(QThread):
         self._total_pages: int = 0
         self._completed: int = 0
 
-    def enqueue_page(self, page_index: int, image: np.ndarray) -> None:
-        """Encola una página para procesamiento (thread-safe)."""
+    def enqueue_page(
+        self,
+        page_index: int,
+        image: np.ndarray,
+        initial: dict[str, Any] | None = None,
+    ) -> None:
+        """Encola una página para procesamiento (thread-safe).
+
+        Args:
+            page_index: Índice de la página en el lote.
+            image: Imagen de la página.
+            initial: Estado inicial del contexto (p. ej. la marca de
+                separador guardada en BD, de ``separator_state``).
+        """
         self._total_pages += 1
-        self._queue.put((page_index, image))
+        self._queue.put((page_index, image, initial or {}))
 
     def signal_no_more_pages(self) -> None:
         """Indica que no llegarán más páginas."""
@@ -102,9 +114,9 @@ class RecognitionWorker(QThread):
             if item is _SENTINEL:
                 break
 
-            page_index, image = item
+            page_index, image, initial = item
             try:
-                page_ctx = PageContext(page_index=page_index, image=image)
+                page_ctx = PageContext(page_index=page_index, image=image, **initial)
                 self._executor.execute(
                     page=page_ctx,
                     batch=self._batch_ctx,

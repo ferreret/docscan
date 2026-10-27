@@ -39,6 +39,7 @@ from app.models.barcode import Barcode
 from app.models.page import Page
 from app.pipeline.executor import PipelineExecutor
 from app.pipeline.serializer import deserialize
+from app.pipeline.page_context import persist_separator, separator_state
 from app.services.barcode_service import BarcodeService
 from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
@@ -47,7 +48,11 @@ from app.services.ocr_service import OcrService
 from app.services.script_engine import ScriptEngine
 from app.models.image_config import ImageConfig, parse_image_config
 from app.models.workbench_layout import BARCODES, WorkbenchLayout
-from app.services.transfer_flow import transfer_page_dict, validate_before_transfer
+from app.services.transfer_flow import (
+    compile_transfer_scripts,
+    transfer_page_dict,
+    validate_before_transfer,
+)
 from app.services.transfer_service import TransferService, parse_transfer_config
 from app.ui.workbench.barcode_panel import BarcodePanel
 from app.ui.workbench.document_viewer import DocumentViewer
@@ -303,6 +308,11 @@ class WorkbenchWindow(QMainWindow):
                         event_name,
                         e,
                     )
+
+        compile_transfer_scripts(
+            self._script_engine,
+            parse_transfer_config(self._application.transfer_json or "{}"),
+        )
 
     def _setup_ui(self) -> None:
         """Construye toda la interfaz gráfica."""
@@ -1519,6 +1529,7 @@ class WorkbenchWindow(QMainWindow):
             )
             page.needs_review = page_ctx.flags.needs_review
             page.review_reason = page_ctx.flags.review_reason
+            persist_separator(page_ctx, page)
             page.processing_errors_json = json.dumps(
                 page_ctx.flags.processing_errors,
                 ensure_ascii=False,
@@ -1667,7 +1678,9 @@ class WorkbenchWindow(QMainWindow):
         for page_index, page in pages:
             img = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
             if img is not None:
-                self._recognition_worker.enqueue_page(page_index, img)
+                self._recognition_worker.enqueue_page(
+                    page_index, img, separator_state(page)
+                )
 
         self._recognition_worker.signal_no_more_pages()
         self._status_bar.showMessage(message.format(len(pages)))
@@ -1938,6 +1951,18 @@ class WorkbenchWindow(QMainWindow):
             )
         except json.JSONDecodeError, TypeError:
             fields_def = []
+        config = parse_transfer_config(
+            self._application.transfer_json if self._application else "{}",
+        )
+        pages_data = []
+        with self._session_factory() as session:
+            page_repo = PageRepository(session)
+            for page in self._pages:
+                if page.is_excluded:
+                    continue
+                db_page = page_repo.get_by_id(page.id)
+                if db_page is not None:
+                    pages_data.append(transfer_page_dict(db_page))
         reason = validate_before_transfer(
             script_engine=self._script_engine,
             contexts={
@@ -1946,6 +1971,8 @@ class WorkbenchWindow(QMainWindow):
             },
             fields_def=fields_def if isinstance(fields_def, list) else [],
             batch_fields=batch_fields,
+            pages=pages_data,
+            config=config,
         )
         if reason:
             log.warning("Transferencia bloqueada: %s", reason)
@@ -1967,20 +1994,6 @@ class WorkbenchWindow(QMainWindow):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-
-        # 3. Preparar datos
-        config = parse_transfer_config(
-            self._application.transfer_json if self._application else "{}",
-        )
-        pages_data = []
-        with self._session_factory() as session:
-            page_repo = PageRepository(session)
-            for page in self._pages:
-                if page.is_excluded:
-                    continue
-                db_page = page_repo.get_by_id(page.id)
-                if db_page is not None:
-                    pages_data.append(transfer_page_dict(db_page))
 
         # 4. Lanzar worker: transferencia estándar (si está activada) y
         # después on_transfer_advanced (si está definido). Ver transfer_flow.
@@ -2469,6 +2482,7 @@ class WorkbenchWindow(QMainWindow):
         self._recognition_worker.enqueue_page(
             self._current_page_index,
             image,
+            separator_state(page),
         )
         self._recognition_worker.signal_no_more_pages()
         self._status_bar.showMessage(self.tr("Re-procesando p\u00e1gina..."))

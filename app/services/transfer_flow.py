@@ -25,17 +25,31 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import cv2
 
+from app.models.document import LogicalDocument, split_documents
+from app.pipeline.page_context import AppContext, BatchContext
 from app.services.script_engine import EventOutcome
-from app.services.transfer_service import TransferConfig, TransferResult
+from app.services.transfer_service import (
+    NameResolver,
+    TransferAbortedError,
+    TransferConfig,
+    TransferResult,
+    document_problems,
+)
 
 log = logging.getLogger(__name__)
 
 VALIDATE_EVENT = "on_transfer_validate"
 ADVANCED_EVENT = "on_transfer_advanced"
+# Script de nombre de fichero (TransferConfig.file_name_script). Define
+# ``file_name(page, document, batch, app)`` y devuelve la subruta sin
+# extensión ("20261027/12345678"), o None para usar el patrón.
+FILE_NAME_SCRIPT_ID = "file_name_script"
+FILE_NAME_ENTRY_POINT = "file_name"
 
 
 # ------------------------------------------------------------------
@@ -63,6 +77,11 @@ def transfer_page_dict(page: Any) -> dict[str, Any]:
         "fields": fields,
         "ocr_text": page.ocr_text or "",
         "first_barcode": barcodes[0].value if barcodes else "",
+        "is_separator": bool(getattr(page, "is_separator", False)),
+        "separator_value": getattr(page, "separator_value", "") or "",
+        "barcodes": [
+            {"value": b.value, "symbology": b.symbology} for b in barcodes
+        ],
     }
 
 
@@ -80,6 +99,9 @@ class TransferPage:
     fields: dict[str, Any] = field(default_factory=dict)
     ocr_text: str = ""
     first_barcode: str = ""
+    is_separator: bool = False
+    separator_value: str = ""
+    barcodes: list[Any] = field(default_factory=list)
     _image: Any = field(default=None, repr=False)
     _image_loaded: bool = field(default=False, repr=False)
 
@@ -102,7 +124,91 @@ class TransferPage:
             fields=dict(data.get("fields") or {}),
             ocr_text=data.get("ocr_text", ""),
             first_barcode=data.get("first_barcode", ""),
+            is_separator=bool(data.get("is_separator", False)),
+            separator_value=data.get("separator_value", "") or "",
+            barcodes=[
+                SimpleNamespace(**b) if isinstance(b, dict) else b
+                for b in data.get("barcodes") or []
+            ],
         )
+
+
+def script_documents(
+    pages: list[dict[str, Any]],
+) -> tuple[list[TransferPage], list[LogicalDocument]]:
+    """Páginas y documentos del lote tal como los ven los scripts."""
+    script_pages = [TransferPage.from_dict(p) for p in pages]
+    return script_pages, split_documents(script_pages)
+
+
+def compile_transfer_scripts(script_engine: Any, config: TransferConfig) -> None:
+    """Compila el script de nombre de la App, si lo usa.
+
+    Se compila al cargar la App, como los eventos: un script que no compila
+    queda registrado y la transferencia falla con el motivo, en lugar de
+    caer en silencio al patrón.
+    """
+    if script_engine is None:
+        return
+    if config.name_mode == "script" and config.file_name_script.strip():
+        try:
+            script_engine.compile_script(
+                FILE_NAME_SCRIPT_ID,
+                config.file_name_script,
+                "Script de nombre de fichero",
+            )
+        except Exception as e:
+            log.error("El script de nombre de fichero no compila: %s", e)
+
+
+def build_name_resolver(
+    script_engine: Any,
+    config: TransferConfig,
+    contexts: dict[str, Any] | None,
+) -> NameResolver | None:
+    """Prepara el script de nombre para ``TransferService.transfer``.
+
+    Returns:
+        None si la App usa patrón.
+
+    Raises:
+        TransferAbortedError: Si la App usa script pero no está compilado.
+    """
+    if config.name_mode != "script" or not config.file_name_script.strip():
+        return None
+    if script_engine is None or not script_engine.is_compiled(FILE_NAME_SCRIPT_ID):
+        raise TransferAbortedError(
+            "El script de nombre de fichero no está disponible (¿no compila?)"
+        )
+    # El script siempre recibe app y batch, aunque el llamador no los pase.
+    contexts = {"app": AppContext(), "batch": BatchContext(), **(contexts or {})}
+
+    def resolve(page: dict[str, Any], document: LogicalDocument | None) -> str | None:
+        script_page = TransferPage.from_dict(page)
+        script_document = None
+        if document is not None:
+            script_document = LogicalDocument(
+                index=document.index,
+                separator_page=(
+                    TransferPage.from_dict(document.separator_page)
+                    if document.separator_page is not None
+                    else None
+                ),
+                pages=[TransferPage.from_dict(p) for p in document.pages],
+            )
+        outcome: EventOutcome = script_engine.run_event_checked(
+            FILE_NAME_SCRIPT_ID,
+            FILE_NAME_ENTRY_POINT,
+            page=script_page,
+            document=script_document,
+            **contexts,
+        )
+        if outcome.failed:
+            raise RuntimeError(outcome.error)
+        value = outcome.value
+        return value if isinstance(value, str) else None
+
+    return resolve
 
 
 # ------------------------------------------------------------------
@@ -149,6 +255,8 @@ def validate_before_transfer(
     fields_def: list[dict[str, Any]],
     batch_fields: dict[str, Any],
     validate_entry_point: str | None = None,
+    pages: list[dict[str, Any]] | None = None,
+    config: TransferConfig | None = None,
 ) -> str | None:
     """Comprueba si el lote se puede transferir.
 
@@ -158,6 +266,11 @@ def validate_before_transfer(
         fields_def: Definiciones de los campos de lote.
         batch_fields: Valores actuales de los campos del lote.
         validate_entry_point: Función del evento si no se llama como él.
+        pages: Dicts de ``transfer_page_dict`` (sin excluidas). El evento
+            los recibe como ``pages`` y ``documents``, como el ``Pages`` de
+            FlexibarNET10.
+        config: Configuración de transferencia, para comprobar los
+            documentos (separadores) antes de preguntar nada al operador.
 
     Returns:
         None si se puede transferir, o el motivo por el que no.
@@ -166,12 +279,21 @@ def validate_before_transfer(
     if missing:
         return "Faltan campos obligatorios: " + ", ".join(missing)
 
+    if pages is not None and config is not None and config.standard_enabled:
+        problem = document_problems(pages, config)
+        if problem:
+            return problem
+
     if script_engine is None:
         return None
+    event_kwargs = dict(contexts)
+    if pages is not None:
+        script_pages, documents = script_documents(pages)
+        event_kwargs.update(pages=script_pages, documents=documents)
     outcome: EventOutcome = script_engine.run_event_checked(
         VALIDATE_EVENT,
         validate_entry_point,
-        **contexts,
+        **event_kwargs,
     )
     if outcome.failed:
         return f"Ha fallado la validación previa a la transferencia: {outcome.error}"
@@ -196,6 +318,7 @@ def execute_transfer(
     contexts: dict[str, Any] | None = None,
     advanced_entry_point: str | None = None,
     on_page_callback: Any = None,
+    name_engine: Any = None,
 ) -> TransferResult:
     """Transferencia estándar y, después, ``on_transfer_advanced``.
 
@@ -209,6 +332,9 @@ def execute_transfer(
         contexts: ``app`` y ``batch`` para el evento avanzado.
         advanced_entry_point: Función del evento si no se llama como él.
         on_page_callback: ``(page_index, success)`` por página copiada.
+        name_engine: ScriptEngine con el script de nombre, si no es el
+            mismo que ``script_engine`` (el worker solo pasa este último
+            cuando la App define ``on_transfer_advanced``).
 
     Returns:
         TransferResult final. ``success`` es False si cualquiera de las dos
@@ -232,12 +358,19 @@ def execute_transfer(
                 success=False,
                 errors=["Falta la carpeta de destino de la transferencia"],
             )
+        try:
+            name_resolver = build_name_resolver(
+                name_engine or script_engine, config, contexts
+            )
+        except TransferAbortedError as e:
+            return TransferResult(success=False, errors=[str(e)])
         result = transfer_service.transfer(
             pages=pages,
             config=config,
             batch_fields=batch_fields,
             batch_id=batch_id,
             on_page_callback=on_page_callback,
+            name_resolver=name_resolver,
         )
         if not result.success:
             return result
@@ -247,10 +380,12 @@ def execute_transfer(
     if not has_advanced:
         return result
 
+    script_pages, documents = script_documents(pages)
     outcome: EventOutcome = script_engine.run_event_checked(
         ADVANCED_EVENT,
         advanced_entry_point,
-        pages=[TransferPage.from_dict(p) for p in pages],
+        pages=script_pages,
+        documents=documents,
         result=result,
         **(contexts or {}),
     )
