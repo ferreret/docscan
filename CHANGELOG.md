@@ -8,6 +8,16 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-27
+
+Dos bloques: el lote 3 de mejoras desde FlexibarNET 10 y el rediseño visual con la
+estética de FlexibarNET 10 (ver «Interfaz»). Incluye además el arreglo de las
+migraciones que borraban datos en SQLite, presente en v0.1.5 y v0.1.6.
+
+> **Actualizar desde v0.1.5 o v0.1.6 es urgente si hay datos reales**: esas
+> versiones podían vaciar lotes, páginas y barcodes al migrar una base de datos
+> antigua (ver «Corregido»).
+
 Lote 3 de mejoras desde FlexibarNET 10: **nada falla en silencio**. La mayoría son
 errores que se trataban como si todo hubiera ido bien, o que solo quedaban en el log.
 Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
@@ -41,6 +51,16 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
   imágenes de los lotes.
 
 ### 🐛 Corregido
+
+- **Las migraciones ya no borran datos en SQLite.** `batch_alter_table` recrea la
+  tabla con `DROP TABLE`, y con `PRAGMA foreign_keys=ON` ese borrado propagaba los
+  `ON DELETE CASCADE`: al migrar una base de datos anterior a `e5b7c3d94f10`, se
+  vaciaban `batches`, `pages` y `barcodes` sin aviso. Como la aplicación migra sola
+  al arrancar desde v0.1.5, afectaba a cualquier instalación con una base de datos
+  antigua. `alembic/env.py` desactiva ahora las claves foráneas durante la
+  migración y las reactiva aunque falle.
+- **`pywin32` sube a 311**: la 310 no tiene wheel para Python 3.14 y hacía abortar
+  `pip install -r requirements.txt` entero en Windows.
 
 - **Icono de DocScan en Linux con Wayland.** El escritorio ignora el icono que
   pone la aplicación y lo busca en el `.desktop` cuyo nombre coincide con el
@@ -170,7 +190,7 @@ Ahora el programa se detiene y lo dice, con la misma lógica que FlexibarNET 10
   sin poner otra, y parecían campos de texto. El de idioma del launcher es un poco
   más ancho para que quepan el código y la flecha.
 - **La versión se ve en el título del launcher**: en la barra de la ventana
-  («DocScan Studio v0.1.6», como el «FlexibarNET v1.30» de Flexibar) y junto al
+  («DocScan Studio v0.1.7», como el «FlexibarNET v1.30» de Flexibar) y junto al
   encabezado.
 - **Contadores del lote en la barra de estado** (páginas, con barcode, separadores y
   a revisión), como el «Procesado 5/5» de Flexibar. Antes ocupaban el panel derecho.

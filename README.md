@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.6-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.1.7-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
   <img src="https://img.shields.io/badge/tests-939_passing-brightgreen?style=flat-square" alt="Tests">
@@ -648,5 +648,5 @@ Desarrollado por **Tecnomedia** — Soluciones de gestión documental.
 ---
 
 <p align="center">
-  <sub>DocScan Studio v0.1.6 — Hecho con ❤️ y 🐍</sub>
+  <sub>DocScan Studio v0.1.7 — Hecho con ❤️ y 🐍</sub>
 </p>
