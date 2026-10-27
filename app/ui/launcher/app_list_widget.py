@@ -10,13 +10,27 @@ Cada tarjeta lleva, de izquierda a derecha:
 El icono, el acento y las etiquetas se derivan de la configuración
 (``app/ui/launcher/app_card.py``). Las medidas son las de Flexibar a 13 px y
 escalan con el tamaño de letra elegido (A+/A−).
+
+Grupos (FlexibarNET10 ``App.Group``): las aplicaciones sin grupo van primero,
+en el nivel raíz y sin cabecera; después, cada grupo en orden alfabético bajo
+una cabecera plegable con su nombre y el número de aplicaciones. El plegado
+se recuerda por equipo.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, QPoint, QRect, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import (
+    QCoreApplication,
+    QPoint,
+    QRect,
+    QRectF,
+    QSettings,
+    QSize,
+    Qt,
+    Signal,
+)
 from PySide6.QtGui import QBrush, QColor, QFont, QFontInfo, QPainter, QPen
 from PySide6.QtWidgets import (
     QListWidget,
@@ -33,6 +47,12 @@ from app.ui.palette import color
 # Roles personalizados para almacenar datos en cada item
 APP_ID_ROLE = Qt.ItemDataRole.UserRole
 APP_DATA_ROLE = Qt.ItemDataRole.UserRole + 1
+GROUP_ROLE = Qt.ItemDataRole.UserRole + 2  # nombre del grupo, en las cabeceras
+GROUP_COUNT_ROLE = Qt.ItemDataRole.UserRole + 3
+GROUP_COLLAPSED_ROLE = Qt.ItemDataRole.UserRole + 4
+
+# Grupos plegados, por equipo (como LauncherGroupCollapsed en Flexibar)
+COLLAPSED_GROUPS_KEY = "launcher/collapsed_groups"
 
 # Medidas de Flexibar (px a 13 px de letra)
 BASE_FONT_PX = 13
@@ -43,6 +63,8 @@ TILE_SIZE = 48
 TILE_MARGIN = 16
 KEBAB_SIZE = 32
 KEBAB_MARGIN = 10
+GROUP_HEADER_HEIGHT = 40
+GROUP_TOP_GAP = 4
 
 
 def _scale(font: QFont) -> float:
@@ -68,10 +90,32 @@ def kebab_rect(item_rect: QRect, scale: float = 1.0) -> QRect:
     )
 
 
+def _group_sort_key(app: Any) -> tuple[int, str]:
+    """Sin grupo primero; después los grupos en orden alfabético."""
+    group = (getattr(app, "group", "") or "").strip()
+    return (1 if group else 0, group.casefold())
+
+
+def _load_collapsed_groups() -> set[str]:
+    value = QSettings("DocScanStudio", "DocScanStudio").value(COLLAPSED_GROUPS_KEY, [])
+    if isinstance(value, str):  # QSettings devuelve str si solo hay uno
+        value = [value]
+    return {g for g in value or [] if isinstance(g, str) and g}
+
+
+def _save_collapsed_groups(groups: set[str]) -> None:
+    QSettings("DocScanStudio", "DocScanStudio").setValue(
+        COLLAPSED_GROUPS_KEY, sorted(groups)
+    )
+
+
 class AppCardDelegate(QStyledItemDelegate):
-    """Dibuja cada aplicación como una tarjeta."""
+    """Dibuja cada aplicación como una tarjeta y cada grupo como su cabecera."""
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:
+        if index.data(GROUP_ROLE):
+            self._paint_group_header(painter, option, index)
+            return
         app_data = index.data(APP_DATA_ROLE)
         if not app_data:
             return
@@ -228,8 +272,88 @@ class AppCardDelegate(QStyledItemDelegate):
 
         painter.restore()
 
+    def _paint_group_header(
+        self, painter: QPainter, option: QStyleOptionViewItem, index
+    ) -> None:
+        """Banda de la cabecera: acento, chevron, nombre y contador.
+
+        Misma gramática visual que las tarjetas, como la cabecera de Flexibar.
+        """
+        s = _scale(option.font)
+
+        def px(value: float) -> int:
+            return round(value * s)
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        band = option.rect.adjusted(2, GROUP_TOP_GAP, -2, -CARD_GAP)
+        is_hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
+
+        painter.setBrush(QColor(color("surface1")))
+        border = color("blue") if is_hovered else color("surface2")
+        painter.setPen(QPen(QColor(border), 1))
+        painter.drawRoundedRect(QRectF(band).adjusted(0.5, 0.5, -0.5, -0.5), 8, 8)
+
+        # Acento azul a la izquierda, recortado a la esquina redondeada
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(color("blue")))
+        painter.setClipRect(
+            QRect(band.left(), band.top(), INDICATOR_WIDTH, band.height())
+        )
+        painter.drawRoundedRect(QRectF(band), 8, 8)
+        painter.setClipping(False)
+
+        collapsed = bool(index.data(GROUP_COLLAPSED_ROLE))
+        chevron = px(14)
+        x = band.left() + INDICATOR_WIDTH + px(10)
+        svg_icon(
+            "chevron-right" if collapsed else "chevron-down", color("blue"), chevron
+        ).paint(
+            painter,
+            QRect(x, band.center().y() - chevron // 2 + 1, chevron, chevron),
+        )
+        x += chevron + px(10)
+
+        count = str(index.data(GROUP_COUNT_ROLE) or 0)
+        badge_font = QFont(option.font)
+        badge_font.setPixelSize(px(11))
+        badge_font.setWeight(QFont.Weight.DemiBold)
+        painter.setFont(badge_font)
+        badge_w = painter.fontMetrics().horizontalAdvance(count) + px(16)
+        badge_h = painter.fontMetrics().height() + px(4)
+
+        name_font = QFont(option.font)
+        name_font.setPixelSize(px(15))
+        name_font.setWeight(QFont.Weight.Bold)
+        painter.setFont(name_font)
+        max_w = max(40, band.right() - px(12) - badge_w - px(10) - x)
+        name = painter.fontMetrics().elidedText(
+            str(index.data(GROUP_ROLE)), Qt.TextElideMode.ElideRight, max_w
+        )
+        name_w = painter.fontMetrics().horizontalAdvance(name)
+        painter.setPen(QColor(color("text")))
+        painter.drawText(
+            QRect(x, band.top(), name_w, band.height()),
+            Qt.AlignmentFlag.AlignVCenter,
+            name,
+        )
+        x += name_w + px(10)
+
+        badge = QRect(x, band.center().y() - badge_h // 2, badge_w, badge_h)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(color("surface2")))
+        painter.drawRoundedRect(QRectF(badge), 4, 4)
+        painter.setFont(badge_font)
+        painter.setPen(QColor(color("text")))
+        painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, count)
+
+        painter.restore()
+
     def sizeHint(self, option: QStyleOptionViewItem, index) -> QSize:
         s = _scale(option.font)
+        if index is not None and index.data(GROUP_ROLE):
+            height = round(GROUP_HEADER_HEIGHT * s) + GROUP_TOP_GAP + CARD_GAP
+            return QSize(option.rect.width(), height)
         return QSize(option.rect.width(), round(CARD_HEIGHT * s) + CARD_GAP)
 
 
@@ -253,11 +377,23 @@ class AppListWidget(QListWidget):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
         )
         self.setSpacing(0)
+        self._filter_text = ""
+        self._collapsed = _load_collapsed_groups()
 
     def populate(self, apps: list[Any]) -> None:
-        """Llena la lista con objetos Application del ORM."""
+        """Llena la lista con objetos Application del ORM.
+
+        Las aplicaciones sin grupo van primero y sin cabecera; los grupos,
+        después y en orden alfabético. Dentro de cada bloque se conserva el
+        orden recibido.
+        """
         self.clear()
-        for app in apps:
+        current_group = ""
+        for app in sorted(apps, key=_group_sort_key):
+            group = (getattr(app, "group", "") or "").strip()
+            if group and group != current_group:
+                self.addItem(self._make_header(group))
+                current_group = group
             item = QListWidgetItem()
             item.setText(app.name)
             item.setData(APP_ID_ROLE, app.id)
@@ -269,6 +405,7 @@ class AppListWidget(QListWidget):
                     "active": app.active,
                     "created_at": str(app.created_at) if app.created_at else "",
                     "card": card_info(app),
+                    "group": group,
                 },
             )
             if not app.active:
@@ -276,6 +413,94 @@ class AppListWidget(QListWidget):
                     QCoreApplication.translate("AppListWidget", "Aplicación inactiva")
                 )
             self.addItem(item)
+        self._refresh_visibility()
+
+    def _make_header(self, group: str) -> QListWidgetItem:
+        """Cabecera de ``group``: no se selecciona, se pliega con un clic."""
+        item = QListWidgetItem()
+        item.setText(group)
+        item.setData(GROUP_ROLE, group)
+        item.setData(GROUP_COLLAPSED_ROLE, group in self._collapsed)
+        item.setFlags(Qt.ItemFlag.NoItemFlags)
+        item.setToolTip(
+            QCoreApplication.translate(
+                "AppListWidget", "Clic para plegar o desplegar el grupo"
+            )
+        )
+        return item
+
+    @staticmethod
+    def is_group_header(item: QListWidgetItem | None) -> bool:
+        """True si ``item`` es la cabecera de un grupo."""
+        return item is not None and bool(item.data(GROUP_ROLE))
+
+    def app_count(self) -> int:
+        """Número de aplicaciones (sin contar las cabeceras de grupo)."""
+        return sum(
+            1 for i in range(self.count()) if not self.is_group_header(self.item(i))
+        )
+
+    def group_names(self) -> list[str]:
+        """Grupos con cabecera, en el orden de la lista."""
+        return [
+            self.item(i).data(GROUP_ROLE)
+            for i in range(self.count())
+            if self.is_group_header(self.item(i))
+        ]
+
+    def is_group_collapsed(self, group: str) -> bool:
+        return group in self._collapsed
+
+    def set_group_collapsed(self, group: str, collapsed: bool) -> None:
+        """Pliega o despliega ``group`` y lo recuerda."""
+        if collapsed:
+            self._collapsed.add(group)
+        else:
+            self._collapsed.discard(group)
+        _save_collapsed_groups(self._collapsed)
+        for i in range(self.count()):
+            item = self.item(i)
+            if item.data(GROUP_ROLE) == group:
+                item.setData(GROUP_COLLAPSED_ROLE, collapsed)
+        current = self.currentItem()
+        if collapsed and current is not None and not self.is_group_header(current):
+            if (current.data(APP_DATA_ROLE) or {}).get("group") == group:
+                self.setCurrentRow(-1)
+        self._refresh_visibility()
+
+    def toggle_group(self, group: str) -> None:
+        self.set_group_collapsed(group, not self.is_group_collapsed(group))
+
+    def _refresh_visibility(self) -> None:
+        """Aplica el filtro de búsqueda y el plegado de los grupos.
+
+        Como en Flexibar, la cabecera cuenta las aplicaciones que pasan el
+        filtro y desaparece si no queda ninguna; un grupo plegado sigue
+        plegado mientras se busca.
+        """
+        text = self._filter_text.lower()
+        header: QListWidgetItem | None = None
+        matches = 0
+
+        def close_header() -> None:
+            if header is not None:
+                header.setData(GROUP_COUNT_ROLE, matches)
+                header.setHidden(matches == 0)
+
+        for i in range(self.count()):
+            item = self.item(i)
+            if self.is_group_header(item):
+                close_header()
+                header, matches = item, 0
+                continue
+            match = text in item.text().lower()
+            if match and header is not None:
+                matches += 1
+            collapsed = header is not None and self.is_group_collapsed(
+                header.data(GROUP_ROLE)
+            )
+            item.setHidden(not match or collapsed)
+        close_header()
 
     def kebab_rect_for(self, item: QListWidgetItem) -> QRect:
         """Zona del botón ⋮ de ``item``, en coordenadas del viewport."""
@@ -283,6 +508,10 @@ class AppListWidget(QListWidget):
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 — API de Qt
         item = self.itemAt(event.position().toPoint())
+        if self.is_group_header(item):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.toggle_group(item.data(GROUP_ROLE))
+            return
         if (
             item is not None
             and event.button() == Qt.MouseButton.LeftButton
@@ -294,19 +523,35 @@ class AppListWidget(QListWidget):
             return
         super().mousePressEvent(event)
 
+    def mouseMoveEvent(self, event) -> None:  # noqa: N802
+        # La cabecera es un botón: mano encima, como en Flexibar
+        if self.is_group_header(self.itemAt(event.position().toPoint())):
+            self.viewport().setCursor(Qt.CursorShape.PointingHandCursor)
+        else:
+            self.viewport().unsetCursor()
+        super().mouseMoveEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802
+        # Doble clic en una cabecera = dos clics (pliega y despliega), y no
+        # debe abrir ninguna aplicación.
+        item = self.itemAt(event.position().toPoint())
+        if self.is_group_header(item):
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.toggle_group(item.data(GROUP_ROLE))
+            return
+        super().mouseDoubleClickEvent(event)
+
     def contextMenuEvent(self, event) -> None:  # noqa: N802
         item = self.itemAt(event.pos())
-        if item is None:
+        if item is None or self.is_group_header(item):
             return
         self.setCurrentItem(item)
         self.menu_requested.emit(event.globalPos())
 
     def filter_apps(self, text: str) -> None:
         """Filtra los items visibles por nombre."""
-        text_lower = text.lower()
-        for i in range(self.count()):
-            item = self.item(i)
-            item.setHidden(text_lower not in item.text().lower())
+        self._filter_text = text
+        self._refresh_visibility()
 
     def selected_app_id(self) -> int | None:
         """Devuelve el ID de la aplicación seleccionada, o None."""
@@ -318,13 +563,13 @@ class AppListWidget(QListWidget):
     def selected_app_name(self) -> str | None:
         """Devuelve el nombre de la aplicación seleccionada."""
         item = self.currentItem()
-        if item is None:
+        if item is None or self.is_group_header(item):
             return None
         return item.text()
 
     def selected_app_data(self) -> dict | None:
         """Devuelve todos los datos de la aplicación seleccionada."""
         item = self.currentItem()
-        if item is None:
+        if item is None or self.is_group_header(item):
             return None
         return item.data(APP_DATA_ROLE)

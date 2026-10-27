@@ -38,6 +38,7 @@
 ## 🎯 ¿Qué es DocScan Studio?
 
 DocScan Studio es una aplicación de escritorio **multi-aplicación** para la captura por lotes, procesamiento e indexación de documentos. Cada "aplicación" es un perfil de procesamiento completamente independiente con su propio pipeline, scripts, campos y configuración de transferencia.
+En el launcher se pueden **agrupar** por cliente o departamento bajo cabeceras plegables, como en FlexibarNET 10.
 
 > **Inspirado en Flexibar.NET** — reimaginado desde cero con Python, IA generativa y un pipeline completamente composable.
 

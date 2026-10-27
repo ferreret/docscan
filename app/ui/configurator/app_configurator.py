@@ -60,7 +60,7 @@ class AppConfigurator(QDialog):
         # Pestañas
         self._tabs = QTabWidget()
 
-        self._tab_general = GeneralTab(self._app)
+        self._tab_general = GeneralTab(self._app, self._existing_groups())
         self._tab_image = ImageTab(self._app)
         self._tab_batch_fields = BatchFieldsTab(self._app)
         self._tab_pipeline = PipelineTab(self._app)
@@ -90,6 +90,17 @@ class AppConfigurator(QDialog):
         buttons.accepted.connect(self._on_save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _existing_groups(self) -> list[str]:
+        """Grupos ya usados por las aplicaciones, para el combo «Grupo»."""
+        from app.db.repositories.application_repo import ApplicationRepository
+
+        try:
+            with self._session_factory() as session:
+                return ApplicationRepository(session).get_groups()
+        except Exception:
+            log.exception("No se pudieron leer los grupos de aplicaciones")
+            return []
 
     def _on_save(self) -> None:
         """Guarda los cambios en la BD."""

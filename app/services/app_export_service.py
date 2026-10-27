@@ -25,6 +25,7 @@ EXPORT_VERSION = 1
 _EXPORTABLE_FIELDS: list[str] = [
     "name",
     "description",
+    "group",
     "active",
     "pipeline_json",
     "events_json",
@@ -198,6 +199,7 @@ def import_application(
 
     # Campos escalares
     for field_name in (
+        "group",
         "auto_transfer",
         "close_after_transfer",
         "background_color",

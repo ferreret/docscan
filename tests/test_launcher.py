@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from PySide6.QtCore import Qt
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -347,3 +348,173 @@ class TestLauncherWindow:
         window._app_list.setCurrentRow(-1)
         window._show_card_menu(QPoint(0, 0))
         assert getattr(window, "_card_menu", None) is None
+
+
+# ------------------------------------------------------------------
+# Grupos (FlexibarNET10 App.Group)
+# ------------------------------------------------------------------
+
+
+@pytest.fixture
+def grouped_apps(session_factory):
+    from PySide6.QtCore import QSettings
+
+    from app.ui.launcher.app_list_widget import COLLAPSED_GROUPS_KEY
+
+    # El QSettings aislado de la suite es uno para todos los tests
+    QSettings("DocScanStudio", "DocScanStudio").remove(COLLAPSED_GROUPS_KEY)
+    with session_factory() as session:
+        session.add_all(
+            [
+                Application(name="Facturas"),
+                Application(name="Urgencias", group="Hospital Arnau de Vilanova"),
+                Application(name="Licencias", group="Ayuntamiento"),
+                Application(name="Archivo", group="Hospital Arnau de Vilanova"),
+                Application(name="Contratos"),
+            ]
+        )
+        session.commit()
+
+
+def _populated(qtbot, session_factory) -> AppListWidget:
+    from app.db.repositories.application_repo import ApplicationRepository
+
+    widget = AppListWidget()
+    qtbot.addWidget(widget)
+    with session_factory() as session:
+        widget.populate(ApplicationRepository(session).get_all())
+    return widget
+
+
+def _rows(widget: AppListWidget) -> list[str]:
+    """Filas visibles; las cabeceras como «[grupo (n)]»."""
+    from app.ui.launcher.app_list_widget import GROUP_COUNT_ROLE
+
+    out = []
+    for i in range(widget.count()):
+        item = widget.item(i)
+        if item.isHidden():
+            continue
+        if widget.is_group_header(item):
+            out.append(f"[{item.text()} ({item.data(GROUP_COUNT_ROLE)})]")
+        else:
+            out.append(item.text())
+    return out
+
+
+class TestGrupos:
+    def test_sin_grupo_primero_y_grupos_por_orden_alfabetico(
+        self, qtbot, session_factory, grouped_apps
+    ):
+        widget = _populated(qtbot, session_factory)
+        assert _rows(widget) == [
+            "Contratos",
+            "Facturas",
+            "[Ayuntamiento (1)]",
+            "Licencias",
+            "[Hospital Arnau de Vilanova (2)]",
+            "Archivo",
+            "Urgencias",
+        ]
+        assert widget.app_count() == 5
+        assert widget.group_names() == ["Ayuntamiento", "Hospital Arnau de Vilanova"]
+
+    def test_la_cabecera_no_se_selecciona_ni_abre_nada(
+        self, qtbot, session_factory, grouped_apps
+    ):
+        widget = _populated(qtbot, session_factory)
+        header = widget.item(2)
+        assert widget.is_group_header(header)
+        assert not header.flags() & Qt.ItemFlag.ItemIsSelectable
+        widget.setCurrentItem(header)
+        assert widget.selected_app_id() is None
+        assert widget.selected_app_name() is None
+        assert widget.selected_app_data() is None
+
+    def test_plegar_oculta_el_grupo_y_se_recuerda(
+        self, qtbot, session_factory, grouped_apps
+    ):
+        widget = _populated(qtbot, session_factory)
+        widget.setCurrentRow(5)  # Archivo, dentro del grupo del hospital
+        widget.toggle_group("Hospital Arnau de Vilanova")
+        assert _rows(widget) == [
+            "Contratos",
+            "Facturas",
+            "[Ayuntamiento (1)]",
+            "Licencias",
+            "[Hospital Arnau de Vilanova (2)]",
+        ]
+        # La app seleccionada quedó oculta: no se puede abrir sin verla
+        assert widget.selected_app_id() is None
+
+        otra = _populated(qtbot, session_factory)
+        assert otra.is_group_collapsed("Hospital Arnau de Vilanova")
+        assert "Archivo" not in _rows(otra)
+
+        otra.toggle_group("Hospital Arnau de Vilanova")
+        assert "Archivo" in _rows(otra)
+        assert not _populated(qtbot, session_factory).is_group_collapsed(
+            "Hospital Arnau de Vilanova"
+        )
+
+    def test_clic_en_la_cabecera_pliega(self, qtbot, session_factory, grouped_apps):
+        widget = _populated(qtbot, session_factory)
+        widget.resize(600, 800)
+        widget.show()
+        rect = widget.visualItemRect(widget.item(2))
+        qtbot.mouseClick(
+            widget.viewport(), Qt.MouseButton.LeftButton, pos=rect.center()
+        )
+        assert widget.is_group_collapsed("Ayuntamiento")
+        assert "Licencias" not in _rows(widget)
+        assert widget.selected_app_id() is None
+
+    def test_doble_clic_en_la_cabecera_no_abre_ninguna_app(
+        self, qtbot, session_factory, grouped_apps
+    ):
+        widget = _populated(qtbot, session_factory)
+        widget.resize(600, 800)
+        widget.show()
+        rect = widget.visualItemRect(widget.item(2))
+        with qtbot.assertNotEmitted(widget.itemDoubleClicked):
+            qtbot.mouseDClick(
+                widget.viewport(), Qt.MouseButton.LeftButton, pos=rect.center()
+            )
+
+    def test_la_busqueda_cuenta_y_oculta_grupos_vacios(
+        self, qtbot, session_factory, grouped_apps
+    ):
+        widget = _populated(qtbot, session_factory)
+        widget.filter_apps("ar")
+        assert _rows(widget) == [
+            "[Hospital Arnau de Vilanova (1)]",
+            "Archivo",
+        ]
+        widget.filter_apps("")
+        assert widget.app_count() == 5
+        assert len(_rows(widget)) == 7
+
+    def test_la_busqueda_respeta_un_grupo_plegado(
+        self, qtbot, session_factory, grouped_apps
+    ):
+        """Como Flexibar: la cabecera cuenta lo encontrado y sigue plegada."""
+        widget = _populated(qtbot, session_factory)
+        widget.set_group_collapsed("Hospital Arnau de Vilanova", True)
+        widget.filter_apps("urg")
+        assert _rows(widget) == ["[Hospital Arnau de Vilanova (1)]"]
+
+    def test_el_launcher_no_cuenta_las_cabeceras(
+        self, qtbot, session_factory, grouped_apps
+    ):
+        window = LauncherWindow(session_factory=session_factory)
+        qtbot.addWidget(window)
+        assert window._lbl_app_count.text().startswith("5 ")
+
+    def test_repositorio_lista_los_grupos_en_uso(self, session_factory, grouped_apps):
+        from app.db.repositories.application_repo import ApplicationRepository
+
+        with session_factory() as session:
+            assert ApplicationRepository(session).get_groups() == [
+                "Ayuntamiento",
+                "Hospital Arnau de Vilanova",
+            ]
