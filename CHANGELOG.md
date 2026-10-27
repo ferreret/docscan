@@ -86,6 +86,7 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
   con él bloqueados reordenar y cerrar el lote.
 - **La detección de blancos ya no excluye una página separadora** ni una con
   códigos: fundía dos documentos sin avisar.
+- Los botones de los diálogos desactivados se pintaban igual que activos.
 - **Guardar en TIFF Group4 tumbaba la aplicación** (segfault de libtiff) si la
   imagen no era de 1 bit, por ejemplo una captura en B/N guardada en escala de
   grises. Ahora se binariza antes.
