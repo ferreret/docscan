@@ -61,6 +61,7 @@ _icon_zoom_100 = _lucide("proportions")
 # -- Herramientas: el color se reserva para las acciones destructivas --
 _icon_rotate = _lucide("rotate-cw")
 _icon_mark = _lucide("flag")
+_icon_separator = _lucide("layers-2")
 _icon_delete_current = _lucide("trash-2", "red")
 _icon_delete_from = _lucide("list-x", "red")
 
@@ -122,6 +123,7 @@ class ViewerOverlay(QWidget):
         zoom_in, zoom_out, zoom_fit, zoom_100: Control de zoom.
         rotate_requested: Rotar 90°.
         mark_requested: Marcar/desmarcar página.
+        separator_requested: Marcar/desmarcar la página como separador.
         delete_current_requested: Eliminar página actual.
         delete_from_requested: Borrar desde página actual.
     """
@@ -145,6 +147,7 @@ class ViewerOverlay(QWidget):
     # Herramientas
     rotate_requested = Signal()
     mark_requested = Signal()
+    separator_requested = Signal()
     delete_current_requested = Signal()
     delete_from_requested = Signal()
 
@@ -256,6 +259,11 @@ class ViewerOverlay(QWidget):
         self._btn_mark = _make_button(
             _icon_mark(c), self.tr("Marcar/desmarcar página (Ctrl+M)")
         )
+        self._btn_separator = _make_button(
+            _icon_separator(c),
+            self.tr("Marcar/desmarcar separador de documento (Ctrl+D)"),
+        )
+        self._separator_active = False
         self._btn_delete_current = _make_button(
             _icon_delete_current(),
             self.tr("Eliminar página actual (Delete)"),
@@ -269,6 +277,7 @@ class ViewerOverlay(QWidget):
 
         layout.addWidget(self._btn_rotate)
         layout.addWidget(self._btn_mark)
+        layout.addWidget(self._btn_separator)
         layout.addWidget(self._btn_delete_current)
         layout.addWidget(self._btn_delete_from)
 
@@ -286,6 +295,7 @@ class ViewerOverlay(QWidget):
         self._btn_zoom_100.clicked.connect(self.zoom_100_requested)
         self._btn_rotate.clicked.connect(self.rotate_requested)
         self._btn_mark.clicked.connect(self.mark_requested)
+        self._btn_separator.clicked.connect(self.separator_requested)
         self._btn_delete_current.clicked.connect(self.delete_current_requested)
         self._btn_delete_from.clicked.connect(self.delete_from_requested)
         self._edit_page.returnPressed.connect(self._on_page_entered)
@@ -383,8 +393,25 @@ class ViewerOverlay(QWidget):
         self._btn_zoom_100.setIcon(_icon_zoom_100(color))
         self._btn_rotate.setIcon(_icon_rotate(color))
         self._btn_mark.setIcon(_icon_mark(color))
+        self._icon_color = color
+        self._paint_separator_button()
         self._btn_delete_current.setIcon(_icon_delete_current())
         self._btn_delete_from.setIcon(_icon_delete_from())
+
+    def set_separator_active(self, active: bool) -> None:
+        """El botón de separador va en naranja si la página es separador."""
+        self._separator_active = active
+        self._paint_separator_button()
+
+    def _paint_separator_button(self) -> None:
+        from app.ui.palette import color as palette_color
+
+        tint = (
+            palette_color("orange")
+            if self._separator_active
+            else getattr(self, "_icon_color", None)
+        )
+        self._btn_separator.setIcon(_icon_separator(tint))
 
     def _separator(self) -> QWidget:
         """Crea un separador vertical delgado."""

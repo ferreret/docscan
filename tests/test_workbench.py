@@ -2455,3 +2455,118 @@ class TestAltoDeLaListaDeBarcodes:
         panel.show()
         panel.set_page_barcodes([BarcodeResult(value=f"V{i}") for i in range(40)])
         assert panel._section._scroll.height() == BARCODES_MAX_HEIGHT
+
+
+class TestSeparadorEnWorkbench:
+    """Marca manual de separador y reordenado (lote 6, paridad FlexibarNET10)."""
+
+    @pytest.fixture
+    def wb(self, qtbot, session_factory, sample_app, tmp_path):
+        from app.services.batch_service import BatchService
+
+        with session_factory() as s:
+            app = s.get(Application, sample_app.id)
+            app.pipeline_json = (
+                '[{"id": "b", "type": "barcode", "separator_enabled": true,'
+                ' "separator_by": "regex", "separator_regex": "^02",'
+                ' "separator_regex_include_symbology": true,'
+                ' "separator_manual_regex": "^\\\\d{8}$"}]'
+            )
+            s.commit()
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        with session_factory() as s:
+            pages = BatchService(s, tmp_path).add_pages(
+                window._batch_id,
+                [np.full((60, 40, 3), v, np.uint8) for v in (255, 200, 150)],
+            )
+            s.add(
+                Barcode(
+                    page_id=pages[0].id,
+                    value="12345678",
+                    symbology="Code128",
+                    engine="pyzbar",
+                    step_id="b",
+                )
+            )
+            s.commit()
+        window._reload_pages()
+        window._rebuild_thumbnails()
+        window._navigate_to(0)
+        return window
+
+    def _db_page(self, wb, session_factory, index):
+        with session_factory() as s:
+            from app.db.repositories.page_repo import PageRepository
+
+            return PageRepository(s).get_by_batch_and_index(wb._batch_id, index)
+
+    def test_marcar_propone_el_codigo_que_cumple_la_condicion(
+        self, wb, session_factory
+    ):
+        from app.ui.workbench import separator_widgets
+
+        seen = {}
+
+        def fake_exec(dialog):
+            seen["value"] = dialog.value()
+            return separator_widgets.QDialog.DialogCode.Accepted
+
+        with patch.object(separator_widgets.SeparatorValueDialog, "exec", fake_exec):
+            wb._on_toggle_separator()
+        assert seen["value"] == "12345678"
+        page = self._db_page(wb, session_factory, 0)
+        assert page.is_separator and page.separator_value == "12345678"
+        assert wb._separator_zone.isVisibleTo(wb)
+
+    def test_cancelar_no_marca(self, wb, session_factory):
+        from app.ui.workbench import separator_widgets
+
+        with patch.object(
+            separator_widgets.SeparatorValueDialog,
+            "exec",
+            return_value=separator_widgets.QDialog.DialogCode.Rejected,
+        ):
+            wb._on_toggle_separator()
+        assert not self._db_page(wb, session_factory, 0).is_separator
+
+    def test_desmarcar_no_toca_los_barcodes(self, wb, session_factory):
+        wb._set_separator(wb._pages[0], True, "12345678")
+        wb._on_toggle_separator()
+        page = self._db_page(wb, session_factory, 0)
+        assert not page.is_separator and page.separator_value == ""
+        with session_factory() as s:
+            from app.db.repositories.page_repo import PageRepository
+
+            again = PageRepository(s).get_by_batch_and_index(wb._batch_id, 0)
+            assert len(again.barcodes) == 1
+        assert not wb._separator_zone.isVisibleTo(wb)
+
+    def test_el_dialogo_valida_contra_la_regex_manual(self, wb):
+        from PySide6.QtWidgets import QDialogButtonBox
+
+        from app.ui.workbench.separator_widgets import SeparatorValueDialog
+
+        dialog = SeparatorValueDialog("123", wb._separator_step())
+        ok = dialog._buttons.button(QDialogButtonBox.StandardButton.Ok)
+        assert not ok.isEnabled()
+        dialog._edit.setText("12345678")
+        assert ok.isEnabled()
+        dialog._edit.setText("")
+        assert ok.isEnabled()  # vacío admitido
+
+    def test_alt_flechas_mueven_la_pagina_con_su_marca(self, wb, session_factory):
+        wb._set_separator(wb._pages[0], True, "A")
+        first_id = wb._pages[0].id
+        wb._on_move_page(1)
+        assert wb._current_page_index == 1
+        assert wb._pages[1].id == first_id
+        assert self._db_page(wb, session_factory, 1).is_separator
+        assert not self._db_page(wb, session_factory, 0).is_separator
+        wb._on_move_page(-1)
+        assert wb._pages[0].id == first_id
+        wb._on_move_page(-1)  # ya está arriba: no hace nada
+        assert wb._pages[0].id == first_id

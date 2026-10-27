@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -22,6 +24,16 @@ from PySide6.QtWidgets import (
 from app.models.application import Application
 
 _SENTINEL_ORIGINAL = "(original)"
+
+# Plantilla del script de nombre de fichero (TransferConfig.file_name_script)
+FILE_NAME_TEMPLATE = """def file_name(page, document, batch, app):
+    # page: página (page_index, fields, barcodes, is_separator, separator_value)
+    # document: documento de la página (index, separator_value, pages, fields)
+    # batch.fields: campos del lote
+    # Devuelve la subruta SIN extensión ("20261027/12345678"),
+    # o None para usar el patrón.
+    return None
+"""
 
 
 class TransferTab(QWidget):
@@ -54,12 +66,13 @@ class TransferTab(QWidget):
         gen_form.addRow("", self._enabled_check)
 
         self._mode_combo = QComboBox()
-        self._mode_combo.addItems(["folder", "pdf", "pdfa", "csv"])
+        self._mode_combo.addItems(["folder", "pdf", "pdfa", "tiff", "csv"])
         self._mode_combo.setToolTip(
             self.tr(
-                "folder = copia imágenes a carpeta destino\n"
-                "pdf = genera un PDF por lote\n"
-                "pdfa = genera un PDF/A (archivable)\n"
+                "folder = un fichero por página en la carpeta destino\n"
+                "pdf = PDF multipágina (por lote o por documento)\n"
+                "pdfa = PDF/A (archivable)\n"
+                "tiff = TIFF multipágina (por lote o por documento)\n"
                 "csv = exporta índices a fichero CSV"
             )
         )
@@ -98,6 +111,28 @@ class TransferTab(QWidget):
             )
         )
         gen_form.addRow(self.tr("Patrón nombre:"), self._pattern_edit)
+
+        self._name_mode_combo = QComboBox()
+        self._name_mode_combo.addItem(self.tr("Patrón"), "pattern")
+        self._name_mode_combo.addItem(self.tr("Script"), "script")
+        self._name_mode_combo.setToolTip(
+            self.tr(
+                "Script: una función file_name(page, document, batch, app) "
+                "calcula la subruta y el nombre. Si devuelve None se usa el "
+                "patrón; si falla, la transferencia no se hace."
+            )
+        )
+        gen_form.addRow(self.tr("Nombre por:"), self._name_mode_combo)
+
+        self._name_script_edit = QPlainTextEdit()
+        self._name_script_edit.setObjectName("fileNameScript")
+        font = QFont("Monospace", 10)
+        font.setStyleHint(QFont.StyleHint.Monospace)
+        self._name_script_edit.setFont(font)
+        self._name_script_edit.setMinimumHeight(160)
+        self._name_script_edit.setPlaceholderText(FILE_NAME_TEMPLATE)
+        gen_form.addRow(self._name_script_edit)
+        self._name_mode_combo.currentIndexChanged.connect(self._on_name_mode_changed)
 
         self._subdirs = QCheckBox(self.tr("Crear subdirectorios por lote"))
         self._subdirs.setToolTip(
@@ -140,6 +175,45 @@ class TransferTab(QWidget):
 
         main_layout.addWidget(general_group)
 
+        # ── Grupo: Documentos (separadores) ──
+        self._documents_group = QGroupBox(self.tr("Documentos"))
+        doc_form = QFormLayout(self._documents_group)
+        doc_form.setVerticalSpacing(8)
+        doc_form.setContentsMargins(12, 12, 12, 12)
+
+        self._grouping_combo = QComboBox()
+        self._grouping_combo.addItem(self.tr("Un fichero por lote"), "batch")
+        self._grouping_combo.addItem(self.tr("Un fichero por documento"), "document")
+        self._grouping_combo.setToolTip(
+            self.tr(
+                "Un documento va de una página separadora a la siguiente. "
+                "Sin separadores, el lote entero es un documento."
+            )
+        )
+        self._grouping_label = QLabel(self.tr("Agrupación:"))
+        doc_form.addRow(self._grouping_label, self._grouping_combo)
+
+        self._separator_page_combo = QComboBox()
+        self._separator_page_combo.addItem(
+            self.tr("Se incluye (es la portada del documento)"), "include"
+        )
+        self._separator_page_combo.addItem(
+            self.tr("Se descarta (hoja separadora)"), "exclude"
+        )
+        doc_form.addRow(self.tr("Página separadora:"), self._separator_page_combo)
+
+        tokens_hint = QLabel(
+            self.tr(
+                "Variables de documento en el patrón: {separator}, "
+                "{document_index} y {document_id}."
+            )
+        )
+        tokens_hint.setObjectName("hint_label")
+        tokens_hint.setWordWrap(True)
+        doc_form.addRow(tokens_hint)
+
+        main_layout.addWidget(self._documents_group)
+
         # ── Grupo: Formato de salida (solo modo carpeta) ──
         self._output_group = QGroupBox(
             self.tr("Conversión al transferir (modo carpeta)")
@@ -167,7 +241,8 @@ class TransferTab(QWidget):
             )
         )
         self._out_format_combo.currentTextChanged.connect(self._on_out_format_changed)
-        out_form.addRow(self.tr("Formato:"), self._out_format_combo)
+        self._out_format_label = QLabel(self.tr("Formato:"))
+        out_form.addRow(self._out_format_label, self._out_format_combo)
 
         self._out_dpi_spin = QSpinBox()
         self._out_dpi_spin.setRange(0, 1200)
@@ -280,8 +355,11 @@ class TransferTab(QWidget):
 
         # Conectar visibilidad según modo
         self._mode_combo.currentTextChanged.connect(self._on_mode_changed)
+        self._out_format_combo.currentTextChanged.connect(
+            lambda _t: self._on_mode_changed(self._mode_combo.currentText())
+        )
         self._on_mode_changed(self._mode_combo.currentText())
-        self._on_out_format_changed(self._out_format_combo.currentText())
+        self._on_name_mode_changed()
 
     def _on_enabled_changed(self, enabled: bool) -> None:
         """Habilita/deshabilita los controles de transferencia estándar."""
@@ -293,15 +371,34 @@ class TransferTab(QWidget):
         self._output_group.setEnabled(enabled)
         self._pdf_group.setEnabled(enabled)
         self._csv_group.setEnabled(enabled)
+        self._documents_group.setEnabled(enabled)
+        self._name_mode_combo.setEnabled(enabled)
+        self._name_script_edit.setEnabled(enabled)
 
     def _on_mode_changed(self, mode: str) -> None:
         """Muestra/oculta grupos según el modo de transferencia."""
         is_folder = mode == "folder"
         is_pdf = mode in ("pdf", "pdfa")
+        is_tiff = mode == "tiff"
         is_csv = mode == "csv"
-        self._output_group.setVisible(is_folder)
+        # En TIFF multipágina valen color, DPI y compresión, no el formato.
+        self._output_group.setVisible(is_folder or is_tiff)
+        self._out_format_combo.setVisible(is_folder)
+        self._out_format_label.setVisible(is_folder)
         self._pdf_group.setVisible(is_pdf)
         self._csv_group.setVisible(is_csv)
+        self._documents_group.setVisible(not is_csv)
+        self._grouping_combo.setVisible(is_pdf or is_tiff)
+        self._grouping_label.setVisible(is_pdf or is_tiff)
+        self._on_out_format_changed(
+            "tiff" if is_tiff else self._out_format_combo.currentText()
+        )
+
+    def _on_name_mode_changed(self) -> None:
+        is_script = self._name_mode_combo.currentData() == "script"
+        self._name_script_edit.setVisible(is_script)
+        if is_script and not self._name_script_edit.toPlainText().strip():
+            self._name_script_edit.setPlainText(FILE_NAME_TEMPLATE)
 
     def _on_out_format_changed(self, fmt: str) -> None:
         """Muestra/oculta opciones de formato de salida."""
@@ -339,6 +436,24 @@ class TransferTab(QWidget):
             config.get("filename_pattern", "{batch_id}_{page_index:04d}")
         )
         self._subdirs.setChecked(config.get("create_subdirs", True))
+        name_mode = config.get("name_mode") or (
+            "script" if str(config.get("file_name_script", "")).strip() else "pattern"
+        )
+        self._name_mode_combo.setCurrentIndex(
+            max(self._name_mode_combo.findData(name_mode), 0)
+        )
+        self._name_script_edit.setPlainText(config.get("file_name_script", ""))
+        self._grouping_combo.setCurrentIndex(
+            max(self._grouping_combo.findData(config.get("grouping", "batch")), 0)
+        )
+        self._separator_page_combo.setCurrentIndex(
+            max(
+                self._separator_page_combo.findData(
+                    config.get("separator_page", "include")
+                ),
+                0,
+            )
+        )
         self._pdf_dpi.setValue(config.get("pdf_dpi", 200))
         self._csv_sep.setText(config.get("csv_separator", ";"))
         self._csv_fields_edit.setText(", ".join(config.get("csv_fields", [])))
@@ -392,6 +507,10 @@ class TransferTab(QWidget):
             "mode": self._mode_combo.currentText(),
             "destination": self._dest_edit.text().strip(),
             "filename_pattern": self._pattern_edit.text().strip(),
+            "name_mode": self._name_mode_combo.currentData(),
+            "file_name_script": self._name_script_edit.toPlainText(),
+            "grouping": self._grouping_combo.currentData(),
+            "separator_page": self._separator_page_combo.currentData(),
             "create_subdirs": self._subdirs.isChecked(),
             "pdf_dpi": self._pdf_dpi.value(),
             "csv_separator": self._csv_sep.text(),

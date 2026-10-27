@@ -9,11 +9,21 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QGroupBox,
+    QLabel,
     QLineEdit,
     QWidget,
 )
 
 from app.pipeline.steps import BarcodeStep
+from app.utils.symbology_numbers import legend
+
+# (clave guardada, etiqueta) del modo de detección de separador
+SEPARATOR_MODES = [
+    ("regex", "Expresión regular"),
+    ("symbology", "Simbología"),
+    ("fixed_value", "Valor fijo"),
+]
 
 ALL_SYMBOLOGIES = [
     "Code128",
@@ -78,7 +88,8 @@ class BarcodeStepDialog(QDialog):
         self._regex_symb = QCheckBox(self.tr("Incluir simbología en regex"))
         self._regex_symb.setToolTip(
             self.tr(
-                "Si está activo, el texto a validar incluye el tipo de simbología como prefijo"
+                "Si está activo, la regex se evalúa sobre NN + valor, donde NN es "
+                "el número de la simbología (Code128 = 02, ITF = 10…)"
             )
         )
         self._regex_symb.setChecked(step.regex_include_symbology)
@@ -105,12 +116,80 @@ class BarcodeStepDialog(QDialog):
         self._window_edit.setPlaceholderText(self.tr("x, y, w, h (vacío = completa)"))
         layout.addRow(self.tr("Ventana:"), self._window_edit)
 
+        layout.addRow(self._build_separator_group(step))
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
+
+    def _build_separator_group(self, step: BarcodeStep) -> QGroupBox:
+        """Sección «Separador de documento» (mismas claves que FlexibarNET10)."""
+        group = QGroupBox(self.tr("Separador de documento"))
+        group.setCheckable(True)
+        group.setChecked(step.separator_enabled)
+        group.setToolTip(
+            self.tr(
+                "Si un código cumple la condición, la página abre un documento "
+                "nuevo. Al reprocesar, la detección pisa la marca manual."
+            )
+        )
+        form = QFormLayout(group)
+
+        self._sep_mode = QComboBox()
+        for key, label in SEPARATOR_MODES:
+            self._sep_mode.addItem(self.tr(label), key)
+        idx = self._sep_mode.findData(step.separator_by)
+        self._sep_mode.setCurrentIndex(max(idx, 0))
+        form.addRow(self.tr("Condición:"), self._sep_mode)
+
+        self._sep_regex = QLineEdit(step.separator_regex)
+        self._sep_regex.setPlaceholderText("^(02|10)")
+        form.addRow(self.tr("Regex:"), self._sep_regex)
+
+        self._sep_regex_symb = QCheckBox(self.tr("Evaluar sobre NN + valor"))
+        self._sep_regex_symb.setChecked(step.separator_regex_include_symbology)
+        self._sep_regex_symb.setToolTip(
+            self.tr("Números de simbología: ")
+            + ", ".join(f"{name} = {num}" for name, num in legend())
+        )
+        form.addRow("", self._sep_regex_symb)
+
+        self._sep_symbology = QLineEdit(step.separator_symbology)
+        self._sep_symbology.setPlaceholderText("Code39")
+        form.addRow(self.tr("Simbología:"), self._sep_symbology)
+
+        self._sep_fixed = QLineEdit(step.separator_fixed_value)
+        self._sep_fixed.setPlaceholderText("SEP")
+        form.addRow(self.tr("Valor fijo:"), self._sep_fixed)
+
+        hint = QLabel(self.tr("Marca manual en el Workbench (Ctrl+D):"))
+        form.addRow(hint)
+        self._sep_manual_regex = QLineEdit(step.separator_manual_regex)
+        self._sep_manual_regex.setPlaceholderText(r"^\d{8,9}$")
+        self._sep_manual_regex.setToolTip(
+            self.tr(
+                "Valida lo que teclea el operador. No afecta a la detección "
+                "automática. Vacío = sin validación"
+            )
+        )
+        form.addRow(self.tr("Regex del valor:"), self._sep_manual_regex)
+        self._sep_default = QLineEdit(step.separator_default_value)
+        form.addRow(self.tr("Valor por defecto:"), self._sep_default)
+
+        self._sep_group = group
+        self._sep_mode.currentIndexChanged.connect(self._update_separator_fields)
+        self._update_separator_fields()
+        return group
+
+    def _update_separator_fields(self) -> None:
+        mode = self._sep_mode.currentData()
+        self._sep_regex.setEnabled(mode == "regex")
+        self._sep_regex_symb.setEnabled(mode == "regex")
+        self._sep_symbology.setEnabled(mode == "symbology")
+        self._sep_fixed.setEnabled(mode == "fixed_value")
 
     def get_step(self) -> BarcodeStep:
         self._step.engine = self._engine_combo.currentText()
@@ -123,6 +202,15 @@ class BarcodeStepDialog(QDialog):
             s.strip() for s in self._orient_edit.text().split(",") if s.strip()
         ]
         self._step.quality_threshold = self._quality.value()
+
+        self._step.separator_enabled = self._sep_group.isChecked()
+        self._step.separator_by = self._sep_mode.currentData()
+        self._step.separator_regex = self._sep_regex.text().strip()
+        self._step.separator_regex_include_symbology = self._sep_regex_symb.isChecked()
+        self._step.separator_symbology = self._sep_symbology.text().strip()
+        self._step.separator_fixed_value = self._sep_fixed.text().strip()
+        self._step.separator_manual_regex = self._sep_manual_regex.text().strip()
+        self._step.separator_default_value = self._sep_default.text().strip()
 
         window_text = self._window_edit.text().strip()
         if window_text:

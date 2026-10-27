@@ -340,6 +340,51 @@ class TestTransferTab:
         assert config["csv_fields"] == ["ref", "tipo"]
 
 
+    def test_documentos_y_script_de_nombre_ida_y_vuelta(self, qtbot, sample_app):
+        """Lote 6: las claves nuevas no se pierden al guardar."""
+        sample_app.transfer_json = json.dumps(
+            {
+                "mode": "tiff",
+                "destination": "/tmp/out",
+                "grouping": "document",
+                "separator_page": "exclude",
+                "name_mode": "script",
+                "file_name_script": "def file_name(page, document, batch, app):\n    return 'x'\n",
+                "output_tiff_compression": "group4",
+                "collision_policy": "merge",
+            }
+        )
+        tab = TransferTab(sample_app)
+        qtbot.addWidget(tab)
+        assert tab._mode_combo.currentText() == "tiff"
+        assert tab._grouping_combo.currentData() == "document"
+        assert tab._separator_page_combo.currentData() == "exclude"
+        assert tab._name_mode_combo.currentData() == "script"
+        tab.apply_to(sample_app)
+        config = json.loads(sample_app.transfer_json)
+        assert config["mode"] == "tiff"
+        assert config["grouping"] == "document"
+        assert config["separator_page"] == "exclude"
+        assert config["name_mode"] == "script"
+        assert "return 'x'" in config["file_name_script"]
+        assert config["output_tiff_compression"] == "group4"
+        assert config["collision_policy"] == "merge"
+
+    def test_script_de_nombre_roto_no_se_guarda(self):
+        from app.services.script_engine import find_script_errors
+
+        transfer = json.dumps(
+            {"name_mode": "script", "file_name_script": "def file_name(:\n"}
+        )
+        errors = find_script_errors("[]", "{}", transfer)
+        assert errors and "Script de nombre de fichero" in errors[0]
+        # En modo patrón el script guardado no se comprueba
+        transfer = json.dumps(
+            {"name_mode": "pattern", "file_name_script": "def file_name(:\n"}
+        )
+        assert find_script_errors("[]", "{}", transfer) == []
+
+
 # ------------------------------------------------------------------
 # Step Dialogs
 # ------------------------------------------------------------------
@@ -766,3 +811,35 @@ class TestPestanasDelWorkbench:
         tab._layout_list.setCurrentRow(2)  # primera pestaña: no sube
         assert not tab._btn_layout_up.isEnabled()
         assert tab._btn_layout_down.isEnabled()
+
+
+class TestBarcodeStepDialogSeparador:
+    def test_separador_ida_y_vuelta(self, qtbot):
+        step = BarcodeStep(
+            id="b",
+            separator_enabled=True,
+            separator_by="regex",
+            separator_regex="^(02|10)",
+            separator_regex_include_symbology=True,
+            separator_manual_regex=r"^\d{8}$",
+        )
+        dialog = BarcodeStepDialog(step)
+        qtbot.addWidget(dialog)
+        assert dialog._sep_group.isChecked()
+        assert dialog._sep_regex.isEnabled()
+        assert not dialog._sep_fixed.isEnabled()
+        out = dialog.get_step()
+        assert out.separator_enabled
+        assert out.separator_regex == "^(02|10)"
+        assert out.separator_regex_include_symbology
+        assert out.separator_manual_regex == r"^\d{8}$"
+
+    def test_desactivar_la_deteccion(self, qtbot):
+        step = BarcodeStep(id="b", separator_enabled=True)
+        dialog = BarcodeStepDialog(step)
+        qtbot.addWidget(dialog)
+        dialog._sep_group.setChecked(False)
+        dialog._sep_mode.setCurrentIndex(dialog._sep_mode.findData("fixed_value"))
+        out = dialog.get_step()
+        assert not out.separator_enabled
+        assert out.separator_by == "fixed_value"

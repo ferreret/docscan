@@ -48,6 +48,7 @@ def determine_page_state(
     barcodes: list | None = None,
     fields_json: str = "{}",
     is_excluded: bool = False,
+    is_separator: bool = False,
 ) -> PageState:
     """Determina el estado visual de una página (prioridad UI-03).
 
@@ -56,6 +57,7 @@ def determine_page_state(
         barcodes: Lista de objetos barcode (con atributo ``role``).
         fields_json: JSON de campos de página.
         is_excluded: Si la página está marcada para excluir.
+        is_separator: Si la página abre un documento (marco naranja).
     """
     if is_excluded:
         return PageState.EXCLUDED
@@ -64,7 +66,11 @@ def determine_page_state(
         return PageState.NEEDS_REVIEW
 
     barcodes = barcodes or []
-    has_separator = any(getattr(b, "role", "") == "separator" for b in barcodes)
+    # El rol "separator" de un barcode es el mecanismo antiguo (por script);
+    # se sigue respetando para los lotes que no han pasado la migración.
+    has_separator = is_separator or any(
+        getattr(b, "role", "") == "separator" for b in barcodes
+    )
     if has_separator:
         return PageState.SEPARATOR_BARCODE
 

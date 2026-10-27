@@ -106,7 +106,9 @@ class AppConfigurator(QDialog):
             # No guardar una App con scripts que no compilan (paridad
             # FlexibarNET10 v1.20): el fallo aparecería delante del operador.
             script_errors = find_script_errors(
-                self._app.pipeline_json, self._app.events_json
+                self._app.pipeline_json,
+                self._app.events_json,
+                self._app.transfer_json,
             )
             if script_errors:
                 log.warning(

@@ -1086,6 +1086,23 @@ QInputDialog QComboBox {
     letter-spacing: 0.5px;
 }
 
+#separatorZone {
+    background-color: $bg_alt;
+    border: 2px solid $orange;
+    border-radius: 6px;
+    margin: 6px 8px 2px 8px;
+}
+
+#separatorValue {
+    color: $text;
+    font-family: $font_mono;
+    font-size: 13px;
+}
+
+#separatorValueError {
+    color: $red;
+}
+
 #sectionBody, #barcodeList {
     background-color: transparent;
 }

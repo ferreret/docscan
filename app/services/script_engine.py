@@ -512,7 +512,11 @@ class ScriptEngine:
                 flags.review_reason = f"Ha fallado el script del paso {step_id}"
 
 
-def find_script_errors(pipeline_json: str, events_json: str) -> list[str]:
+def find_script_errors(
+    pipeline_json: str,
+    events_json: str,
+    transfer_json: str = "{}",
+) -> list[str]:
     """Errores de sintaxis de todos los scripts de una aplicación.
 
     Lo usa el Configurador para no guardar una App con scripts que no
@@ -524,6 +528,7 @@ def find_script_errors(pipeline_json: str, events_json: str) -> list[str]:
         pipeline_json: JSON de pasos del pipeline.
         events_json: JSON de eventos (``{nombre: código}`` o
             ``{nombre: {"script": código}}``), incluido el panel de verificación.
+        transfer_json: JSON de transferencia (script de nombre de fichero).
 
     Returns:
         Un mensaje por script que no compila, con su origen y la línea.
@@ -559,4 +564,12 @@ def find_script_errors(pipeline_json: str, events_json: str) -> list[str]:
         source = config.get("script", "") if isinstance(config, dict) else config
         if isinstance(source, str):
             check(source, f"Evento {name}")
+
+    try:
+        transfer = json.loads(transfer_json or "{}")
+    except json.JSONDecodeError as e:
+        errors.append(f"Transferencia: no se puede leer la configuración ({e})")
+        transfer = {}
+    if isinstance(transfer, dict) and transfer.get("name_mode") == "script":
+        check(transfer.get("file_name_script", ""), "Script de nombre de fichero")
     return errors
