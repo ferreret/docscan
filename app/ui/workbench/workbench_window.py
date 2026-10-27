@@ -53,7 +53,7 @@ from app.services.batch_service import BatchService
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
 from app.services.ocr_service import OcrService
-from app.services.script_engine import ScriptEngine
+from app.services.script_engine import create_script_engine
 from app.models.image_config import ImageConfig, parse_image_config
 from app.models.workbench_layout import BARCODES, WorkbenchLayout
 from app.services.transfer_flow import (
@@ -222,7 +222,7 @@ class WorkbenchWindow(QMainWindow):
         self._barcode_undo: list[dict[str, Any]] = []
 
         # Servicios
-        self._script_engine = ScriptEngine()
+        self._script_engine = create_script_engine()
         self._image_service = ImagePipelineService()
         self._barcode_service = BarcodeService()
         self._ocr_service = OcrService()
@@ -2667,16 +2667,7 @@ class WorkbenchWindow(QMainWindow):
         app = self._application
         if app is None:
             return AppContext(id=self._app_id)
-        return AppContext(
-            id=self._app_id,
-            name=app.name,
-            description=app.description,
-            config=json.loads(app.ai_config_json or "{}"),
-            batch_fields_def=json.loads(app.batch_fields_json or "[]"),
-            transfer_config=json.loads(app.transfer_json or "{}"),
-            auto_transfer=app.auto_transfer,
-            output_format=app.output_format or "tiff",
-        )
+        return AppContext.from_application(app)
 
     def _build_page_context(self, page_index: int) -> PageContext:
         """Construye un PageContext ligero para scripts lifecycle.
@@ -2878,7 +2869,8 @@ class WorkbenchWindow(QMainWindow):
             )
         )
         if has_mod and event.text():
-            key_str = event.keyCombination().key().name.decode()
+            # En PySide6 el nombre del enum ya es str («Key_A»).
+            key_str = event.keyCombination().key().name
             self._fire_event("on_key_event", key=key_str)
         super().keyPressEvent(event)
 
@@ -2953,6 +2945,8 @@ class WorkbenchWindow(QMainWindow):
         self._scan_worker = None
         self._recognition_worker = None
         self._transfer_worker = None
+        if self._script_engine is not None:
+            self._script_engine.shutdown()
         self._script_engine = None
         self._transfer_service = None
 

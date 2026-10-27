@@ -54,7 +54,7 @@ from app.services.notification_service import (
     parse_notification_config,
 )
 from app.services.ocr_service import OcrService
-from app.services.script_engine import ScriptEngine
+from app.services.script_engine import ScriptEngine, create_script_engine
 from app.utils.crash_logging import install_exception_hooks, log_startup
 from app.services.transfer_flow import (
     ADVANCED_EVENT,
@@ -287,11 +287,7 @@ def _process_files(
         )
 
         # Contextos para el pipeline
-        app_ctx = AppContext(
-            id=app_record.id,
-            name=app_record.name,
-            description=app_record.description,
-        )
+        app_ctx = AppContext.from_application(app_record)
         batch_ctx = BatchContext(id=batch_id, state=batch.state)
 
         # Evento on_app_start
@@ -595,11 +591,7 @@ def _process_pending_batches(
         transfer_svc = TransferService()
         notification_svc = NotificationService()
 
-        app_ctx = AppContext(
-            id=app_record.id,
-            name=app_record.name,
-            description=app_record.description,
-        )
+        app_ctx = AppContext.from_application(app_record)
 
         # Lotes en "read": necesitan pipeline
         for batch in batch_svc.get_batches_by_state("read"):
@@ -714,11 +706,7 @@ def _retry_error_batches(
         transfer_svc = TransferService()
         notification_svc = NotificationService()
 
-        app_ctx = AppContext(
-            id=app_record.id,
-            name=app_record.name,
-            description=app_record.description,
-        )
+        app_ctx = AppContext.from_application(app_record)
 
         for state in ("error_read", "error_export"):
             for batch in batch_svc.get_batches_by_state(state):
@@ -774,8 +762,21 @@ def main(argv: list[str] | None = None) -> int:
     app_record = _load_application(session_factory, args.app_name)
     log.info("Aplicación cargada: '%s' (id=%d)", app_record.name, app_record.id)
 
-    # Servicios
-    script_engine = ScriptEngine()
+    # Servicios. El engine se cierra al salir (libera su cliente HTTP).
+    script_engine = create_script_engine()
+    try:
+        return _serve(args, app_record, session_factory, script_engine)
+    finally:
+        script_engine.shutdown()
+
+
+def _serve(
+    args: argparse.Namespace,
+    app_record: Application,
+    session_factory: Any,
+    script_engine: ScriptEngine,
+) -> int:
+    """Procesa pendientes o vigila la carpeta de entrada hasta el cierre."""
     lifecycle_events = _compile_lifecycle_events(app_record, script_engine)
     compile_transfer_scripts(
         script_engine, parse_transfer_config(app_record.transfer_json)

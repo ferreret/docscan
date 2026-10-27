@@ -20,14 +20,25 @@ import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from types import CodeType
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+import httpx
 
 from app.pipeline.context import PipelineAbortError
+
+if TYPE_CHECKING:
+    from config.settings import Settings
 
 log = logging.getLogger(__name__)
 
 # Timeout por defecto para ejecución de scripts (segundos)
 DEFAULT_SCRIPT_TIMEOUT = 30
+
+# Timeouts del cliente HTTP que reciben los scripts como ``http`` (segundos):
+# una API que no responde no debe dejar colgado el paso hasta el límite del
+# script.
+HTTP_TIMEOUT = 20.0
+HTTP_CONNECT_TIMEOUT = 10.0
 
 
 class ScriptCompilationError(Exception):
@@ -76,7 +87,10 @@ class ScriptEngine:
     - Expone el contexto completo al script
 
     Args:
-        http_client: Cliente httpx preconfigurado (opcional).
+        http_client: Cliente httpx que los scripts ven como ``http``
+            (opcional). El engine se queda con su propiedad: ``shutdown``
+            lo cierra.
+        script_timeout: Segundos máximos de un paso Script.
     """
 
     def __init__(
@@ -199,8 +213,13 @@ class ScriptEngine:
         return self._compile_error_by_hash.get(self._source_hash(source), "")
 
     def shutdown(self) -> None:
-        """Libera el ThreadPoolExecutor."""
+        """Libera el ThreadPoolExecutor y cierra el cliente HTTP."""
         self._executor.shutdown(wait=False)
+        if self._http_client is not None:
+            try:
+                self._http_client.close()
+            except Exception:
+                log.exception("Error cerrando el cliente HTTP de los scripts")
 
     # ------------------------------------------------------------------
     # Ejecución de ScriptStep del pipeline
@@ -585,3 +604,34 @@ def find_script_errors(
     if isinstance(transfer, dict) and transfer.get("name_mode") == "script":
         check(transfer.get("file_name_script", ""), "Script de nombre de fichero")
     return errors
+
+
+def create_http_client() -> httpx.Client:
+    """Cliente HTTP compartido que los scripts reciben como ``http``."""
+    return httpx.Client(
+        timeout=httpx.Timeout(HTTP_TIMEOUT, connect=HTTP_CONNECT_TIMEOUT),
+        follow_redirects=True,
+    )
+
+
+def create_script_engine(settings: Settings | None = None) -> ScriptEngine:
+    """Crea un ScriptEngine listo para producción.
+
+    Le da el cliente HTTP compartido y el tiempo máximo de los pasos Script
+    de la configuración (``pipeline.script_timeout_seconds``). Quien lo crea
+    debe llamar a ``shutdown()`` al terminar para cerrar el cliente.
+
+    Args:
+        settings: Configuración ya cargada; si falta, se lee de nuevo.
+
+    Returns:
+        El ScriptEngine configurado.
+    """
+    if settings is None:
+        from config.settings import Settings
+
+        settings = Settings()
+    return ScriptEngine(
+        http_client=create_http_client(),
+        script_timeout=settings.pipeline.script_timeout_seconds,
+    )

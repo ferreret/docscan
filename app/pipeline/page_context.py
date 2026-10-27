@@ -6,10 +6,14 @@ Separadas de los workers Qt para permitir reutilización en web y CLI.
 
 from __future__ import annotations
 
+import json
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -124,3 +128,40 @@ class AppContext:
     pipeline_steps: list[dict[str, Any]] = field(default_factory=list)
     auto_transfer: bool = False
     output_format: str = "tiff"
+
+    @classmethod
+    def from_application(cls, app: Any) -> AppContext:
+        """Construye el contexto completo desde una aplicación de BD.
+
+        Un JSON de configuración corrupto deja ese atributo vacío en vez de
+        impedir que corran los scripts.
+
+        Args:
+            app: Registro ``Application`` (o cualquier objeto con sus campos).
+
+        Returns:
+            El AppContext con todos los atributos rellenos.
+        """
+        return cls(
+            id=app.id or 0,
+            name=app.name or "",
+            description=app.description or "",
+            config=_load_json(app.ai_config_json, {}, "ai_config_json"),
+            batch_fields_def=_load_json(app.batch_fields_json, [], "batch_fields_json"),
+            transfer_config=_load_json(app.transfer_json, {}, "transfer_json"),
+            pipeline_steps=_load_json(app.pipeline_json, [], "pipeline_json"),
+            auto_transfer=bool(app.auto_transfer),
+            output_format=app.output_format or "tiff",
+        )
+
+
+def _load_json(raw: str | None, default: Any, column: str) -> Any:
+    """Decodifica una columna JSON; devuelve ``default`` si falta o no vale."""
+    if not raw:
+        return default
+    try:
+        value = json.loads(raw)
+    except TypeError, ValueError:
+        log.warning("JSON inválido en %s; se usa vacío en el AppContext", column)
+        return default
+    return value if isinstance(value, type(default)) else default

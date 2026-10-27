@@ -70,6 +70,18 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
     Sin interfaz gráfica. Usa el escáner configurado para adquirir
     imágenes, ejecuta el pipeline completo y transfiere.
     """
+    from app.services.script_engine import create_script_engine
+
+    settings = get_settings()
+    script_engine = create_script_engine(settings)
+    try:
+        return _direct_mode(app_name, session_factory, script_engine, settings)
+    finally:
+        script_engine.shutdown()
+
+
+def _direct_mode(app_name: str, session_factory, script_engine, settings) -> int:
+    """Cuerpo del modo directo con el ScriptEngine ya creado."""
     log = logging.getLogger(__name__)
 
     from app.db.repositories.application_repo import ApplicationRepository
@@ -78,7 +90,6 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
     from app.pipeline.steps import ScriptStep
     from app.services.batch_service import BatchService
     from app.services.image_pipeline import ImagePipelineService
-    from app.services.script_engine import ScriptEngine
     from app.services.transfer_service import TransferService, parse_transfer_config
     from app.workers.recognition_worker import (
         AppContext,
@@ -102,7 +113,6 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
     log.info("Modo directo: app='%s'", app_record.name)
 
     # Construir servicios
-    script_engine = ScriptEngine()
     steps = deserialize(app_record.pipeline_json)
     for step in steps:
         if isinstance(step, ScriptStep) and step.script:
@@ -111,7 +121,6 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
             except Exception as exc:
                 log.error("Error compilando script '%s': %s", step.label, exc)
 
-    settings = get_settings()
     from app.services.barcode_service import BarcodeService
     from app.services.ocr_service import OcrService
 
@@ -153,7 +162,7 @@ def _run_direct_mode(app_name: str, session_factory) -> int:
         batch_svc.transition_state(batch.id, "read")
         session.commit()
 
-        app_ctx = AppContext(id=app_record.id, name=app_record.name)
+        app_ctx = AppContext.from_application(app_record)
         batch_ctx = BatchContext(id=batch.id, state="read")
 
         t_start = time.monotonic()
@@ -224,7 +233,7 @@ def _run_init_global(session_factory) -> None:
     _log = logging.getLogger(__name__)
     from app.db.repositories.application_repo import ApplicationRepository
     from app.services.event_config import active_event_sources
-    from app.services.script_engine import ScriptEngine
+    from app.services.script_engine import create_script_engine
 
     with session_factory() as session:
         repo = ApplicationRepository(session)
@@ -235,7 +244,7 @@ def _run_init_global(session_factory) -> None:
             events = active_event_sources(app_record.events_json)
             source = events.get("init_global", "")
             if source and source.strip():
-                engine = ScriptEngine()
+                engine = create_script_engine()
                 try:
                     engine.compile_script("init_global", source, "init_global")
                     engine.run_event(
@@ -248,6 +257,8 @@ def _run_init_global(session_factory) -> None:
                     )
                 except Exception as e:
                     _log.error("Error en init_global: %s", e)
+                finally:
+                    engine.shutdown()
                 return  # Solo ejecutar una vez
 
 

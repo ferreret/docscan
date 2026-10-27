@@ -41,7 +41,7 @@ _ctx = "PipelineAssistantPanel"
 
 _PROVIDERS = QT_TRANSLATE_NOOP(_ctx, "Anthropic|OpenAI")
 _LABEL_SEND = QT_TRANSLATE_NOOP(_ctx, "Enviar")
-_LABEL_NEW_CHAT = QT_TRANSLATE_NOOP(_ctx, "Nueva conversacion")
+_LABEL_NEW_CHAT = QT_TRANSLATE_NOOP(_ctx, "Nueva conversación")
 _LABEL_PLACEHOLDER = QT_TRANSLATE_NOOP(_ctx, "Describe el pipeline que necesitas...")
 _LABEL_API_KEY = QT_TRANSLATE_NOOP(_ctx, "API Key:")
 _LABEL_SAVE_KEY = QT_TRANSLATE_NOOP(_ctx, "Guardar")

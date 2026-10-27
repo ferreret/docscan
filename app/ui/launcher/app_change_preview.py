@@ -26,7 +26,7 @@ _ctx = "AppChangePreview"
 
 _LABEL_ACCEPT = QT_TRANSLATE_NOOP(_ctx, "Aceptar")
 _LABEL_REJECT = QT_TRANSLATE_NOOP(_ctx, "Rechazar")
-_LABEL_CONFIRM_DELETE = QT_TRANSLATE_NOOP(_ctx, "Confirmar eliminacion")
+_LABEL_CONFIRM_DELETE = QT_TRANSLATE_NOOP(_ctx, "Confirmar eliminación")
 _LABEL_CANCEL = QT_TRANSLATE_NOOP(_ctx, "Cancelar")
 
 _tr = lambda s: QCoreApplication.translate(_ctx, s)

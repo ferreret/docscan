@@ -507,6 +507,41 @@ class TestAppContext:
         assert ctx.id == 7
         assert ctx.name == "Facturas"
 
+    def test_from_application(self):
+        app = Application(
+            id=3,
+            name="Facturas",
+            description="d",
+            ai_config_json='{"provider": "anthropic"}',
+            batch_fields_json='[{"label": "cliente"}]',
+            transfer_json='{"destination": "/tmp"}',
+            pipeline_json='[{"id": "s1", "type": "script"}]',
+            auto_transfer=True,
+            output_format="pdf",
+        )
+        ctx = AppContext.from_application(app)
+        assert ctx.id == 3
+        assert ctx.config == {"provider": "anthropic"}
+        assert ctx.batch_fields_def == [{"label": "cliente"}]
+        assert ctx.transfer_config == {"destination": "/tmp"}
+        assert ctx.pipeline_steps == [{"id": "s1", "type": "script"}]
+        assert ctx.auto_transfer is True
+        assert ctx.output_format == "pdf"
+
+    def test_from_application_json_corrupto(self):
+        """Un JSON roto deja el atributo vacío en vez de romper los scripts."""
+        app = Application(
+            id=1,
+            name="X",
+            pipeline_json="[no es json",
+            transfer_json="[]",
+            ai_config_json=None,
+        )
+        ctx = AppContext.from_application(app)
+        assert ctx.pipeline_steps == []
+        assert ctx.transfer_config == {}
+        assert ctx.config == {}
+
     def test_enriched_fields(self):
         ctx = AppContext(
             id=1,
@@ -2028,6 +2063,62 @@ class TestWorkbenchWindow:
         """_fire_event pasa extra_ctx correctamente."""
         result = workbench._fire_event("on_key_event", key="A")
         assert result is None  # No hay script, pero no debe crashear
+
+    def test_on_key_event_recibe_el_nombre_qt_de_la_tecla(self, workbench):
+        """Ctrl+A dispara on_key_event con ``key="Key_A"``.
+
+        Antes ``.name.decode()`` lanzaba AttributeError (en PySide6 el
+        nombre ya es str) y el evento no llegaba a ejecutarse nunca.
+        """
+        from PySide6.QtCore import QEvent
+        from PySide6.QtGui import QKeyEvent
+
+        workbench._script_engine.compile_script(
+            "on_key_event",
+            "def on_key_event(app, batch, key):\n    return key\n",
+        )
+        event = QKeyEvent(
+            QEvent.Type.KeyPress,
+            Qt.Key.Key_A,
+            Qt.KeyboardModifier.ControlModifier,
+            "a",
+        )
+        with patch.object(
+            workbench, "_fire_event", wraps=workbench._fire_event
+        ) as fire:
+            workbench.keyPressEvent(event)
+        fire.assert_called_once_with("on_key_event", key="Key_A")
+
+    def test_app_context_lleva_los_pasos_del_pipeline(
+        self, qtbot, session_factory, sample_app, tmp_path
+    ):
+        """``app.pipeline_steps`` refleja el pipeline de la aplicación."""
+        with session_factory() as s:
+            app = s.get(Application, sample_app.id)
+            app.pipeline_json = json.dumps(
+                [{"id": "b1", "type": "barcode", "engine": "motor2"}]
+            )
+            s.commit()
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        steps = window._build_app_context().pipeline_steps
+        assert [(st["id"], st["type"]) for st in steps] == [("b1", "barcode")]
+
+    def test_cerrar_libera_el_cliente_http_de_los_scripts(
+        self, qtbot, session_factory, sample_app, tmp_path
+    ):
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        client = window._script_engine._http_client
+        with qtbot.waitSignal(window.closed, timeout=3000):
+            window.close()
+        assert client.is_closed
 
     def test_source_type_combo_exists(self, workbench):
         """El combo de source_type (ADF/Flatbed) existe en el popover ⚙."""

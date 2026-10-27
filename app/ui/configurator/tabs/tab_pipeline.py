@@ -10,6 +10,7 @@ de un vistazo; un paso desactivado se ve atenuado.
 
 from __future__ import annotations
 
+import json
 import uuid
 import logging
 from typing import Any
@@ -105,6 +106,7 @@ class PipelineTab(QWidget):
         self._app = app
         self._steps: list[PipelineStep] = []
         self._test_worker = None
+        self._test_script_engine = None
         self._setup_ui()
         self._load_from_app(app)
 
@@ -412,10 +414,12 @@ class PipelineTab(QWidget):
         # Preparar servicios y executor
         from app.pipeline.test_executor import InstrumentedPipelineExecutor
         from app.services.image_pipeline import ImagePipelineService
-        from app.services.script_engine import ScriptEngine
+        from app.services.script_engine import create_script_engine
 
         image_service = ImagePipelineService()
-        script_engine = ScriptEngine()
+        script_engine = create_script_engine()
+        # Se cierra al acabar la prueba (libera su cliente HTTP).
+        self._test_script_engine = script_engine
 
         # Compilar scripts
         for step in self._steps:
@@ -449,10 +453,12 @@ class PipelineTab(QWidget):
         # Contextos dummy
         from app.workers.recognition_worker import AppContext, BatchContext
 
-        app_ctx = AppContext(
-            name=self._app.name if self._app else "Test",
-            description=self._app.description if self._app else "",
-        )
+        if self._app is not None:
+            app_ctx = AppContext.from_application(self._app)
+        else:
+            app_ctx = AppContext(name="Test")
+        # Los pasos que se están editando, aunque aún no estén guardados.
+        app_ctx.pipeline_steps = json.loads(serialize(self._steps))
         batch_ctx = BatchContext()
 
         # Progress dialog
@@ -503,6 +509,7 @@ class PipelineTab(QWidget):
     ) -> None:
         """Muestra el dialogo de resultados."""
         progress.close()
+        self._release_test_script_engine()
         from app.ui.configurator.test_pipeline_dialog import (
             TestPipelineResultDialog,
         )
@@ -517,8 +524,15 @@ class PipelineTab(QWidget):
 
     def _on_test_error(self, error_msg: str, progress: Any) -> None:
         progress.close()
+        self._release_test_script_engine()
         QMessageBox.critical(
             self,
             self.tr("Error en pipeline"),
             error_msg,
         )
+
+    def _release_test_script_engine(self) -> None:
+        """Cierra el ScriptEngine de la última prueba del pipeline."""
+        if self._test_script_engine is not None:
+            self._test_script_engine.shutdown()
+            self._test_script_engine = None
