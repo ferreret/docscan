@@ -9,11 +9,12 @@ El Launcher es la ventana principal de DocScan Studio. Desde aquí se gestionan 
 Cada aplicación es una tarjeta, como en FlexibarNET 10:
 
 - **Indicador** a la izquierda: verde si la aplicación está activa, gris si no.
-- **Icono sobre un color**, que se deducen de la configuración. No hay que elegirlos.
-  - El icono sigue este orden: lee códigos de barras → OCR → salida PDF → escáner
-    elegido en el Workbench → documento.
+- **Icono sobre un color**.
+  - El icono se deduce de la configuración, en este orden: lee códigos de barras →
+    OCR → salida PDF → escáner elegido en el Workbench → documento.
   - El color sale del nombre: el mismo nombre da siempre el mismo color, también en
-    FlexibarNET 10.
+    FlexibarNET 10. Se puede fijar otro en **Configurador → General → Color del
+    icono**.
 - **Nombre, descripción y hasta tres etiquetas**: «Códigos de barras», «OCR»,
   «Scripts» y el formato de salida (`PDF`, `PDF/A`, `TIFF`, `CSV`…). Una aplicación
   sin nada de eso muestra «Digitalización».
@@ -46,16 +47,16 @@ La sidebar izquierda proporciona acceso rápido a todas las acciones. Se puede e
 | Botón | Acción | Descripción |
 |-------|--------|-------------|
 | :material-plus: Nueva | Crear aplicación | Diálogo para nombre y descripción |
-| :material-folder-open: Abrir | Abrir workbench | Abre la aplicación seleccionada |
+| :material-folder-open: Abrir | Abrir workbench | Abre la aplicación seleccionada (si está inactiva, avisa y no la abre) |
 | :material-cog: Configurar | Editar configuración | Abre el configurador con 7 pestañas |
 | :material-content-copy: Clonar | Duplicar | Copia exacta de la aplicación |
 | :material-upload: Exportar | Fichero .docscan | Exporta como JSON portable |
-| :material-download: Importar | Desde .docscan | Carga aplicación desde fichero |
+| :material-download: Importar | Desde .docscan | Carga aplicación desde fichero (`.docscan` o `.json`) |
 | :material-delete: Eliminar | Borrar aplicación | Elimina app y datos (irreversible) |
 | :material-refresh: Actualizar | Refrescar lista | Recarga desde la base de datos |
 | :material-view-grid: Gestor de Lotes | Histórico | Consultar lotes anteriores |
 | :material-robot: AI MODE | Asistente IA | Panel conversacional con IA |
-| :material-information: Acerca de | Información | Versión y créditos |
+| :material-information: Acerca de | Información | Versión, créditos y **Buscar actualizaciones** |
 
 ## Crear una aplicación
 
@@ -70,21 +71,32 @@ La sidebar izquierda proporciona acceso rápido a todas las acciones. Se puede e
 
 Las aplicaciones se exportan como ficheros `.docscan` (JSON) que incluyen:
 
-- Configuración general (incluido el grupo)
+- Configuración general: grupo, color del icono, diálogo del escáner, pestañas
+  del Workbench y barcode manual
+- Configuración de imagen
 - Pipeline completo
 - Campos de lote
 - Eventos y scripts
 - Configuración de transferencia
+- Notificaciones
 
 !!! warning "No se exportan"
     Las API keys, los lotes ni las imágenes no se incluyen en la exportación.
 
-## Tema e idioma
+## Tema, letra e idioma
 
 La barra superior del Launcher permite:
 
 - :material-brightness-6: Alternar entre tema **claro** y **oscuro**
-- :material-translate: Cambiar idioma: **Español**, **English**, **Català**
+- **A↑ / A↓**: aumentar o reducir el tamaño de letra
+- :material-translate: Cambiar idioma en el desplegable: **ES** (español),
+  **EN** (inglés) y **CAT** (catalán)
 
 !!! note
     El cambio de idioma requiere reiniciar la aplicación.
+
+## Aviso de actualización
+
+Si hay una versión nueva, aparece un aviso bajo la barra superior con **Ver
+novedades**, **Actualizar** e **Ignorar** (ver
+[Actualizaciones](getting-started.md#actualizaciones)).

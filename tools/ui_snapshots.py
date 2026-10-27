@@ -169,21 +169,33 @@ def demo_page(kind: str, number: str, page: int, total: int):
 
 PIPELINE = [
     {"type": "image_op", "id": "enderezar", "op": "AutoDeskew"},
-    {"type": "barcode", "id": "codigos", "engine": "motor2"},
+    {
+        "type": "barcode",
+        "id": "codigos",
+        "engine": "motor2",
+        "symbologies": ["Code128"],
+        # Separador de documento nativo: la página con el código de una
+        # factura abre un documento (regex sobre «NN + valor», Code128 = 02).
+        "separator_enabled": True,
+        "separator_by": "regex",
+        "separator_regex": "^02FAC-",
+        "separator_regex_include_symbology": True,
+        "separator_manual_regex": r"^FAC-\d{4}-\d{4}$",
+    },
     {"type": "ocr", "id": "texto", "engine": "rapidocr", "languages": ["es"]},
     {
         "type": "script",
-        "id": "separar",
-        "label": "Separar documentos",
-        "entry_point": "separar",
+        "id": "pedido",
+        "label": "Número de pedido",
+        "entry_point": "numero_pedido",
         "script": (
-            "def separar(app, batch, page, pipeline):\n"
-            '    """Marca como separadora la página con el código de la factura."""\n'
-            "    for bc in page.barcodes:\n"
-            "        if bc.value.startswith('FAC-'):\n"
-            "            bc.role = 'separator'\n"
-            "            page.fields['separator'] = bc.value\n"
-            "            return\n"
+            "def numero_pedido(app, batch, page, pipeline):\n"
+            '    """Guarda el número de pedido que aparece en el texto OCR."""\n'
+            '    m = re.search(r"PEDIDO-(\\d+)", page.ocr_text or "")\n'
+            "    if m:\n"
+            '        page.fields["Pedido"] = m.group(1)\n'
+            "    else:\n"
+            '        log.info("Página %d sin número de pedido", page.page_index + 1)\n'
         ),
     },
 ]
@@ -223,10 +235,22 @@ EVENTS = {
     },
 }
 
+# Un PDF por factura (documento = tramo entre separadores), con el nombre
+# calculado por script: carpeta del proveedor y número de la factura.
 _TRANSFER_PDF = {
+    "standard_enabled": True,
     "mode": "pdf",
     "destination": "/archivo/facturas",
-    "filename_pattern": "{first_barcode}_{batch_id}",
+    "grouping": "document",
+    "separator_page": "include",
+    "name_mode": "script",
+    "file_name_script": (
+        "def file_name(page, document, batch, app):\n"
+        '    """Carpeta del proveedor y un PDF por factura."""\n'
+        '    proveedor = (batch.fields or {}).get("Proveedor") or "SIN-PROVEEDOR"\n'
+        '    return f"{proveedor}/{document.separator_value}"\n'
+    ),
+    "filename_pattern": "{separator}",
 }
 
 # Cada aplicación con su configuración, para que las tarjetas del launcher
@@ -261,6 +285,7 @@ APPS = [
         {
             "pipeline": [PIPELINE[0], PIPELINE[2]],
             "transfer": {"mode": "pdfa", "destination": "/archivo/rrhh"},
+            "group": "Recursos humanos",
         },
     ),
     (
@@ -356,6 +381,8 @@ def seed(session_factory, images_dir: Path) -> dict:
         for page, (kind, number, *_), (_img, box) in zip(pages, docs, rendered):
             page.pipeline_processed = True
             if kind != "anexo":
+                page.is_separator = True
+                page.separator_value = number
                 s.add(
                     Barcode(
                         page_id=page.id,
@@ -363,7 +390,6 @@ def seed(session_factory, images_dir: Path) -> dict:
                         symbology="Code128",
                         engine="zxing",
                         step_id="codigos",
-                        role="separator",
                         quality=1.0,
                         pos_x=box[0],
                         pos_y=box[1],
@@ -462,8 +488,9 @@ class Shooter:
         panel._add_message(
             "assistant",
             "He creado «Facturas de proveedores» con este pipeline: enderezar → "
-            "códigos de barras → OCR → script «Separar documentos». La transferencia "
-            "genera un PDF por documento con el nombre {first_barcode}_{batch_id}. "
+            "códigos de barras → OCR → script «Número de pedido». El paso de códigos "
+            "marca como separadora cada página con un Code128 que empieza por FAC-, "
+            "y la transferencia genera un PDF por factura con el número como nombre. "
             "¿Ajusto algo más?",
         )
         self._save("ai_mode", win)
@@ -500,7 +527,9 @@ class Shooter:
         from app.ui.configurator.app_configurator import AppConfigurator
 
         dlg = AppConfigurator(self._app(), self.sf)
-        dlg.resize(1100, 780)
+        # Transferencia es larga: que se vean el script de nombre y el grupo
+        # «Documentos» (un fichero por documento) sin desplazarse.
+        dlg.resize(1100, 1160 if name == "configurator_transfer" else 780)
         dlg.show()
         dlg._tabs.setCurrentIndex(self._CONFIG_TABS[name])
         if name == "configurator_events":
@@ -520,11 +549,12 @@ class Shooter:
             BarcodeStep(
                 id="codigos",
                 engine="motor2",
-                symbologies=["Code128", "QR"],
+                symbologies=["Code128"],
                 separator_enabled=True,
                 separator_by="regex",
-                separator_regex="^22SEP",
+                separator_regex="^02FAC-",
                 separator_regex_include_symbology=True,
+                separator_manual_regex=r"^FAC-\d{4}-\d{4}$",
             )
         )
         dlg.resize(720, 1400)

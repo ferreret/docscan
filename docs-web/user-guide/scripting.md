@@ -11,7 +11,7 @@ DocScan Studio incluye un motor de scripting Python completo.
 | `page` | PageContext | ScriptStep y `on_page_changed` |
 | `pipeline` | PipelineContext | Solo ScriptStep |
 | `log` | Logger | Todos |
-| `http` | httpx.Client | Todos |
+| `http` | — | No disponible: hoy vale `None`. Para llamar a una API, `import httpx` dentro del script |
 | `re`, `json`, `datetime`, `Path` | módulos | Todos |
 
 Los argumentos que recibe cada evento, y lo que significa su valor de retorno,
@@ -29,10 +29,10 @@ están en la [referencia de la API](../reference/scripting-api.md#argumentos-de-
 | `on_page_changed` | Al cambiar de página activa (desktop v0.1.1+) |
 | `on_transfer_validate` | Antes de transferir (`False` cancela) |
 | `on_transfer_advanced` | Transferencia scripteada |
-| `on_transfer_page` | Tras copiar cada página en la transferencia simple |
+| `on_transfer_page` | Tras copiar cada página en la transferencia simple (solo en el Workbench) |
 | `on_navigate_prev/next` | Navegación personalizable |
 | `on_navigate_script` | Botón de navegación programable del visor |
-| `on_key_event` | Tecla personalizada |
+| `on_key_event` | Tecla personalizada. **Hoy no se dispara** (error conocido) |
 | `init_global` | Al iniciar el programa |
 | `verification_panel` | Panel de verificación |
 
@@ -53,7 +53,7 @@ hasta la siguiente; las páginas anteriores a la primera separadora forman un
 documento implícito. Es el mismo modelo que FlexibarNET 10, y no necesita
 scripts:
 
-1. En el paso **Barcode**, activa *Separador de documento* con su condición
+1. En el paso **Barcode**, marca *Detectar separador automáticamente* con su condición
    (ver [Pipeline](pipeline.md#separador-de-documento)). La página que la
    cumple queda marcada como separadora (`page.is_separator`) con el valor del
    código (`page.separator_value`).
@@ -101,7 +101,7 @@ def file_name(page, document, batch, app):
 
 ```python
 def on_transfer_validate(app, batch, pages):
-    sin_codigo = [p.page_index + 1 for p in pages if not p.is_separator]
+    sin_codigo = [p.page_index + 1 for p in pages if not p.barcodes]
     if sin_codigo:
         raise ValueError(
             f"Hay páginas sin código de barras. La primera es la {sin_codigo[0]}"
@@ -124,10 +124,15 @@ campo como **obligatorio** en la pestaña Campos de Lote.
 
 ### Llamar a una API externa
 
+La variable `http` no está disponible hoy (vale `None`). Los scripts pueden
+importar módulos, así que se usa `httpx` directamente:
+
 ```python
 def clasificar(app, batch, page, pipeline):
-    resp = http.post("https://api.ejemplo.com/clasificar",
-                     json={"text": page.ocr_text})
+    import httpx
+
+    resp = httpx.post("https://api.ejemplo.com/clasificar",
+                      json={"text": page.ocr_text}, timeout=10)
     if resp.status_code == 200:
         page.fields["tipo_doc"] = resp.json()["tipo"]
 ```
@@ -143,4 +148,6 @@ def clasificar(app, batch, page, pipeline):
     - `pipeline.set_metadata()` comparte datos entre pasos **de la misma página**
     - Todo valor que venga del papel (barcodes, OCR) y acabe en una ruta debe
       sanearse antes
-    - Timeout por defecto: 30 segundos
+    - Un paso Script se corta a los **30 segundos** (no es configurable) y el
+      error queda en `page.flags.script_errors`. Los eventos no tienen límite
+      de tiempo: un evento que se cuelga bloquea la operación

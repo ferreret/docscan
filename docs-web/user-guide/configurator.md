@@ -9,24 +9,28 @@ Transferencia y Notificaciones.
 
 Configuración básica de la aplicación.
 
+![Pestaña General del configurador](../assets/screenshots/configurator_general.png)
+
 | Opción | Descripción |
 |--------|-------------|
 | Nombre | Nombre visible en el Launcher |
 | Descripción | Texto descriptivo del propósito |
 | Grupo (launcher) | Agrupa la tarjeta bajo una cabecera en el Launcher. Sugiere los grupos que ya usan otras aplicaciones y escribir uno nuevo lo crea. Vacío = sin grupo. Los espacios de los extremos se quitan al guardar |
-| Activa | Las inactivas se ven con el indicador gris en el Launcher |
+| Activa | Las inactivas se ven con el indicador gris en el Launcher y no se pueden abrir en el Workbench |
 | Backend escáner | SANE (Linux) o TWAIN/WIA (Windows), según el sistema. Un backend de otra plataforma (una App preparada para Windows abierta en Linux) se conserva al guardar |
 | Mostrar el diálogo del escáner al capturar | Valor por defecto de la casilla de ⚙ en los equipos donde el operador no la ha cambiado |
 | Color del icono | Color de la tarjeta en el Launcher. «Automático» lo saca del nombre, como FlexibarNET 10 |
 | Transferir automáticamente | Transferir al completar el pipeline |
 | Cerrar tras transferir | Cierra el Workbench después de transferir |
 | Barcode manual | Expresión regex o valor fijo para los códigos añadidos a mano, y la casilla que oculta «+ Añadir» |
-| Detección de páginas en blanco | Excluir páginas en blanco automáticamente |
+| Detección de páginas en blanco | Tras el pipeline, en el Workbench, marca como excluida la página cuyo contenido queda por debajo del *Umbral de contenido* (1 % por defecto), con la *Tolerancia de blanco* (245) como límite de lo que cuenta como blanco. Nunca excluye una página separadora ni una con códigos |
 | Pestañas del Workbench | Qué paneles y pestañas ve el operador y en qué orden |
 
 ## Pestaña Imagen
 
-Define el formato de captura: formato de fichero, modo de color y compresión.
+Define el formato interno en el que se guardan las imágenes capturadas: formato
+de fichero (`tiff`, `png` o `jpg`), modo de color (`color`, `grayscale` o `bw`),
+compresión TIFF, calidad JPEG, compresión PNG y umbral B/N.
 
 ![Pestaña Imagen del configurador](../assets/screenshots/configurator_image.png)
 
@@ -119,7 +123,8 @@ script…**. La pestaña se abre en el primer evento con código.
 **Editar script…** (o doble clic en el resumen) abre el editor del evento con el
 panel **Variables disponibles**: la firma del evento y lo que recibe el script
 (`app`, `batch`, `pages`…, más `log`, `http`, `re`, `json`, `datetime` y
-`Path`). *Abrir en VS Code* aparece si está instalado. **Guardar** devuelve el
+`Path`; hoy `http` vale `None`, ver [Scripting](scripting.md#llamar-a-una-api-externa)).
+*Abrir en VS Code* aparece si está instalado. **Guardar** devuelve el
 código a la pestaña; **Cancelar** lo descarta.
 
 ![Diálogo Editar script de un evento](../assets/screenshots/dialog_event_script.png)
@@ -143,6 +148,8 @@ allí, también el de nombre de fichero, y lo recoge al cerrar la pestaña.
 después de `:`.
 
 ## Pestaña Transferencia
+
+![Pestaña Transferencia del configurador](../assets/screenshots/configurator_transfer.png)
 
 Ver [Transferencia](transfer.md) para las opciones de exportación. Además del
 destino y el patrón:

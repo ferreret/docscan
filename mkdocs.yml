@@ -76,7 +76,7 @@ nav:
       - Patrones de nombre: reference/naming-patterns.md
       - API de scripting: reference/scripting-api.md
       - Glosario: reference/glossary.md
-  - Versión Web:
+  - Versión Web (archivada):
     - Visión general: web/index.md
     - Inicio rápido: web/getting-started.md
     - Workbench web: web/workbench.md
