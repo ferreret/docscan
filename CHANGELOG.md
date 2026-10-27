@@ -8,6 +8,18 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 📚 Documentación
+
+- **README bilingüe**: `README.md` en inglés (el que muestra GitHub) y
+  `README.es.md` en castellano, con el mismo contenido. Puestos al día con la
+  v0.1.8: instalación desde los instaladores, separador de documento,
+  transferencia por documento, Configurador, atajos reales (los antiguos `Ctrl+S`,
+  `R` y `M` ya no existían), formatos, métricas medidas y hoja de ruta.
+- **Capturas nuevas**: los datos de demostración usan el separador nativo y la
+  transferencia por documento con nombre por script, en lugar del script antiguo
+  que ponía `role="separator"`.
+- `docs/portfolio/metricas.md`: las cifras de la v0.1.8 y cómo se midió cada una.
+
 ## [0.1.8] - 2026-10-27
 
 Lote 6 de mejoras desde FlexibarNET 10: **separador de documento nativo**, con
