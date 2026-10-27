@@ -8,9 +8,14 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-10-27
+
 Lote 6 de mejoras desde FlexibarNET 10: **separador de documento nativo**, con
 la misma lógica que FlexibarNET 10. El caso de aceptación son las seis Apps de
-archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
+archivo del Hospital Arnau de Vilanova, portadas de Flexibar. Incluye además el
+Configurador revisado frente a Flexibar (editor de scripts con colores, Eventos
+en lista, campos de lote en maestro-detalle) y los grupos de aplicaciones en el
+launcher.
 
 > **Cambios de comportamiento a revisar antes de actualizar**
 > - «Incluir simbología en regex» del paso Barcode antepone ahora el número
