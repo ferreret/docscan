@@ -171,9 +171,18 @@ QListWidget::item {
     padding: 0px;
 }
 
+/* El color del texto se fija: sin él, Qt usaba el de selección del sistema
+   (blanco) y en el tema claro la fila elegida no se leía. */
 QListWidget::item:selected {
     background-color: $selection_bg;
+    color: $text;
     border: 1px solid $accent;
+}
+
+/* Filas con casilla: margen interior para que la casilla no monte sobre el
+   borde redondeado de la fila. */
+#workbenchLayoutList::item {
+    padding: 4px 8px;
 }
 
 QListWidget::item:hover:!selected {
@@ -639,6 +648,7 @@ QTableWidget::item {
 
 QTableWidget::item:selected {
     background-color: $selection_bg;
+    color: $text;
 }
 
 QHeaderView::section {
@@ -866,6 +876,7 @@ QTableWidget {
 
 #pipelineStepList::item:selected {
     background-color: $surface_active;
+    color: $text;
     border: 1px solid $accent;
 }
 
