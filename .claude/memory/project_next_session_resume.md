@@ -1,6 +1,6 @@
 ---
 name: next-session-resume
-description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-27, v0.1.8 publicada con el lote 6 (separadores + Apps del Arnau)."
+description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-27: v0.1.9 publicada (lote 6, docs al día, i18n completo, autoría de Nicolás)."
 metadata:
   node_type: memory
   type: project
@@ -28,14 +28,14 @@ metadata:
 
 ## Siguiente (en orden)
 
-0. **Hecho 2026-10-27 en `main`** (sin release): documentación pública al día (PR #6: README bilingüe,
-   manual auditado, informe v1.2, paquete del portfolio en `docs/portfolio/`), empresa de Flexibar
-   retirada de todo el repo (PR #8, DocScan = Nicolás Barceló; ver [[feedback-sin-nombre-empresa]]) y
-   los bugs que destapó la auditoría corregidos (PR #7: `http` en scripts, `on_key_event`,
-   `script_timeout_seconds`, `pipeline_steps`, aviso PDF417/DataMatrix, tildes). 1256 tests.
-   **Pendiente**: aplicar la ficha en el repo del portfolio; traducciones al inglés de las pantallas nuevas;
-   modelo Anthropic por defecto del AI Mode (`claude-sonnet-4-20250514`); release v0.1.9 cuando toque
-   (los binarios ≤ v0.1.8 aún muestran la empresa en «Acerca de»).
+0. **v0.1.9 publicada 2026-10-27** (commit `4e2344d`, tag `v0.1.9`; binario Linux validado en local
+   contra copia de BD real). Lleva: documentación pública al día (PR #6), autoría de Nicolás Barceló
+   sin la empresa (PR #8, ver [[feedback-sin-nombre-empresa]]), bugs de scripting corregidos (PR #7),
+   Pipeline Assistant retirado e inglés/catalán completos con 652 textos (PR #9). 1226 tests.
+   **Pendiente**: revisar y publicar la ficha del portfolio (rama `content/docscan-v0.1.8` del repo
+   portfolio, commit `ba0a8d9`, sin push; `demoUrl` y `relatedPostId` sin poner); modelo Anthropic por
+   defecto del AI Mode (`claude-sonnet-4-20250514`). Las métricas de README/portfolio son de la v0.1.8
+   (`docs/portfolio/metricas.md`).
 1. Probar las Apps del Arnau con escáner real (DR-M160) y escaneos de verdad.
 2. Familia eCAP del Arnau (04, 08): secretos en scripts + ODBC contra BD simulada.
 3. Pendientes de la revisión de código (anteriores al lote 6): eventos que no compilan
@@ -48,5 +48,5 @@ metadata:
 
 ## Pendientes de campo (solo el usuario)
 
-- Validar la v0.1.8 instalada (Acerca de, actualizador desde v0.1.7).
+- Validar la v0.1.9 instalada (Acerca de con «Nicolás Barceló», actualizador desde v0.1.8, idioma inglés/catalán).
 - Escáner físico en Ubuntu.
