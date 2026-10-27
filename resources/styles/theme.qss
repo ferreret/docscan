@@ -314,6 +314,16 @@ QDialogButtonBox QPushButton:default:hover {
     background-color: $accent_hover;
 }
 
+/* Desactivado (p. ej. OK con un valor que no valida): antes se pintaba igual
+   que activo y parecía que el botón no respondía. */
+QDialogButtonBox QPushButton:disabled,
+QDialogButtonBox QPushButton:default:disabled {
+    background-color: $disabled_bg;
+    color: $text_disabled;
+    border-color: $border;
+    font-weight: normal;
+}
+
 /* === Form fields === */
 QTextEdit {
     background-color: $field;
