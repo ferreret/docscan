@@ -90,6 +90,8 @@ archivo del Hospital Arnau de Vilanova, portadas de Flexibar.
 - **La detección de blancos ya no excluye una página separadora** ni una con
   códigos: fundía dos documentos sin avisar.
 - Los botones de los diálogos desactivados se pintaban igual que activos.
+- La esquina de redimensionar de las barras de estado dejaba un cuadrado de
+  otro color al final de la barra.
 - El log de la transferencia nombra el fichero final y no el temporal
   (`.nombre.tif.tmp`).
 - Tras una migración lanzada con la CLI de Alembic, el proceso dejaba de

@@ -240,6 +240,14 @@ QStatusBar {
     padding: 2px 8px;
 }
 
+/* La esquina de redimensionar heredaba el fondo de la ventana y dejaba un
+   cuadrado de otro color al final de la barra. */
+QSizeGrip {
+    background-color: transparent;
+    width: 12px;
+    height: 12px;
+}
+
 QStatusBar QLabel#statusText {
     color: $text_subtle;
     padding: 0px 6px;
