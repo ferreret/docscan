@@ -19,6 +19,19 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
   transferencia por documento con nombre por script, en lugar del script antiguo
   que ponía `role="separator"`.
 - `docs/portfolio/metricas.md`: las cifras de la v0.1.8 y cómo se midió cada una.
+- **Manual web repasado contra el código**, página a página. Lo principal:
+  instalación con los instaladores (sin `alembic upgrade head`, que sobraba), 24
+  operaciones de imagen, simbologías por motor (pyzbar no lee PDF417 ni
+  DataMatrix), estados reales del gestor de lotes, opciones de transferencia
+  (PDF, CSV, imágenes de salida, Group4 solo para B/N), atajos que faltaban
+  (`Ctrl+M` excluye la página), glosario de documento y separador, dónde corre
+  cada evento, panel de verificación y la versión web marcada como archivada.
+  Quita el *Pipeline Assistant* del manual: su panel existe en el código pero
+  nunca se ha conectado a la interfaz.
+- **Documentados como errores conocidos**, pendientes de corregir: `http` vale
+  `None` en los scripts, `on_key_event` no se dispara, el ajuste
+  `script_timeout_seconds` no se lee (los pasos Script se cortan siempre a los
+  30 s) y `AppContext.pipeline_steps` va siempre vacío.
 - **Informe del proyecto** (`docs/INFORME_PROYECTO.md`) puesto al día con la v0.1.8
   (versión 1.2 del documento). Corrige afirmaciones que ya no eran ciertas: pasos
   de IA, de condición y de petición HTTP que no existen, modo supervisor con

@@ -19,7 +19,7 @@ El pipeline es el **corazón** de DocScan Studio. Cada página escaneada/importa
 
 ## Operaciones de imagen
 
-??? note "23 operaciones disponibles"
+??? note "24 operaciones disponibles"
 
     | Operación | Descripción |
     |-----------|-------------|
@@ -46,6 +46,7 @@ El pipeline es el **corazón** de DocScan Studio. Cada página escaneada/importa
     | SwapColor | Intercambiar colores |
     | KeepChannel | Extraer canal |
     | RemoveChannel | Eliminar canal |
+    | ScaleChannel | Escalar un canal por un factor |
 
 ### ¿La operación cambia el fichero entregado?
 
@@ -76,11 +77,13 @@ el fichero de la página»**.
 |------------|:-:|:-:|
 | Code128 | :white_check_mark: | :white_check_mark: |
 | Code39 | :white_check_mark: | :white_check_mark: |
-| QR Code | :white_check_mark: | :white_check_mark: |
-| DataMatrix | :white_check_mark: | :white_check_mark: |
-| PDF417 | :white_check_mark: | :white_check_mark: |
+| Code93 | :white_check_mark: | :white_check_mark: |
+| Codabar | :white_check_mark: | :white_check_mark: |
 | EAN-13/8, UPC-A/E | :white_check_mark: | :white_check_mark: |
 | ITF (Interleaved 2 of 5) | :white_check_mark: | :white_check_mark: |
+| QR Code | :white_check_mark: | :white_check_mark: |
+| DataMatrix | :x: | :white_check_mark: |
+| PDF417 | :x: | :white_check_mark: |
 | Aztec | :x: | :white_check_mark: |
 | MaxiCode | :x: | :white_check_mark: |
 | MicroQR | :x: | :white_check_mark: |
@@ -98,6 +101,11 @@ Lee los códigos de la página (o de una ventana) y los acumula en
   `^02` acepta solo Code128. Antes se anteponían las dos primeras letras del
   nombre («Co»), con lo que ninguna regex heredada de Flexibar casaba.
 
+Con `motor1` solo se leen las simbologías con ✓ en su columna de la tabla de
+arriba. En el diálogo, Aztec, MicroQR y MaxiCode llevan el aviso «Solo la lee el
+motor 2 (zxing-cpp)»; DataMatrix y PDF417 no lo llevan, pero el motor 1 tampoco
+las lee.
+
 ### Separador de documento
 
 Un **documento** es el tramo de páginas que va de una página separadora a la
@@ -106,12 +114,12 @@ La marca es de la **página** (`page.is_separator`, `page.separator_value`),
 no del barcode. Es el modelo de FlexibarNET 10, con las mismas claves de
 configuración (`separator_*`).
 
-Con *Separador de documento* activo, el paso marca como separadora la página
+Con *Detectar separador automáticamente* marcado, el paso marca como separadora la página
 en la que algún código cumple la condición, y guarda su valor:
 
 | Condición | Se cumple si… |
 |-----------|---------------|
-| Expresión regular | La regex encuentra algo en el valor (o en NN + valor con *Evaluar sobre NN + valor*) |
+| Expresión regular | La regex encuentra algo en el valor (o en NN + valor con *Incluir simbología en la expresión*) |
 | Simbología | La simbología del código es la indicada (sin distinguir mayúsculas) |
 | Valor fijo | El valor es exactamente el indicado |
 
@@ -127,7 +135,7 @@ Números legacy de simbología (los mismos que el Flexibar original):
 | 08 | Code93 | 38 | MicroQRCode |
 | 09 | Codabar | 39 | MaxiCode |
 
-Ejemplo: regex `^(02|10)` con *Evaluar sobre NN + valor* = toda página con un
+Ejemplo: regex `^(02|10)` con *Incluir simbología en la expresión* = toda página con un
 Code128 o un ITF es separadora (Apps del Hospital Arnau de Vilanova).
 
 Reglas:
@@ -144,10 +152,42 @@ Reglas:
 
 Para la marca manual en el Workbench (Ctrl+D) el paso define además:
 
-- **Regex del valor**: valida lo que teclea el operador. No afecta a la
+- **Validación del valor (regex)**: valida lo que teclea el operador. No afecta a la
   detección automática. Vacío = sin validación.
 - **Valor por defecto**: con el que se pre-rellena el diálogo si la página no
   tiene ningún código.
+
+## Paso OCR
+
+Reconoce el texto de la página y lo deja en `page.ocr_text`, que sustituye al
+de un paso OCR anterior.
+
+![Diálogo del paso OCR](../assets/screenshots/dialog_ocr.png)
+
+- **Motor**: `rapidocr` (por defecto), `easyocr` o `tesseract`.
+- **Idiomas**: códigos separados por coma (`es, en, fr`).
+- **Página completa**: desmarcada, se reconoce solo la **Ventana** (`x, y, w,
+  h`).
+
+Si el motor no está instalado, el paso falla y la página queda a revisión, en
+lugar de guardar un texto vacío.
+
+## Paso Script
+
+Ejecuta una función Python sobre cada página.
+
+![Diálogo del paso Script](../assets/screenshots/dialog_script.png)
+
+- **Nombre**: el que se ve en la lista del pipeline.
+- **Función**: nombre de la función que se ejecuta, con la firma
+  `(app, batch, page, pipeline)`.
+- **Código Python**: el script, en el editor del Configurador o con **Abrir en
+  VS Code** si está instalado.
+
+Si el script no compila, no define la función, lanza una excepción o tarda más
+de **30 segundos**, el pipeline sigue con los demás pasos: el error queda en
+`page.flags.script_errors` y la página, a revisión. Ver
+[Scripting](scripting.md).
 
 ## Control de flujo
 

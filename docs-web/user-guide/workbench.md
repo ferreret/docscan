@@ -17,8 +17,8 @@ El Workbench se compone de cinco áreas:
 4. **Panel derecho** — Barcodes de la página, campos de lote y las pestañas
    Verificación / OCR / Log (ver más abajo)
 5. **Barra de estado** — Mensajes, contadores del lote (páginas, con barcode,
-   separadores y a revisión), tamaño y DPI de la página del visor
-   (`1240×1754 — 300 DPI`) y una barra de progreso fina mientras corre el pipeline.
+   separadores y a revisión), tamaño de la página del visor y sus DPI si la
+   imagen los guarda (`1240×1754 — 300 DPI`) y una barra de progreso fina mientras corre el pipeline.
    Al terminar dice `Procesado N/M`, con los errores si los hubo.
 
 ## Panel derecho
@@ -33,7 +33,7 @@ Funciona como en FlexibarNET 10. De arriba abajo:
   su recuadro en el visor), valor, «simbología · motor · rol» y el distintivo
   **MANUAL** si se añadió a mano. Crece hasta 280 px y luego hace scroll.
     - Pasar el ratón por una fila resalta su recuadro en el visor, y al revés.
-    - **+ Añadir**, **Ctrl+N** o **Insert** añaden un código a mano.
+    - **+ Añadir**, **Ctrl+N**, **Ctrl+B** o **Insert** añaden un código a mano.
     - La papelera de la fila, o **Supr** con la fila seleccionada, lo borran sin
       preguntar: **Ctrl+Z** deshace la última edición de códigos.
 - **CAMPOS DE LOTE · N** — los campos de lote de la aplicación (solo si tiene).
@@ -67,8 +67,23 @@ El visor central permite:
 - **Zoom**: Ctrl++ / Ctrl+- o rueda del ratón
 - **Pan**: Clic y arrastrar
 - **Ajustar a ventana**: Ctrl+F
-- **Rotar**: Ctrl+R (90° a la derecha) o los botones de la barra del visor
-- **Overlays**: Visualización de barcodes y regiones OCR sobre la imagen
+- **Tamaño real**: Ctrl+0
+- **Rotar**: Ctrl+R o el botón de rotar de la barra del visor (90° a la derecha)
+- **Overlays**: recuadros de los códigos de barras sobre la imagen
+
+La barra del visor tiene además:
+
+- **Navegación**: primera, anterior, siguiente y última página (Inicio, ←, →,
+  Fin) y una casilla donde escribir el número de página y pulsar Intro.
+- **Siguiente con barcode** (Ctrl+→), **siguiente a revisión** (Ctrl+Mayús+→)
+  y **navegación programable** (Ctrl+G, ejecuta el evento `on_navigate_script`).
+- **Excluir página** (icono de bandera, Ctrl+M): marca o desmarca la página
+  como excluida; la miniatura se pone en rojo.
+- **Eliminar página actual** (Supr) y **Borrar desde aquí** (de la página actual
+  al final del lote). Las dos piden confirmación.
+
+**Ctrl+P** reprocesa la página actual con el pipeline. La lista completa de
+atajos está en [Atajos de teclado](../reference/shortcuts.md).
 
 ## Separadores de documento
 
@@ -120,6 +135,6 @@ A la derecha están el cambio de tema y el tamaño de letra.
 ## Importación
 
 - Clic en **Importar…** (Ctrl+I) y seleccionar ficheros. Si la aplicación define el
-  evento `on_import`, la importación la hace su script.
+  evento `on_import` y este devuelve un valor, sustituye a la importación estándar.
 - O **arrastrar** ficheros directamente sobre el visor
 - Formatos: TIFF (multi-página), JPEG, PNG, BMP, PDF

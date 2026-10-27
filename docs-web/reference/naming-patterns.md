@@ -8,8 +8,8 @@ Siguen la sintaxis de `str.format` de Python, así que admiten formato (`{page_i
 | Variable | Descripción | Ejemplo |
 |----------|-------------|---------|
 | `{batch_id}` | ID numérico del lote | `42` |
-| `{page_index}` | Índice de la página (base 0) | `0`, `1`, `2` |
-| `{first_barcode}` | Valor del primer barcode de la página | `FAC-001` |
+| `{page_index}` | Índice de la página (base 0). En PDF/TIFF multipágina, el de la primera página del documento o del lote | `0`, `1`, `2` |
+| `{first_barcode}` | Valor del primer barcode de la página. En PDF/TIFF multipágina, el de la primera página del documento o del lote | `FAC-001` |
 | `{separator}` | Valor del separador del documento de la página | `FAC-001` |
 | `{document_index}` | Número del documento de la página, empezando en 1 | `1`, `2` |
 | `{document_id}` | Alias de `{document_index}` | `1`, `2` |
@@ -24,9 +24,15 @@ nombre.
 Un documento es el tramo que va de una página separadora a la siguiente (ver
 [Pipeline](../user-guide/pipeline.md#separador-de-documento)). `{separator}`,
 `{document_index}` y `{document_id}` se resuelven **sobre el documento de la
-página**, en cualquier modo y para todas sus páginas, no solo para la
-separadora. Las páginas anteriores al primer separador forman un documento
-implícito sin valor.
+página**, para todas sus páginas y no solo para la separadora, en modo carpeta
+y en los multipágina con un fichero por documento. Las páginas anteriores al
+primer separador forman un documento implícito sin valor.
+
+- **Un fichero por lote**: se usan los del primer documento del lote, y
+  `{page_index}` y `{first_barcode}` salen de su primera página (la separadora,
+  aunque se descarte).
+- **CSV**: no hay documentos; `{separator}` queda vacío y `{document_index}` /
+  `{document_id}` valen `0`.
 
 !!! warning "`{separator}` sin valor bloquea la transferencia"
     Si el patrón usa `{separator}` y algún documento no tiene valor (el
@@ -39,8 +45,9 @@ Si el nombre necesita lógica que el patrón no cubre, usa el
 !!! danger "Una variable desconocida no da error"
     Si el patrón usa una variable que no existe (por ejemplo `{page_number}`,
     `{fecha}`, `{hostname}` o `{app_name}`, que **no** están disponibles), el
-    nombre entero se sustituye por `batch_<lote>_page_<índice>` y solo queda un
-    aviso en el log. Comprueba el patrón con un lote de prueba.
+    nombre entero se sustituye por `batch_<lote>_page_<índice>` (por ejemplo
+    `batch_42_page_0003`) y solo queda un aviso en el log. Comprueba el patrón
+    con un lote de prueba.
 
 ## Ejemplos
 
@@ -54,7 +61,7 @@ lote_{batch_id}/{first_barcode}_{page_index:04d}
 
 !!! tip
     Los campos de lote se referencian por su nombre tal como están definidos en la
-    pestaña Campos, con los espacios convertidos en `_`.
+    pestaña Campos de Lote, con los espacios convertidos en `_`.
 
 !!! info "Valores que vienen del papel"
     `{first_barcode}`, `{separator}` y los campos salen del documento escaneado, así que se sanean

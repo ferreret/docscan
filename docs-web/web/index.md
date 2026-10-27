@@ -6,9 +6,8 @@ pero se accede desde el navegador y soporta varios usuarios simultáneos
 organizados por **inquilino** (*tenant*).
 
 !!! warning "Estado del proyecto"
-    La versión web está en desarrollo activo. La interfaz puede cambiar entre
-    versiones. Esta sección de la documentación se mantendrá actualizada con
-    las funcionalidades estables.
+    La versión web está **archivada** y no se mantiene: esta sección se conserva
+    solo como referencia.
 
 ## Diferencias clave con la versión desktop
 

@@ -4,6 +4,17 @@
 
 Copia los ficheros procesados a una carpeta de destino con patrón de nombres configurable.
 
+### Configuración general
+
+| Opción | Qué hace |
+|--------|----------|
+| Habilitar transferencia estándar | Desmarcada, solo se ejecuta el evento `on_transfer_advanced` (si está definido) |
+| Modo | Ver la tabla de abajo |
+| Destino | Carpeta donde se dejan los ficheros |
+| Crear subdirectorios por lote | En modo `folder`, una subcarpeta `batch_<id>` por lote |
+| Incluir metadatos JSON | En modo `folder`, un `.json` junto a cada fichero con los barcodes, el texto OCR y los campos de indexación |
+| Si ya existe | Política de colisión (ver más abajo) |
+
 ### Modos
 
 | Modo | Qué genera |
@@ -14,23 +25,38 @@ Copia los ficheros procesados a una carpeta de destino con patrón de nombres co
 | `tiff` | TIFF multipágina, por lote o por documento |
 | `csv` | Un CSV con los campos de indexación |
 
-### Formatos de salida
+### Imágenes de salida
+
+En el modo `folder`, el grupo «Imágenes de salida» convierte cada página al
+transferirla:
 
 | Formato | Extensión | Características |
 |---------|-----------|----------------|
-| TIFF | .tif | Compresión LZW, Deflate (zip), Group4 o ninguna; multipágina |
+| Original | la de origen | Se copia sin convertir |
+| TIFF | .tif | Compresión LZW, Deflate (zip), Group4 o ninguna |
 | JPEG | .jpg | Calidad configurable (1-100) |
-| PNG | .png | Sin pérdida |
-| PDF | .pdf | Estándar |
-| PDF/A | .pdf | Para archivo |
+| PNG | .png | Sin pérdida, compresión 0-9 |
+
+También se pueden cambiar los DPI y el color (original, gris o B/N). Para PDF y
+PDF/A se usan los modos `pdf` y `pdfa`.
 
 !!! info "Group4 es solo blanco y negro"
-    La compresión Group4 solo admite imágenes de 1 bit, así que la imagen se
-    binariza (umbral fijo 128, sin tramado) al guardarla. Antes, una imagen
-    en gris o en color con Group4 tumbaba la aplicación.
+    Como en FlexibarNET 10, un TIFF cuyas páginas son todas blanco y negro se
+    guarda a 1 bit en Group4. Si alguna página está en gris o en color, el
+    fichero entero va en LZW y no se binariza nada.
 
 En el modo `tiff` se aplican también el color, los DPI y la compresión del
-grupo «Conversión al transferir».
+grupo «Imágenes de salida».
+
+### Opciones PDF y CSV
+
+- **Opciones PDF** (modos `pdf` y `pdfa`): *DPI del PDF* (200 por defecto, de 72
+  a 600) y *Calidad JPEG* de las imágenes dentro del PDF (85).
+- **Opciones CSV** (modo `csv`): *Separador* (`;` por defecto) y *Campos*, los
+  campos de indexación que forman las columnas, separados por coma. Vacío = los
+  de la primera página. El CSV lleva además `page_index` e `image_path`, una
+  fila por página, y su nombre sale siempre del patrón, nunca del script de
+  nombre.
 
 ### Documentos
 
@@ -45,7 +71,7 @@ La **página separadora** puede:
 - **Incluirse** (por defecto): es la portada del documento, como en
   FlexibarNET 10.
 - **Descartarse**: es una hoja separadora que no se transfiere. Vale para
-  todos los modos, también `folder`.
+  `folder`, `pdf`, `pdfa` y `tiff`; en `csv` no aparece el grupo Documentos.
 
 Con la página separadora descartada, la transferencia no empieza si:
 
