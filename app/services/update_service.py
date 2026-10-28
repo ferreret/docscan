@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import platform
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -24,6 +26,10 @@ _GITHUB_OWNER = "ferreret"
 _GITHUB_REPO = "docscan"
 _API_BASE = f"https://api.github.com/repos/{_GITHUB_OWNER}/{_GITHUB_REPO}"
 _TIMEOUT = 10
+
+
+class UpdateApplyError(Exception):
+    """La actualización descargada no se ha podido aplicar."""
 
 
 @dataclass
@@ -251,13 +257,18 @@ class UpdateService:
 
     @staticmethod
     def apply_update(installer_path: Path) -> None:
-        """Aplica la actualización según la plataforma.
+        """Aplica la actualización descargada.
 
-        - Linux (AppImage): reemplaza el fichero y notifica reinicio.
+        - Linux (AppImage): sustituye el AppImage en ejecución y notifica
+          reinicio.
         - Windows (Inno Setup): lanza el installer en modo silencioso.
 
         Args:
             installer_path: Ruta del instalador descargado.
+
+        Raises:
+            UpdateApplyError: Si la actualización no se ha podido aplicar.
+                Nunca se da por aplicada una actualización que no lo está.
         """
         import subprocess
         import sys
@@ -265,18 +276,13 @@ class UpdateService:
         system = platform.system()
 
         if system == "Linux":
-            # Reemplazar AppImage si estamos ejecutando desde uno
-            current_appimage = Path(sys.argv[0]).resolve()
-            if current_appimage.suffix == ".AppImage":
-                installer_path.chmod(0o755)
-                installer_path.rename(current_appimage)
-                log.info("AppImage reemplazado. Reinicie la aplicación.")
-            else:
-                log.info(
-                    "Instalador descargado en: %s. "
-                    "Ejecute manualmente para actualizar.",
-                    installer_path,
+            current_appimage = UpdateService._current_appimage()
+            if current_appimage is None:
+                raise UpdateApplyError(
+                    "La aplicación no se está ejecutando desde un AppImage. "
+                    f"El nuevo AppImage está en {installer_path}"
                 )
+            UpdateService._replace_appimage(installer_path, current_appimage)
 
         elif system == "Windows":
             # Lanzar Inno Setup en modo silencioso
@@ -288,7 +294,58 @@ class UpdateService:
             sys.exit(0)
 
         else:
-            log.warning("Plataforma no soportada para auto-update: %s", system)
+            raise UpdateApplyError(
+                f"Plataforma no soportada para auto-update: {system}"
+            )
+
+    @staticmethod
+    def _current_appimage() -> Path | None:
+        """Localiza el fichero AppImage desde el que se ejecuta la aplicación.
+
+        Dentro de un AppImage ``sys.argv[0]`` apunta al ejecutable del punto
+        de montaje (``/tmp/.mount_*``); la ruta del fichero real la publica el
+        runtime en la variable de entorno ``APPIMAGE``.
+
+        Returns:
+            Ruta del AppImage, o None si no se ejecuta desde uno.
+        """
+        appimage = os.environ.get("APPIMAGE")
+        if not appimage:
+            return None
+        path = Path(appimage)
+        if path.suffix.lower() != ".appimage" or not path.is_file():
+            log.warning("APPIMAGE no apunta a un AppImage válido: %s", appimage)
+            return None
+        return path
+
+    @staticmethod
+    def _replace_appimage(new_appimage: Path, target: Path) -> None:
+        """Sustituye ``target`` por ``new_appimage`` de forma atómica.
+
+        La descarga vive en el directorio temporal, que puede estar en otro
+        sistema de ficheros (``/tmp`` en tmpfs): se copia primero junto al
+        destino y después se renombra con ``os.replace``, atómico dentro del
+        mismo directorio. El proceso en marcha conserva abierto el inodo
+        antiguo, así que sustituir el fichero no le afecta.
+
+        Args:
+            new_appimage: AppImage descargado y verificado.
+            target: AppImage en ejecución que se sustituye.
+
+        Raises:
+            UpdateApplyError: Si no se puede escribir junto al destino.
+        """
+        staging = target.with_name(f".{target.name}.update")
+        try:
+            shutil.copyfile(new_appimage, staging)
+            staging.chmod(0o755)
+            os.replace(staging, target)
+        except OSError as e:
+            staging.unlink(missing_ok=True)
+            raise UpdateApplyError(f"No se pudo sustituir {target}: {e}") from e
+
+        new_appimage.unlink(missing_ok=True)
+        log.info("AppImage %s sustituido. Reinicie la aplicación.", target)
 
     # ------------------------------------------------------------------
     # Helpers

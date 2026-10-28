@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 from unittest.mock import MagicMock, patch
 
+import pytest
 
 from app.services.update_service import (
+    UpdateApplyError,
     UpdateService,
 )
 
@@ -337,3 +339,83 @@ class TestCurrentVersion:
         svc = UpdateService()
         assert isinstance(svc.current_version, str)
         assert len(svc.current_version) > 0
+
+
+# ── Tests de apply_update (Linux / AppImage) ──────────────────────
+
+
+@pytest.fixture
+def appimages(tmp_path, monkeypatch):
+    """AppImage «en ejecución» y descarga nueva en directorios distintos."""
+    install_dir = tmp_path / "apps"
+    install_dir.mkdir()
+    current = install_dir / "docscan-0.1.8-x86_64.AppImage"
+    current.write_bytes(b"version vieja")
+    current.chmod(0o755)
+
+    download_dir = tmp_path / "descargas"
+    download_dir.mkdir()
+    new = download_dir / "docscan-0.1.9-x86_64.AppImage"
+    new.write_bytes(b"version nueva")
+
+    monkeypatch.setattr("platform.system", lambda: "Linux")
+    monkeypatch.setenv("APPIMAGE", str(current))
+    # Dentro de un AppImage argv[0] apunta al punto de montaje, no al fichero
+    monkeypatch.setattr("sys.argv", ["/tmp/.mount_docscaXYZ/usr/bin/docscan"])
+    return current, new
+
+
+class TestApplyUpdateAppImage:
+    """Sustitución del AppImage en ejecución."""
+
+    def test_sustituye_el_appimage_de_la_variable_appimage(self, appimages):
+        current, new = appimages
+
+        UpdateService.apply_update(new)
+
+        assert current.read_bytes() == b"version nueva"
+        assert current.stat().st_mode & 0o777 == 0o755
+        assert not new.exists()
+        assert not list(current.parent.glob(".*.update"))
+
+    def test_el_proceso_en_marcha_conserva_el_fichero_viejo(self, appimages):
+        """os.replace cambia el inodo: lo ya abierto sigue leyendo lo antiguo."""
+        current, new = appimages
+
+        with open(current, "rb") as abierto:
+            UpdateService.apply_update(new)
+            assert abierto.read() == b"version vieja"
+
+    def test_sin_appimage_falla_y_conserva_la_descarga(self, appimages, monkeypatch):
+        current, new = appimages
+        monkeypatch.delenv("APPIMAGE")
+
+        with pytest.raises(UpdateApplyError, match=str(new)):
+            UpdateService.apply_update(new)
+
+        assert new.exists()
+        assert current.read_bytes() == b"version vieja"
+
+    def test_appimage_que_no_existe_falla(self, appimages, monkeypatch, tmp_path):
+        _, new = appimages
+        monkeypatch.setenv("APPIMAGE", str(tmp_path / "no-existe.AppImage"))
+
+        with pytest.raises(UpdateApplyError):
+            UpdateService.apply_update(new)
+
+    def test_error_al_copiar_limpia_y_no_toca_el_original(self, appimages):
+        current, new = appimages
+
+        with patch("shutil.copyfile", side_effect=PermissionError("solo lectura")):
+            with pytest.raises(UpdateApplyError, match="solo lectura"):
+                UpdateService.apply_update(new)
+
+        assert current.read_bytes() == b"version vieja"
+        assert new.exists()
+        assert not list(current.parent.glob(".*.update"))
+
+    def test_plataforma_no_soportada_falla(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("platform.system", lambda: "Darwin")
+
+        with pytest.raises(UpdateApplyError, match="Darwin"):
+            UpdateService.apply_update(tmp_path / "x.dmg")
