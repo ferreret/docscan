@@ -30,6 +30,10 @@ instalador, para comprobar la descarga. No hace falta instalar Python.
     ./docscan-0.1.9-x86_64.AppImage
     ```
 
+    Los AppImage necesitan FUSE 2. Si al arrancar sale `error loading
+    libfuse.so.2`, instálalo con `sudo apt install libfuse2t64` (Ubuntu 24.04
+    o posterior; en versiones anteriores el paquete se llama `libfuse2`).
+
 === "Windows"
 
     Ejecuta `docscan-0.1.9-setup.exe` y sigue el asistente.
@@ -42,9 +46,16 @@ hay, el Launcher muestra un aviso «Versión X disponible» con **Ver novedades*
 Buscar actualizaciones**.
 
 La descarga se verifica contra `SHA256SUMS.txt` y se rechaza si la release no
-publica el checksum. En Linux se sustituye el AppImage en uso y hay que
-reiniciar la aplicación; en Windows se lanza el instalador y la aplicación se
-cierra.
+publica el checksum. En Linux se sustituye el AppImage en uso (conserva su ruta
+y su nombre de fichero) y hay que reiniciar la aplicación; si no se puede
+sustituir, el diálogo muestra el error y deja la descarga en el directorio
+temporal. En Windows se lanza el instalador y la aplicación se cierra.
+
+!!! warning "Linux: de la 0.1.9 o anterior a una versión nueva"
+    Hasta la 0.1.9 el actualizador de Linux descargaba el AppImage nuevo pero
+    no lo sustituía, aunque decía «Actualización aplicada». Desde esas versiones
+    hay que actualizar a mano una vez: descarga el AppImage nuevo y sustituye el
+    antiguo. A partir de la 0.1.10 la actualización automática funciona.
 
 ## Instalación desde el código
 

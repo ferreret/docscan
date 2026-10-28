@@ -8,6 +8,21 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🐛 Corregido
+
+- **Actualización automática en Linux**: descargaba el AppImage nuevo y no lo
+  instalaba, pero el diálogo decía «Actualización aplicada». Buscaba el fichero a
+  sustituir en `sys.argv[0]`, que dentro de un AppImage apunta al punto de montaje
+  (`/tmp/.mount_*`); ahora usa la variable `APPIMAGE` que publica el runtime.
+  La sustitución se hace copiando junto al destino y renombrando (`os.replace`),
+  porque `/tmp` suele ser tmpfs y un `rename` entre sistemas de ficheros falla.
+- Si la actualización no se puede aplicar (no se ejecuta desde un AppImage, sin
+  permiso de escritura, plataforma no soportada) el diálogo lo muestra como error
+  en vez de darla por aplicada.
+
+> **Desde la 0.1.9 o anterior en Linux** hay que actualizar a mano una vez: el
+> código que aplica la actualización es el de la versión instalada.
+
 ## [0.1.9] - 2026-10-27
 
 Versión de mantenimiento sobre la 0.1.8: interfaz completa en inglés y catalán,

@@ -195,6 +195,27 @@ class TestUpdateDialog:
         assert dialog._btn_download.isEnabled()
         assert "Error" in dialog._status_label.text()
 
+    def test_on_apply_error_no_se_da_por_aplicada(
+        self, qtbot, sample_release, tmp_path
+    ):
+        """Si apply_update falla, el diálogo lo dice y permite reintentar."""
+        from app.services.update_service import UpdateApplyError
+        from app.ui.update_dialog import UpdateDialog
+
+        dialog = UpdateDialog(sample_release)
+        qtbot.addWidget(dialog)
+        dialog._on_download_finished(str(tmp_path / "installer.AppImage"))
+
+        with patch(
+            "app.ui.update_dialog.UpdateService.apply_update",
+            side_effect=UpdateApplyError("no es un AppImage"),
+        ):
+            dialog._on_apply()
+
+        assert "no es un AppImage" in dialog._status_label.text()
+        assert "aplicada" not in dialog._status_label.text()
+        assert dialog._btn_apply.isEnabled()
+
     def test_reject_stops_worker(self, qtbot, sample_release):
         """Cancelar detiene el worker si está en marcha."""
         from app.ui.update_dialog import UpdateDialog
