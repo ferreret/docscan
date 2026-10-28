@@ -1,6 +1,6 @@
 ---
 name: next-session-resume
-description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-27: v0.1.9 publicada (lote 6, docs al día, i18n completo, autoría de Nicolás)."
+description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-28: v0.1.9 validada en Linux, arreglo del actualizador AppImage en main; siguiente, escáner DR-M160."
 metadata:
   node_type: memory
   type: project
@@ -28,6 +28,12 @@ metadata:
 
 ## Siguiente (en orden)
 
+**Próxima sesión (decidido 2026-10-28): conectar el Canon DR-M160 en Ubuntu** y probar
+las Apps del Arnau (`~/DocScanArnau/arrancar.sh`, backend sane; hojas de
+`~/DocScanArnau/paginas/` impresas). Hoy solo SANE ve la HP DeskJet por red (escl).
+`main` lleva el arreglo del actualizador (PR #10, merge `44b8b9b`) sin publicar: v0.1.10
+pendiente.
+
 0. **v0.1.9 publicada 2026-10-27** (commit `4e2344d`, tag `v0.1.9`; binario Linux validado en local
    contra copia de BD real). Lleva: documentación pública al día (PR #6), autoría de Nicolás Barceló
    sin la empresa (PR #8, ver [[feedback-sin-nombre-empresa]]), bugs de scripting corregidos (PR #7),
@@ -48,5 +54,5 @@ metadata:
 
 ## Pendientes de campo (solo el usuario)
 
-- Validar la v0.1.9 instalada (Acerca de con «Nicolás Barceló», actualizador desde v0.1.8, idioma inglés/catalán).
+- ~~Validar la v0.1.9 instalada~~ HECHO 2026-10-28 en Linux (AppImage aislado en `~/DocScanPrueba`): Acerca de, BD de la v0.1.8 e idiomas EN/CA OK. **El actualizador de Linux no sustituía el AppImage** (leía `sys.argv[0]` en vez de `APPIMAGE`, y `rename` tmpfs→ext4 falla) y decía «aplicada»: arreglado en PR #10 (rama `fix/actualizador-appimage`, CI verde), va en la v0.1.10. Desde ≤0.1.9 en Linux hay que actualizar a mano una vez. Ubuntu 26.04 necesita `libfuse2t64` para los AppImage. Falta probar el instalador de Windows.
 - Escáner físico en Ubuntu.
