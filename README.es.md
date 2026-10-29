@@ -16,8 +16,8 @@
   <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/versión-0.1.9-blue?style=flat-square" alt="Versión"></a>
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
-  <img src="https://img.shields.io/badge/tests-1240_en_verde-brightgreen?style=flat-square" alt="Tests">
-  <img src="https://img.shields.io/badge/cobertura-72%25-yellowgreen?style=flat-square" alt="Cobertura">
+  <img src="https://img.shields.io/badge/tests-1226_en_verde-brightgreen?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/cobertura-75%25-yellowgreen?style=flat-square" alt="Cobertura">
   <img src="https://img.shields.io/badge/licencia-propietaria-red?style=flat-square" alt="Licencia">
   <img src="https://img.shields.io/badge/plataforma-Linux_%7C_Windows-lightgrey?style=flat-square" alt="Plataforma">
 </p>
@@ -501,12 +501,12 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/ -q   # sin ventanas,
 .venv/bin/ruff check .
 ```
 
-| Métrica (v0.1.8) | Valor |
+| Métrica (v0.1.9) | Valor |
 |------------------|-------|
-| Tests automáticos | **1240**, 0 fallos |
-| Cobertura de líneas | **72 %** (`app/` + `docscan_worker/`) |
-| Líneas de Python en `app/` | 27.407 |
-| Líneas de tests | 18.743 |
+| Tests automáticos | **1226**, 0 fallos |
+| Cobertura de líneas | **75 %** (`app/` + `docscan_worker/`) |
+| Líneas de Python en `app/` | 26.172 |
+| Líneas de tests | 18.375 |
 
 La suite no necesita escáner ni pantalla y no toca la configuración del usuario.
 Incluye pruebas de extremo a extremo por el worker real con códigos de barras reales.

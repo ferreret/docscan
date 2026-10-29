@@ -16,8 +16,8 @@
   <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/version-0.1.9-blue?style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
-  <img src="https://img.shields.io/badge/tests-1240_passing-brightgreen?style=flat-square" alt="Tests">
-  <img src="https://img.shields.io/badge/coverage-72%25-yellowgreen?style=flat-square" alt="Coverage">
+  <img src="https://img.shields.io/badge/tests-1226_passing-brightgreen?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/coverage-75%25-yellowgreen?style=flat-square" alt="Coverage">
   <img src="https://img.shields.io/badge/license-proprietary-red?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/platform-Linux_%7C_Windows-lightgrey?style=flat-square" alt="Platform">
 </p>
@@ -503,12 +503,12 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/ -q   # no windows, ~
 .venv/bin/ruff check .
 ```
 
-| Metric (v0.1.8) | Value |
+| Metric (v0.1.9) | Value |
 |-----------------|-------|
-| Automated tests | **1240**, 0 failures |
-| Line coverage | **72%** (`app/` + `docscan_worker/`) |
-| Python lines in `app/` | 27,407 |
-| Test lines | 18,743 |
+| Automated tests | **1226**, 0 failures |
+| Line coverage | **75%** (`app/` + `docscan_worker/`) |
+| Python lines in `app/` | 26,172 |
+| Test lines | 18,375 |
 
 The suite needs no scanner or display and never touches the user's configuration. It
 includes end-to-end tests through the real worker with real barcodes. GitHub Actions

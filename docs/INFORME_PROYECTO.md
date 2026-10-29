@@ -1,7 +1,7 @@
 # DocScan Studio — Informe de Proyecto
 **Fecha**: 27 de octubre de 2026
 **Versión del documento**: 1.2
-**Estado del proyecto**: En desarrollo — v0.1.8 publicada, con instaladores; sin instalaciones en producción todavía
+**Estado del proyecto**: En desarrollo — v0.1.9 publicada, con instaladores; sin instalaciones en producción todavía
 
 ---
 
@@ -11,7 +11,7 @@ DocScan Studio es una aplicación de escritorio para la **captura por lotes, el 
 
 El sistema digitaliza documentos desde escáneres físicos o importando ficheros (imágenes y PDF), los procesa con un pipeline configurable (operaciones de imagen, códigos de barras, OCR y scripts Python), los divide en documentos por código de barras, permite revisarlos e indexarlos, y los transfiere al archivo de destino.
 
-**Estado actual**: v0.1.8, publicada el 27 de octubre de 2026, con instaladores para Linux (AppImage) y Windows (.exe) y actualización automática. Hay **1240 tests automáticos** en verde, con una cobertura de líneas del **72 %**. La v0.1.8 incorpora el **separador de documento** de FlexibarNET 10 y, como prueba de aceptación, **seis aplicaciones reales** de FlexibarNET 10 portadas (las de archivo del Hospital Arnau de Vilanova). Falta la validación en campo con escáner físico y la primera instalación en producción.
+**Estado actual**: v0.1.9, publicada el 27 de octubre de 2026, con instaladores para Linux (AppImage) y Windows (.exe) y actualización automática. Hay **1226 tests automáticos** en verde, con una cobertura de líneas del **75 %**. La v0.1.8 incorpora el **separador de documento** de FlexibarNET 10 y, como prueba de aceptación, **seis aplicaciones reales** de FlexibarNET 10 portadas (las de archivo del Hospital Arnau de Vilanova); la v0.1.9 completa la interfaz en inglés y catalán. Falta la validación en campo con escáner físico y la primera instalación en producción.
 
 ---
 
@@ -167,16 +167,16 @@ Las 22 fases del plan inicial (infraestructura → servicios → interfaz → wo
 
 ### 6.1 Métricas
 
-Medidas el 27 de octubre de 2026 sobre la v0.1.8 (detalle y método en `docs/portfolio/metricas.md`).
+Medidas el 29 de octubre de 2026 sobre la v0.1.9 (detalle y método en `docs/portfolio/metricas.md`).
 
 | Métrica | Valor |
 |---------|-------|
-| Versión actual | **v0.1.8** (27/10/2026) |
-| Releases publicadas | **10** (v0.1.0 a v0.1.8, más dos candidatas) |
-| Tests automáticos | **1240** en verde |
-| Cobertura de líneas | **72 %** |
-| Líneas de Python de la aplicación | **27.407** |
-| Líneas de tests | **18.743** |
+| Versión actual | **v0.1.9** (27/10/2026) |
+| Releases publicadas | **12** (v0.1.0 a v0.1.9, más dos candidatas) |
+| Tests automáticos | **1226** en verde |
+| Cobertura de líneas | **75 %** |
+| Líneas de Python de la aplicación | **26.172** |
+| Líneas de tests | **18.375** |
 | Aplicaciones de FlexibarNET 10 portadas | **6** |
 
 ### 6.2 Funcionalidades Operativas
@@ -273,7 +273,7 @@ Medidas el 27 de octubre de 2026 sobre la v0.1.8 (detalle y método en `docs/por
 
 ## 11. Conclusión
 
-DocScan Studio cubre ya el flujo completo de captura —escaneo o importación, pipeline, separación en documentos, revisión, indexación y transferencia— en Linux y Windows, con el comportamiento de FlexibarNET 10 y 1240 tests automáticos. La v0.1.8 demuestra la paridad con seis aplicaciones reales de un hospital en producción con FlexibarNET 10.
+DocScan Studio cubre ya el flujo completo de captura —escaneo o importación, pipeline, separación en documentos, revisión, indexación y transferencia— en Linux y Windows, con el comportamiento de FlexibarNET 10 y 1226 tests automáticos. La v0.1.8 demuestra la paridad con seis aplicaciones reales de un hospital en producción con FlexibarNET 10.
 
 Lo que queda para la primera instalación en producción es la validación en campo con escáner y escaneos reales, la familia eCAP del Hospital Arnau y los lotes 4 y 5 (transferencias que fallan a medias y log con datos personales enmascarados).
 
