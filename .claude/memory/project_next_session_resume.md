@@ -1,6 +1,6 @@
 ---
 name: next-session-resume
-description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-28: v0.1.9 validada en Linux, arreglo del actualizador AppImage en main; siguiente, escáner DR-M160."
+description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-29: cifras de la v0.1.9 publicadas, README sin Flexibar ni clientes, ficha del portfolio en manos de Nicolás; siguiente, escáner DR-M160."
 metadata:
   node_type: memory
   type: project
@@ -28,7 +28,15 @@ metadata:
 
 ## Siguiente (en orden)
 
-**Próxima sesión (decidido 2026-10-28): conectar el Canon DR-M160 en Ubuntu** y probar
+**Sesión del 2026-10-29 (solo docs, todo empujado)**: cifras remedidas sobre el tag v0.1.9
+(1226 tests, 75 % de cobertura; `c93227d`) en README, informe y `docs/portfolio/metricas.md`;
+README sin FlexibarNET10 ni clientes (`96308a6`, ver [[feedback-readme-sin-flexibar-ni-clientes]]).
+La ficha del portfolio la está terminando **Nicolás directamente en el repo del portfolio**
+(rama local `content/docscan-v0.1.8`: borrador `2e6e316` + mis cifras v0.1.9 `2f1eaf0`); no
+tocarla desde DocScan. SANE ya comprobado: `canon_dr` habilitado, DR-M160 en `canon_dr.conf` y
+en el hwdb de udev (acceso sin sudo); el escáner seguía sin conectar.
+
+**Próxima sesión (decidido 2026-10-28, sigue vigente): conectar el Canon DR-M160 en Ubuntu** y probar
 las Apps del Arnau (`~/DocScanArnau/arrancar.sh`, backend sane; hojas de
 `~/DocScanArnau/paginas/` impresas). Hoy solo SANE ve la HP DeskJet por red (escl).
 `main` lleva el arreglo del actualizador (PR #10, merge `44b8b9b`) sin publicar: v0.1.10
@@ -38,10 +46,9 @@ pendiente.
    contra copia de BD real). Lleva: documentación pública al día (PR #6), autoría de Nicolás Barceló
    sin la empresa (PR #8, ver [[feedback-sin-nombre-empresa]]), bugs de scripting corregidos (PR #7),
    Pipeline Assistant retirado e inglés/catalán completos con 652 textos (PR #9). 1226 tests.
-   **Pendiente**: revisar y publicar la ficha del portfolio (rama `content/docscan-v0.1.8` del repo
-   portfolio, commit `ba0a8d9`, sin push; `demoUrl` y `relatedPostId` sin poner); modelo Anthropic por
-   defecto del AI Mode (`claude-sonnet-4-20250514`). Las métricas de README/portfolio son de la v0.1.8
-   (`docs/portfolio/metricas.md`).
+   **Pendiente**: la ficha del portfolio (la termina Nicolás en ese repo, 2026-10-29); modelo Anthropic por
+   defecto del AI Mode (`claude-sonnet-4-20250514`). Las métricas de README/portfolio son de la v0.1.9
+   (`docs/portfolio/metricas.md`, medidas el 2026-10-29).
 1. Probar las Apps del Arnau con escáner real (DR-M160) y escaneos de verdad.
 2. Familia eCAP del Arnau (04, 08): secretos en scripts + ODBC contra BD simulada.
 3. Pendientes de la revisión de código (anteriores al lote 6): eventos que no compilan

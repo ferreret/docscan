@@ -54,3 +54,9 @@ lecciones con su commit y la captura `docs/portfolio/docscan-studio.webp`. Lo ap
 del portfolio con sus skills. Ojo: el nginx del portfolio sirve `.webp` como inmutable un año → la captura
 va con **nombre nuevo**. La ficha actual afirma «AI-powered field extraction», que **no existe**: la IA
 solo configura (AI Mode). A confirmar por Nicolás: `role`, `demoUrl`, `relatedPostId`.
+
+**2026-10-29.** Cifras remedidas sobre el tag v0.1.9 (1226 tests, 75 % de cobertura) en
+`docs/portfolio/metricas.md`. Una sesión de DocScan editó la ficha por error (commit local
+`2f1eaf0` en la rama `content/docscan-v0.1.8` del portfolio); Nicolás la está terminando
+**directamente en el repo del portfolio**. Desde DocScan solo se prepara el paquete: la ficha no se
+edita desde aquí.
