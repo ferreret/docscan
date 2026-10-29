@@ -77,6 +77,7 @@
 
 ## Preferencias de comunicación
 - ⚠️ [La empresa de FlexibarNET10 no se nombra en ningún sitio](feedback_sin_nombre_empresa.md) — DocScan es de Nicolás Barceló; `git grep -i` del nombre vacío antes de commitear (2026-10-27).
+- 🚫 [README sin FlexibarNET10 ni clientes](feedback_readme_sin_flexibar_ni_clientes.md) — los README públicos no nombran Flexibar ni el Arnau; el portfolio sí (2026-10-29).
 - [Alinear guías sin pedir OK punto a punto](feedback_alinear_sin_pedir_ok.md) — corregir de una vez docs, skills y CLAUDE.md desfasados y reportar al final.
 - [Español de España](feedback_spanish_spain.md) — castellano peninsular
 - [Actualizar docs en cada cambio](feedback_update_docs_on_changes.md) — README **bilingüe** (README.md inglés + README.es.md) y CHANGELOG sincronizados; cifras de `docs/portfolio/metricas.md`

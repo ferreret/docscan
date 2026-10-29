@@ -52,11 +52,8 @@ It is a **multi-application environment**: the launcher holds N *applications*, 
 one a processing profile with its own pipeline, fields, scripts and transfer, fully
 independent of the others. Applications can be grouped by customer or department.
 
-DocScan is the **cross-platform reimplementation** of FlexibarNET 10, a .NET
-document capture product (Windows only) that runs in production in hospitals. It keeps
-**functional parity** with it (same logic, same configuration keys, same tokens),
-runs on Linux and Windows, and adds generative AI to create and configure
-applications.
+DocScan runs on Linux and Windows with the same behaviour on both, and uses
+generative AI to create and configure applications.
 
 ### Workflow
 
@@ -75,13 +72,11 @@ applications.
 ### What's new in v0.1.8
 
 - **Native document separator**: the batch is split into documents by barcode,
-  automatically or by hand (Ctrl+D), as in FlexibarNET 10.
+  automatically or by hand (Ctrl+D).
 - **Per-document transfer**: one PDF, PDF/A or multipage TIFF per document, named by
   a pattern or by a script.
-- **Configurator laid out like FlexibarNET 10**, with a syntax-highlighting script
-  editor, and application **groups** in the launcher.
-- Six real FlexibarNET 10 applications (the Hospital Arnau de Vilanova archive
-  profiles) ported as the acceptance test.
+- **Redesigned Configurator**, with a syntax-highlighting script editor, and
+  application **groups** in the launcher.
 
 Details in the [CHANGELOG](CHANGELOG.md) (in Spanish).
 
@@ -165,7 +160,7 @@ Details in the [CHANGELOG](CHANGELOG.md) (in Spanish).
 ### 🌐 Interface
 - Spanish (main language), English and Catalan, complete
 - Light and dark themes
-- FlexibarNET 10 keyboard shortcuts
+- Keyboard shortcuts for the whole capture flow
 - Installers and automatic updates from GitHub
 
 </td>
@@ -239,8 +234,8 @@ The screenshots show the interface in Spanish.
 
 ## 📑 Documents and separators
 
-A **document** is the run of pages from one separator page to the next, as in
-FlexibarNET 10. The separator is a property of the **page** (`page.is_separator` and
+A **document** is the run of pages from one separator page to the next. The
+separator is a property of the **page** (`page.is_separator` and
 `page.separator_value`), not of a barcode. Pages before the first separator form an
 implicit document.
 
@@ -248,8 +243,8 @@ The usual case needs no script:
 
 1. In the **Barcode** step, turn on the document separator and set its condition. For
    example, the regex `^(02|10)` evaluated on *NN + value* marks as a separator every
-   page with a Code128 or an Interleaved 2 of 5 (the symbology numbers are
-   FlexibarNET's). On reprocessing, detection overrides the manual mark.
+   page with a Code128 or an Interleaved 2 of 5 (symbology numbers as listed in the
+   manual). On reprocessing, detection overrides the manual mark.
 2. In **Transfer**: mode `pdf`, `pdfa` or `tiff`, one file per document, and a
    pattern with `{separator}`, `{document_index}` or `{document_id}`. The separator
    page can stay in the document (as its cover) or be dropped.
@@ -271,8 +266,7 @@ def file_name(page, document, batch, app):
 ```
 
 Returning `None` falls back to the pattern; if the script raises, the transfer does
-not run and nothing is written. The Hospital Arnau de Vilanova archive applications
-ported from FlexibarNET 10 are a complete example (`tools/arnau_apps.py`).
+not run and nothing is written.
 
 ---
 
@@ -416,7 +410,7 @@ Every change is previewed before it applies, to accept or reject it.
 
 ## ⌨️ Keyboard shortcuts
 
-Capture shortcuts are FlexibarNET 10's. The main ones:
+The main capture shortcuts:
 
 | Shortcut | Action |
 |----------|--------|
@@ -434,7 +428,7 @@ The full list is in the [manual](https://ferreret.github.io/docscan/reference/sh
 
 ## 🔒 Reliability and security
 
-- **Nothing fails silently**, as in FlexibarNET 10: a failing script shows up on the
+- **Nothing fails silently**: a failing script shows up on the
   page, in the log or as a failed transfer, never as a success.
 - **The transfer checks before writing**: names, paths and images. Multipage files
   are written atomically.
@@ -454,7 +448,7 @@ The full list is in the [manual](https://ferreret.github.io/docscan/reference/sh
 | TIFF (including multipage), JPEG, PNG, BMP, PDF | TIFF (LZW, ZIP, uncompressed or Group4 for B/W), JPEG, PNG, PDF, PDF/A-1b and 2b, index CSV |
 
 In a multipage TIFF, Group4 is used only when every page is black and white; if any
-page is gray or color, the file is written in LZW (as in FlexibarNET 10).
+page is gray or color, the file is written in LZW.
 
 ---
 
@@ -489,7 +483,7 @@ docscan/
 ├── config/              # Settings (pydantic) and secrets (Fernet)
 ├── alembic/             # Migrations
 ├── resources/           # Icons, QSS styles, translations
-├── tools/               # Screenshots, Arnau applications, desktop entry
+├── tools/               # Screenshots, sample applications, desktop entry
 ├── docs-web/            # Manual (MkDocs)
 └── tests/               # pytest + pytest-qt
 ```
@@ -523,8 +517,7 @@ figure was measured: [`docs/portfolio/metricas.md`](docs/portfolio/metricas.md)
 - **[User manual](https://ferreret.github.io/docscan/)** (in Spanish): launcher,
   configurator, pipeline, workbench, transfer and scripting.
 - **[CHANGELOG](CHANGELOG.md)**: changes in each version.
-- **[Document separator design](docs/diseno_separadores_documento_2026-10-26.md)** and
-  **[proposals from FlexibarNET 10](docs/propuestas_desde_flexibarnet10_2026-10-26.md)**
+- **[Document separator design](docs/diseno_separadores_documento_2026-10-26.md)**
   (in Spanish).
 
 ---
@@ -538,8 +531,7 @@ the document separator.
 
 Next:
 
-- [ ] Hospital Arnau eCAP family: secrets available to scripts and registration over
-      ODBC.
+- [ ] Secrets available to scripts, and registration over ODBC.
 - [ ] Roll back a transfer that fails halfway.
 - [ ] Log to file, with personal data masked.
 - [ ] Rest of the separator work: `{pagefield:}`, dragging thumbnails, document headers.

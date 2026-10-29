@@ -52,11 +52,8 @@ Es un **entorno multi-aplicación**: el launcher reúne N *aplicaciones*, cada u
 perfil de proceso con su pipeline, sus campos, sus scripts y su transferencia
 completamente independientes. Se agrupan por cliente o departamento.
 
-DocScan es la **reimplementación multiplataforma** de FlexibarNET 10, un producto de
-captura documental en .NET (solo Windows) que está en producción en hospitales.
-Mantiene **paridad funcional** con él (la misma lógica, las mismas claves de
-configuración y los mismos tokens), funciona en Linux y Windows, y añade IA
-generativa para crear y configurar aplicaciones.
+DocScan funciona en Linux y Windows con el mismo comportamiento en los dos, y usa
+IA generativa para crear y configurar aplicaciones.
 
 ### Flujo de trabajo
 
@@ -75,13 +72,11 @@ generativa para crear y configurar aplicaciones.
 ### Novedades de la v0.1.8
 
 - **Separador de documento nativo**: el lote se divide en documentos por código de
-  barras, de forma automática o manual (Ctrl+D), como en FlexibarNET 10.
+  barras, de forma automática o manual (Ctrl+D).
 - **Transferencia por documento**: un PDF, PDF/A o TIFF multipágina por documento,
   con el nombre por patrón o calculado por un script.
-- **Configurador al estilo FlexibarNET 10**, con editor de scripts con colores, y
+- **Configurador rediseñado**, con editor de scripts con colores, y
   **grupos** de aplicaciones en el launcher.
-- Seis aplicaciones reales de FlexibarNET 10 (archivo del Hospital Arnau de
-  Vilanova) portadas como prueba de aceptación.
 
 Detalle en el [CHANGELOG](CHANGELOG.md).
 
@@ -165,7 +160,7 @@ Detalle en el [CHANGELOG](CHANGELOG.md).
 ### 🌐 Interfaz
 - Español, inglés y catalán, completos
 - Tema claro y oscuro
-- Atajos de teclado de FlexibarNET 10
+- Atajos de teclado para todo el flujo de captura
 - Instaladores y actualización automática desde GitHub
 
 </td>
@@ -238,7 +233,7 @@ python -m docscan_worker --app-name "Facturas de proveedores" --process-pending
 ## 📑 Documentos y separadores
 
 Un **documento** es el tramo de páginas que va de una página separadora a la
-siguiente, como en FlexibarNET 10. El separador es una propiedad de la **página**
+siguiente. El separador es una propiedad de la **página**
 (`page.is_separator` y `page.separator_value`), no de un barcode. Las páginas
 anteriores al primer separador forman un documento implícito.
 
@@ -247,7 +242,7 @@ El caso típico no necesita ningún script:
 1. En el paso **Barcode** se activa *Separador de documento* con su condición. Por
    ejemplo, la regex `^(02|10)` evaluada sobre *NN + valor* marca como separadora
    toda página con un Code128 o un Interleaved 2 of 5 (los números de simbología
-   son los de FlexibarNET). Al reprocesar, la detección manda sobre la marca manual.
+   son los del manual). Al reprocesar, la detección manda sobre la marca manual.
 2. En **Transferencia**: modo `pdf`, `pdfa` o `tiff`, *Un fichero por documento* y
    un patrón con `{separator}`, `{document_index}` o `{document_id}`. La página
    separadora puede ir dentro del documento (portada) o descartarse.
@@ -269,9 +264,7 @@ def file_name(page, document, batch, app):
 ```
 
 Devolver `None` usa el patrón; si el script lanza una excepción, la transferencia no
-se hace y no queda nada escrito. Las aplicaciones de archivo del Hospital Arnau de
-Vilanova portadas de FlexibarNET 10 son un ejemplo completo
-(`tools/arnau_apps.py`).
+se hace y no queda nada escrito.
 
 ---
 
@@ -414,7 +407,7 @@ se enseña antes de aplicarlo, para aceptarlo o rechazarlo.
 
 ## ⌨️ Atajos de teclado
 
-Los de captura son los de FlexibarNET 10. Los principales:
+Los principales atajos de captura:
 
 | Atajo | Acción |
 |-------|--------|
@@ -432,7 +425,7 @@ La lista completa está en el [manual](https://ferreret.github.io/docscan/refere
 
 ## 🔒 Fiabilidad y seguridad
 
-- **Nada falla en silencio**, como en FlexibarNET 10: un script que falla aparece en
+- **Nada falla en silencio**: un script que falla aparece en
   la página, en el log o como transferencia fallida, nunca como éxito.
 - **La transferencia comprueba antes de escribir**: nombres, rutas e imágenes. Los
   ficheros multipágina se escriben de forma atómica.
@@ -452,7 +445,7 @@ La lista completa está en el [manual](https://ferreret.github.io/docscan/refere
 | TIFF (también multipágina), JPEG, PNG, BMP, PDF | TIFF (LZW, ZIP, sin compresión o Group4 para B/N), JPEG, PNG, PDF, PDF/A-1b y 2b, CSV de índices |
 
 En TIFF multipágina, Group4 solo se usa si todas las páginas son en blanco y negro;
-si alguna es en gris o color, el fichero va en LZW (como FlexibarNET 10).
+si alguna es en gris o color, el fichero va en LZW.
 
 ---
 
@@ -487,7 +480,7 @@ docscan/
 ├── config/              # Ajustes (pydantic) y secretos (Fernet)
 ├── alembic/             # Migraciones
 ├── resources/           # Iconos, estilos QSS, traducciones
-├── tools/               # Capturas, Apps del Arnau, entrada de escritorio
+├── tools/               # Capturas, aplicaciones de ejemplo, entrada de escritorio
 ├── docs-web/            # Manual (MkDocs)
 └── tests/               # pytest + pytest-qt
 ```
@@ -521,8 +514,7 @@ Cómo se midió cada cifra:
 - **[Manual de usuario](https://ferreret.github.io/docscan/)**: launcher,
   configurador, pipeline, workbench, transferencia y scripting.
 - **[CHANGELOG](CHANGELOG.md)**: cambios de cada versión.
-- **[Diseño del separador de documento](docs/diseno_separadores_documento_2026-10-26.md)**
-  y **[propuestas desde FlexibarNET 10](docs/propuestas_desde_flexibarnet10_2026-10-26.md)**.
+- **[Diseño del separador de documento](docs/diseno_separadores_documento_2026-10-26.md)**.
 
 ---
 
@@ -535,8 +527,7 @@ que falla cerrada (lote 3) y separador de documento (lote 6).
 
 Próximo:
 
-- [ ] Familia eCAP del Hospital Arnau: secretos accesibles desde scripts y registro
-      por ODBC.
+- [ ] Secretos accesibles desde scripts y registro por ODBC.
 - [ ] Lote 4: deshacer una transferencia que falla a medias.
 - [ ] Lote 5: log a fichero con enmascarado de datos personales.
 - [ ] Resto del lote 6: `{pagefield:}`, arrastrar miniaturas, cabeceras de documento.
