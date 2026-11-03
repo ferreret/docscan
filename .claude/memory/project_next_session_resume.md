@@ -1,6 +1,6 @@
 ---
 name: next-session-resume
-description: "Punto de retoma de DocScan. 2026-11-03: DR-M160 funcionando en Ubuntu; arreglos SANE mergeados (PR #11); siguiente: v0.1.10."
+description: "Punto de retoma de DocScan. 2026-11-03: DR-M160 funcionando en Ubuntu; v0.1.10 publicada (escáner SANE + actualizador AppImage); siguiente: escáner en Windows, eCAP, deuda de revisión."
 metadata:
   node_type: memory
   type: project
@@ -39,7 +39,7 @@ tras error/cancelación del escaneo. 1255 tests. Validado con el escáner real v
 separadores 0-2, lote → read). Al probar, Nicolás tenía elegida la HP: destapó que las
 opciones del escáner se guardaban por App (ahora por dispositivo, clave QSettings
 `scan_options_by_device`) y que la fuente del diálogo no mandaba sobre ⚙. 1259 tests.
-**Pendiente**: publicar v0.1.10 (actualizador + escáner), los reversos negros en dúplex (driver; probar en Windows), informe `docs/progreso_2026-11-03.md`.
+**v0.1.10 publicada el 2026-11-03** (commit `4f9d520`, tag `v0.1.10`; AppImage + setup.exe + SHA256SUMS; binario Linux validado en local contra copia de la BD del Arnau). Es la primera cuyo actualizador de Linux funciona: probarlo de verdad requiere la futura v0.1.11. **Pendiente**: reversos negros en dúplex (driver; probar en Windows/TWAIN), escáner en Windows.
 
 **Sesión del 2026-10-29 (solo docs, todo empujado)**: cifras remedidas sobre el tag v0.1.9
 (1226 tests, 75 % de cobertura; `c93227d`) en README, informe y `docs/portfolio/metricas.md`;
