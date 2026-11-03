@@ -132,6 +132,20 @@ A la derecha están el cambio de tema y el tamaño de letra.
    encuentra ninguno, avisa y abre ⚙.
 3. Las páginas se importan y procesan automáticamente por el pipeline.
 
+En Linux (SANE), con «Mostrar las opciones del escáner al capturar» marcada se abre
+un diálogo con las opciones reales del dispositivo: fuente (`ADF Front`, `ADF Duplex`…),
+modo, resolución y, en los escáneres de alimentador, **Tamaño de página** (A4 por
+defecto, A5, Carta, Legal o el del escáner). Los alimentadores no detectan el final de
+la hoja: escanean el alto configurado, así que un tamaño menor que el real corta la
+página y uno mayor añade una franja de fondo. Las opciones elegidas se recuerdan por
+aplicación y escáner, y la fuente del diálogo manda sobre la del panel ⚙.
+
+Si el escáner se detiene a mitad de lote (atasco, doble alimentación, grapa), las
+páginas ya capturadas se conservan y pasan por el pipeline, pero DocScan muestra el
+error y el lote **no** se da por terminado: no se dispara `on_scan_complete` ni la
+transferencia automática. Se resuelve el problema en el escáner y se sigue escaneando
+en el mismo lote.
+
 ## Importación
 
 - Clic en **Importar…** (Ctrl+I) y seleccionar ficheros. Si la aplicación define el

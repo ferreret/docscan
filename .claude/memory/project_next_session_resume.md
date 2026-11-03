@@ -1,6 +1,6 @@
 ---
 name: next-session-resume
-description: "Punto de retoma para la próxima sesión de DocScan. Tras el 2026-10-29: cifras de la v0.1.9 publicadas, README sin Flexibar ni clientes, ficha del portfolio en manos de Nicolás; siguiente, escáner DR-M160."
+description: "Punto de retoma de DocScan. 2026-11-03: DR-M160 funcionando en Ubuntu; rama fix/escaner-sane-adf con los arreglos SANE (A4, batch, atascos); probado por GUI; falta PR."
 metadata:
   node_type: memory
   type: project
@@ -27,6 +27,19 @@ metadata:
   es otra cosa.
 
 ## Siguiente (en orden)
+
+**Sesión del 2026-11-03 — escáner DR-M160 conectado y funcionando** (ver
+[[reference-dr-m160-sane]]). DocScan escanea las 5 hojas del Arnau y lee bien los
+códigos. Rama `fix/escaner-sane-adf` (**sin commitear al cierre de este bloque**):
+A4 por defecto y «Tamaño de página» en el diálogo SANE, un solo `scanimage --batch`
+por lote, dúplex → `ADF Duplex`, atasco a mitad de lote → `ScanIncompleteError`
+(páginas conservadas + error), y el Workbench ya no cierra ni auto-transfiere un lote
+tras error/cancelación del escaneo. 1255 tests. Validado con el escáner real vía
+`SaneScanner` (2480×3508 a 300 ppp) y **por la GUI** con la App 01 del Arnau (5 páginas,
+separadores 0-2, lote → read). Al probar, Nicolás tenía elegida la HP: destapó que las
+opciones del escáner se guardaban por App (ahora por dispositivo, clave QSettings
+`scan_options_by_device`) y que la fuente del diálogo no mandaba sobre ⚙. 1259 tests.
+**Pendiente**: commit + PR, y los reversos negros en dúplex (driver; probar en Windows).
 
 **Sesión del 2026-10-29 (solo docs, todo empujado)**: cifras remedidas sobre el tag v0.1.9
 (1226 tests, 75 % de cobertura; `c93227d`) en README, informe y `docs/portfolio/metricas.md`;

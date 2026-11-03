@@ -13,6 +13,8 @@ from typing import Any
 import numpy as np
 from PySide6.QtCore import QThread, Signal
 
+from app.services.scanner_service import ScanIncompleteError
+
 log = logging.getLogger(__name__)
 
 
@@ -25,7 +27,9 @@ class ScanWorker(QThread):
             adquisición terminó entera.
         cancelled: páginas emitidas antes de interrumpir. Excluyente con
             finished_scanning: quien cancela no recibe "terminado".
-        error_occurred: mensaje de error.
+        error_occurred: mensaje de error. Si el escáner falla a mitad de
+            lote, llega después de las páginas ya capturadas y en lugar
+            de finished_scanning.
     """
 
     page_acquired = Signal(int, object, str)  # (index, np.ndarray, source_path)
@@ -60,8 +64,15 @@ class ScanWorker(QThread):
         páginas que jamás le llegaron.
         """
         emitidas = 0
+        error = ""
         try:
-            results = self._acquire()
+            try:
+                results = self._acquire()
+            except ScanIncompleteError as e:
+                # Atasco o doble alimentación a mitad de lote: las páginas
+                # ya capturadas se entregan, pero el lote no está completo.
+                results = [(img, "") for img in e.images]
+                error = str(e)
             for i, (img, src) in enumerate(results):
                 if self.isInterruptionRequested():
                     log.info(
@@ -73,6 +84,9 @@ class ScanWorker(QThread):
                     return
                 self.page_acquired.emit(i, img, src)
                 emitidas += 1
+            if error:
+                self.error_occurred.emit(error)
+                return
             self.finished_scanning.emit(emitidas)
         except Exception as e:
             log.error("Error en ScanWorker: %s", e)

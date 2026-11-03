@@ -2288,9 +2288,34 @@ GET = sends the data as query parameters</translation>
 <context>
     <name>ScannerConfigDialog</name>
     <message>
-        <location filename="../../app/ui/workbench/scanner_config_dialog.py" line="62"/>
+        <location filename="../../app/ui/workbench/scanner_config_dialog.py" line="66"/>
         <source>Configuración del escáner</source>
         <translation>Scanner configuration</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/workbench/scanner_config_dialog.py" line="128"/>
+        <source>Carta</source>
+        <translation>Letter</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/workbench/scanner_config_dialog.py" line="129"/>
+        <source>Legal</source>
+        <translation>Legal</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/workbench/scanner_config_dialog.py" line="133"/>
+        <source>El del escáner</source>
+        <translation>Scanner default</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/workbench/scanner_config_dialog.py" line="138"/>
+        <source>Alto y ancho de la hoja. Los alimentadores no detectan el final de la hoja: con un tamaño menor que el real se corta.</source>
+        <translation>Sheet height and width. Document feeders do not detect the end of the sheet: a size smaller than the real one cuts it off.</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/workbench/scanner_config_dialog.py" line="143"/>
+        <source>Tamaño de página:</source>
+        <translation>Page size:</translation>
     </message>
 </context>
 <context>
@@ -3017,118 +3042,118 @@ Empty = exports all fields automatically.</translation>
 <context>
     <name>WorkbenchWindow</name>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="344"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="346"/>
         <source>DocScan Studio — {0}</source>
         <translation>DocScan Studio — {0}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="467"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="472"/>
         <source>Workbench</source>
         <translation>Workbench</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="533"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="538"/>
         <source>Transferir</source>
         <translation>Transfer</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="542"/>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2171"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="547"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2196"/>
         <source>Cerrar lote</source>
         <translation>Close batch</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="564"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="569"/>
         <source>Cambiar tema claro/oscuro</source>
         <translation>Toggle light/dark theme</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="574"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="579"/>
         <source>Aumentar tamaño de fuente</source>
         <translation>Increase font size</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="578"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="583"/>
         <source>Reducir tamaño de fuente</source>
         <translation>Decrease font size</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1006"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1011"/>
         <source>Lote {0} creado</source>
         <translation>Batch {0} created</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1047"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1052"/>
         <source>Lote {0} cargado ({1} páginas)</source>
         <translation>Batch {0} loaded ({1} pages)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1079"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1084"/>
         <source>En proceso</source>
         <translation>In progress</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1080"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1085"/>
         <source>Ya hay un proceso de adquisición en curso.</source>
         <translation>An acquisition process is already in progress.</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1196"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1201"/>
         <source>Error de escáner</source>
         <translation>Scanner error</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1259"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1269"/>
         <source>Importar documentos</source>
         <translation>Import documents</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1333"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1344"/>
         <source>Procesando...</source>
         <translation>Processing...</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1459"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1472"/>
         <source>Error de adquisición</source>
         <translation>Acquisition error</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1681"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1705"/>
         <source>Procesando {0} página(s) pendiente(s)...</source>
         <translation>Processing {0} pending page(s)...</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1866"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1891"/>
         <source>No hay más páginas con barcode</source>
         <translation>No more pages with barcode</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1879"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1904"/>
         <source>No hay más páginas pendientes de revisión</source>
         <translation>No more pages pending review</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1919"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1944"/>
         <source>Script de navegación: sin destino</source>
         <translation>Navigation script: no destination</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1938"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1963"/>
         <source>Sin datos</source>
         <translation>No data</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1939"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1964"/>
         <source>No hay páginas para transferir.</source>
         <translation>There are no pages to transfer.</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2022"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2047"/>
         <source>Transferencia cancelada</source>
         <translation>Transfer cancelled</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1151"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1156"/>
         <source>Ya hay un procesado en curso</source>
         <translation>A processing run is already in progress</translation>
     </message>
@@ -3163,82 +3188,87 @@ Empty = exports all fields automatically.</translation>
         <translation>{0} processing error(s); see the Log for details</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1157"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1162"/>
         <source>No hay páginas que procesar</source>
         <translation>There are no pages to process</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1163"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1168"/>
         <source>Procesando {0} página(s)…</source>
         <translation>Processing {0} page(s)…</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1185"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1190"/>
         <source>Sin escáner</source>
         <translation>No scanner</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1187"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1192"/>
         <source>No hay ningún escáner seleccionado. Elige uno en ⚙.</source>
         <translation>No scanner is selected. Choose one under ⚙.</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1444"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1456"/>
         <source>Procesamiento cancelado: {0} de {1} páginas</source>
         <translation>Processing cancelled: {0} of {1} pages</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1849"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1648"/>
+        <source>Escaneo incompleto: revisa el escáner y continúa el lote</source>
+        <translation>Incomplete scan: check the scanner and continue the batch</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1874"/>
         <source>Página {0} de {1}</source>
         <translation>Page {0} of {1}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1955"/>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1963"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1980"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1988"/>
         <source>Validación fallida</source>
         <translation>Validation failed</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1971"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1996"/>
         <source>Error de validación</source>
         <translation>Validation error</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1972"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1997"/>
         <source>Error en el script de validación:
 {0}</source>
         <translation>Error in the validation script:
 {0}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2030"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2055"/>
         <source>Confirmar transferencia</source>
         <translation>Confirm transfer</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2031"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2056"/>
         <source>¿Transferir lote con {0} página(s)?</source>
         <translation>Transfer batch with {0} page(s)?</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2089"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2114"/>
         <source>Transferencia completada</source>
         <translation>Transfer completed</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2090"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2115"/>
         <source>Se transfirieron {0} fichero(s)
 Destino: {1}</source>
         <translation>{0} file(s) transferred
 Destination: {1}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2105"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2130"/>
         <source>Transferencia con errores</source>
         <translation>Transfer with errors</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2106"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2131"/>
         <source>Ficheros: {0}
 Errores:
 {1}</source>
@@ -3247,239 +3277,239 @@ Errors:
 {1}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2115"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2140"/>
         <source>Error de transferencia</source>
         <translation>Transfer error</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2147"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2172"/>
         <source>Nuevo lote creado</source>
         <translation>New batch created</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2154"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2179"/>
         <source>Sin lote</source>
         <translation>No batch</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2155"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2180"/>
         <source>No hay un lote activo con páginas.</source>
         <translation>There is no active batch with pages.</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2162"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2187"/>
         <source>Procesando</source>
         <translation>Processing</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2164"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2189"/>
         <source>Espera a que termine el reconocimiento antes de cerrar el lote.</source>
         <translation>Wait for recognition to finish before closing the batch.</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2173"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2198"/>
         <source>¿Cerrar el lote {0} sin transferir?
 Se podrá reabrir desde el gestor de lotes.</source>
         <translation>Close batch {0} without transferring?
 It can be reopened from the batch manager.</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2188"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2213"/>
         <source>Lote {0} cerrado</source>
         <translation>Batch {0} closed</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2219"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2244"/>
         <source>excluida</source>
         <translation>excluded</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2219"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2244"/>
         <source>incluida</source>
         <translation>included</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2220"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2245"/>
         <source>Página {0}</source>
         <translation>Page {0}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2297"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2322"/>
         <source>Separador marcado: {0}</source>
         <translation>Separator marked: {0}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2297"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2322"/>
         <source>(sin valor)</source>
         <translation>(no value)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2299"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2324"/>
         <source>Separador desmarcado</source>
         <translation>Separator unmarked</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2378"/>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2467"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2403"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2492"/>
         <source>Confirmar eliminación</source>
         <translation>Confirm deletion</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2379"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2404"/>
         <source>¿Eliminar la página actual?</source>
         <translation>Delete the current page?</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2433"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2458"/>
         <source>No se puede reordenar mientras se procesan páginas</source>
         <translation>Cannot reorder while pages are being processed</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2468"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2493"/>
         <source>¿Eliminar {0} página(s) desde la actual?</source>
         <translation>Delete {0} page(s) from the current one?</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2529"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2554"/>
         <source>Introduce el código de barras:</source>
         <translation>Enter the barcode:</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2531"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2556"/>
         <source>
 (Formato: {0})</source>
         <translation>
 (Format: {0})</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2532"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2557"/>
         <source>Barcode manual</source>
         <translation>Manual Barcode</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2546"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2571"/>
         <source>Formato inválido</source>
         <translation>Invalid format</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2547"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2572"/>
         <source>El valor &apos;{0}&apos; no cumple el patrón:
 {1}</source>
         <translation>The value &apos;{0}&apos; does not match the pattern:
 {1}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2570"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2595"/>
         <source>Barcode manual añadido: {0}</source>
         <translation>Manual barcode added: {0}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2584"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2609"/>
         <source>Selecciona un barcode para eliminar</source>
         <translation>Select a barcode to delete</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2605"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2630"/>
         <source>Barcode eliminado: {0} (Ctrl+Z para deshacer)</source>
         <translation>Barcode deleted: {0} (Ctrl+Z to undo)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2618"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2643"/>
         <source>Nada que deshacer</source>
         <translation>Nothing to undo</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2631"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2656"/>
         <source>Edición de barcodes deshecha</source>
         <translation>Barcode edit undone</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2660"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2685"/>
         <source>Re-procesado completado</source>
         <translation>Reprocessing completed</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2666"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2691"/>
         <source>Re-procesado cancelado</source>
         <translation>Reprocessing cancelled</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="2677"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="2702"/>
         <source>Re-procesando página...</source>
         <translation>Reprocessing page...</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1112"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1117"/>
         <source>Buscando escáneres…</source>
         <translation>Searching for scanners...</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="475"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="480"/>
         <source>Escanear</source>
         <translation>Scan</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="478"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="483"/>
         <source>Escanear (F5)</source>
         <translation>Scan (F5)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="491"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="496"/>
         <source>Configurar el escáner</source>
         <translation>Configure the scanner</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="503"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="508"/>
         <source>Escáner:</source>
         <translation>Scanner:</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="509"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="514"/>
         <source>Escáner y fuente con los que se captura</source>
         <translation>Scanner and source used for capture</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="515"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="520"/>
         <source>Importar…</source>
         <translation>Import…</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="518"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="523"/>
         <source>Importar archivos al lote actual (Ctrl+I)</source>
         <translation>Import files into the current batch (Ctrl+I)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="524"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="529"/>
         <source>Procesar</source>
         <translation>Process</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="527"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="532"/>
         <source>Procesar todas las páginas del lote (F9)</source>
         <translation>Process all pages of the batch (F9)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="536"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="541"/>
         <source>Transferir el lote (Ctrl+T)</source>
         <translation>Transfer the batch (Ctrl+T)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="545"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="550"/>
         <source>Cerrar el lote sin transferir (Ctrl+W)</source>
         <translation>Close the batch without transferring (Ctrl+W)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1120"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1125"/>
         <source>{0} escáner(es) encontrado(s)</source>
         <translation>{0} scanner(s) found</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1125"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1130"/>
         <source>No se encontraron escáneres</source>
         <translation>No scanners found</translation>
     </message>
     <message>
-        <location filename="../../app/ui/workbench/workbench_window.py" line="1131"/>
+        <location filename="../../app/ui/workbench/workbench_window.py" line="1136"/>
         <source>Error al buscar escáneres</source>
         <translation>Error searching for scanners</translation>
     </message>

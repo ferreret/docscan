@@ -247,7 +247,9 @@ class WorkbenchWindow(QMainWindow):
         self._import_service = ImportService()
         self._transfer_service = TransferService()
         self._scanner: Any = None  # Instancia reutilizable de BaseScanner
-        self._last_scan_options: dict[str, Any] = {}  # Opciones del último escaneo
+        # Opciones del último escaneo por dispositivo: las de un escáner no
+        # valen para otro (fuente «Flatbed» en un alimentador, umbral...)
+        self._scan_options_by_device: dict[str, dict[str, Any]] = {}
         self._executor: PipelineExecutor | None = None
 
         # Workers
@@ -444,6 +446,9 @@ class WorkbenchWindow(QMainWindow):
         # Progreso y errores de la pasada del pipeline en curso
         self._run_progress: tuple[int, int] = (0, 0)
         self._run_errors = 0
+        # La adquisición de la pasada en curso no terminó entera (error o
+        # cancelación): el lote no se da por leído ni se auto-transfiere.
+        self._acquisition_incomplete = False
 
         # Configurar metadatos
         self._configure_metadata()
@@ -1199,9 +1204,9 @@ class WorkbenchWindow(QMainWindow):
         source_type = self._combo_source_type.currentData() or "flatbed"
         scan_config = ScanConfig(source_type=source_type)
 
-        # Aplicar opciones persistidas de la sesión anterior
-        if self._last_scan_options:
-            scan_config.extra_options = dict(self._last_scan_options)
+        # Aplicar opciones persistidas de la sesión anterior con este escáner
+        saved_options = self._scan_options_by_device.get(source, {})
+        scan_config.extra_options = dict(saved_options)
 
         if self._chk_scanner_config.isChecked():
             if scanner.supports_native_ui:
@@ -1217,16 +1222,21 @@ class WorkbenchWindow(QMainWindow):
 
                 if options:
                     # Aplicar valores de la sesión anterior
-                    if self._last_scan_options:
-                        for opt in options:
-                            if opt.name in self._last_scan_options:
-                                opt.value = self._last_scan_options[opt.name]
+                    for opt in options:
+                        if opt.name in saved_options:
+                            opt.value = saved_options[opt.name]
 
-                    dialog = ScannerConfigDialog(options, self)
+                    dialog = ScannerConfigDialog(
+                        options,
+                        self,
+                        page_size=saved_options.get("page_size", "A4"),
+                    )
                     if dialog.exec() != ScannerConfigDialog.DialogCode.Accepted:
                         return
                     scan_config.extra_options = dialog.get_selected_options()
-                    self._last_scan_options = dict(scan_config.extra_options)
+                    self._scan_options_by_device[source] = dict(
+                        scan_config.extra_options
+                    )
                     # Sincronizar source_type si el usuario cambió 'source'
                     src_val = scan_config.extra_options.get("source", "")
                     if "adf" in str(src_val).lower():
@@ -1324,6 +1334,7 @@ class WorkbenchWindow(QMainWindow):
         self._progress_bar.setValue(0)
         self._run_progress = (0, 0)
         self._run_errors = 0
+        self._acquisition_incomplete = False
         self._progress_bar.setVisible(True)
         self._set_acquire_enabled(False)
 
@@ -1423,6 +1434,7 @@ class WorkbenchWindow(QMainWindow):
         que ya no van a llegar, pero **no** se trata como final correcto.
         """
         log.info("Adquisición cancelada tras %d páginas", emitidas)
+        self._acquisition_incomplete = True
         if self._recognition_worker:
             self._recognition_worker.signal_no_more_pages()
 
@@ -1450,6 +1462,7 @@ class WorkbenchWindow(QMainWindow):
     def _on_scan_error(self, error: str) -> None:
         """Error durante la adquisición."""
         self._progress_bar.setVisible(False)
+        self._acquisition_incomplete = True
         # El reconocimiento de las páginas ya capturadas termina: sin esto se
         # quedaba esperando más páginas para siempre (y bloqueaba reordenar y
         # cerrar el lote).
@@ -1626,6 +1639,17 @@ class WorkbenchWindow(QMainWindow):
         self._reload_pages()
         self._update_lot_counters()
 
+        if self._acquisition_incomplete:
+            # Las páginas capturadas antes del error ya pasaron el pipeline,
+            # pero el lote está a medias: ni on_scan_complete ni
+            # auto-transferencia hasta que el operador lo complete.
+            log.warning("Adquisición incompleta: no se cierra el lote")
+            self._status_bar.showMessage(
+                self.tr("Escaneo incompleto: revisa el escáner y continúa el lote"),
+                8000,
+            )
+            return
+
         if self._batch_id:
             with self._session_factory() as session:
                 svc = BatchService(session, APP_IMAGES_DIR)
@@ -1709,6 +1733,7 @@ class WorkbenchWindow(QMainWindow):
         self._progress_bar.setValue(0)
         self._run_progress = (0, 0)
         self._run_errors = 0
+        self._acquisition_incomplete = False
         self._progress_bar.setVisible(True)
         self._set_acquire_enabled(False)
 
@@ -2829,8 +2854,13 @@ class WorkbenchWindow(QMainWindow):
         )
         s.setValue(f"{prefix}/show_config", self._chk_scanner_config.isChecked())
         # Opciones del escáner (resolution, mode, etc.)
-        if self._last_scan_options:
-            s.setValue(f"{prefix}/scan_options", json.dumps(self._last_scan_options))
+        if self._scan_options_by_device:
+            s.setValue(
+                f"{prefix}/scan_options_by_device",
+                json.dumps(self._scan_options_by_device),
+            )
+        # Formato anterior: un único juego de opciones sin saber de qué escáner
+        s.remove(f"{prefix}/scan_options")
 
     def _restore_source_settings(self) -> None:
         """Restaura el estado del origen de documentos para esta app."""
@@ -2846,7 +2876,7 @@ class WorkbenchWindow(QMainWindow):
             else False
         )
         show_config = s.value(f"{prefix}/show_config", app_default)
-        scan_options_json = s.value(f"{prefix}/scan_options", "")
+        scan_options_json = s.value(f"{prefix}/scan_options_by_device", "")
 
         # Convertir string "true"/"false" de QSettings a bool
         if isinstance(show_config, str):
@@ -2855,9 +2885,9 @@ class WorkbenchWindow(QMainWindow):
         # Restaurar opciones del escáner
         if scan_options_json:
             try:
-                self._last_scan_options = json.loads(scan_options_json)
+                self._scan_options_by_device = json.loads(scan_options_json)
             except json.JSONDecodeError, TypeError:
-                self._last_scan_options = {}
+                self._scan_options_by_device = {}
 
         # Sin enumerar: el escáner de la sesión anterior queda elegido y la
         # lista completa se pide al abrir ⚙ (en SANE tarda varios segundos).
