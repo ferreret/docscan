@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.services.scanner_service import DeviceOption
+from app.services.scanner_service import PAGE_SIZES_MM, DeviceOption
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +49,9 @@ _COMMON_OPTIONS = {
     "duplex",
 }
 
+# Opciones de geometría que indican que el tamaño de página se puede fijar
+_GEOMETRY_OPTIONS = {"page_height", "br_y"}
+
 
 class ScannerConfigDialog(QDialog):
     """Diálogo que muestra las opciones reales de un dispositivo SANE."""
@@ -57,6 +60,7 @@ class ScannerConfigDialog(QDialog):
         self,
         options: list[DeviceOption],
         parent: QWidget | None = None,
+        page_size: str = "A4",
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Configuraci\u00f3n del esc\u00e1ner"))
@@ -64,6 +68,8 @@ class ScannerConfigDialog(QDialog):
         self.setMinimumHeight(300)
         self._options = options
         self._widgets: dict[str, QWidget] = {}
+        self._page_size = page_size
+        self._page_size_combo: QComboBox | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -91,6 +97,10 @@ class ScannerConfigDialog(QDialog):
                 self._form.addRow(f"{label}:", widget)
                 if opt.description:
                     widget.setToolTip(opt.description)
+                if opt.name == "resolution":
+                    self._add_page_size_row()
+        if self._page_size_combo is None:
+            self._add_page_size_row()
 
         scroll.setWidget(container)
         layout.addWidget(scroll)
@@ -102,6 +112,35 @@ class ScannerConfigDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _add_page_size_row(self) -> None:
+        """Añade «Tamaño de página» si el dispositivo permite fijar el área.
+
+        No es una opción SANE: DocScan la traduce a ``--page-width/height``
+        y ``-x/-y``. Sin ella los alimentadores escanean a tamaño Carta.
+        """
+        if not any(o.name in _GEOMETRY_OPTIONS for o in self._options):
+            return
+        combo = QComboBox()
+        labels = {
+            "A4": "A4",
+            "A5": "A5",
+            "Letter": self.tr("Carta"),
+            "Legal": self.tr("Legal"),
+        }
+        for key in PAGE_SIZES_MM:
+            combo.addItem(labels.get(key, key), key)
+        combo.addItem(self.tr("El del escáner"), "")
+        idx = combo.findData(self._page_size)
+        combo.setCurrentIndex(idx if idx >= 0 else 0)
+        combo.setToolTip(
+            self.tr(
+                "Alto y ancho de la hoja. Los alimentadores no detectan el "
+                "final de la hoja: con un tamaño menor que el real se corta."
+            )
+        )
+        self._page_size_combo = combo
+        self._form.addRow(self.tr("Tamaño de página:"), combo)
 
     def _create_widget(self, opt: DeviceOption) -> QWidget | None:
         """Crea el widget apropiado según el tipo y constraint de la opción."""
@@ -192,4 +231,6 @@ class ScannerConfigDialog(QDialog):
             elif isinstance(widget, QSpinBox):
                 result[opt_name] = widget.value()
 
+        if self._page_size_combo is not None:
+            result["page_size"] = self._page_size_combo.currentData()
         return result

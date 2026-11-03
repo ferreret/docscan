@@ -621,6 +621,30 @@ class TestCancelacionHonesta:
         assert sig.args[0] == 2
         assert cancelados == []
 
+    def test_scan_worker_atasco_entrega_paginas_y_avisa(self, qtbot, color_image):
+        """Un atasco a mitad de lote entrega lo capturado y emite el error."""
+        from app.services.scanner_service import ScanIncompleteError
+
+        scanner = MagicMock()
+        scanner.acquire.side_effect = ScanIncompleteError(
+            "El escáner se detuvo tras 2 página(s): Document feeder jammed",
+            [color_image, color_image],
+        )
+        worker = ScanWorker(mode="scanner", source="dev", scanner=scanner)
+
+        terminados: list[int] = []
+        worker.finished_scanning.connect(terminados.append)
+        emitidas: list[int] = []
+        worker.page_acquired.connect(lambda *a: emitidas.append(a[0]))
+
+        with qtbot.waitSignal(worker.error_occurred, timeout=3000) as sig:
+            worker.start()
+        worker.wait()
+
+        assert emitidas == [0, 1]
+        assert "jammed" in sig.args[0]
+        assert terminados == [], "un lote atascado no ha terminado"
+
     def test_recognition_worker_cancelado_no_dice_todo_procesado(
         self, qtbot, color_image
     ):
@@ -2332,6 +2356,58 @@ class TestBarraDeEstado:
         assert (bar.width(), bar.height()) == (120, 3)
         assert not bar.isTextVisible()
 
+    def test_opciones_del_escaner_por_dispositivo(self, workbench):
+        """Las opciones guardadas de la HP no se mandan al Canon."""
+        hp = {"source": "Flatbed", "mode": "Lineart", "threshold": 255}
+        workbench._scan_options_by_device = {"escl:hp": hp}
+        workbench._scan_popup.set_scanners(["escl:hp", "canon_dr:x"])
+        workbench._chk_scanner_config.setChecked(False)
+        scanner = MagicMock(supports_native_ui=False)
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch("app.ui.workbench.workbench_window.ScanWorker") as worker,
+            patch.object(workbench, "_start_workers"),
+        ):
+            workbench._combo_source.setCurrentText("canon_dr:x")
+            workbench._start_scanner()
+            assert worker.call_args.kwargs["scan_config"].extra_options == {}
+            workbench._combo_source.setCurrentText("escl:hp")
+            workbench._start_scanner()
+            assert worker.call_args.kwargs["scan_config"].extra_options == hp
+
+    def test_opciones_por_dispositivo_se_recuerdan(self, workbench):
+        workbench._scan_options_by_device = {"canon_dr:x": {"page_size": "Legal"}}
+        workbench._save_source_settings()
+        workbench._scan_options_by_device = {}
+        workbench._restore_source_settings()
+        assert workbench._scan_options_by_device == {
+            "canon_dr:x": {"page_size": "Legal"}
+        }
+
+    def test_adquisicion_incompleta_no_cierra_ni_transfiere(self, workbench):
+        """Tras un atasco no hay on_scan_complete ni auto-transferencia."""
+        workbench._application.auto_transfer = True
+        workbench._on_scan_error("El escáner se detuvo tras 2 página(s): jammed")
+        with (
+            patch.object(workbench, "_on_transfer") as transfer,
+            patch.object(workbench, "_fire_event") as fire,
+        ):
+            workbench._on_all_processed()
+        transfer.assert_not_called()
+        fire.assert_not_called()
+        assert "incompleto" in workbench._status_bar.currentMessage()
+
+    def test_adquisicion_completa_si_transfiere(self, workbench):
+        workbench._application.auto_transfer = True
+        workbench._acquisition_incomplete = False
+        with (
+            patch.object(workbench, "_on_transfer") as transfer,
+            patch.object(workbench, "_fire_event") as fire,
+        ):
+            workbench._on_all_processed()
+        transfer.assert_called_once()
+        fire.assert_called_once_with("on_scan_complete")
+
     def test_al_terminar_dice_procesado_con_errores(self, workbench):
         workbench._run_errors = 0
         workbench._on_progress(2, 3)
@@ -2723,3 +2799,60 @@ class TestEventoPausadoYValorPorDefecto:
             )
         qtbot.addWidget(window)
         assert window._metadata_panel.get_batch_fields()["cliente"] == "ACME"
+
+
+# ==================================================================
+# Diálogo de opciones del escáner (SANE)
+# ==================================================================
+
+
+class TestScannerConfigDialogTamano:
+    """«Tamaño de página»: los alimentadores no detectan el final de la hoja."""
+
+    @staticmethod
+    def _opt(name, type_="string", constraint=None, value=None):
+        from app.services.scanner_service import DeviceOption
+
+        return DeviceOption(
+            name=name,
+            title=name,
+            description="",
+            type=type_,
+            unit="none",
+            constraint=constraint,
+            value=value,
+        )
+
+    def test_alimentador_ofrece_tamano_a4_por_defecto(self, qtbot):
+        from app.ui.workbench.scanner_config_dialog import ScannerConfigDialog
+
+        options = [
+            self._opt(
+                "source", constraint=["ADF Front", "ADF Duplex"], value="ADF Front"
+            ),
+            self._opt("resolution", "int", [100, 200, 300], 300),
+            self._opt("page_height", "fixed", (0.0, 355.5, 0.02), 279.3),
+        ]
+        dialog = ScannerConfigDialog(options)
+        qtbot.addWidget(dialog)
+        assert dialog.get_selected_options()["page_size"] == "A4"
+
+    def test_recuerda_el_tamano_elegido(self, qtbot):
+        from app.ui.workbench.scanner_config_dialog import ScannerConfigDialog
+
+        dialog = ScannerConfigDialog(
+            [self._opt("br_y", "fixed", (0.0, 297.0, 0.1), 297.0)], page_size="Legal"
+        )
+        qtbot.addWidget(dialog)
+        assert dialog.get_selected_options()["page_size"] == "Legal"
+        dialog._page_size_combo.setCurrentIndex(dialog._page_size_combo.findData(""))
+        assert dialog.get_selected_options()["page_size"] == ""
+
+    def test_sin_geometria_no_hay_tamano(self, qtbot):
+        from app.ui.workbench.scanner_config_dialog import ScannerConfigDialog
+
+        dialog = ScannerConfigDialog(
+            [self._opt("mode", constraint=["Gray"], value="Gray")]
+        )
+        qtbot.addWidget(dialog)
+        assert "page_size" not in dialog.get_selected_options()

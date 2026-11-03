@@ -10,6 +10,27 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ### 🐛 Corregido
 
+- **Escáner SANE (Linux) con alimentador**, validado con un Canon DR-M160:
+  - Las A4 salían cortadas: los alimentadores no detectan el final de la hoja y
+    el driver escanea a tamaño Carta (279 mm). DocScan escanea ahora en A4 por
+    defecto y el diálogo de opciones del escáner tiene «Tamaño de página» (A4, A5,
+    Carta, Legal o el del escáner), recortado a lo que admite el dispositivo.
+  - Un atasco o una doble alimentación a mitad de lote se daba por final normal
+    del alimentador. Ahora se conservan las páginas capturadas y se muestra el error.
+  - El lote se captura con un solo `scanimage --batch` en vez de un proceso por
+    página, que reabría el dispositivo cada vez; el dúplex de `ScanConfig` se
+    traduce a `ADF Duplex`. Ya no hay un límite fijo de 120 s por llamada: se aborta
+    si el escáner pasa 120 s sin avanzar.
+  - La fuente elegida en el diálogo de opciones manda sobre Flatbed/ADF del panel
+    ⚙: con «Flatbed» en el diálogo y «ADF» en el panel se escanea una página del
+    cristal.
+  - Las opciones del escáner se recordaban por aplicación, no por escáner: al
+    cambiar de dispositivo se le mandaban las del anterior (fuente `Flatbed` a un
+    alimentador, umbral, resolución). Ahora se guardan por escáner; las guardadas
+    con el formato anterior se descartan una vez.
+- Tras un error o una cancelación del escaneo, el Workbench marcaba el lote como
+  leído, disparaba `on_scan_complete` y lanzaba la transferencia automática con el
+  lote a medias. Ya no lo hace.
 - **Actualización automática en Linux**: descargaba el AppImage nuevo y no lo
   instalaba, pero el diálogo decía «Actualización aplicada». Buscaba el fichero a
   sustituir en `sys.argv[0]`, que dentro de un AppImage apunta al punto de montaje
