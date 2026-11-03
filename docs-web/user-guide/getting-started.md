@@ -16,8 +16,8 @@ Descarga la última versión de
 
 | Sistema | Fichero |
 |---------|---------|
-| Linux | `docscan-0.1.9-x86_64.AppImage` |
-| Windows | `docscan-0.1.9-setup.exe` |
+| Linux | `docscan-0.1.10-x86_64.AppImage` |
+| Windows | `docscan-0.1.10-setup.exe` |
 
 Cada release publica también `SHA256SUMS.txt`, con el SHA-256 de cada
 instalador, para comprobar la descarga. No hace falta instalar Python.
@@ -26,8 +26,8 @@ instalador, para comprobar la descarga. No hace falta instalar Python.
 
     ```bash
     sha256sum -c SHA256SUMS.txt --ignore-missing
-    chmod +x docscan-0.1.9-x86_64.AppImage
-    ./docscan-0.1.9-x86_64.AppImage
+    chmod +x docscan-0.1.10-x86_64.AppImage
+    ./docscan-0.1.10-x86_64.AppImage
     ```
 
     Los AppImage necesitan FUSE 2. Si al arrancar sale `error loading
@@ -36,7 +36,7 @@ instalador, para comprobar la descarga. No hace falta instalar Python.
 
 === "Windows"
 
-    Ejecuta `docscan-0.1.9-setup.exe` y sigue el asistente.
+    Ejecuta `docscan-0.1.10-setup.exe` y sigue el asistente.
 
 ### Actualizaciones
 
@@ -51,8 +51,8 @@ y su nombre de fichero) y hay que reiniciar la aplicación; si no se puede
 sustituir, el diálogo muestra el error y deja la descarga en el directorio
 temporal. En Windows se lanza el instalador y la aplicación se cierra.
 
-!!! warning "Linux: de la 0.1.9 o anterior a una versión nueva"
-    Hasta la 0.1.9 el actualizador de Linux descargaba el AppImage nuevo pero
+!!! warning "Linux: de la 0.1.10 o anterior a una versión nueva"
+    Hasta la 0.1.10 el actualizador de Linux descargaba el AppImage nuevo pero
     no lo sustituía, aunque decía «Actualización aplicada». Desde esas versiones
     hay que actualizar a mano una vez: descarga el AppImage nuevo y sustituye el
     antiguo. A partir de la 0.1.10 la actualización automática funciona.

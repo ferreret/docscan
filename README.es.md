@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/versión-0.1.9-blue?style=flat-square" alt="Versión"></a>
+  <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/versión-0.1.10-blue?style=flat-square" alt="Versión"></a>
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
   <img src="https://img.shields.io/badge/tests-1226_en_verde-brightgreen?style=flat-square" alt="Tests">
@@ -60,6 +60,16 @@ IA generativa para crear y configurar aplicaciones.
 ```
 📥 Escanear / importar → 🔄 Pipeline (imagen · barcode · OCR · scripts) → ✅ Revisar e indexar → 📤 Transferir
 ```
+
+### Novedades de la v0.1.10
+
+- **Probado con un escáner físico en Linux** (Canon DR-M160 por SANE): las A4 ya no
+  salen cortadas a tamaño Carta, nueva opción de tamaño de página, un solo
+  `scanimage` por lote y dúplex.
+- Un atasco o una doble alimentación a mitad de lote conserva las páginas ya
+  capturadas y avisa del error; un lote a medias nunca se auto-transfiere.
+- El actualizador de Linux ya sustituye de verdad el AppImage. Desde la 0.1.9 o
+  anterior, hay que actualizar a mano una vez.
 
 ### Novedades de la v0.1.9
 
@@ -177,8 +187,8 @@ Descarga la última versión desde [Releases](https://github.com/ferreret/docsca
 
 | Sistema | Fichero |
 |---------|---------|
-| Linux (x86_64) | `docscan-0.1.9-x86_64.AppImage` — darle permiso de ejecución y abrir |
-| Windows | `docscan-0.1.9-setup.exe` — instalador |
+| Linux (x86_64) | `docscan-0.1.10-x86_64.AppImage` — darle permiso de ejecución y abrir |
+| Windows | `docscan-0.1.10-setup.exe` — instalador |
 
 `SHA256SUMS.txt` lleva las sumas de comprobación. La aplicación avisa cuando hay una
 versión nueva y se actualiza sola. La base de datos se crea y se migra al arrancar.
@@ -548,5 +558,5 @@ mantiene; sus tests se omiten solos si faltan sus dependencias.
 Desarrollado por **Nicolás Barceló**.
 
 <p align="center">
-  <sub>DocScan Studio v0.1.9</sub>
+  <sub>DocScan Studio v0.1.10</sub>
 </p>

@@ -8,6 +8,18 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-11-03
+
+Versión de mantenimiento sobre la 0.1.9: primera validación con un escáner físico
+en Linux (Canon DR-M160 por SANE), con los arreglos de captura que destapó, y el
+actualizador de Linux, que no llegaba a sustituir el AppImage.
+
+> **A revisar antes de actualizar**
+> - **Desde la 0.1.9 o anterior en Linux** hay que actualizar a mano una vez: el
+>   código que aplica la actualización es el de la versión instalada.
+> - Las opciones del escáner (SANE) se guardan ahora por escáner: las que se
+>   recordaban de la versión anterior se descartan y hay que elegirlas una vez.
+
 ### 🐛 Corregido
 
 - **Escáner SANE (Linux) con alimentador**, validado con un Canon DR-M160:

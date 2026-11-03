@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/version-0.1.9-blue?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/version-0.1.10-blue?style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
   <img src="https://img.shields.io/badge/tests-1226_passing-brightgreen?style=flat-square" alt="Tests">
@@ -60,6 +60,16 @@ generative AI to create and configure applications.
 ```
 📥 Scan / import → 🔄 Pipeline (image · barcode · OCR · scripts) → ✅ Review and index → 📤 Transfer
 ```
+
+### What's new in v0.1.10
+
+- **Tested with a physical scanner on Linux** (Canon DR-M160 over SANE): A4 pages
+  are no longer cut to Letter size, a new page size option, one `scanimage` call
+  per batch and duplex support.
+- A jam or double feed mid-batch keeps the pages already captured and reports the
+  error; a half-scanned batch is never auto-transferred.
+- The Linux updater now actually replaces the AppImage. From v0.1.9 or earlier,
+  update by hand once.
 
 ### What's new in v0.1.9
 
@@ -177,8 +187,8 @@ Download the latest version from [Releases](https://github.com/ferreret/docscan/
 
 | System | File |
 |--------|------|
-| Linux (x86_64) | `docscan-0.1.9-x86_64.AppImage`: make it executable and open it |
-| Windows | `docscan-0.1.9-setup.exe`: installer |
+| Linux (x86_64) | `docscan-0.1.10-x86_64.AppImage`: make it executable and open it |
+| Windows | `docscan-0.1.10-setup.exe`: installer |
 
 `SHA256SUMS.txt` holds the checksums. The application tells you when a new version is
 out and updates itself. The database is created and migrated at startup.
@@ -552,5 +562,5 @@ maintained; its tests skip themselves when their dependencies are missing.
 Developed by **Nicolás Barceló**.
 
 <p align="center">
-  <sub>DocScan Studio v0.1.9</sub>
+  <sub>DocScan Studio v0.1.10</sub>
 </p>
