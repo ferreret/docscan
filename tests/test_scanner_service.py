@@ -446,3 +446,203 @@ class TestPaginaAPaginaYCancelar:
         with pytest.raises(RuntimeError, match="roto"):
             scanner.acquire("fake:dev", ScanConfig(source_type="adf"), on_page=roto)
         assert procesos and all(p.poll() is not None for p in procesos)
+
+
+# ------------------------------------------------------------------
+# Escáner USB reconectado en otra dirección (canon_dr:libusb:BBB:DDD)
+# ------------------------------------------------------------------
+
+
+class _SaneError(Exception):
+    """Como ``_sane.error``, lo que lanza ``sane.open`` al fallar."""
+
+
+class TestEscanerReconectado:
+    """SANE cambia el nombre del escáner USB al desconectarlo y reconectarlo."""
+
+    OLD = "canon_dr:libusb:003:010"
+    NEW = "canon_dr:libusb:003:011"
+
+    @pytest.fixture
+    def usb(self, monkeypatch, tmp_path):
+        """``/dev/bus/usb`` falso: crea el nodo de las direcciones conectadas."""
+        import app.services.scanner_service as svc
+
+        root = tmp_path / "usb"
+        root.mkdir()
+        monkeypatch.setattr(svc, "USB_DEVICE_ROOT", root)
+
+        def conectar(*names: str) -> None:
+            for name in names:
+                bus, dev = name.split(":")[-2:]
+                (root / bus).mkdir(exist_ok=True)
+                (root / bus / dev).touch()
+
+        return conectar
+
+    @pytest.fixture
+    def devices(self, monkeypatch):
+        """``sane.get_devices`` falso; devuelve la lista para cambiarla."""
+        import sane
+
+        class Listed(list):
+            calls = {"init": 0, "get_devices": 0}
+
+        listed = Listed()
+        calls = listed.calls
+
+        def init():
+            calls["init"] += 1
+            return (1, 1, 0, 0)
+
+        def get_devices(*a, **k):
+            calls["get_devices"] += 1
+            return [(name, "Canon", "DR-M160", "sheetfed scanner") for name in listed]
+
+        monkeypatch.setattr(sane, "init", init, raising=False)
+        monkeypatch.setattr(sane, "exit", lambda: None, raising=False)
+        monkeypatch.setattr(sane, "get_devices", get_devices, raising=False)
+        return listed
+
+    def test_nombres_usb(self):
+        from app.services.scanner_service import usb_name_prefix
+
+        assert usb_name_prefix(self.OLD) == "canon_dr:libusb:"
+        assert usb_name_prefix("fujitsu:libusb:001:002") == "fujitsu:libusb:"
+        for name in ("escl:http://10.0.0.5", "mock:dev0", "pixma:04A91234_AB"):
+            assert usb_name_prefix(name) is None
+
+    def test_direccion_que_ya_no_existe(self, usb):
+        usb(self.NEW)
+        scanner = SaneScanner()
+        assert scanner.source_missing(self.OLD)
+        assert not scanner.source_missing(self.NEW)
+        assert not scanner.source_missing("escl:http://10.0.0.5")
+
+    def test_sin_dev_bus_usb_no_se_decide(self, monkeypatch, tmp_path):
+        import app.services.scanner_service as svc
+
+        monkeypatch.setattr(svc, "USB_DEVICE_ROOT", tmp_path / "no_existe")
+        assert not SaneScanner().source_missing(self.OLD)
+
+    def test_conectado_no_vuelve_a_listar(self, usb, devices):
+        usb(self.OLD)
+        assert SaneScanner().resolve_source(self.OLD) == self.OLD
+        assert devices.calls["get_devices"] == 0
+
+    def test_un_solo_candidato_se_usa(self, usb, devices, caplog):
+        import logging
+
+        usb(self.NEW)
+        devices.extend(["escl:http://10.0.0.5", "fujitsu:libusb:003:004", self.NEW])
+        scanner = SaneScanner()
+        scanner._cached_options[self.OLD] = []
+        scanner._cli_limits[self.OLD] = {}
+        with caplog.at_level(logging.INFO, logger="app.services.scanner_service"):
+            assert scanner.resolve_source(self.OLD) == self.NEW
+        assert self.OLD in caplog.text and self.NEW in caplog.text
+        # Lo cacheado con la dirección vieja no se arrastra.
+        assert self.OLD not in scanner._cached_options
+        assert self.OLD not in scanner._cli_limits
+
+    def test_vuelve_a_iniciar_sane_para_recorrer_el_bus(self, usb, devices):
+        usb(self.NEW)
+        devices.append(self.NEW)
+        scanner = SaneScanner()
+        scanner.list_sources()
+        assert devices.calls["init"] == 1
+        scanner.resolve_source(self.OLD)
+        assert devices.calls["init"] == 2
+
+    @pytest.mark.parametrize(
+        "listed",
+        [
+            [],
+            ["escl:http://10.0.0.5", "fujitsu:libusb:003:011"],
+            ["canon_dr:libusb:003:011", "canon_dr:libusb:001:002"],
+        ],
+        ids=["ninguno", "otro_backend", "varios"],
+    )
+    def test_sin_candidato_unico_avisa(self, usb, devices, listed):
+        from app.services.scanner_service import ScannerGoneError
+
+        devices.extend(listed)
+        with pytest.raises(ScannerGoneError) as exc:
+            SaneScanner().resolve_source(self.OLD)
+        assert exc.value.source == self.OLD
+        assert exc.value.sources == listed
+        assert "ya no está conectado en esa dirección" in str(exc.value)
+        assert "Invalid argument" not in str(exc.value)
+
+    def test_forzado_con_el_nodo_presente(self, usb, devices):
+        """El nodo existe pero abrirlo falla (dirección reutilizada)."""
+        usb(self.OLD, self.NEW)
+        devices.append(self.NEW)
+        scanner = SaneScanner()
+        assert scanner.resolve_source(self.OLD) == self.OLD
+        assert scanner.resolve_source(self.OLD, force=True) == self.NEW
+
+    def test_forzado_y_sigue_listado_no_cambia(self, usb, devices):
+        usb(self.OLD)
+        devices.append(self.OLD)
+        assert SaneScanner().resolve_source(self.OLD, force=True) == self.OLD
+
+    def test_otros_backends_no_se_relocalizan(self, devices):
+        assert SaneScanner().resolve_source("escl:http://x", force=True) == (
+            "escl:http://x"
+        )
+        assert devices.calls["get_devices"] == 0
+
+    def test_abrir_opciones_con_invalid_argument(self, monkeypatch, devices):
+        import sane
+
+        from app.services.scanner_service import ScannerGoneError
+
+        def open_(name):
+            raise _SaneError("Invalid argument")
+
+        monkeypatch.setattr(sane, "open", open_, raising=False)
+        with pytest.raises(ScannerGoneError) as exc:
+            SaneScanner().get_device_options(self.OLD)
+        assert exc.value.detail == "Invalid argument"
+
+    def test_otro_fallo_al_abrir_no_se_disfraza(self, monkeypatch, devices):
+        import sane
+
+        def open_(name):
+            raise _SaneError("Device busy")
+
+        monkeypatch.setattr(sane, "open", open_, raising=False)
+        with pytest.raises(Exception, match="Device busy"):
+            SaneScanner().get_device_options(self.OLD)
+
+    def test_scanimage_con_invalid_argument(self, monkeypatch, devices):
+        import subprocess
+
+        from app.services.scanner_service import ScannerGoneError
+
+        monkeypatch.setattr(
+            subprocess,
+            "Popen",
+            _fake_popen(
+                pages=0,
+                returncode=1,
+                stderr=(
+                    f"scanimage: open of device {self.OLD} failed: Invalid argument\n"
+                ),
+            ),
+        )
+        scanner = SaneScanner()
+        monkeypatch.setattr(scanner, "_device_limits", lambda source: {})
+        with pytest.raises(ScannerGoneError) as exc:
+            scanner.acquire(self.OLD, ScanConfig(source_type="adf"))
+        assert exc.value.source == self.OLD
+
+    def test_migrar_opciones_guardadas(self):
+        from app.services.scanner_service import migrate_device_options
+
+        saved = {self.OLD: {"page_size": "A4"}, self.NEW: {"page_size": "Legal"}}
+        migrated = migrate_device_options(saved, self.OLD, self.NEW)
+        assert migrated == {self.NEW: {"page_size": "A4"}}
+        assert self.OLD in saved  # el original no se toca
+        assert migrate_device_options({}, self.OLD, self.NEW) == {}

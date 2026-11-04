@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import logging
 import platform
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -41,6 +43,31 @@ PAGE_SIZES_MM: dict[str, tuple[float, float]] = {
     "Letter": (215.9, 279.4),
     "Legal": (215.9, 355.6),
 }
+
+
+class ScannerGoneError(RuntimeError):
+    """El escáner USB elegido ya no está conectado en esa dirección.
+
+    SANE nombra los escáneres USB por su dirección en el bus
+    (``canon_dr:libusb:003:010``) y esa dirección cambia al desconectar y
+    reconectar el escáner. Se lanza cuando la dirección guardada ya no
+    responde y no se ha podido localizar el escáner en otra.
+
+    Attributes:
+        source: Nombre guardado que ha dejado de valer.
+        sources: Dispositivos encontrados al volver a buscar, o ``None``
+            si todavía no se ha buscado.
+    """
+
+    def __init__(
+        self, source: str, sources: list[str] | None = None, detail: str = ""
+    ) -> None:
+        super().__init__(
+            f"El escáner {source} ya no está conectado en esa dirección; elígelo en ⚙"
+        )
+        self.source = source
+        self.sources = sources
+        self.detail = detail
 
 
 class ScanIncompleteError(RuntimeError):
@@ -145,10 +172,72 @@ class BaseScanner(ABC):
         """Indica si el backend tiene diálogo nativo de configuración."""
         return False
 
+    def source_missing(self, source: str) -> bool:
+        """True si se sabe, sin abrirlo, que ``source`` ya no está conectado.
+
+        Es una comprobación inmediata; solo SANE la implementa.
+        """
+        return False
+
+    def resolve_source(self, source: str, force: bool = False) -> str:
+        """Devuelve el nombre con el que hay que abrir ``source`` ahora.
+
+        Solo SANE relocaliza (los escáneres USB cambian de nombre al
+        reconectarlos); el resto de backends devuelve ``source`` tal cual.
+        """
+        return source
+
+
+def migrate_device_options(
+    options_by_device: dict[str, dict[str, Any]], old: str, new: str
+) -> dict[str, dict[str, Any]]:
+    """Pasa las opciones guardadas de ``old`` a ``new`` (el escáner reconectado).
+
+    Las de ``old`` son las que el operador estaba usando, así que mandan
+    sobre unas antiguas que pudiera haber con el nombre nuevo.
+
+    Returns:
+        Un diccionario nuevo; el original no se toca.
+    """
+    migrated = dict(options_by_device)
+    if old != new and old in migrated:
+        migrated[new] = migrated.pop(old)
+    return migrated
+
 
 # ------------------------------------------------------------------
 # Backend SANE (Linux)
 # ------------------------------------------------------------------
+
+#: Nodos de los dispositivos USB en Linux (``/dev/bus/usb/BBB/DDD``).
+USB_DEVICE_ROOT = Path("/dev/bus/usb")
+
+# «canon_dr:libusb:003:010» → prefijo «canon_dr:libusb:», bus 003, dispositivo 010
+_USB_NAME_RE = re.compile(r"^(?P<prefix>[\w.-]+:libusb:)(?P<bus>\d{3}):(?P<dev>\d{3})$")
+
+
+def usb_name_prefix(source: str) -> str | None:
+    """Prefijo de backend (``canon_dr:libusb:``) de un nombre SANE USB, o None."""
+    m = _USB_NAME_RE.match(source)
+    return m.group("prefix") if m else None
+
+
+def usb_address_missing(source: str) -> bool:
+    """True si ``source`` es ``<backend>:libusb:BBB:DDD`` y ese nodo USB no existe.
+
+    Sin ``/dev/bus/usb`` (otro sistema, contenedor…) no se puede saber y
+    se devuelve False: decidirá la apertura del dispositivo.
+    """
+    m = _USB_NAME_RE.match(source)
+    if m is None or not USB_DEVICE_ROOT.is_dir():
+        return False
+    return not (USB_DEVICE_ROOT / m.group("bus") / m.group("dev")).exists()
+
+
+def _is_stale_usb_error(source: str, detail: str) -> bool:
+    """¿El fallo es el de abrir una dirección USB que ya no es la del escáner?"""
+    return usb_name_prefix(source) is not None and "Invalid argument" in detail
+
 
 # Mapeo de constantes de tipo SANE a strings legibles
 _SANE_TYPE_MAP: dict[int, str] = {}
@@ -248,11 +337,64 @@ class SaneScanner(BaseScanner):
         devices = sane.get_devices()
         return [dev[0] for dev in devices]
 
+    def source_missing(self, source: str) -> bool:
+        """True si ``source`` es un USB de SANE cuyo nodo ya no existe."""
+        return usb_address_missing(source)
+
+    def resolve_source(self, source: str, force: bool = False) -> str:
+        """Vuelve a localizar un escáner USB que ha cambiado de dirección.
+
+        Al reconectar un escáner USB, SANE le da otro número de dispositivo
+        (``canon_dr:libusb:003:010`` pasa a ``…:003:011``). Si la dirección
+        guardada ya no existe (o ``force``, porque abrirla ha fallado), se
+        vuelve a listar los dispositivos y, si hay **exactamente uno** con el
+        mismo backend, se usa ese. Listar puede tardar unos segundos: no
+        llamar desde el hilo de la UI.
+
+        Args:
+            source: Nombre guardado.
+            force: Buscar aunque el nodo USB exista.
+
+        Returns:
+            ``source`` si sigue valiendo, o el nombre nuevo.
+
+        Raises:
+            ScannerGoneError: No hay ningún escáner de ese backend, o hay
+                varios y no se puede saber cuál era.
+        """
+        prefix = usb_name_prefix(source)
+        if prefix is None or not (force or usb_address_missing(source)):
+            return source
+        # SANE de nuevo desde cero: algunos backends solo vuelven a recorrer
+        # el bus USB en sane_init.
+        self.close()
+        sources = self.list_sources()
+        if source in sources:
+            return source
+        candidates = [s for s in sources if s.startswith(prefix)]
+        if len(candidates) != 1:
+            log.warning(
+                "El escáner %s ya no está en esa dirección y hay %d candidatos: %s",
+                source,
+                len(candidates),
+                candidates,
+            )
+            raise ScannerGoneError(source, sources)
+        new = candidates[0]
+        log.info("Escáner reconectado: %s ahora es %s", source, new)
+        # Lo cacheado con el nombre viejo puede ser un fallo de abrirlo.
+        self._cached_options.pop(source, None)
+        self._cli_limits.pop(source, None)
+        return new
+
     def get_device_options(self, source: str) -> list[DeviceOption]:
         """Consulta las opciones reales del dispositivo SANE.
 
         Cachea el resultado para evitar reabrir el dispositivo USB
         antes de la adquisición.
+
+        Raises:
+            ScannerGoneError: La dirección USB ya no es la del escáner.
         """
         if source in self._cached_options:
             return self._cached_options[source]
@@ -261,7 +403,12 @@ class SaneScanner(BaseScanner):
         _init_sane_maps()
         import sane
 
-        dev = sane.open(source)
+        try:
+            dev = sane.open(source)
+        except Exception as e:
+            if _is_stale_usb_error(source, str(e)):
+                raise ScannerGoneError(source, detail=str(e)) from e
+            raise
         try:
             options: list[DeviceOption] = []
             for py_name, opt in dev.opt.items():
@@ -321,9 +468,10 @@ class SaneScanner(BaseScanner):
             RuntimeError: El escáner falla sin entregar ninguna página.
             ScanIncompleteError: Falla a mitad de lote (atasco, doble
                 alimentación...); lleva las páginas ya capturadas.
+            ScannerGoneError: No se puede abrir porque la dirección USB ya
+                no es la del escáner (se ha desconectado y reconectado).
         """
         import tempfile
-        from pathlib import Path
 
         # La fuente elegida en el diálogo manda sobre Flatbed/ADF del panel ⚙
         sane_source = config.extra_options.get("source", "")
@@ -383,6 +531,8 @@ class SaneScanner(BaseScanner):
                     f"El escáner se detuvo tras {len(images)} página(s): {detail}",
                     images,
                 )
+            if "open of device" in detail and _is_stale_usb_error(source, detail):
+                raise ScannerGoneError(source, detail=detail)
             raise RuntimeError(f"Error de escaneo: {detail}")
         if not images:
             raise RuntimeError("scanimage no generó imagen de salida")
@@ -468,7 +618,6 @@ class SaneScanner(BaseScanner):
         """
         if source in self._cli_limits:
             return self._cli_limits[source]
-        import re
         import subprocess
 
         limits: dict[str, float | None] = {}

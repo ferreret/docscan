@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton
 from sqlalchemy import create_engine, event
@@ -205,6 +205,47 @@ class TestScanWorker:
         worker.wait()
         assert finished_args[0] == 3
         mock_scanner.acquire.assert_called_once()
+
+    def test_escaner_reconectado_se_relocaliza_y_repite(self, qtbot, color_image):
+        """«Invalid argument» al abrir: se busca otra vez y se escanea con el nuevo."""
+        from app.services.scanner_service import ScannerGoneError
+
+        old, new = "canon_dr:libusb:003:010", "canon_dr:libusb:003:011"
+        scanner = MagicMock()
+        scanner.acquire.side_effect = [ScannerGoneError(old), [color_image]]
+        scanner.resolve_source.return_value = new
+        worker = ScanWorker(
+            mode="scanner", source=old, scanner=scanner, scan_config=MagicMock()
+        )
+        relocated, errors = [], []
+        worker.source_relocated.connect(lambda a, b: relocated.append((a, b)))
+        worker.error_occurred.connect(errors.append)
+        with qtbot.waitSignal(worker.finished_scanning, timeout=3000):
+            worker.start()
+        worker.wait()
+        assert relocated == [(old, new)]
+        scanner.resolve_source.assert_called_once_with(old, force=True)
+        assert [c.args[0] for c in scanner.acquire.call_args_list] == [old, new]
+        assert errors == []
+
+    def test_escaner_que_no_aparece_no_es_error_generico(self, qtbot):
+        from app.services.scanner_service import ScannerGoneError
+
+        old = "canon_dr:libusb:003:010"
+        scanner = MagicMock()
+        scanner.acquire.side_effect = ScannerGoneError(old)
+        scanner.resolve_source.side_effect = ScannerGoneError(old, ["escl:hp"])
+        worker = ScanWorker(
+            mode="scanner", source=old, scanner=scanner, scan_config=MagicMock()
+        )
+        gone, errors = [], []
+        worker.scanner_gone.connect(lambda a, b: gone.append((a, b)))
+        worker.error_occurred.connect(errors.append)
+        with qtbot.waitSignal(worker.scanner_gone, timeout=3000):
+            worker.start()
+        worker.wait()
+        assert gone == [(old, ["escl:hp"])]
+        assert errors == []
 
     def test_error_emitted_when_no_import_service(self, qtbot):
         """ScanWorker emite error_occurred si import_service es None."""
@@ -2410,6 +2451,7 @@ class TestBarraDeEstado:
         workbench._scan_popup.set_scanners(["escl:hp", "canon_dr:x"])
         workbench._chk_scanner_config.setChecked(False)
         scanner = MagicMock(supports_native_ui=False)
+        scanner.source_missing.return_value = False
         with (
             patch.object(workbench, "_get_scanner", return_value=scanner),
             patch("app.ui.workbench.workbench_window.ScanWorker") as worker,
@@ -2421,6 +2463,128 @@ class TestBarraDeEstado:
             workbench._combo_source.setCurrentText("escl:hp")
             workbench._start_scanner()
             assert worker.call_args.kwargs["scan_config"].extra_options == hp
+
+    OLD = "canon_dr:libusb:003:010"
+    NEW = "canon_dr:libusb:003:011"
+
+    def _reconnected_scanner(self, workbench, **resolve):
+        workbench._scan_popup.set_scanners(["escl:hp", self.OLD])
+        workbench._combo_source.setCurrentText(self.OLD)
+        scanner = MagicMock(supports_native_ui=False)
+        scanner.source_missing.side_effect = lambda name: name == self.OLD
+        if "side_effect" in resolve:
+            scanner.resolve_source.side_effect = resolve["side_effect"]
+        else:
+            scanner.resolve_source.return_value = resolve.get("new", self.NEW)
+        return scanner
+
+    def test_escaner_reconectado_se_localiza_solo(self, qtbot, workbench):
+        """Tras desconectar y reconectar, se escanea con la dirección nueva."""
+        workbench._scan_options_by_device = {self.OLD: {"page_size": "Legal"}}
+        workbench._chk_scanner_config.setChecked(False)
+        scanner = self._reconnected_scanner(workbench)
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch("app.ui.workbench.workbench_window.ScanWorker") as worker,
+            patch.object(workbench, "_start_workers"),
+        ):
+            workbench._start_scanner()
+            qtbot.waitUntil(lambda: worker.called, timeout=3000)
+        assert worker.call_args.kwargs["source"] == self.NEW
+        assert worker.call_args.kwargs["scan_config"].extra_options == {
+            "page_size": "Legal"
+        }
+        assert workbench._combo_source.currentText() == self.NEW
+        assert [
+            workbench._combo_source.itemText(i)
+            for i in range(workbench._combo_source.count())
+        ] == ["escl:hp", self.NEW]
+        assert workbench._scan_options_by_device == {self.NEW: {"page_size": "Legal"}}
+        # La preferencia queda guardada con el nombre nuevo.
+        prefix = f"source/{workbench._app_id}"
+        settings = QSettings("DocScanStudio", "Workbench")
+        assert settings.value(f"{prefix}/scanner_name") == self.NEW
+        assert json.loads(settings.value(f"{prefix}/scan_options_by_device")) == {
+            self.NEW: {"page_size": "Legal"}
+        }
+
+    def test_escaner_no_localizado_avisa_claro(self, qtbot, workbench):
+        from app.services.scanner_service import ScannerGoneError
+
+        scanner = self._reconnected_scanner(
+            workbench, side_effect=ScannerGoneError(self.OLD, ["escl:hp"])
+        )
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch("app.ui.workbench.workbench_window.ScanWorker") as worker,
+            patch("app.ui.workbench.workbench_window.QMessageBox.warning") as aviso,
+            patch.object(workbench._scan_popup, "show_below") as abrir,
+        ):
+            workbench._start_scanner()
+            qtbot.waitUntil(lambda: aviso.called, timeout=3000)
+        worker.assert_not_called()
+        texto = aviso.call_args.args[2]
+        assert self.OLD in texto and "ya no está conectado" in texto
+        assert "Invalid argument" not in texto
+        abrir.assert_called_once()
+        assert workbench._btn_scan.isEnabled()
+        # ⚙ ya muestra lo que hay conectado ahora.
+        assert workbench._combo_source.count() == 1
+
+    def test_ningun_escaner_conectado_no_borra_el_guardado(self, qtbot, workbench):
+        from app.services.scanner_service import ScannerGoneError
+
+        scanner = self._reconnected_scanner(
+            workbench, side_effect=ScannerGoneError(self.OLD, [])
+        )
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch("app.ui.workbench.workbench_window.QMessageBox.warning") as aviso,
+            patch.object(workbench._scan_popup, "show_below"),
+        ):
+            workbench._start_scanner()
+            qtbot.waitUntil(lambda: aviso.called, timeout=3000)
+        assert workbench._combo_source.currentText() == self.OLD
+
+    def test_opciones_con_invalid_argument_relocalizan(self, qtbot, workbench):
+        """El nodo existe pero abrirlo falla: se busca forzando."""
+        from app.services.scanner_service import ScannerGoneError
+
+        workbench._chk_scanner_config.setChecked(True)
+        scanner = self._reconnected_scanner(workbench)
+        scanner.source_missing.side_effect = None
+        scanner.source_missing.return_value = False
+        scanner.get_device_options.side_effect = lambda name: (
+            (_ for _ in ()).throw(ScannerGoneError(name)) if name == self.OLD else []
+        )
+        with (
+            patch.object(workbench, "_get_scanner", return_value=scanner),
+            patch("app.ui.workbench.workbench_window.ScanWorker") as worker,
+            patch.object(workbench, "_start_workers"),
+        ):
+            workbench._start_scanner()
+            qtbot.waitUntil(lambda: worker.called, timeout=3000)
+        scanner.resolve_source.assert_called_once_with(self.OLD, force=True)
+        assert worker.call_args.kwargs["source"] == self.NEW
+
+    def test_relocalizado_durante_el_escaneo(self, workbench):
+        """El ScanWorker avisa del nombre nuevo: se recuerda igual."""
+        workbench._scan_popup.set_scanners([self.OLD])
+        workbench._scan_options_by_device = {self.OLD: {"mode": "Gray"}}
+        workbench._apply_relocated_source(self.OLD, self.NEW)
+        assert workbench._combo_source.currentText() == self.NEW
+        assert workbench._scan_options_by_device == {self.NEW: {"mode": "Gray"}}
+
+    def test_escaner_perdido_durante_el_escaneo(self, workbench):
+        with (
+            patch("app.ui.workbench.workbench_window.QMessageBox.warning") as aviso,
+            patch("app.ui.workbench.workbench_window.QMessageBox.critical") as error,
+            patch.object(workbench._scan_popup, "show_below"),
+        ):
+            workbench._on_scanner_gone(self.OLD, None)
+        error.assert_not_called()
+        assert self.OLD in aviso.call_args.args[2]
+        assert workbench._acquisition_incomplete
 
     def test_opciones_por_dispositivo_se_recuerdan(self, workbench):
         workbench._scan_options_by_device = {"canon_dr:x": {"page_size": "Legal"}}
