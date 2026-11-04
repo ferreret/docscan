@@ -140,6 +140,19 @@ class TestValidacionPrevia:
 # ------------------------------------------------------------------
 
 
+class TestValidacionConPlazo:
+    def test_validacion_colgada_bloquea_con_motivo(self) -> None:
+        engine = ScriptEngine(script_timeout=0.1)
+        engine.compile_script(
+            "on_transfer_validate",
+            "import time\ndef on_transfer_validate():\n    time.sleep(2)\n",
+        )
+        reason = validate_before_transfer(
+            script_engine=engine, contexts=_ctx(), fields_def=[], batch_fields={}
+        )
+        assert reason is not None and "no ha respondido" in reason
+
+
 class TestValidacionQueNoCompila:
     def test_validacion_que_no_compila_bloquea(self) -> None:
         """Antes se daba por «no definida» y la transferencia seguía."""

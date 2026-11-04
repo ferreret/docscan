@@ -16,6 +16,7 @@ import inspect
 import logging
 import re
 import json
+import threading
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
@@ -158,6 +159,11 @@ class ScriptEngine:
             step: Objeto con atributos id, script y label.
         """
         self.compile_script(step.id, step.script, step.label)
+
+    @property
+    def script_timeout(self) -> int:
+        """Segundos máximos de un script (pasos y eventos con plazo)."""
+        return self._script_timeout
 
     def is_compiled(self, script_id: str) -> bool:
         """¿El script está compilado en cache?"""
@@ -434,6 +440,7 @@ class ScriptEngine:
         entry_point: str | None = None,
         *,
         rejection_types: tuple[type[BaseException], ...] = (),
+        timeout: float | None = None,
         **kwargs: Any,
     ) -> EventOutcome:
         """Ejecuta un evento distinguiendo «no definido», «falló» y «devolvió».
@@ -451,6 +458,9 @@ class ScriptEngine:
                 rechazar (p. ej. ``ValueError`` en la validación). Se
                 registran como aviso, sin traza: son una regla de negocio, no
                 un fallo del programa.
+            timeout: Segundos máximos; si el script no ha terminado, el
+                evento falla con ese motivo (el hilo queda abandonado, como
+                en ``_execute_with_timeout``). ``None``: sin límite.
             **kwargs: Argumentos para la función (app, batch, pages…).
 
         Returns:
@@ -467,8 +477,17 @@ class ScriptEngine:
             return EventOutcome(ran=True, error=f"no compila: {compile_error}")
         if not self.is_compiled(script_id):
             return EventOutcome(ran=False)
+
+        def call() -> Any:
+            return self.run_event_raw(script_id, entry_point or script_id, **kwargs)
+
         try:
-            value = self.run_event_raw(script_id, entry_point or script_id, **kwargs)
+            value = (
+                call() if timeout is None else self._call_with_deadline(call, timeout)
+            )
+        except ScriptTimeoutError as e:
+            log.error("Evento '%s': %s", script_id, e)
+            return EventOutcome(ran=True, error=str(e))
         except rejection_types as e:
             log.warning("Evento '%s' rechazado: %s", script_id, e)
             return EventOutcome(ran=True, error=str(e), rejected=True)
@@ -513,6 +532,34 @@ class ScriptEngine:
             raise ScriptTimeoutError(
                 f"Script excedió el timeout de {self._script_timeout}s"
             )
+
+    @staticmethod
+    def _call_with_deadline(func: Any, timeout: float) -> Any:
+        """Llama a ``func`` en un hilo propio y espera como mucho ``timeout``.
+
+        Hilo dedicado y no el pool de los pasos: un evento no debe esperar
+        detrás de un paso Script del pipeline que esté corriendo a la vez.
+
+        Raises:
+            ScriptTimeoutError: Si no termina a tiempo.
+            Exception: La que lance ``func``.
+        """
+        box: dict[str, Any] = {}
+
+        def target() -> None:
+            try:
+                box["value"] = func()
+            except BaseException as e:  # noqa: BLE001 — se relanza en el llamador
+                box["error"] = e
+
+        thread = threading.Thread(target=target, name="script-event", daemon=True)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            raise ScriptTimeoutError(f"el script no ha respondido en {timeout:g} s")
+        if "error" in box:
+            raise box["error"]
+        return box.get("value")
 
     def _renew_executor(self) -> None:
         """Sustituye el pool de ejecución por uno limpio."""

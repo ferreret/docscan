@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton
+from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -1779,7 +1779,7 @@ class TestWorkbenchWindow:
         return window
 
     def test_validacion_ve_los_campos_actuales_del_panel(
-        self, workbench, session_factory, tmp_path
+        self, workbench, session_factory, tmp_path, qtbot
     ):
         """on_transfer_validate recibe lo que hay en el panel, no lo del intento anterior.
 
@@ -1806,8 +1806,55 @@ class TestWorkbenchWindow:
             patch("app.ui.workbench.workbench_window.QMessageBox.question") as pregunta,
         ):
             workbench._on_transfer()
+            with qtbot.waitSignal(workbench._validation_worker.validated, timeout=5000):
+                pass
+            qtbot.waitUntil(lambda: aviso.called, timeout=2000)
         pregunta.assert_not_called()
         assert "rechazado" in aviso.call_args.args[2]
+
+    def test_validacion_lenta_no_bloquea_la_ui(self, workbench, session_factory, qtbot):
+        """on_transfer_validate corre en un hilo: _on_transfer vuelve enseguida."""
+        import threading
+        import time
+
+        from app.services.batch_service import BatchService
+        from config.settings import APP_IMAGES_DIR
+
+        with session_factory() as s:
+            BatchService(s, APP_IMAGES_DIR).add_pages(
+                workbench._batch_id, [np.full((20, 20, 3), 255, np.uint8)]
+            )
+            s.commit()
+        workbench._reload_pages()
+        soltar = threading.Event()
+        workbench._script_engine.compile_script(
+            "on_transfer_validate",
+            "def on_transfer_validate(app, batch):\n"
+            "    soltar.wait(5)\n"
+            "    return True\n",
+        )
+        workbench._script_engine._build_namespace = (
+            lambda _orig=workbench._script_engine._build_namespace, **kw: {
+                **_orig(**kw),
+                "soltar": soltar,
+            }
+        )
+        with patch(
+            "app.ui.workbench.workbench_window.QMessageBox.question",
+            return_value=QMessageBox.StandardButton.No,
+        ) as pregunta:
+            inicio = time.monotonic()
+            workbench._on_transfer()
+            assert time.monotonic() - inicio < 1.0
+            assert not workbench._btn_transfer.isEnabled()
+            # Un segundo clic mientras valida no lanza otra validación.
+            primero = workbench._validation_worker
+            workbench._on_transfer()
+            assert workbench._validation_worker is primero
+            with qtbot.waitSignal(primero.validated, timeout=5000):
+                soltar.set()
+            qtbot.waitUntil(lambda: pregunta.called, timeout=2000)
+        assert workbench._btn_transfer.isEnabled()
 
     def test_barra_del_visor_queda_debajo_de_la_imagen(self, workbench, qtbot):
         """La barra no puede tapar la página: va bajo el visor, no encima."""

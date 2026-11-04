@@ -427,3 +427,25 @@ class TestCreateScriptEngine:
             assert "1s" in page.flags.script_errors[0]["error"]
         finally:
             engine.shutdown()
+
+
+class TestEventoConPlazo:
+    """run_event_checked(timeout=...) no espera indefinidamente."""
+
+    def test_evento_que_no_responde_falla_con_el_motivo(self, engine):
+        engine.compile_script(
+            "on_transfer_validate",
+            "import time\ndef on_transfer_validate():\n    time.sleep(2)\n",
+        )
+        outcome = engine.run_event_checked("on_transfer_validate", timeout=0.1)
+        assert outcome.ran and outcome.failed
+        assert "no ha respondido" in outcome.error
+
+    def test_con_plazo_devuelve_el_valor_y_las_excepciones(self, engine):
+        engine.compile_script("ok", "def ok():\n    return 42\n")
+        engine.compile_script("rechazo", "def rechazo():\n    raise ValueError('no')\n")
+        assert engine.run_event_checked("ok", timeout=5).value == 42
+        outcome = engine.run_event_checked(
+            "rechazo", timeout=5, rejection_types=(ValueError,)
+        )
+        assert outcome.rejected and outcome.error == "no"

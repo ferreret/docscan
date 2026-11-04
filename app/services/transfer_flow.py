@@ -312,10 +312,15 @@ def validate_before_transfer(
     # Un ValueError es el rechazo deliberado del script («Hi ha pàgines sense
     # codis de barra…»): el operador ve solo su mensaje. Cualquier otra
     # excepción es un fallo del script y se presenta como tal.
+    # Con plazo: una validación colgada (p. ej. una consulta HTTP sin
+    # respuesta) bloquearía la transferencia indefinidamente, también en el
+    # worker desatendido.
+    timeout = getattr(script_engine, "script_timeout", None)
     outcome: EventOutcome = script_engine.run_event_checked(
         VALIDATE_EVENT,
         validate_entry_point,
         rejection_types=(ValueError,),
+        timeout=timeout if isinstance(timeout, (int, float)) else None,
         **event_kwargs,
     )
     if outcome.rejected:

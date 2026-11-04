@@ -85,6 +85,7 @@ from app.services.scanner_service import ScanConfig
 from app.ui.workbench.scanner_config_dialog import ScannerConfigDialog
 from app.workers.scan_worker import ScanWorker
 from app.workers.transfer_worker import TransferWorker
+from app.workers.validation_worker import ValidationWorker
 from config.settings import APP_DATA_DIR, APP_IMAGES_DIR  # noqa: F401  # APP_DATA_DIR parcheado por tests
 
 log = logging.getLogger(__name__)
@@ -260,6 +261,10 @@ class WorkbenchWindow(QMainWindow):
         # o reordena una página: el resultado se asocia siempre por id.
         self._enqueued_page_ids: dict[int, int] = {}
         self._transfer_worker: TransferWorker | None = None
+        self._validation_worker: ValidationWorker | None = None
+        # Lo preparado para transferir mientras corre la validación:
+        # (config, pages_data, batch_fields).
+        self._pending_transfer: tuple[Any, list[dict], dict] | None = None
 
         # Panel de verificación (se configura después de UI)
         self._verification_panel = None
@@ -2028,6 +2033,8 @@ class WorkbenchWindow(QMainWindow):
 
         if self._transfer_worker and self._transfer_worker.isRunning():
             return
+        if self._validation_worker and self._validation_worker.isRunning():
+            return
 
         # 1a. Validación del panel de verificación (por página + global)
         if self._verification_panel:
@@ -2090,17 +2097,40 @@ class WorkbenchWindow(QMainWindow):
                 db_page = page_repo.get_by_id(page.id)
                 if db_page is not None:
                     pages_data.append(transfer_page_dict(db_page))
-        reason = validate_before_transfer(
-            script_engine=self._script_engine,
-            contexts={
-                "app": self._build_app_context(),
-                "batch": self._build_batch_context(),
-            },
-            fields_def=fields_def if isinstance(fields_def, list) else [],
-            batch_fields=batch_fields,
-            pages=pages_data,
-            config=config,
-        )
+        # La validación corre en un hilo: on_transfer_validate puede consultar
+        # servicios externos y, en el hilo de la UI, congelaba el Workbench
+        # (con plazo: el timeout de scripts, ver validate_before_transfer).
+        contexts = {
+            "app": self._build_app_context(),
+            "batch": self._build_batch_context(),
+        }
+        script_engine = self._script_engine
+        defs = fields_def if isinstance(fields_def, list) else []
+
+        def validate() -> str | None:
+            return validate_before_transfer(
+                script_engine=script_engine,
+                contexts=contexts,
+                fields_def=defs,
+                batch_fields=batch_fields,
+                pages=pages_data,
+                config=config,
+            )
+
+        self._pending_transfer = (config, pages_data, batch_fields)
+        self._validation_worker = ValidationWorker(validate)
+        self._validation_worker.validated.connect(self._on_transfer_validated)
+        self._btn_transfer.setEnabled(False)
+        self._status_bar.showMessage(self.tr("Validando el lote…"))
+        self._validation_worker.start()
+
+    def _on_transfer_validated(self, reason: str | None) -> None:
+        """Resultado de la validación previa: confirmar y transferir, o avisar."""
+        self._btn_transfer.setEnabled(True)
+        self._status_bar.clearMessage()
+        pending, self._pending_transfer = self._pending_transfer, None
+        if self._script_engine is None or pending is None:
+            return  # Ventana cerrada mientras se validaba
         if reason:
             log.warning("Transferencia bloqueada: %s", reason)
             QMessageBox.warning(
@@ -2109,6 +2139,7 @@ class WorkbenchWindow(QMainWindow):
                 reason,
             )
             return
+        config, pages_data, batch_fields = pending
 
         # 2. Confirmación
         reply = QMessageBox.question(
@@ -3029,6 +3060,7 @@ class WorkbenchWindow(QMainWindow):
             self._scan_worker,
             self._recognition_worker,
             self._transfer_worker,
+            self._validation_worker,
         ):
             if worker and worker.isRunning():
                 worker.requestInterruption()
@@ -3053,6 +3085,8 @@ class WorkbenchWindow(QMainWindow):
         self._scan_worker = None
         self._recognition_worker = None
         self._transfer_worker = None
+        self._validation_worker = None
+        self._pending_transfer = None
         if self._script_engine is not None:
             self._script_engine.shutdown()
         self._script_engine = None
