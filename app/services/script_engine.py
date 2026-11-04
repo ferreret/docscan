@@ -16,6 +16,7 @@ import inspect
 import logging
 import re
 import json
+import threading
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
@@ -107,6 +108,10 @@ class ScriptEngine:
         # Último hash conocido de cada script_id (para los eventos de
         # ciclo de vida, que no llevan el fuente en la llamada).
         self._hash_by_id: dict[str, str] = {}
+        # Último error de compilación de cada script_id. Un evento que no
+        # compila NO es un evento «no definido»: quien lo ejecute debe
+        # enterarse de que falla (regla «nada falla en silencio»).
+        self._compile_error_by_id: dict[str, str] = {}
         self._http_client = http_client
         self._script_timeout = script_timeout
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -137,11 +142,15 @@ class ScriptEngine:
             try:
                 code = compile(source, f"<script:{display_name}>", "exec")
             except SyntaxError as e:
-                raise ScriptCompilationError(
-                    f"Error de sintaxis en '{display_name}': {e}"
-                ) from e
+                message = f"Error de sintaxis en '{display_name}': {e}"
+                # La versión anterior (si la había) ya no es la vigente: no
+                # debe seguir ejecutándose como si nada.
+                self._hash_by_id.pop(script_id, None)
+                self._compile_error_by_id[script_id] = message
+                raise ScriptCompilationError(message) from e
             self._code_by_hash[source_hash] = code
         self._hash_by_id[script_id] = source_hash
+        self._compile_error_by_id.pop(script_id, None)
 
     def compile_step(self, step: Any) -> None:
         """Compila un ScriptStep (conveniencia).
@@ -151,14 +160,32 @@ class ScriptEngine:
         """
         self.compile_script(step.id, step.script, step.label)
 
+    @property
+    def script_timeout(self) -> int:
+        """Segundos máximos de un script (pasos y eventos con plazo)."""
+        return self._script_timeout
+
     def is_compiled(self, script_id: str) -> bool:
         """¿El script está compilado en cache?"""
         return script_id in self._hash_by_id
+
+    def compile_error_for_id(self, script_id: str) -> str:
+        """Error de compilación del script ``script_id``, o ``""``."""
+        return self._compile_error_by_id.get(script_id, "")
+
+    def is_defined(self, script_id: str) -> bool:
+        """¿Hay un script con ese id, compile o no?
+
+        Distingue «la App no define este evento» de «lo define pero no
+        compila»: en el segundo caso el evento debe fallar con el motivo.
+        """
+        return script_id in self._hash_by_id or script_id in self._compile_error_by_id
 
     def clear_cache(self) -> None:
         """Limpia la cache de scripts compilados."""
         self._code_by_hash.clear()
         self._hash_by_id.clear()
+        self._compile_error_by_id.clear()
 
     @staticmethod
     def _source_hash(source: str) -> str:
@@ -314,6 +341,13 @@ class ScriptEngine:
         """
         code = self._code_for_id(script_id)
         if not code:
+            compile_error = self.compile_error_for_id(script_id)
+            if compile_error:
+                log.error(
+                    "El evento '%s' no se ejecuta porque no compila: %s",
+                    script_id,
+                    compile_error,
+                )
             return None
 
         namespace = self._build_namespace(**kwargs)
@@ -406,6 +440,7 @@ class ScriptEngine:
         entry_point: str | None = None,
         *,
         rejection_types: tuple[type[BaseException], ...] = (),
+        timeout: float | None = None,
         **kwargs: Any,
     ) -> EventOutcome:
         """Ejecuta un evento distinguiendo «no definido», «falló» y «devolvió».
@@ -423,16 +458,36 @@ class ScriptEngine:
                 rechazar (p. ej. ``ValueError`` en la validación). Se
                 registran como aviso, sin traza: son una regla de negocio, no
                 un fallo del programa.
+            timeout: Segundos máximos; si el script no ha terminado, el
+                evento falla con ese motivo (el hilo queda abandonado, como
+                en ``_execute_with_timeout``). ``None``: sin límite.
             **kwargs: Argumentos para la función (app, batch, pages…).
 
         Returns:
-            EventOutcome con ``ran=False`` si el evento no está compilado, o
-            con ``error`` relleno si no define la función o lanza.
+            EventOutcome con ``ran=False`` si la App no define el evento, o
+            con ``error`` relleno si no compila, no define la función o lanza.
         """
+        compile_error = self.compile_error_for_id(script_id)
+        if compile_error and not self.is_compiled(script_id):
+            log.error(
+                "El evento '%s' no se ejecuta porque no compila: %s",
+                script_id,
+                compile_error,
+            )
+            return EventOutcome(ran=True, error=f"no compila: {compile_error}")
         if not self.is_compiled(script_id):
             return EventOutcome(ran=False)
+
+        def call() -> Any:
+            return self.run_event_raw(script_id, entry_point or script_id, **kwargs)
+
         try:
-            value = self.run_event_raw(script_id, entry_point or script_id, **kwargs)
+            value = (
+                call() if timeout is None else self._call_with_deadline(call, timeout)
+            )
+        except ScriptTimeoutError as e:
+            log.error("Evento '%s': %s", script_id, e)
+            return EventOutcome(ran=True, error=str(e))
         except rejection_types as e:
             log.warning("Evento '%s' rechazado: %s", script_id, e)
             return EventOutcome(ran=True, error=str(e), rejected=True)
@@ -477,6 +532,34 @@ class ScriptEngine:
             raise ScriptTimeoutError(
                 f"Script excedió el timeout de {self._script_timeout}s"
             )
+
+    @staticmethod
+    def _call_with_deadline(func: Any, timeout: float) -> Any:
+        """Llama a ``func`` en un hilo propio y espera como mucho ``timeout``.
+
+        Hilo dedicado y no el pool de los pasos: un evento no debe esperar
+        detrás de un paso Script del pipeline que esté corriendo a la vez.
+
+        Raises:
+            ScriptTimeoutError: Si no termina a tiempo.
+            Exception: La que lance ``func``.
+        """
+        box: dict[str, Any] = {}
+
+        def target() -> None:
+            try:
+                box["value"] = func()
+            except BaseException as e:  # noqa: BLE001 — se relanza en el llamador
+                box["error"] = e
+
+        thread = threading.Thread(target=target, name="script-event", daemon=True)
+        thread.start()
+        thread.join(timeout)
+        if thread.is_alive():
+            raise ScriptTimeoutError(f"el script no ha respondido en {timeout:g} s")
+        if "error" in box:
+            raise box["error"]
+        return box.get("value")
 
     def _renew_executor(self) -> None:
         """Sustituye el pool de ejecución por uno limpio."""

@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QApplication, QLabel, QPushButton
+from PySide6.QtWidgets import QApplication, QLabel, QMessageBox, QPushButton
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
@@ -1779,7 +1779,7 @@ class TestWorkbenchWindow:
         return window
 
     def test_validacion_ve_los_campos_actuales_del_panel(
-        self, workbench, session_factory, tmp_path
+        self, workbench, session_factory, tmp_path, qtbot
     ):
         """on_transfer_validate recibe lo que hay en el panel, no lo del intento anterior.
 
@@ -1806,8 +1806,55 @@ class TestWorkbenchWindow:
             patch("app.ui.workbench.workbench_window.QMessageBox.question") as pregunta,
         ):
             workbench._on_transfer()
+            with qtbot.waitSignal(workbench._validation_worker.validated, timeout=5000):
+                pass
+            qtbot.waitUntil(lambda: aviso.called, timeout=2000)
         pregunta.assert_not_called()
         assert "rechazado" in aviso.call_args.args[2]
+
+    def test_validacion_lenta_no_bloquea_la_ui(self, workbench, session_factory, qtbot):
+        """on_transfer_validate corre en un hilo: _on_transfer vuelve enseguida."""
+        import threading
+        import time
+
+        from app.services.batch_service import BatchService
+        from config.settings import APP_IMAGES_DIR
+
+        with session_factory() as s:
+            BatchService(s, APP_IMAGES_DIR).add_pages(
+                workbench._batch_id, [np.full((20, 20, 3), 255, np.uint8)]
+            )
+            s.commit()
+        workbench._reload_pages()
+        soltar = threading.Event()
+        workbench._script_engine.compile_script(
+            "on_transfer_validate",
+            "def on_transfer_validate(app, batch):\n"
+            "    soltar.wait(5)\n"
+            "    return True\n",
+        )
+        workbench._script_engine._build_namespace = (
+            lambda _orig=workbench._script_engine._build_namespace, **kw: {
+                **_orig(**kw),
+                "soltar": soltar,
+            }
+        )
+        with patch(
+            "app.ui.workbench.workbench_window.QMessageBox.question",
+            return_value=QMessageBox.StandardButton.No,
+        ) as pregunta:
+            inicio = time.monotonic()
+            workbench._on_transfer()
+            assert time.monotonic() - inicio < 1.0
+            assert not workbench._btn_transfer.isEnabled()
+            # Un segundo clic mientras valida no lanza otra validación.
+            primero = workbench._validation_worker
+            workbench._on_transfer()
+            assert workbench._validation_worker is primero
+            with qtbot.waitSignal(primero.validated, timeout=5000):
+                soltar.set()
+            qtbot.waitUntil(lambda: pregunta.called, timeout=2000)
+        assert workbench._btn_transfer.isEnabled()
 
     def test_barra_del_visor_queda_debajo_de_la_imagen(self, workbench, qtbot):
         """La barra no puede tapar la página: va bajo el visor, no encima."""
@@ -2856,3 +2903,129 @@ class TestScannerConfigDialogTamano:
         )
         qtbot.addWidget(dialog)
         assert "page_size" not in dialog.get_selected_options()
+
+
+class TestResultadosDelPipelinePorId:
+    """El resultado del pipeline va a su página aunque cambie de posición.
+
+    Antes se asociaba por ``page_index``: borrar o reordenar (Alt+↑/↓)
+    mientras se procesaba guardaba el resultado en otra página. Reprocesar
+    duplicaba los barcodes y Ctrl+P pisaba un worker vivo.
+    """
+
+    @pytest.fixture
+    def wb(self, qtbot, session_factory, sample_app, tmp_path):
+        from app.services.batch_service import BatchService
+
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        with session_factory() as s:
+            BatchService(s, tmp_path).add_pages(
+                window._batch_id,
+                [np.full((60, 40, 3), v, np.uint8) for v in (255, 200, 150)],
+            )
+            s.commit()
+        window._reload_pages()
+        window._rebuild_thumbnails()
+        window._navigate_to(0)
+        return window
+
+    @staticmethod
+    def _ctx(page_id: int, index: int, **kw):
+        from app.pipeline.page_context import PageContext
+
+        return PageContext(page_index=index, id=page_id, **kw)
+
+    @staticmethod
+    def _barcodes(session_factory, page_id: int) -> list[tuple[str, str]]:
+        with session_factory() as s:
+            rows = s.query(Barcode).filter_by(page_id=page_id).all()
+            return sorted((b.value, b.engine) for b in rows)
+
+    def test_reordenar_mientras_se_procesa(self, wb, session_factory, tmp_path):
+        from app.services.batch_service import BatchService
+
+        a, b, c = (p.id for p in wb._pages)
+        wb._enqueued_page_ids[0] = a
+        # Mientras «a» está en el pipeline, el operador la baja al final.
+        with session_factory() as s:
+            BatchService(s, tmp_path).reorder_pages(wb._batch_id, [b, c, a])
+            s.commit()
+        wb._reload_pages()
+
+        wb._on_page_processed(0, self._ctx(a, 0, ocr_text="texto de A"))
+
+        with session_factory() as s:
+            assert s.get(Page, a).ocr_text == "texto de A"
+            assert s.get(Page, b).ocr_text == ""
+
+    def test_pagina_borrada_mientras_se_procesa(self, wb, session_factory, tmp_path):
+        from app.services.batch_service import BatchService
+
+        a, b, _ = (p.id for p in wb._pages)
+        with session_factory() as s:
+            BatchService(s, tmp_path).remove_page(a)
+            s.commit()
+        wb._reload_pages()
+
+        wb._on_page_processed(0, self._ctx(a, 0, ocr_text="texto de A"))
+
+        with session_factory() as s:
+            assert s.get(Page, b).ocr_text == ""  # ahora ocupa el índice 0
+
+    def test_reprocesar_no_duplica_barcodes_y_conserva_los_manuales(
+        self, wb, session_factory
+    ):
+        from app.pipeline.page_context import BarcodeResult
+
+        a = wb._pages[0].id
+        with session_factory() as s:
+            s.add(
+                Barcode(
+                    page_id=a, value="A MANO", symbology="", engine="manual", step_id=""
+                )
+            )
+            s.commit()
+        leido = [BarcodeResult(value="123", symbology="Code128", engine="motor1")]
+
+        wb._on_page_processed(0, self._ctx(a, 0, barcodes=list(leido)))
+        wb._on_page_processed(0, self._ctx(a, 0, barcodes=list(leido)))
+
+        assert self._barcodes(session_factory, a) == [
+            ("123", "motor1"),
+            ("A MANO", "manual"),
+        ]
+
+    def test_ctrl_p_no_pisa_un_worker_vivo(self, wb):
+        vivo = MagicMock()
+        vivo.isRunning.return_value = True
+        wb._recognition_worker = vivo
+        wb._executor = wb._executor or MagicMock()
+
+        wb._on_reprocess_page()
+
+        assert wb._recognition_worker is vivo
+        vivo.enqueue_page.assert_not_called()
+
+    def test_reanudar_pendientes_no_pisa_un_worker_vivo(self, wb):
+        vivo = MagicMock()
+        vivo.isRunning.return_value = True
+        wb._recognition_worker = vivo
+
+        wb._run_pipeline_on([(0, wb._pages[0])], "{0}")
+
+        assert wb._recognition_worker is vivo
+
+    def test_la_pagina_llega_al_pipeline_con_su_id(self, wb):
+        worker = MagicMock()
+        wb._recognition_worker = worker
+        page = wb._pages[1]
+
+        wb._enqueue_for_recognition(1, page, np.zeros((4, 4), np.uint8))
+
+        initial = worker.enqueue_page.call_args.args[2]
+        assert initial["id"] == page.id
+        assert wb._enqueued_page_ids[1] == page.id

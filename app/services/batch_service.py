@@ -11,12 +11,14 @@ import logging
 import platform
 from getpass import getuser
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
-from sqlalchemy import event
+from sqlalchemy import delete, event
 from sqlalchemy.orm import Session
 
+from app.models.barcode import Barcode
 from app.models.batch import Batch, BATCH_STATES
 from app.models.image_config import ImageConfig
 from app.models.page import Page
@@ -25,6 +27,51 @@ from app.db.repositories.page_repo import PageRepository
 from app.services.image_lib import ImageLib
 
 log = logging.getLogger(__name__)
+
+
+#: Motor con el que se guardan los barcodes añadidos a mano en el Workbench.
+MANUAL_BARCODE_ENGINE = "manual"
+
+
+def replace_pipeline_barcodes(
+    session: Session,
+    page_id: int,
+    barcodes: Any,
+) -> None:
+    """Sustituye en BD los barcodes leídos por el pipeline en una página.
+
+    Reprocesar una página volvía a insertar todo lo leído junto a lo de la
+    pasada anterior, y la página acababa con cada código repetido (y con
+    ``{first_barcode}`` apuntando al de la lectura vieja). Los añadidos a
+    mano (motor ``manual``) se conservan: el pipeline no los produce.
+
+    Args:
+        session: Sesión abierta; quien llama hace el commit.
+        page_id: ID de la página.
+        barcodes: Barcodes del contexto de página tras el pipeline.
+    """
+    session.execute(
+        delete(Barcode).where(
+            Barcode.page_id == page_id,
+            Barcode.engine != MANUAL_BARCODE_ENGINE,
+        )
+    )
+    for bc in barcodes:
+        session.add(
+            Barcode(
+                page_id=page_id,
+                value=bc.value,
+                symbology=bc.symbology,
+                engine=bc.engine,
+                step_id=bc.step_id,
+                quality=bc.quality,
+                pos_x=bc.pos_x,
+                pos_y=bc.pos_y,
+                pos_w=bc.pos_w,
+                pos_h=bc.pos_h,
+                role=bc.role,
+            )
+        )
 
 
 class BatchService:

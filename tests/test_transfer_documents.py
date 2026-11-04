@@ -299,7 +299,7 @@ class TestNameScript:
             name_engine=_engine_with(script, config),
         )
         assert not result.success
-        assert "no está disponible" in result.errors[0]
+        assert "no compila" in result.errors[0]
 
     def test_el_script_no_saca_el_fichero_del_destino(self, tmp_path):
         script = (

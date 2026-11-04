@@ -49,7 +49,7 @@ from app.pipeline.page_context import (
 )
 from app.services.barcode_service import BarcodeService
 from app.services.event_config import active_event_sources
-from app.services.batch_service import BatchService
+from app.services.batch_service import BatchService, replace_pipeline_barcodes
 from app.services.image_pipeline import ImagePipelineService
 from app.services.import_service import ImportService
 from app.services.ocr_service import OcrService
@@ -85,6 +85,7 @@ from app.services.scanner_service import ScanConfig
 from app.ui.workbench.scanner_config_dialog import ScannerConfigDialog
 from app.workers.scan_worker import ScanWorker
 from app.workers.transfer_worker import TransferWorker
+from app.workers.validation_worker import ValidationWorker
 from config.settings import APP_DATA_DIR, APP_IMAGES_DIR  # noqa: F401  # APP_DATA_DIR parcheado por tests
 
 log = logging.getLogger(__name__)
@@ -255,7 +256,15 @@ class WorkbenchWindow(QMainWindow):
         # Workers
         self._scan_worker: ScanWorker | None = None
         self._recognition_worker: RecognitionWorker | None = None
+        # Índice con el que se encoló cada página → su id. El worker
+        # devuelve el índice, que deja de valer si mientras tanto se borra
+        # o reordena una página: el resultado se asocia siempre por id.
+        self._enqueued_page_ids: dict[int, int] = {}
         self._transfer_worker: TransferWorker | None = None
+        self._validation_worker: ValidationWorker | None = None
+        # Lo preparado para transferir mientras corre la validación:
+        # (config, pages_data, batch_fields).
+        self._pending_transfer: tuple[Any, list[dict], dict] | None = None
 
         # Panel de verificación (se configura después de UI)
         self._verification_panel = None
@@ -302,7 +311,7 @@ class WorkbenchWindow(QMainWindow):
                 try:
                     self._script_engine.compile_step(step)
                 except Exception as e:
-                    log.warning("Error compilando script '%s': %s", step.id, e)
+                    log.error("El script '%s' no compila: %s", step.id, e)
 
         # Compilar eventos
         self._compile_events()
@@ -329,8 +338,10 @@ class WorkbenchWindow(QMainWindow):
                     label=event_name,
                 )
             except Exception as e:
-                log.warning(
-                    "Error compilando evento '%s': %s",
+                # Error y no aviso: el evento no correrá y el operador debe
+                # verlo en el panel de Log (cada disparo lo vuelve a decir).
+                log.error(
+                    "El evento '%s' no compila y no se ejecutará: %s",
                     event_name,
                     e,
                 )
@@ -1151,11 +1162,7 @@ class WorkbenchWindow(QMainWindow):
         """
         if not self._btn_process.isEnabled():
             return
-        if self._recognition_worker and self._recognition_worker.isRunning():
-            self._status_bar.showMessage(
-                self.tr("Ya hay un procesado en curso"),
-                3000,
-            )
+        if self._recognition_busy():
             return
         if not self._pages or self._executor is None:
             self._status_bar.showMessage(
@@ -1307,6 +1314,7 @@ class WorkbenchWindow(QMainWindow):
         app_ctx = self._build_app_context()
         batch_ctx = self._build_batch_context()
 
+        self._enqueued_page_ids.clear()
         self._recognition_worker = RecognitionWorker(
             executor=self._executor,
             app_context=app_ctx,
@@ -1396,8 +1404,8 @@ class WorkbenchWindow(QMainWindow):
         self._thumbnail_panel.add_thumbnail(global_page_index, image)
 
         # Encolar para reconocimiento
-        if self._recognition_worker:
-            self._recognition_worker.enqueue_page(global_page_index, image)
+        if self._recognition_worker and pages:
+            self._enqueue_for_recognition(global_page_index, pages[0], image)
 
         # Navegar a la página recién adquirida
         self._navigate_to(global_page_index)
@@ -1472,10 +1480,20 @@ class WorkbenchWindow(QMainWindow):
         QMessageBox.critical(self, self.tr("Error de adquisici\u00f3n"), error)
 
     def _on_page_processed(self, page_index: int, page_ctx: Any) -> None:
-        """Una página ha sido procesada por el pipeline."""
+        """Una página ha sido procesada por el pipeline.
+
+        ``page_index`` es el índice con el que se encoló; la página se
+        localiza por su id porque el índice cambia si mientras se procesaba
+        se borró o reordenó otra página.
+        """
         if self._script_engine is None:
             return  # Ventana cerrada, ignorar señales tardías
-        self._persist_page_results(page_index, page_ctx)
+        page_id = page_ctx.id or self._enqueued_page_ids.get(page_index, 0)
+        if not self._persist_page_results(page_index, page_ctx, page_id):
+            return
+        page_index = self._index_of_page(page_id, page_index)
+        if page_index < 0:
+            return
 
         state = determine_page_state(
             needs_review=page_ctx.flags.needs_review,
@@ -1515,15 +1533,35 @@ class WorkbenchWindow(QMainWindow):
 
         self._call_verification_hook("on_pipeline_completed", page_index)
 
-    def _persist_page_results(self, page_index: int, page_ctx: Any) -> None:
-        """Guarda los resultados del pipeline en BD."""
+    def _persist_page_results(
+        self, page_index: int, page_ctx: Any, page_id: int = 0
+    ) -> bool:
+        """Guarda los resultados del pipeline en BD.
+
+        Args:
+            page_index: Índice con el que se encoló la página.
+            page_ctx: Contexto de la página tras el pipeline.
+            page_id: ID de la página; si se conoce, manda sobre el índice.
+
+        Returns:
+            False si la página ya no existe (se borró mientras se procesaba).
+        """
         with self._session_factory() as session:
             page_repo = PageRepository(session)
-            page = page_repo.get_by_batch_and_index(self._batch_id, page_index)
+            if page_id:
+                page = page_repo.get_by_id(page_id)
+                if page is not None and page.batch_id != self._batch_id:
+                    page = None
+            else:
+                page = page_repo.get_by_batch_and_index(self._batch_id, page_index)
 
             if page is None:
-                log.warning("Página %d no encontrada en BD", page_index)
-                return
+                log.info(
+                    "La página %s ya no está en el lote (¿se eliminó mientras "
+                    "se procesaba?): se descarta su resultado",
+                    page_id or page_index,
+                )
+                return False
 
             # Guardar imagen modificada solo si un script llamó a replace_image
             if (
@@ -1591,26 +1629,11 @@ class WorkbenchWindow(QMainWindow):
                 ensure_ascii=False,
             )
 
-            # Persistir barcodes
-            for bc in page_ctx.barcodes:
-                from app.models.barcode import Barcode as BarcodeModel
-
-                barcode = BarcodeModel(
-                    page_id=page.id,
-                    value=bc.value,
-                    symbology=bc.symbology,
-                    engine=bc.engine,
-                    step_id=bc.step_id,
-                    quality=bc.quality,
-                    pos_x=bc.pos_x,
-                    pos_y=bc.pos_y,
-                    pos_w=bc.pos_w,
-                    pos_h=bc.pos_h,
-                    role=bc.role,
-                )
-                session.add(barcode)
+            # Sustituye lo leído en la pasada anterior (no lo acumula)
+            replace_pipeline_barcodes(session, page.id, page_ctx.barcodes)
 
             session.commit()
+        return True
 
     def _get_blank_config(self) -> dict:
         """Obtiene la configuracion de deteccion de blancos de la app."""
@@ -1625,10 +1648,52 @@ class WorkbenchWindow(QMainWindow):
         """Error procesando una página."""
         log.error("Error en página %d: %s", page_index, error)
         self._run_errors += 1
+        page_index = self._index_of_page(
+            self._enqueued_page_ids.get(page_index, 0), page_index
+        )
+        if page_index < 0:
+            return
         self._thumbnail_panel.update_thumbnail_state(
             page_index,
             PageState.NEEDS_REVIEW,
         )
+
+    def _recognition_busy(self) -> bool:
+        """¿Hay un reconocimiento en marcha? Si lo hay, lo dice en la barra.
+
+        Lanzar otro (Ctrl+P, F9, reanudar pendientes) sustituía al worker
+        vivo: quedaba huérfano escribiendo resultados y, durante una
+        captura, las páginas que seguían llegando iban al worker nuevo, que
+        ya había cerrado su cola.
+        """
+        worker = self._recognition_worker
+        if worker is not None and worker.isRunning():
+            self._status_bar.showMessage(
+                self.tr("Ya hay un procesado en curso"),
+                3000,
+            )
+            return True
+        return False
+
+    def _enqueue_for_recognition(
+        self, page_index: int, page: Any, image: np.ndarray
+    ) -> None:
+        """Encola una página llevando su id (para scripts y para asociar)."""
+        self._enqueued_page_ids[page_index] = page.id
+        self._recognition_worker.enqueue_page(
+            page_index,
+            image,
+            {"id": page.id, **separator_state(page)},
+        )
+
+    def _index_of_page(self, page_id: int, fallback: int) -> int:
+        """Posición actual de la página ``page_id``; -1 si ya no está."""
+        if not page_id:
+            return fallback
+        for i, page in enumerate(self._pages):
+            if page.id == page_id:
+                return i
+        return -1
 
     def _on_all_processed(self) -> None:
         """Todo el pipeline ha terminado."""
@@ -1712,9 +1777,12 @@ class WorkbenchWindow(QMainWindow):
             pages: Pares (índice de página, página) a procesar, en orden.
             message: Texto de la barra de estado; ``{0}`` es el número de páginas.
         """
+        if self._recognition_busy():
+            return
         app_ctx = self._build_app_context()
         batch_ctx = self._build_batch_context()
 
+        self._enqueued_page_ids.clear()
         self._recognition_worker = RecognitionWorker(
             executor=self._executor,
             app_context=app_ctx,
@@ -1742,9 +1810,7 @@ class WorkbenchWindow(QMainWindow):
         for page_index, page in pages:
             img = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
             if img is not None:
-                self._recognition_worker.enqueue_page(
-                    page_index, img, separator_state(page)
-                )
+                self._enqueue_for_recognition(page_index, page, img)
 
         self._recognition_worker.signal_no_more_pages()
         self._status_bar.showMessage(message.format(len(pages)))
@@ -1967,6 +2033,8 @@ class WorkbenchWindow(QMainWindow):
 
         if self._transfer_worker and self._transfer_worker.isRunning():
             return
+        if self._validation_worker and self._validation_worker.isRunning():
+            return
 
         # 1a. Validación del panel de verificación (por página + global)
         if self._verification_panel:
@@ -2029,17 +2097,40 @@ class WorkbenchWindow(QMainWindow):
                 db_page = page_repo.get_by_id(page.id)
                 if db_page is not None:
                     pages_data.append(transfer_page_dict(db_page))
-        reason = validate_before_transfer(
-            script_engine=self._script_engine,
-            contexts={
-                "app": self._build_app_context(),
-                "batch": self._build_batch_context(),
-            },
-            fields_def=fields_def if isinstance(fields_def, list) else [],
-            batch_fields=batch_fields,
-            pages=pages_data,
-            config=config,
-        )
+        # La validación corre en un hilo: on_transfer_validate puede consultar
+        # servicios externos y, en el hilo de la UI, congelaba el Workbench
+        # (con plazo: el timeout de scripts, ver validate_before_transfer).
+        contexts = {
+            "app": self._build_app_context(),
+            "batch": self._build_batch_context(),
+        }
+        script_engine = self._script_engine
+        defs = fields_def if isinstance(fields_def, list) else []
+
+        def validate() -> str | None:
+            return validate_before_transfer(
+                script_engine=script_engine,
+                contexts=contexts,
+                fields_def=defs,
+                batch_fields=batch_fields,
+                pages=pages_data,
+                config=config,
+            )
+
+        self._pending_transfer = (config, pages_data, batch_fields)
+        self._validation_worker = ValidationWorker(validate)
+        self._validation_worker.validated.connect(self._on_transfer_validated)
+        self._btn_transfer.setEnabled(False)
+        self._status_bar.showMessage(self.tr("Validando el lote…"))
+        self._validation_worker.start()
+
+    def _on_transfer_validated(self, reason: str | None) -> None:
+        """Resultado de la validación previa: confirmar y transferir, o avisar."""
+        self._btn_transfer.setEnabled(True)
+        self._status_bar.clearMessage()
+        pending, self._pending_transfer = self._pending_transfer, None
+        if self._script_engine is None or pending is None:
+            return  # Ventana cerrada mientras se validaba
         if reason:
             log.warning("Transferencia bloqueada: %s", reason)
             QMessageBox.warning(
@@ -2048,6 +2139,7 @@ class WorkbenchWindow(QMainWindow):
                 reason,
             )
             return
+        config, pages_data, batch_fields = pending
 
         # 2. Confirmación
         reply = QMessageBox.question(
@@ -2663,6 +2755,8 @@ class WorkbenchWindow(QMainWindow):
         """Re-ejecuta el pipeline en la página actual (Ctrl+P)."""
         if self._current_page_index < 0 or self._executor is None:
             return
+        if self._recognition_busy():
+            return
 
         page = self._pages[self._current_page_index]
         image = cv2.imread(page.image_path, cv2.IMREAD_UNCHANGED)
@@ -2672,6 +2766,7 @@ class WorkbenchWindow(QMainWindow):
         app_ctx = self._build_app_context()
         batch_ctx = self._build_batch_context()
 
+        self._enqueued_page_ids.clear()
         self._recognition_worker = RecognitionWorker(
             executor=self._executor,
             app_context=app_ctx,
@@ -2693,11 +2788,7 @@ class WorkbenchWindow(QMainWindow):
             ),
         )
         self._recognition_worker.start()
-        self._recognition_worker.enqueue_page(
-            self._current_page_index,
-            image,
-            separator_state(page),
-        )
+        self._enqueue_for_recognition(self._current_page_index, page, image)
         self._recognition_worker.signal_no_more_pages()
         self._status_bar.showMessage(self.tr("Re-procesando p\u00e1gina..."))
 
@@ -2969,6 +3060,7 @@ class WorkbenchWindow(QMainWindow):
             self._scan_worker,
             self._recognition_worker,
             self._transfer_worker,
+            self._validation_worker,
         ):
             if worker and worker.isRunning():
                 worker.requestInterruption()
@@ -2993,6 +3085,8 @@ class WorkbenchWindow(QMainWindow):
         self._scan_worker = None
         self._recognition_worker = None
         self._transfer_worker = None
+        self._validation_worker = None
+        self._pending_transfer = None
         if self._script_engine is not None:
             self._script_engine.shutdown()
         self._script_engine = None

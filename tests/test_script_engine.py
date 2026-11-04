@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -327,6 +328,53 @@ class TestRunEvent:
         assert result is None
 
 
+class TestEventoQueNoCompila:
+    """Un evento con error de sintaxis no es un evento «no definido»."""
+
+    def _compilar_roto(self, engine, script_id="on_transfer_validate"):
+        with pytest.raises(ScriptCompilationError):
+            engine.compile_script(script_id, "def on_transfer_validate(:")
+
+    def test_run_event_checked_falla_con_el_motivo(self, engine):
+        self._compilar_roto(engine)
+        outcome = engine.run_event_checked("on_transfer_validate")
+        assert outcome.ran and outcome.failed
+        assert "no compila" in outcome.error
+
+    def test_evento_no_definido_sigue_sin_correr(self, engine):
+        outcome = engine.run_event_checked("on_transfer_validate")
+        assert not outcome.ran and not outcome.failed
+        assert not engine.is_defined("on_transfer_validate")
+
+    def test_is_defined_aunque_no_compile(self, engine):
+        self._compilar_roto(engine)
+        assert engine.is_defined("on_transfer_validate")
+        assert not engine.is_compiled("on_transfer_validate")
+
+    def test_run_event_registra_error(self, engine, caplog):
+        self._compilar_roto(engine, "on_scan_complete")
+        with caplog.at_level(logging.ERROR):
+            assert engine.run_event("on_scan_complete", "on_scan_complete") is None
+        assert "no compila" in caplog.text
+
+    def test_version_anterior_no_sigue_corriendo(self, engine, batch, app_ctx):
+        engine.compile_script(
+            "on_app_start", "def on_app_start(batch): batch.fields['v'] = '1'"
+        )
+        self._compilar_roto(engine, "on_app_start")
+        engine.run_event("on_app_start", "on_app_start", app=app_ctx, batch=batch)
+        assert "v" not in batch.fields
+        assert engine.run_event_checked("on_app_start").failed
+
+    def test_recompilar_bien_borra_el_error(self, engine):
+        self._compilar_roto(engine)
+        engine.compile_script(
+            "on_transfer_validate", "def on_transfer_validate(): return True"
+        )
+        assert engine.compile_error_for_id("on_transfer_validate") == ""
+        assert engine.run_event_checked("on_transfer_validate").value is True
+
+
 # ------------------------------------------------------------------
 # Engine de producción: cliente HTTP y timeout de la configuración
 # ------------------------------------------------------------------
@@ -379,3 +427,25 @@ class TestCreateScriptEngine:
             assert "1s" in page.flags.script_errors[0]["error"]
         finally:
             engine.shutdown()
+
+
+class TestEventoConPlazo:
+    """run_event_checked(timeout=...) no espera indefinidamente."""
+
+    def test_evento_que_no_responde_falla_con_el_motivo(self, engine):
+        engine.compile_script(
+            "on_transfer_validate",
+            "import time\ndef on_transfer_validate():\n    time.sleep(2)\n",
+        )
+        outcome = engine.run_event_checked("on_transfer_validate", timeout=0.1)
+        assert outcome.ran and outcome.failed
+        assert "no ha respondido" in outcome.error
+
+    def test_con_plazo_devuelve_el_valor_y_las_excepciones(self, engine):
+        engine.compile_script("ok", "def ok():\n    return 42\n")
+        engine.compile_script("rechazo", "def rechazo():\n    raise ValueError('no')\n")
+        assert engine.run_event_checked("ok", timeout=5).value == 42
+        outcome = engine.run_event_checked(
+            "rechazo", timeout=5, rejection_types=(ValueError,)
+        )
+        assert outcome.rejected and outcome.error == "no"

@@ -175,6 +175,15 @@ def build_name_resolver(
     if config.name_mode != "script" or not config.file_name_script.strip():
         return None
     if script_engine is None or not script_engine.is_compiled(FILE_NAME_SCRIPT_ID):
+        compile_error = (
+            script_engine.compile_error_for_id(FILE_NAME_SCRIPT_ID)
+            if script_engine is not None
+            else ""
+        )
+        if compile_error:
+            raise TransferAbortedError(
+                f"El script de nombre de fichero no compila: {compile_error}"
+            )
         raise TransferAbortedError(
             "El script de nombre de fichero no está disponible (¿no compila?)"
         )
@@ -303,10 +312,15 @@ def validate_before_transfer(
     # Un ValueError es el rechazo deliberado del script («Hi ha pàgines sense
     # codis de barra…»): el operador ve solo su mensaje. Cualquier otra
     # excepción es un fallo del script y se presenta como tal.
+    # Con plazo: una validación colgada (p. ej. una consulta HTTP sin
+    # respuesta) bloquearía la transferencia indefinidamente, también en el
+    # worker desatendido.
+    timeout = getattr(script_engine, "script_timeout", None)
     outcome: EventOutcome = script_engine.run_event_checked(
         VALIDATE_EVENT,
         validate_entry_point,
         rejection_types=(ValueError,),
+        timeout=timeout if isinstance(timeout, (int, float)) else None,
         **event_kwargs,
     )
     if outcome.rejected:
@@ -356,7 +370,9 @@ def execute_transfer(
         TransferResult final. ``success`` es False si cualquiera de las dos
         partes ha fallado.
     """
-    has_advanced = script_engine is not None and script_engine.is_compiled(
+    # is_defined y no is_compiled: un on_transfer_advanced que no compila
+    # debe hacer fallar la transferencia, no saltarse como si no existiera.
+    has_advanced = script_engine is not None and script_engine.is_defined(
         ADVANCED_EVENT
     )
     if not config.standard_enabled and not has_advanced:

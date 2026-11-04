@@ -42,7 +42,9 @@ Eventos) no se ejecuta, aunque tenga código.
 !!! info "Identificador de página"
     Desde la v0.1.1 (web) y v0.1.2 (desktop), `page.id` está disponible
     dentro del pipeline y de los eventos lifecycle. Útil para correlacionar
-    con la BD o llamar a APIs externas con un identificador estable.
+    con la BD o llamar a APIs externas con un identificador estable. Hasta la
+    v0.1.10, en el pipeline del Workbench llegaba como `0` (el worker
+    desatendido sí lo rellenaba).
 
 ## Recetas
 
@@ -151,5 +153,10 @@ queda en `page.flags.script_errors`, como cualquier otro fallo del script.
       sanearse antes
     - Un paso Script se corta a los **30 segundos** y el error queda en
       `page.flags.script_errors`. El límite se cambia con la variable de
-      entorno `DOCSCAN_PIPELINE__SCRIPT_TIMEOUT_SECONDS`. Los eventos no tienen
-      límite de tiempo: un evento que se cuelga bloquea la operación
+      entorno `DOCSCAN_PIPELINE__SCRIPT_TIMEOUT_SECONDS`. `on_transfer_validate`
+      tiene el mismo límite: si no responde, la transferencia no empieza. El
+      resto de eventos no tiene límite de tiempo: uno que se cuelga bloquea la
+      operación
+    - Un evento con un error de sintaxis no se salta en silencio: cada vez que
+      se dispara deja un error en el panel de Log, y si es `on_transfer_validate`
+      u `on_transfer_advanced` la transferencia falla con el motivo

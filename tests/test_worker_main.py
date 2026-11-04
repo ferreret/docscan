@@ -359,9 +359,13 @@ class TestCompileLifecycleEvents:
             }
         }
         active_app.events_json = json.dumps(events)
-        result = _compile_lifecycle_events(active_app, ScriptEngine())
-        # El evento no se registra si falla la compilación
-        assert "on_app_start" not in result
+        engine = ScriptEngine()
+        result = _compile_lifecycle_events(active_app, engine)
+        # Se registra igualmente: al dispararse debe avisar de que no
+        # compila en lugar de saltarse en silencio.
+        assert result == {"on_app_start": "on_app_start"}
+        assert not engine.is_compiled("on_app_start")
+        assert "sintaxis" in engine.compile_error_for_id("on_app_start")
 
     def test_multiples_eventos(self, active_app: Application) -> None:
         """Varios eventos válidos quedan todos registrados."""
@@ -382,13 +386,15 @@ class TestCompileLifecycleEvents:
         assert "on_app_start" in result
         assert "on_scan_complete" in result
 
-    def test_entrada_no_dict_ignorada(self, active_app: Application) -> None:
-        """Si el valor del evento no es un dict, se ignora sin error."""
+    def test_entrada_str_es_codigo_fuente(self, active_app: Application) -> None:
+        """Un valor str es el código del evento: si no compila, se avisa."""
         from app.services.script_engine import ScriptEngine
 
-        active_app.events_json = json.dumps({"on_app_start": "esto no es dict"})
-        result = _compile_lifecycle_events(active_app, ScriptEngine())
-        assert result == {}
+        active_app.events_json = json.dumps({"on_app_start": "esto no es código"})
+        engine = ScriptEngine()
+        result = _compile_lifecycle_events(active_app, engine)
+        assert result == {"on_app_start": "on_app_start"}
+        assert engine.compile_error_for_id("on_app_start")
 
 
 # ------------------------------------------------------------------
@@ -402,6 +408,7 @@ class TestProcessFiles:
     def _make_page_mock(self, index: int = 0) -> MagicMock:
         """Crea un mock de Page de BD."""
         page = MagicMock(spec=Page)
+        page.id = index + 1
         page.page_index = index
         page.ocr_text = ""
         page.index_fields_json = "{}"
@@ -1214,6 +1221,7 @@ class TestProcessPendingBatches:
         image = np.ones((50, 50, 3), dtype=np.uint8)
 
         page_mock = MagicMock(spec=Page)
+        page_mock.id = 1
         page_mock.page_index = 0
         page_mock.ocr_text = ""
         page_mock.index_fields_json = "{}"
@@ -1340,6 +1348,7 @@ class TestProcessPendingBatches:
 
         image = np.ones((50, 50, 3), dtype=np.uint8)
         page_mock = MagicMock(spec=Page)
+        page_mock.id = 1
         page_mock.page_index = 0
         page_mock.ocr_text = ""
         page_mock.index_fields_json = "{}"
@@ -1390,6 +1399,7 @@ class TestProcessPendingBatches:
 
         batch_mock = self._make_batch(1, active_app.id, "read")
         page_mock = MagicMock(spec=Page)
+        page_mock.id = 1
         page_mock.page_index = 0
 
         batch_svc_mock = MagicMock()

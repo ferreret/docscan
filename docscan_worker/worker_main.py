@@ -30,7 +30,6 @@ from config.settings import APP_DATA_DIR  # noqa: F401  # parcheado por tests
 from app.models.application import Application  # noqa: F401
 from app.models.batch import Batch  # noqa: F401
 from app.models.page import Page  # noqa: F401
-from app.models.barcode import Barcode
 from app.models.template import Template  # noqa: F401
 from app.models.operation_history import OperationHistory  # noqa: F401
 
@@ -40,7 +39,7 @@ from app.pipeline.executor import PipelineExecutor
 from app.pipeline.serializer import deserialize
 from app.pipeline.steps import ScriptStep
 from app.services.barcode_service import BarcodeService
-from app.services.batch_service import BatchService
+from app.services.batch_service import BatchService, replace_pipeline_barcodes
 from app.services.event_config import (
     event_enabled,
     event_entry_point,
@@ -193,7 +192,8 @@ def _compile_lifecycle_events(
     """Compila los scripts de eventos de ciclo de vida.
 
     Returns:
-        Diccionario {event_name: entry_point_name} de eventos compilados.
+        Diccionario {event_name: entry_point_name} de los eventos activos,
+        compilen o no (los que no compilan fallan con aviso al dispararse).
     """
     events: dict[str, str] = {}
     # Ambos formatos: str (código directo) o dict {"script", "entry_point",
@@ -203,11 +203,15 @@ def _compile_lifecycle_events(
         if not source.strip() or not event_enabled(event_config):
             continue
         entry_point = event_entry_point(event_name, event_config)
+        # Se registra aunque no compile: al dispararse, el ScriptEngine
+        # informa del fallo en cada lote en lugar de saltarlo en silencio.
+        events[event_name] = entry_point
         try:
             script_engine.compile_script(event_name, source, label=event_name)
-            events[event_name] = entry_point
         except Exception as exc:
-            log.error("Error compilando evento '%s': %s", event_name, exc)
+            log.error(
+                "El evento '%s' no compila y no se ejecutará: %s", event_name, exc
+            )
 
     return events
 
@@ -373,22 +377,7 @@ def _process_files(
             )
             # Los barcodes leídos no se guardaban: el worker transfería con
             # {first_barcode} vacío y sin rastro de lo leído en el lote.
-            for bc in page_ctx.barcodes:
-                session.add(
-                    Barcode(
-                        page_id=page_db.id,
-                        value=bc.value,
-                        symbology=bc.symbology,
-                        engine=bc.engine,
-                        step_id=bc.step_id,
-                        quality=bc.quality,
-                        pos_x=bc.pos_x,
-                        pos_y=bc.pos_y,
-                        pos_w=bc.pos_w,
-                        pos_h=bc.pos_h,
-                        role=bc.role,
-                    )
-                )
+            replace_pipeline_barcodes(session, page_db.id, page_ctx.barcodes)
 
         # Estadísticas
         duration = time.monotonic() - t_start
@@ -643,6 +632,9 @@ def _process_pending_batches(
                 page_db.script_errors_json = json.dumps(
                     page_ctx.flags.script_errors,
                 )
+                # El reproceso no guardaba lo leído: la transferencia usaba
+                # los barcodes de la pasada anterior.
+                replace_pipeline_barcodes(session, page_db.id, page_ctx.barcodes)
 
             batch_svc.transition_state(batch.id, "ready_to_export")
             session.commit()

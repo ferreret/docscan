@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 
 from app.pipeline.page_context import AppContext, BatchContext
-from app.services.script_engine import ScriptEngine
+from app.services.script_engine import ScriptCompilationError, ScriptEngine
 from app.services.transfer_flow import (
     TransferPage,
     execute_transfer,
@@ -32,6 +32,16 @@ def _engine(**events: str) -> ScriptEngine:
     engine = ScriptEngine()
     for name, source in events.items():
         engine.compile_script(name, source)
+    return engine
+
+
+def _engine_roto(name: str) -> ScriptEngine:
+    """Engine en el que el evento ``name`` existe pero no compila."""
+    engine = ScriptEngine()
+    try:
+        engine.compile_script(name, f"def {name}(:")
+    except ScriptCompilationError:
+        pass
     return engine
 
 
@@ -130,9 +140,47 @@ class TestValidacionPrevia:
 # ------------------------------------------------------------------
 
 
+class TestValidacionConPlazo:
+    def test_validacion_colgada_bloquea_con_motivo(self) -> None:
+        engine = ScriptEngine(script_timeout=0.1)
+        engine.compile_script(
+            "on_transfer_validate",
+            "import time\ndef on_transfer_validate():\n    time.sleep(2)\n",
+        )
+        reason = validate_before_transfer(
+            script_engine=engine, contexts=_ctx(), fields_def=[], batch_fields={}
+        )
+        assert reason is not None and "no ha respondido" in reason
+
+
+class TestValidacionQueNoCompila:
+    def test_validacion_que_no_compila_bloquea(self) -> None:
+        """Antes se daba por «no definida» y la transferencia seguía."""
+        reason = validate_before_transfer(
+            script_engine=_engine_roto("on_transfer_validate"),
+            contexts=_ctx(),
+            fields_def=[],
+            batch_fields={},
+        )
+        assert reason is not None and "no compila" in reason
+
+
 class TestEjecucion:
     def _config(self, tmp_path: Path, **kw) -> TransferConfig:
         return TransferConfig(destination=str(tmp_path / "out"), **kw)
+
+    def test_avanzado_que_no_compila_hace_fallar(self, tmp_path: Path) -> None:
+        result = execute_transfer(
+            transfer_service=TransferService(),
+            config=self._config(tmp_path, standard_enabled=False),
+            pages=[_page(tmp_path)],
+            batch_fields={},
+            batch_id=7,
+            script_engine=_engine_roto("on_transfer_advanced"),
+            contexts=_ctx(),
+        )
+        assert result.success is False
+        assert any("no compila" in e for e in result.errors)
 
     def test_avanzado_que_lanza_hace_fallar(self, tmp_path: Path) -> None:
         engine = _engine(
