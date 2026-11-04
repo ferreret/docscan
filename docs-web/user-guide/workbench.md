@@ -159,6 +159,16 @@ error y el lote **no** se da por terminado: no se dispara `on_scan_complete` ni 
 transferencia automática. Se resuelve el problema en el escáner y se sigue escaneando
 en el mismo lote.
 
+En Linux (SANE), los escáneres USB se nombran por su dirección en el bus
+(`canon_dr:libusb:003:010`), y esa dirección cambia al desconectar y volver a conectar
+el escáner. Al pulsar **Escanear**, si la dirección guardada ya no responde, DocScan
+vuelve a buscar los escáneres (unos segundos, con «Buscando el escáner…» en la barra de
+estado) y, si encuentra **uno solo** del mismo tipo, sigue con él: lo cambia en ⚙, lo
+recuerda para la próxima vez y conserva sus opciones. Si no encuentra ninguno, o hay
+varios del mismo tipo conectados, avisa de que el escáner ya no está en esa dirección y
+abre ⚙ para elegirlo (con la lista ya actualizada si ha encontrado alguno; si estaba
+apagado, basta con encenderlo y volver a pulsar Escanear).
+
 ## Importación
 
 - Clic en **Importar…** (Ctrl+I) y seleccionar ficheros. Si la aplicación define el

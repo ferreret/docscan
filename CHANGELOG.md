@@ -21,6 +21,14 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ### 🐛 Corregido
 
+- **El escáner USB se vuelve a localizar solo tras desconectarlo (Linux, SANE).** SANE
+  nombra los escáneres USB por su dirección en el bus (`canon_dr:libusb:003:010`), que
+  cambia al reconectarlos; el Workbench seguía usando la vieja y el escaneo fallaba con
+  un `Invalid argument` sin explicación. Ahora, si la dirección guardada ya no existe o
+  no se puede abrir, se buscan de nuevo los escáneres en segundo plano y, si hay uno
+  solo del mismo backend, se usa ese: se actualizan ⚙ y la preferencia guardada, y sus
+  opciones pasan al nombre nuevo. Si no hay ninguno o hay varios, un aviso claro pide
+  elegirlo en ⚙.
 - **Una transferencia que falla ya no deja salida a medias.** Si algo falla durante la
   escritura, o después falla `on_transfer_advanced`, se borran los ficheros nuevos y
   vuelven a su contenido anterior los sobrescritos o ampliados con «Fusionar». Antes,
