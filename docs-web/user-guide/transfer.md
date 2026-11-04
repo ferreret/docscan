@@ -92,6 +92,12 @@ Los nombres de todos los ficheros se calculan **antes de escribir el
 primero**: si el script de nombre falla o un documento no tiene el valor que
 pide el patrón, la transferencia no se hace y no queda salida a medias.
 
+Si algo falla **durante** la escritura (disco lleno, permisos, un fichero
+ilegible) o después falla `on_transfer_advanced`, DocScan **retira lo ya
+escrito**: borra los ficheros nuevos y devuelve a su contenido anterior los que
+había sobrescrito o ampliado con «Fusionar». El destino queda como estaba y el
+reintento no duplica páginas ni crea ficheros `_1`.
+
 ### Política de colisión
 
 | Política | Comportamiento |

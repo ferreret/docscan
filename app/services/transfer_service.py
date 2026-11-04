@@ -22,6 +22,7 @@ import numpy as np
 import pymupdf
 
 from app.models.document import LogicalDocument, split_documents
+from app.services.output_journal import OutputJournal
 
 log = logging.getLogger(__name__)
 
@@ -220,12 +221,16 @@ class TransferService:
         batch_id: int | None = None,
         on_page_callback: Any = None,
         name_resolver: NameResolver | None = None,
+        journal: OutputJournal | None = None,
     ) -> TransferResult:
         """Ejecuta la transferencia de un lote.
 
         Antes de escribir nada se comprueban los documentos y se calculan
         todos los nombres: si falla cualquiera (por ejemplo, el script de
         nombre lanza), la transferencia no empieza y no queda salida a medias.
+        Si falla durante la escritura, se retira lo ya escrito (paridad con
+        FlexibarNET10 v1.27): los ficheros nuevos se borran y los que se
+        habían sobrescrito o ampliado vuelven a su contenido anterior.
 
         Args:
             pages: Lista de dicts con keys: image_path, page_index,
@@ -236,11 +241,52 @@ class TransferService:
             on_page_callback: ``(page_index, success)`` por página.
             name_resolver: Script de nombre ya preparado (``name_mode``
                 ``"script"``).
+            journal: Registro de la salida. Si se pasa, una transferencia
+                correcta lo deja **sin confirmar**: quien llama decide
+                (``commit``/``rollback``), p. ej. según el script avanzado.
+                Si no, se confirma aquí.
 
         Returns:
             Resultado de la transferencia.
         """
-        batch_fields = batch_fields or {}
+        own_journal = journal is None
+        journal = journal or OutputJournal()
+        try:
+            result = self._transfer(
+                pages,
+                config,
+                batch_fields or {},
+                batch_id,
+                on_page_callback,
+                name_resolver,
+                journal,
+            )
+        except BaseException:
+            journal.rollback()
+            raise
+        if not result.success:
+            result.errors.extend(journal.rollback())
+            if result.files_transferred:
+                result.errors.append(
+                    "Se ha retirado la salida ya escrita para no dejar el "
+                    "lote a medias en el destino"
+                )
+                result.files_transferred = 0
+        elif own_journal:
+            journal.commit()
+        return result
+
+    def _transfer(
+        self,
+        pages: list[dict[str, Any]],
+        config: TransferConfig,
+        batch_fields: dict[str, str],
+        batch_id: int | None,
+        on_page_callback: Any,
+        name_resolver: NameResolver | None,
+        journal: OutputJournal,
+    ) -> TransferResult:
+        """Despacha por modo (sin confirmar ni retirar la salida)."""
 
         if config.mode in ("folder", *MULTIPAGE_MODES):
             if not pages:
@@ -273,6 +319,7 @@ class TransferService:
                     batch_id,
                     on_page_callback,
                     name_resolver,
+                    journal,
                 )
             if config.mode in MULTIPAGE_MODES:
                 return self._transfer_multipage(
@@ -282,12 +329,13 @@ class TransferService:
                     batch_id,
                     on_page_callback,
                     name_resolver,
+                    journal,
                 )
         except TransferAbortedError as e:
             return TransferResult(success=False, errors=[str(e)])
 
         if config.mode == "csv":
-            return self._transfer_csv(pages, config, batch_fields, batch_id)
+            return self._transfer_csv(pages, config, batch_fields, batch_id, journal)
         return TransferResult(
             success=False,
             errors=[f"Modo de transferencia no soportado: '{config.mode}'"],
@@ -378,8 +426,10 @@ class TransferService:
         batch_id: int | None,
         on_page_callback: Any = None,
         name_resolver: NameResolver | None = None,
+        journal: OutputJournal | None = None,
     ) -> TransferResult:
         """Copia imágenes a una carpeta destino (un fichero por página)."""
+        journal = journal or OutputJournal()
         dest = Path(config.destination)
         if config.create_subdirs and batch_id is not None:
             dest = dest / f"batch_{batch_id}"
@@ -407,7 +457,7 @@ class TransferService:
             except UnsafePathError as e:
                 raise TransferAbortedError(str(e)) from e
 
-        dest.mkdir(parents=True, exist_ok=True)
+        journal.mkdir(dest)
         result = TransferResult(output_path=str(dest))
 
         for page, name in planned:
@@ -424,7 +474,7 @@ class TransferService:
                     out_ext = src.suffix
 
                 dst = safe_join(dest, name + out_ext)
-                dst.parent.mkdir(parents=True, exist_ok=True)
+                journal.mkdir(dst.parent)
 
                 dst = self._resolve_collision(
                     src,
@@ -432,8 +482,10 @@ class TransferService:
                     config.collision_policy,
                     needs_conversion,
                     config,
+                    journal,
                 )
                 if dst is not None:
+                    journal.prepare(dst)
                     if needs_conversion:
                         self._convert_and_save(src, dst, config)
                     else:
@@ -442,7 +494,7 @@ class TransferService:
                 result.files_transferred += 1
 
                 if config.include_metadata and dst is not None:
-                    self._write_metadata(dst, page)
+                    self._write_metadata(dst, page, journal)
 
                 if on_page_callback:
                     on_page_callback(page.get("page_index", 0), True)
@@ -522,6 +574,7 @@ class TransferService:
         batch_id: int | None,
         on_page_callback: Any = None,
         name_resolver: NameResolver | None = None,
+        journal: OutputJournal | None = None,
     ) -> TransferResult:
         """Un fichero multipágina por lote o por documento.
 
@@ -529,6 +582,7 @@ class TransferService:
         las páginas no consecutivas con el mismo nombre acaban juntas
         (AppendToEnd de FlexibarNET10).
         """
+        journal = journal or OutputJournal()
         dest = Path(config.destination)
         ext = ".tif" if config.mode == "tiff" else ".pdf"
         documents, _ = self._document_of(pages)
@@ -555,20 +609,21 @@ class TransferService:
             except UnsafePathError as e:
                 raise TransferAbortedError(str(e)) from e
 
-        dest.mkdir(parents=True, exist_ok=True)
+        journal.mkdir(dest)
         result = TransferResult(
             output_path=str(planned[0][1] if len(planned) == 1 else dest)
         )
 
         for unit_pages, path in planned:
             try:
-                path.parent.mkdir(parents=True, exist_ok=True)
+                journal.mkdir(path.parent)
                 append = False
                 if path.exists():
                     if config.collision_policy == "merge":
                         append = True
                     elif config.collision_policy != "overwrite":
                         path = self._next_free_path(path)
+                journal.prepare(path)
                 result.files_transferred += self._write_multipage(
                     unit_pages, path, config, append
                 )
@@ -683,10 +738,12 @@ class TransferService:
         config: TransferConfig,
         batch_fields: dict[str, str],
         batch_id: int | None,
+        journal: OutputJournal | None = None,
     ) -> TransferResult:
         """Genera un CSV con los campos indexados de cada página."""
+        journal = journal or OutputJournal()
         dest = Path(config.destination)
-        dest.mkdir(parents=True, exist_ok=True)
+        journal.mkdir(dest)
 
         filename = (
             self._build_filename(
@@ -715,6 +772,7 @@ class TransferService:
         headers = ["page_index", "image_path"] + csv_fields
 
         try:
+            journal.prepare(output_path)
             with open(output_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(
                     f,
@@ -774,6 +832,7 @@ class TransferService:
         policy: str,
         needs_conversion: bool,
         config: TransferConfig,
+        journal: OutputJournal | None = None,
     ) -> Path | None:
         """Resuelve la colision de nombre de fichero segun la politica.
 
@@ -792,6 +851,7 @@ class TransferService:
                 dst,
                 needs_conversion,
                 config,
+                journal or OutputJournal(),
             )
 
         return self._next_free_path(dst)
@@ -802,6 +862,7 @@ class TransferService:
         dst: Path,
         needs_conversion: bool,
         config: TransferConfig,
+        journal: OutputJournal,
     ) -> Path | None:
         """Fusiona la imagen nueva con el fichero existente (multi-pagina).
 
@@ -811,6 +872,9 @@ class TransferService:
         from app.services.image_lib import ImageLib
 
         ext = dst.suffix.lower()
+
+        if ext in (".pdf", ".tif", ".tiff"):
+            journal.prepare(dst)
 
         if ext == ".pdf":
             if needs_conversion:
@@ -850,6 +914,7 @@ class TransferService:
 
         # Formatos sin multi-pagina: fallback a sufijo
         candidate = self._next_free_path(dst)
+        journal.prepare(candidate)
         if needs_conversion:
             new_imgs = ImageLib.load(src)
             if not new_imgs:
@@ -914,9 +979,16 @@ class TransferService:
         segments = [p for p in segments if p]
         return "/".join(segments) or fallback
 
-    def _write_metadata(self, image_path: Path, page: dict[str, Any]) -> None:
+    def _write_metadata(
+        self,
+        image_path: Path,
+        page: dict[str, Any],
+        journal: OutputJournal | None = None,
+    ) -> None:
         """Escribe un fichero .json de metadatos junto a la imagen."""
         meta_path = image_path.with_suffix(".json")
+        if journal is not None:
+            journal.prepare(meta_path)
         metadata = {
             "page_index": page.get("page_index"),
             "ocr_text": page.get("ocr_text", ""),

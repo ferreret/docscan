@@ -8,7 +8,27 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### ✨ Añadido
+
+- **«Cancelar escaneo» conserva lo recibido.** Mientras el escáner captura, el botón
+  Escanear pasa a «Cancelar escaneo» (también F5 o Esc). Las hojas que ya han pasado
+  por el escáner se quedan en el lote; el lote no se da por leído ni se transfiere.
+  Antes no había forma de cancelar, salvo cerrando la ventana, que además descartaba lo
+  capturado.
+- **Páginas al vuelo con alimentador (Linux, SANE).** Cada hoja aparece en el Workbench
+  y pasa por el pipeline en cuanto el escáner la termina, sin esperar al final del
+  lote. En Windows (TWAIN/WIA) siguen llegando al final.
+
 ### 🐛 Corregido
+
+- **Una transferencia que falla ya no deja salida a medias.** Si algo falla durante la
+  escritura, o después falla `on_transfer_advanced`, se borran los ficheros nuevos y
+  vuelven a su contenido anterior los sobrescritos o ampliados con «Fusionar». Antes,
+  el reintento creaba duplicados `_1` y, con «Fusionar», volvía a anexar las páginas
+  del intento fallido.
+- **Cerrar el Workbench con una transferencia en curso** la cortaba a medias (se
+  esperaba medio segundo y se soltaba el hilo). Ahora la ventana no se cierra y avisa.
+- Textos sin traducir al inglés y al catalán en los avisos nuevos.
 
 - **Un evento con error de sintaxis ya no se salta en silencio.** Se trataba como si
   la App no lo definiera: un `on_transfer_validate` roto dejaba pasar la

@@ -116,7 +116,7 @@ marca y pisa la manual.
 
 | Botón | Atajo | Qué hace |
 |-------|-------|----------|
-| **Escanear** (azul) | F5 | Captura con el escáner elegido en ⚙ |
+| **Escanear** (azul) | F5 | Captura con el escáner elegido en ⚙. Mientras captura pasa a **Cancelar escaneo** (F5 o Esc) |
 | **⚙** | — | Abre el panel del escáner: dispositivo (con ↻ para volver a buscar), fuente Flatbed/ADF y «Mostrar las opciones del escáner al capturar» |
 | **Escáner: …** | — | Indica el escáner y la fuente con los que se capturará |
 | **Importar…** | Ctrl+I | Añade ficheros al lote actual |
@@ -127,6 +127,9 @@ marca y pisa la manual.
 Mientras corre el pipeline, Escanear, Importar y Procesar quedan deshabilitados.
 A la derecha están el cambio de tema y el tamaño de letra.
 
+Con una transferencia en curso (o su validación) la ventana no se cierra: avisa y
+hay que esperar a que termine, para no dejarla cortada a medias.
+
 ## Escaneo
 
 1. La primera vez, abrir **⚙** y elegir el escáner. La lista se busca al abrir el
@@ -134,7 +137,13 @@ A la derecha están el cambio de tema y el tamaño de letra.
    elegido se recuerda por aplicación.
 2. Clic en **Escanear** (o F5). Si no hay escáner elegido, DocScan lo busca y, si no
    encuentra ninguno, avisa y abre ⚙.
-3. Las páginas se importan y procesan automáticamente por el pipeline.
+3. Las páginas se importan y procesan automáticamente por el pipeline. En Linux (SANE)
+   con alimentador, cada hoja aparece en cuanto el escáner la termina, sin esperar al
+   final del lote.
+4. Para parar a mitad, **Cancelar escaneo** (el mismo botón, F5 o Esc). Las hojas que ya
+   han pasado por el escáner se quedan en el lote y pasan por el pipeline; el lote no se
+   da por terminado ni se transfiere solo. En Windows (TWAIN/WIA), las páginas llegan
+   todavía al final del lote.
 
 En Linux (SANE), con «Mostrar las opciones del escáner al capturar» marcada se abre
 un diálogo con las opciones reales del dispositivo: fuente (`ADF Front`, `ADF Duplex`…),

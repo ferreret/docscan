@@ -6,7 +6,8 @@ Los de captura son los de FlexibarNET 10.
 
 | Atajo | Acción |
 |-------|--------|
-| `F5` | Escanear |
+| `F5` | Escanear (mientras escanea: cancelar) |
+| `Esc` | Cancelar el escaneo en curso (conserva las hojas ya escaneadas) |
 | `Ctrl+I` | Importar ficheros |
 | `F9` | Procesar todas las páginas del lote |
 | `Ctrl+T` | Transferir lote |

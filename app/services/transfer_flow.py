@@ -32,6 +32,7 @@ import cv2
 
 from app.models.document import LogicalDocument, split_documents
 from app.pipeline.page_context import AppContext, BatchContext
+from app.services.output_journal import OutputJournal
 from app.services.script_engine import EventOutcome
 from app.services.transfer_service import (
     NameResolver,
@@ -396,6 +397,10 @@ def execute_transfer(
             )
         except TransferAbortedError as e:
             return TransferResult(success=False, errors=[str(e)])
+        # La salida queda sin confirmar hasta saber si el script avanzado
+        # va bien: si falla, el lote no se marca y no debe quedar nada en el
+        # destino (paridad con FlexibarNET10 v1.27).
+        journal = OutputJournal()
         result = transfer_service.transfer(
             pages=pages,
             config=config,
@@ -403,15 +408,46 @@ def execute_transfer(
             batch_id=batch_id,
             on_page_callback=on_page_callback,
             name_resolver=name_resolver,
+            journal=journal,
         )
         if not result.success:
-            return result
+            return result  # transfer() ya ha retirado lo escrito
     else:
+        journal = OutputJournal()
         result = TransferResult(success=True)
 
     if not has_advanced:
+        journal.commit()
         return result
+    try:
+        result = _run_advanced(
+            script_engine, config, pages, result, contexts, advanced_entry_point
+        )
+    except BaseException:
+        journal.rollback()
+        raise
+    if result.success:
+        journal.commit()
+    else:
+        result.errors.extend(journal.rollback())
+        if config.standard_enabled and not journal.is_empty:
+            result.errors.append(
+                "Se ha retirado la salida de la transferencia simple para no "
+                "dejar el lote a medias en el destino"
+            )
+            result.files_transferred = 0
+    return result
 
+
+def _run_advanced(
+    script_engine: Any,
+    config: TransferConfig,
+    pages: list[dict[str, Any]],
+    result: TransferResult,
+    contexts: dict[str, Any] | None,
+    advanced_entry_point: str | None,
+) -> TransferResult:
+    """Ejecuta ``on_transfer_advanced`` e incorpora su resultado."""
     script_pages, documents = script_documents(pages)
     outcome: EventOutcome = script_engine.run_event_checked(
         ADVANCED_EVENT,
