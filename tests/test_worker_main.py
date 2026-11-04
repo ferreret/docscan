@@ -408,6 +408,7 @@ class TestProcessFiles:
     def _make_page_mock(self, index: int = 0) -> MagicMock:
         """Crea un mock de Page de BD."""
         page = MagicMock(spec=Page)
+        page.id = index + 1
         page.page_index = index
         page.ocr_text = ""
         page.index_fields_json = "{}"
@@ -1220,6 +1221,7 @@ class TestProcessPendingBatches:
         image = np.ones((50, 50, 3), dtype=np.uint8)
 
         page_mock = MagicMock(spec=Page)
+        page_mock.id = 1
         page_mock.page_index = 0
         page_mock.ocr_text = ""
         page_mock.index_fields_json = "{}"
@@ -1346,6 +1348,7 @@ class TestProcessPendingBatches:
 
         image = np.ones((50, 50, 3), dtype=np.uint8)
         page_mock = MagicMock(spec=Page)
+        page_mock.id = 1
         page_mock.page_index = 0
         page_mock.ocr_text = ""
         page_mock.index_fields_json = "{}"
@@ -1396,6 +1399,7 @@ class TestProcessPendingBatches:
 
         batch_mock = self._make_batch(1, active_app.id, "read")
         page_mock = MagicMock(spec=Page)
+        page_mock.id = 1
         page_mock.page_index = 0
 
         batch_svc_mock = MagicMock()

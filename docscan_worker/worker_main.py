@@ -30,7 +30,6 @@ from config.settings import APP_DATA_DIR  # noqa: F401  # parcheado por tests
 from app.models.application import Application  # noqa: F401
 from app.models.batch import Batch  # noqa: F401
 from app.models.page import Page  # noqa: F401
-from app.models.barcode import Barcode
 from app.models.template import Template  # noqa: F401
 from app.models.operation_history import OperationHistory  # noqa: F401
 
@@ -40,7 +39,7 @@ from app.pipeline.executor import PipelineExecutor
 from app.pipeline.serializer import deserialize
 from app.pipeline.steps import ScriptStep
 from app.services.barcode_service import BarcodeService
-from app.services.batch_service import BatchService
+from app.services.batch_service import BatchService, replace_pipeline_barcodes
 from app.services.event_config import (
     event_enabled,
     event_entry_point,
@@ -378,22 +377,7 @@ def _process_files(
             )
             # Los barcodes leídos no se guardaban: el worker transfería con
             # {first_barcode} vacío y sin rastro de lo leído en el lote.
-            for bc in page_ctx.barcodes:
-                session.add(
-                    Barcode(
-                        page_id=page_db.id,
-                        value=bc.value,
-                        symbology=bc.symbology,
-                        engine=bc.engine,
-                        step_id=bc.step_id,
-                        quality=bc.quality,
-                        pos_x=bc.pos_x,
-                        pos_y=bc.pos_y,
-                        pos_w=bc.pos_w,
-                        pos_h=bc.pos_h,
-                        role=bc.role,
-                    )
-                )
+            replace_pipeline_barcodes(session, page_db.id, page_ctx.barcodes)
 
         # Estadísticas
         duration = time.monotonic() - t_start
@@ -648,6 +632,9 @@ def _process_pending_batches(
                 page_db.script_errors_json = json.dumps(
                     page_ctx.flags.script_errors,
                 )
+                # El reproceso no guardaba lo leído: la transferencia usaba
+                # los barcodes de la pasada anterior.
+                replace_pipeline_barcodes(session, page_db.id, page_ctx.barcodes)
 
             batch_svc.transition_state(batch.id, "ready_to_export")
             session.commit()

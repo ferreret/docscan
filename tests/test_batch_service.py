@@ -356,3 +356,34 @@ class TestBorrarYAnadir:
         assert nueva.image_path != last_path
         assert int(cv2.imread(last_path)[0, 0, 0]) == 40  # intacta
         assert [p.page_index for p in service.get_pages(batch.id)] == [0, 1, 2, 3]
+
+
+class TestReplacePipelineBarcodes:
+    """Reprocesar sustituye lo leído en vez de acumularlo."""
+
+    @staticmethod
+    def _bc(value: str, engine: str = "motor1"):
+        from app.pipeline.page_context import BarcodeResult
+
+        return BarcodeResult(value=value, symbology="Code128", engine=engine)
+
+    def test_sustituye_y_conserva_manuales(
+        self, service: BatchService, session: Session, app_id: int, sample_images
+    ) -> None:
+        from app.services.batch_service import replace_pipeline_barcodes
+
+        batch = service.create_batch(app_id)
+        page = service.add_pages(batch.id, sample_images[:1])[0]
+        session.add(
+            Barcode(
+                page_id=page.id, value="M", symbology="", engine="manual", step_id=""
+            )
+        )
+        replace_pipeline_barcodes(session, page.id, [self._bc("1"), self._bc("2")])
+        replace_pipeline_barcodes(session, page.id, [self._bc("3")])
+        session.flush()
+
+        values = sorted(
+            b.value for b in session.query(Barcode).filter_by(page_id=page.id)
+        )
+        assert values == ["3", "M"]
