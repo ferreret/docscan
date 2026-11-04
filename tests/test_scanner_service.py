@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import platform
 
 import numpy as np
@@ -348,3 +349,100 @@ class TestScanimage:
         assert (
             _scanimage_error("scanimage: a\nScanning page 2\nscanimage: b\n") == "a; b"
         )
+
+
+# ------------------------------------------------------------------
+# Página a página y cancelación (lote 4: E1 y E3)
+# ------------------------------------------------------------------
+
+_FAKE_SCANIMAGE = r"""#!/bin/bash
+# scanimage falso: escribe cada página en «.part» y la renombra, como el real.
+for a in "$@"; do
+  case "$a" in
+    --batch=*) pat="${a#--batch=}" ;;
+    -A) exit 0 ;;
+  esac
+done
+trap 'echo "scanimage: received signal 15" >&2; exit 2' TERM
+for i in $(seq 1 "$FAKE_PAGES"); do
+  f=$(printf "$pat" "$i")
+  cp "$FAKE_SRC" "$f.part"
+  sleep 0.2 & wait $!
+  mv "$f.part" "$f"
+  sleep 0.6 & wait $!
+done
+"""
+
+
+class TestPaginaAPaginaYCancelar:
+    """Con un scanimage falso de verdad (subproceso, señales y ficheros)."""
+
+    @pytest.fixture
+    def scanner(self, monkeypatch, tmp_path):
+        import cv2
+
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        script = bin_dir / "scanimage"
+        script.write_text(_FAKE_SCANIMAGE)
+        script.chmod(0o755)
+        src = tmp_path / "hoja.png"
+        cv2.imwrite(str(src), np.full((20, 10, 3), 255, np.uint8))
+        monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
+        monkeypatch.setenv("FAKE_SRC", str(src))
+        s = SaneScanner()
+        monkeypatch.setattr(s, "_device_limits", lambda source: {})
+        return s
+
+    def test_entrega_cada_pagina_en_cuanto_llega(self, scanner, monkeypatch):
+        import time
+
+        monkeypatch.setenv("FAKE_PAGES", "3")
+        llegadas: list[float] = []
+        images = scanner.acquire(
+            "fake:dev",
+            ScanConfig(source_type="adf"),
+            on_page=lambda img: llegadas.append(time.monotonic()),
+        )
+        fin = time.monotonic()
+        assert len(images) == 3 and len(llegadas) == 3
+        # La primera llega mientras el escáner sigue con las otras dos.
+        assert fin - llegadas[0] > 1.0
+
+    def test_cancelar_conserva_las_paginas_completas(self, scanner, monkeypatch):
+        import time
+
+        monkeypatch.setenv("FAKE_PAGES", "10")
+        recibidas: list[np.ndarray] = []
+        inicio = time.monotonic()
+        images = scanner.acquire(
+            "fake:dev",
+            ScanConfig(source_type="adf"),
+            on_page=recibidas.append,
+            should_stop=lambda: len(recibidas) >= 2,
+        )
+        assert time.monotonic() - inicio < 6  # 10 hojas tardarían ~8 s
+        assert 2 <= len(images) < 10
+        assert len(recibidas) == len(images)
+
+    def test_un_fallo_en_on_page_no_deja_el_escaner_corriendo(
+        self, scanner, monkeypatch
+    ):
+        import subprocess
+
+        monkeypatch.setenv("FAKE_PAGES", "10")
+        procesos: list[subprocess.Popen] = []
+        real_popen = subprocess.Popen
+
+        def popen(*a, **kw):
+            procesos.append(real_popen(*a, **kw))
+            return procesos[-1]
+
+        monkeypatch.setattr(subprocess, "Popen", popen)
+
+        def roto(img):
+            raise RuntimeError("roto")
+
+        with pytest.raises(RuntimeError, match="roto"):
+            scanner.acquire("fake:dev", ScanConfig(source_type="adf"), on_page=roto)
+        assert procesos and all(p.poll() is not None for p in procesos)

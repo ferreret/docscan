@@ -48,6 +48,7 @@ class ScanWorker(QThread):
         parent: Any = None,
     ) -> None:
         super().__init__(parent)
+        self._emitidas = 0
         self._mode = mode  # "scanner", "import_file", "import_files", "import_folder", "import_pdf"
         self._source = source
         self._scanner = scanner
@@ -62,8 +63,12 @@ class ScanWorker(QThread):
         entregadas, nunca ``finished_scanning``: informar del total
         completo tras una cancelación hace creer al consumidor que tiene
         páginas que jamás le llegaron.
+
+        Con escáner, las páginas se emiten en cuanto el backend las entrega
+        (si lo admite) y cancelar **conserva** las ya capturadas: el papel
+        ya ha pasado por el escáner (FlexibarNET10 v1.27).
         """
-        emitidas = 0
+        self._emitidas = 0
         error = ""
         try:
             try:
@@ -73,24 +78,39 @@ class ScanWorker(QThread):
                 # ya capturadas se entregan, pero el lote no está completo.
                 results = [(img, "") for img in e.images]
                 error = str(e)
-            for i, (img, src) in enumerate(results):
+            if self._mode == "scanner":
+                # Las que ya llegaron por on_page no se repiten.
+                for img, src in results[self._emitidas :]:
+                    self._emit(img, src)
                 if self.isInterruptionRequested():
                     log.info(
-                        "Escaneo interrumpido en la página %d de %d",
-                        i,
+                        "Escaneo cancelado: %d páginas conservadas", self._emitidas
+                    )
+                    self.cancelled.emit(self._emitidas)
+                    return
+                results = []
+            for img, src in results:
+                if self.isInterruptionRequested():
+                    log.info(
+                        "Importación interrumpida en la página %d de %d",
+                        self._emitidas,
                         len(results),
                     )
-                    self.cancelled.emit(emitidas)
+                    self.cancelled.emit(self._emitidas)
                     return
-                self.page_acquired.emit(i, img, src)
-                emitidas += 1
+                self._emit(img, src)
             if error:
                 self.error_occurred.emit(error)
                 return
-            self.finished_scanning.emit(emitidas)
+            self.finished_scanning.emit(self._emitidas)
         except Exception as e:
             log.error("Error en ScanWorker: %s", e)
             self.error_occurred.emit(str(e))
+
+    def _emit(self, image: np.ndarray, source_path: str) -> None:
+        """Entrega una página y la cuenta."""
+        self.page_acquired.emit(self._emitidas, image, source_path)
+        self._emitidas += 1
 
     def _acquire(self) -> list[tuple[np.ndarray, str]]:
         """Delega la adquisición al servicio correspondiente.
@@ -103,7 +123,12 @@ class ScanWorker(QThread):
             case "scanner":
                 if self._scanner is None:
                     raise RuntimeError("No hay escáner configurado")
-                images = self._scanner.acquire(self._source, self._scan_config)
+                images = self._scanner.acquire(
+                    self._source,
+                    self._scan_config,
+                    on_page=lambda img: self._emit(img, ""),
+                    should_stop=self.isInterruptionRequested,
+                )
                 return [(img, "") for img in images]
             case "import_file" | "import_pdf":
                 if self._import_service is None:

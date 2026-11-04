@@ -727,6 +727,7 @@ class WorkbenchWindow(QMainWindow):
 
         # Adquisición y transferencia
         _s("F5", self._on_scan)
+        _s("Escape", self._cancel_scan)
         _s("Ctrl+I", self._on_import)
         _s("F9", self._on_process_all)
         _s("Ctrl+T", self._on_transfer)
@@ -1104,10 +1105,47 @@ class WorkbenchWindow(QMainWindow):
             btn.setEnabled(enabled)
 
     def _on_scan(self) -> None:
-        """Escanear (F5)."""
+        """Escanear (F5); mientras el escáner captura, cancela."""
+        if self._scanning():
+            self._cancel_scan()
+            return
         if not self._btn_scan.isEnabled() or self._acquisition_running():
             return
         self._start_scanner()
+
+    def _scanning(self) -> bool:
+        """¿El escáner está capturando ahora mismo (no una importación)?"""
+        worker = self._scan_worker
+        return (
+            worker is not None
+            and worker.isRunning()
+            and getattr(worker, "_mode", "") == "scanner"
+        )
+
+    def _cancel_scan(self) -> None:
+        """Cancelar escaneo (botón, F5 o Esc): para el escáner y conserva lo recibido.
+
+        Las páginas que ya han pasado por el escáner se quedan en el lote
+        (FlexibarNET10 v1.27); el lote no se da por leído ni se transfiere.
+        """
+        if not self._scanning():
+            return
+        self._scan_worker.requestInterruption()
+        self._btn_scan.setEnabled(False)
+        self._btn_scan.setText(self.tr("Cancelando…"))
+        self._status_bar.showMessage(self.tr("Cancelando el escaneo…"))
+
+    def _show_scan_as_cancel(self) -> None:
+        """Mientras el escáner captura, «Escanear» pasa a «Cancelar escaneo»."""
+        self._btn_scan.setText(self.tr("Cancelar escaneo"))
+        self._btn_scan.setToolTip(self.tr("Cancelar escaneo (F5 / Esc)"))
+        self._btn_scan.setEnabled(True)
+
+    def _restore_scan_button(self) -> None:
+        """Vuelve a «Escanear», habilitado como el resto de la adquisición."""
+        self._btn_scan.setText(self.tr("Escanear"))
+        self._btn_scan.setToolTip(self.tr("Escanear (F5)"))
+        self._btn_scan.setEnabled(self._btn_import.isEnabled())
 
     def _on_import(self) -> None:
         """Importar… (Ctrl+I)."""
@@ -1345,6 +1383,8 @@ class WorkbenchWindow(QMainWindow):
         self._acquisition_incomplete = False
         self._progress_bar.setVisible(True)
         self._set_acquire_enabled(False)
+        if getattr(self._scan_worker, "_mode", "") == "scanner":
+            self._show_scan_as_cancel()
 
         # Arrancar
         self._recognition_worker.start()
@@ -1432,6 +1472,7 @@ class WorkbenchWindow(QMainWindow):
     def _on_scan_finished(self, total: int) -> None:
         """El escaneo/importación ha terminado."""
         log.info("Adquisición completada: %d páginas", total)
+        self._restore_scan_button()
         if self._recognition_worker:
             self._recognition_worker.signal_no_more_pages()
 
@@ -1443,6 +1484,11 @@ class WorkbenchWindow(QMainWindow):
         """
         log.info("Adquisición cancelada tras %d páginas", emitidas)
         self._acquisition_incomplete = True
+        self._restore_scan_button()
+        self._status_bar.showMessage(
+            self.tr("Escaneo cancelado: se conservan {0} página(s)").format(emitidas),
+            8000,
+        )
         if self._recognition_worker:
             self._recognition_worker.signal_no_more_pages()
 
@@ -1477,6 +1523,7 @@ class WorkbenchWindow(QMainWindow):
         if self._recognition_worker and self._recognition_worker.isRunning():
             self._recognition_worker.signal_no_more_pages()
         self._set_acquire_enabled(True)
+        self._restore_scan_button()
         QMessageBox.critical(self, self.tr("Error de adquisici\u00f3n"), error)
 
     def _on_page_processed(self, page_index: int, page_ctx: Any) -> None:

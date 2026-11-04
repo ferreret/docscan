@@ -3077,3 +3077,89 @@ class TestCerrarConTransferenciaEnCurso:
         window._transfer_worker = self._worker(False)
         with qtbot.waitSignal(window.closed, timeout=3000):
             window.close()
+
+
+class TestEscaneoPaginaAPaginaYCancelar:
+    """Lote 4 (E1, E3): páginas al vuelo y «Cancelar escaneo» conserva lo recibido."""
+
+    def test_no_repite_las_paginas_ya_entregadas(self, qtbot, color_image):
+        """Un backend entrega 2 por on_page y devuelve las 3: se emiten 3."""
+
+        def acquire(source, config, on_page=None, should_stop=None):
+            on_page(color_image)
+            on_page(color_image)
+            return [color_image] * 3
+
+        scanner = MagicMock()
+        scanner.acquire.side_effect = acquire
+        worker = ScanWorker(mode="scanner", source="dev", scanner=scanner)
+        emitidas: list[int] = []
+        worker.page_acquired.connect(lambda *a: emitidas.append(a[0]))
+
+        with qtbot.waitSignal(worker.finished_scanning, timeout=3000) as sig:
+            worker.start()
+        worker.wait()
+        assert emitidas == [0, 1, 2]
+        assert sig.args[0] == 3
+
+    def test_cancelar_conserva_lo_capturado(self, qtbot, color_image):
+        """Antes, al cancelar se descartaban las páginas que ya tenía el escáner."""
+        holder: dict = {}
+
+        def acquire(source, config, on_page=None, should_stop=None):
+            on_page(color_image)
+            holder["worker"].requestInterruption()
+            assert should_stop()
+            # El backend sin entrega por página las devuelve aquí.
+            return [color_image] * 3
+
+        scanner = MagicMock()
+        scanner.acquire.side_effect = acquire
+        worker = ScanWorker(mode="scanner", source="dev", scanner=scanner)
+        holder["worker"] = worker
+        terminados: list[int] = []
+        worker.finished_scanning.connect(terminados.append)
+        emitidas: list[int] = []
+        worker.page_acquired.connect(lambda *a: emitidas.append(a[0]))
+
+        with qtbot.waitSignal(worker.cancelled, timeout=3000) as sig:
+            worker.start()
+        worker.wait()
+        assert emitidas == [0, 1, 2]
+        assert sig.args[0] == 3
+        assert terminados == []
+
+    @pytest.fixture
+    def wb(self, qtbot, session_factory, sample_app, tmp_path):
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        return window
+
+    def test_boton_cancelar_escaneo(self, wb):
+        scan = MagicMock()
+        scan.isRunning.return_value = True
+        scan._mode = "scanner"
+        wb._scan_worker = scan
+        wb._set_acquire_enabled(False)
+        wb._show_scan_as_cancel()
+        assert wb._btn_scan.text() == "Cancelar escaneo"
+        assert wb._btn_scan.isEnabled()
+
+        wb._on_scan()  # F5 o clic mientras escanea
+        scan.requestInterruption.assert_called_once()
+        assert not wb._btn_scan.isEnabled()
+
+        wb._on_scan_cancelled(2)
+        assert wb._btn_scan.text() == "Escanear"
+        assert "2" in wb._status_bar.currentMessage()
+
+    def test_esc_no_cancela_una_importacion(self, wb):
+        imp = MagicMock()
+        imp.isRunning.return_value = True
+        imp._mode = "import_files"
+        wb._scan_worker = imp
+        wb._cancel_scan()
+        imp.requestInterruption.assert_not_called()

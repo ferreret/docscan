@@ -13,12 +13,18 @@ from __future__ import annotations
 import logging
 import platform
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
 log = logging.getLogger(__name__)
+
+#: Recibe cada página en cuanto el escáner la termina (en el hilo del escaneo).
+PageCallback = Callable[[np.ndarray], None]
+#: Devuelve True cuando el usuario ha pedido cancelar el escaneo.
+StopCheck = Callable[[], bool]
 
 
 # ------------------------------------------------------------------
@@ -97,8 +103,26 @@ class BaseScanner(ABC):
         self,
         source: str,
         config: ScanConfig,
+        on_page: PageCallback | None = None,
+        should_stop: StopCheck | None = None,
     ) -> list[np.ndarray]:
-        """Adquiere una o más páginas del escáner."""
+        """Adquiere una o más páginas del escáner.
+
+        Args:
+            source: Dispositivo.
+            config: Parámetros de captura.
+            on_page: Si el backend lo admite, recibe cada página en cuanto
+                está completa, sin esperar al final del lote (FlexibarNET10:
+                cada página se entrega y se guarda en cuanto llega).
+            should_stop: Si el backend lo admite, se consulta durante la
+                captura; al devolver True se para el escáner y se devuelven
+                las páginas ya completas, sin error.
+
+        Returns:
+            **Todas** las páginas capturadas, también las ya entregadas por
+            ``on_page``: quien llama descarta las que ya recibió. Un backend
+            que no admite ``on_page`` las devuelve solo aquí.
+        """
 
     @abstractmethod
     def close(self) -> None:
@@ -278,8 +302,14 @@ class SaneScanner(BaseScanner):
         self,
         source: str,
         config: ScanConfig,
+        on_page: PageCallback | None = None,
+        should_stop: StopCheck | None = None,
     ) -> list[np.ndarray]:
         """Adquiere páginas usando scanimage (subprocess).
+
+        Con alimentador, cada página se entrega a ``on_page`` en cuanto
+        ``scanimage`` la termina (la renombra de ``.part`` a ``.png``), y
+        ``should_stop`` para el escaneo conservando las páginas completas.
 
         SANE no es thread-safe, así que delegamos la captura al CLI
         ``scanimage`` que se ejecuta en su propio proceso. Con alimentador
@@ -315,11 +345,34 @@ class SaneScanner(BaseScanner):
             else:
                 cmd.extend(["-o", str(out_dir / "p00001.png")])
             log.info("Escaneando: %s", " ".join(cmd))
-            returncode, stderr = self._run_scanimage(cmd, out_dir)
-            # scanimage escribe cada página en «.part» y la renombra al
-            # terminarla: solo cuentan las completas.
-            images = self._read_images(sorted(out_dir.glob("p*.png")))
+            images: list[np.ndarray] = []
+            read: set[str] = set()
 
+            def collect() -> None:
+                # scanimage escribe cada página en «.part» y la renombra al
+                # terminarla: solo cuentan las completas.
+                for path in sorted(out_dir.glob("p*.png")):
+                    if path.name in read:
+                        continue
+                    read.add(path.name)
+                    for image in self._read_images([path]):
+                        images.append(image)
+                        if on_page is not None:
+                            on_page(image)
+
+            # Con cristal se escribe directamente en el fichero final: leerlo
+            # antes de que termine daría una imagen a medias.
+            returncode, stderr, stopped = self._run_scanimage(
+                cmd,
+                out_dir,
+                on_progress=collect if use_adf else None,
+                should_stop=should_stop,
+            )
+            collect()
+
+        if stopped:
+            log.info("Escaneo cancelado tras %d páginas completas", len(images))
+            return images
         if returncode != 0:
             detail = _scanimage_error(stderr) or f"código {returncode}"
             if images:
@@ -436,13 +489,29 @@ class SaneScanner(BaseScanner):
         self._cli_limits[source] = limits
         return limits
 
-    def _run_scanimage(self, cmd: list[str], out_dir: Any) -> tuple[int, str]:
+    def _run_scanimage(
+        self,
+        cmd: list[str],
+        out_dir: Any,
+        on_progress: Callable[[], None] | None = None,
+        should_stop: StopCheck | None = None,
+    ) -> tuple[int, str, bool]:
         """Ejecuta scanimage vigilando que la captura avance.
 
         Un lote de alimentador puede durar minutos, así que no hay un tiempo
         total: se aborta si pasan ``IDLE_TIMEOUT`` segundos sin que crezca
         ninguna imagen. stderr va a un fichero para no bloquear el proceso
         si el driver escribe mucho (p. ej. con ``SANE_DEBUG_*``).
+
+        Args:
+            cmd: Orden de scanimage.
+            out_dir: Carpeta donde escribe las páginas.
+            on_progress: Se llama cada vez que cambia la salida (para
+                entregar las páginas ya completas).
+            should_stop: Si devuelve True, se para scanimage.
+
+        Returns:
+            (código de salida, stderr, True si se paró por ``should_stop``).
         """
         import subprocess
         import tempfile
@@ -453,7 +522,17 @@ class SaneScanner(BaseScanner):
             progress, last_change = -1, time.monotonic()
             while proc.poll() is None:
                 time.sleep(0.5)
-                current = sum(f.stat().st_size for f in out_dir.iterdir())
+                if should_stop is not None and should_stop():
+                    self._stop_scanimage(proc)
+                    err.seek(0)
+                    return proc.returncode, err.read().decode(errors="replace"), True
+                if on_progress is not None:
+                    try:
+                        on_progress()
+                    except BaseException:
+                        self._stop_scanimage(proc)  # no dejarlo escaneando solo
+                        raise
+                current = self._output_size(out_dir)
                 if current != progress:
                     progress, last_change = current, time.monotonic()
                 elif time.monotonic() - last_change > self.IDLE_TIMEOUT:
@@ -461,12 +540,41 @@ class SaneScanner(BaseScanner):
                     proc.wait()
                     err.seek(0)
                     stderr = err.read().decode(errors="replace")
-                    return -1, (
+                    return (
+                        -1,
                         f"{stderr}\nscanimage: sin respuesta del escáner en "
-                        f"{self.IDLE_TIMEOUT} s"
+                        f"{self.IDLE_TIMEOUT} s",
+                        False,
                     )
             err.seek(0)
-            return proc.returncode, err.read().decode(errors="replace")
+            return proc.returncode, err.read().decode(errors="replace"), False
+
+    @staticmethod
+    def _output_size(out_dir: Any) -> int:
+        """Bytes escritos hasta ahora (tolera ficheros renombrados al vuelo)."""
+        total = 0
+        for f in out_dir.iterdir():
+            try:
+                total += f.stat().st_size
+            except FileNotFoundError:
+                pass  # scanimage acaba de renombrar «.part» a «.png»
+        return total
+
+    @staticmethod
+    def _stop_scanimage(proc: Any) -> None:
+        """Para scanimage dejándole cancelar la hoja en curso.
+
+        Con SIGTERM scanimage llama a ``sane_cancel`` y el alimentador
+        expulsa la hoja; si no responde en unos segundos, se mata.
+        """
+        import subprocess
+
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
 
     @staticmethod
     def _read_images(paths: list[Any]) -> list[np.ndarray]:
@@ -723,7 +831,11 @@ class TwainScanner(BaseScanner):
         self,
         source: str,
         config: ScanConfig,
+        on_page: PageCallback | None = None,
+        should_stop: StopCheck | None = None,
     ) -> list[np.ndarray]:
+        # Sin entrega por página ni cancelación (pendiente de probar en
+        # Windows): las páginas llegan todas al final, como hasta ahora.
         import twain
         import cv2
         import tempfile
@@ -863,7 +975,11 @@ class WiaScanner(BaseScanner):
         self,
         source: str,
         config: ScanConfig,
+        on_page: PageCallback | None = None,
+        should_stop: StopCheck | None = None,
     ) -> list[np.ndarray]:
+        # Sin entrega por página ni cancelación (pendiente de probar en
+        # Windows): las páginas llegan todas al final, como hasta ahora.
         import win32com.client
         from PIL import Image
         import io
