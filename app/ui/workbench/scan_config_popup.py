@@ -108,6 +108,27 @@ class ScanConfigPopup(QFrame):
         self.combo_source.addItem(name)
         self.combo_source.setCurrentIndex(self.combo_source.count() - 1)
 
+    def replace_scanner(self, old: str, new: str) -> None:
+        """Cambia ``old`` por ``new`` en la lista y lo deja elegido.
+
+        Para el escáner USB que, al reconectarlo, SANE nombra con otra
+        dirección: el resto de la lista no cambia.
+        """
+        combo = self.combo_source
+        combo.blockSignals(True)
+        dup = combo.findText(new)
+        if dup >= 0 and combo.itemText(dup) != old:
+            combo.removeItem(dup)
+        idx = combo.findText(old)
+        if idx >= 0:
+            combo.setItemText(idx, new)
+        else:
+            combo.addItem(new)
+            idx = combo.count() - 1
+        combo.setCurrentIndex(idx)
+        combo.blockSignals(False)
+        self.config_changed.emit()
+
     def summary(self) -> str:
         """Texto del distintivo de la barra: escáner y fuente, o «sin escáner»."""
         name = self.combo_source.currentText()

@@ -81,9 +81,14 @@ from app.workers.recognition_worker import (
     PageContext,
     RecognitionWorker,
 )
-from app.services.scanner_service import ScanConfig
+from app.services.scanner_service import (
+    ScanConfig,
+    ScannerGoneError,
+    migrate_device_options,
+)
 from app.ui.workbench.scanner_config_dialog import ScannerConfigDialog
 from app.workers.scan_worker import ScanWorker
+from app.workers.scanner_locate_worker import ScannerLocateWorker
 from app.workers.transfer_worker import TransferWorker
 from app.workers.validation_worker import ValidationWorker
 from config.settings import APP_DATA_DIR, APP_IMAGES_DIR  # noqa: F401  # APP_DATA_DIR parcheado por tests
@@ -262,6 +267,8 @@ class WorkbenchWindow(QMainWindow):
         self._enqueued_page_ids: dict[int, int] = {}
         self._transfer_worker: TransferWorker | None = None
         self._validation_worker: ValidationWorker | None = None
+        # Busca de nuevo un escáner USB reconectado en otra dirección.
+        self._locate_worker: ScannerLocateWorker | None = None
         # Lo preparado para transferir mientras corre la validación:
         # (config, pages_data, batch_fields).
         self._pending_transfer: tuple[Any, list[dict], dict] | None = None
@@ -1226,8 +1233,13 @@ class WorkbenchWindow(QMainWindow):
             )
         return self._scanner
 
-    def _start_scanner(self) -> None:
-        """Inicia adquisición desde escáner."""
+    def _start_scanner(self, located: bool = False) -> None:
+        """Inicia adquisición desde escáner.
+
+        Args:
+            located: El escáner ya se ha vuelto a buscar en este intento
+                (tras reconectarlo en otra dirección USB): no se repite.
+        """
         source = self._combo_source.currentText()
         if not source and not self._scan_popup.scanners_listed:
             self._refresh_scanners()
@@ -1249,6 +1261,12 @@ class WorkbenchWindow(QMainWindow):
             QMessageBox.critical(self, self.tr("Error de esc\u00e1ner"), str(e))
             return
 
+        # Escáner USB reconectado: su dirección ya no existe. Se busca antes
+        # de consultar opciones (abrirlo fallaría con «Invalid argument»).
+        if not located and scanner.source_missing(source):
+            self._locate_scanner(source)
+            return
+
         source_type = self._combo_source_type.currentData() or "flatbed"
         scan_config = ScanConfig(source_type=source_type)
 
@@ -1264,6 +1282,12 @@ class WorkbenchWindow(QMainWindow):
                 # SANE: consultar opciones del dispositivo y mostrar diálogo
                 try:
                     options = scanner.get_device_options(source)
+                except ScannerGoneError as e:
+                    if located:
+                        self._warn_scanner_gone(source, e.sources)
+                    else:
+                        self._locate_scanner(source, force=True)
+                    return
                 except Exception as e:
                     log.warning("Error consultando opciones: %s", e)
                     options = []
@@ -1297,6 +1321,67 @@ class WorkbenchWindow(QMainWindow):
             scan_config=scan_config,
         )
         self._start_workers()
+
+    def _locate_scanner(self, source: str, force: bool = False) -> None:
+        """Vuelve a buscar en segundo plano un escáner que ha cambiado de dirección.
+
+        Al terminar, si se ha localizado, el escaneo sigue solo; si no, se
+        avisa al operador.
+        """
+        if self._locate_worker is not None and self._locate_worker.isRunning():
+            return
+        self._btn_scan.setEnabled(False)
+        self._status_bar.showMessage(self.tr("Buscando el escáner…"))
+        worker = ScannerLocateWorker(self._get_scanner(), source, force)
+        worker.located.connect(self._on_scanner_located)
+        worker.not_found.connect(self._on_scanner_not_found)
+        self._locate_worker = worker
+        worker.start()
+
+    def _on_scanner_located(self, old: str, new: str) -> None:
+        """El escáner se ha vuelto a localizar: se recuerda y se escanea."""
+        if self._script_engine is None:
+            return  # Ventana cerrada mientras se buscaba
+        self._status_bar.clearMessage()
+        self._restore_scan_button()
+        self._apply_relocated_source(old, new)
+        self._start_scanner(located=True)
+
+    def _on_scanner_not_found(self, old: str, sources: list[str] | None) -> None:
+        """No se ha podido localizar el escáner: aviso y ⚙ abierto."""
+        if self._script_engine is None:
+            return
+        self._status_bar.clearMessage()
+        self._restore_scan_button()
+        self._warn_scanner_gone(old, sources)
+
+    def _apply_relocated_source(self, old: str, new: str) -> None:
+        """Sustituye el escáner en ⚙ y en la preferencia, con sus opciones."""
+        if old == new:
+            return
+        self._scan_options_by_device = migrate_device_options(
+            self._scan_options_by_device, old, new
+        )
+        self._scan_popup.replace_scanner(old, new)
+        self._save_source_settings()
+        self._status_bar.showMessage(
+            self.tr("Escáner reconectado: ahora es {0}").format(new), 5000
+        )
+
+    def _warn_scanner_gone(self, source: str, sources: list[str] | None) -> None:
+        """Avisa de que el escáner ya no está en su dirección y abre ⚙."""
+        if sources:
+            # Ya se han listado: ⚙ muestra lo que hay conectado ahora. Sin
+            # ninguno (apagado) se deja el guardado para volver a probarlo.
+            self._scan_popup.set_scanners(sources)
+        QMessageBox.warning(
+            self,
+            self.tr("Escáner no encontrado"),
+            self.tr(
+                "El escáner {0} ya no está conectado en esa dirección; elígelo en ⚙."
+            ).format(source),
+        )
+        self._scan_popup.show_below(self._btn_scan_config)
 
     def _start_import(self) -> None:
         """Inicia importación desde uno o más ficheros."""
@@ -1367,6 +1452,8 @@ class WorkbenchWindow(QMainWindow):
         self._scan_worker.finished_scanning.connect(self._on_scan_finished)
         self._scan_worker.cancelled.connect(self._on_scan_cancelled)
         self._scan_worker.error_occurred.connect(self._on_scan_error)
+        self._scan_worker.source_relocated.connect(self._apply_relocated_source)
+        self._scan_worker.scanner_gone.connect(self._on_scanner_gone)
 
         # Conectar señales del recognition worker
         self._recognition_worker.page_processed.connect(
@@ -1520,6 +1607,16 @@ class WorkbenchWindow(QMainWindow):
 
     def _on_scan_error(self, error: str) -> None:
         """Error durante la adquisición."""
+        self._end_failed_acquisition()
+        QMessageBox.critical(self, self.tr("Error de adquisici\u00f3n"), error)
+
+    def _on_scanner_gone(self, source: str, sources: list[str] | None) -> None:
+        """El escáner no estaba en su dirección USB y no se ha podido localizar."""
+        self._end_failed_acquisition()
+        self._warn_scanner_gone(source, sources)
+
+    def _end_failed_acquisition(self) -> None:
+        """Cierra una adquisición que no ha terminado bien."""
         self._progress_bar.setVisible(False)
         self._acquisition_incomplete = True
         # El reconocimiento de las páginas ya capturadas termina: sin esto se
@@ -1529,7 +1626,6 @@ class WorkbenchWindow(QMainWindow):
             self._recognition_worker.signal_no_more_pages()
         self._set_acquire_enabled(True)
         self._restore_scan_button()
-        QMessageBox.critical(self, self.tr("Error de adquisici\u00f3n"), error)
 
     def _on_page_processed(self, page_index: int, page_ctx: Any) -> None:
         """Una página ha sido procesada por el pipeline.
@@ -3151,6 +3247,9 @@ class WorkbenchWindow(QMainWindow):
             if worker and worker.isRunning():
                 worker.requestInterruption()
                 worker.wait(500)
+        if self._locate_worker is not None and self._locate_worker.isRunning():
+            # Listar escáneres no se puede interrumpir; acaba en segundos.
+            self._locate_worker.wait(15000)
 
         self._save_source_settings()
         self._fire_event("on_app_end")
@@ -3172,6 +3271,7 @@ class WorkbenchWindow(QMainWindow):
         self._recognition_worker = None
         self._transfer_worker = None
         self._validation_worker = None
+        self._locate_worker = None
         self._pending_transfer = None
         if self._script_engine is not None:
             self._script_engine.shutdown()

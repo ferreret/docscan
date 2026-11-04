@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 from PySide6.QtCore import QThread, Signal
 
-from app.services.scanner_service import ScanIncompleteError
+from app.services.scanner_service import ScanIncompleteError, ScannerGoneError
 
 log = logging.getLogger(__name__)
 
@@ -30,12 +30,20 @@ class ScanWorker(QThread):
         error_occurred: mensaje de error. Si el escáner falla a mitad de
             lote, llega después de las páginas ya capturadas y en lugar
             de finished_scanning.
+        source_relocated: (nombre antiguo, nombre nuevo) cuando el escáner
+            USB ha cambiado de dirección y se ha vuelto a localizar; el
+            escaneo sigue con el nombre nuevo.
+        scanner_gone: (nombre, dispositivos encontrados o None) del escáner
+            que ya no está en su dirección y no se ha podido localizar.
+            Sustituye a error_occurred.
     """
 
     page_acquired = Signal(int, object, str)  # (index, np.ndarray, source_path)
     finished_scanning = Signal(int)
     cancelled = Signal(int)
     error_occurred = Signal(str)
+    source_relocated = Signal(str, str)
+    scanner_gone = Signal(str, object)  # (nombre, dispositivos o None)
 
     def __init__(
         self,
@@ -103,6 +111,9 @@ class ScanWorker(QThread):
                 self.error_occurred.emit(error)
                 return
             self.finished_scanning.emit(self._emitidas)
+        except ScannerGoneError as e:
+            log.warning("Escáner no localizado: %s", e)
+            self.scanner_gone.emit(e.source, e.sources)
         except Exception as e:
             log.error("Error en ScanWorker: %s", e)
             self.error_occurred.emit(str(e))
@@ -123,12 +134,17 @@ class ScanWorker(QThread):
             case "scanner":
                 if self._scanner is None:
                     raise RuntimeError("No hay escáner configurado")
-                images = self._scanner.acquire(
-                    self._source,
-                    self._scan_config,
-                    on_page=lambda img: self._emit(img, ""),
-                    should_stop=self.isInterruptionRequested,
-                )
+                try:
+                    images = self._scan(self._source)
+                except ScannerGoneError:
+                    # Reconectado en otra dirección USB: no ha pasado papel,
+                    # así que se busca de nuevo y se repite una vez.
+                    new = self._scanner.resolve_source(self._source, force=True)
+                    if new == self._source:
+                        raise
+                    self.source_relocated.emit(self._source, new)
+                    self._source = new
+                    images = self._scan(new)
                 return [(img, "") for img in images]
             case "import_file" | "import_pdf":
                 if self._import_service is None:
@@ -161,3 +177,12 @@ class ScanWorker(QThread):
                 return [(img, folder) for img in images]
             case _:
                 raise ValueError(f"Modo de adquisición desconocido: '{self._mode}'")
+
+    def _scan(self, source: str) -> list[np.ndarray]:
+        """Una pasada del escáner, entregando cada página al llegar."""
+        return self._scanner.acquire(
+            source,
+            self._scan_config,
+            on_page=lambda img: self._emit(img, ""),
+            should_stop=self.isInterruptionRequested,
+        )
