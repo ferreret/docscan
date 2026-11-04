@@ -3156,6 +3156,11 @@ class TestEscaneoPaginaAPaginaYCancelar:
         assert wb._btn_scan.text() == "Escanear"
         assert "2" in wb._status_bar.currentMessage()
 
+        # Al terminar el pipeline, el aviso sigue siendo el de la cancelación,
+        # no el de un atasco («revisa el escáner»).
+        wb._on_all_processed()
+        assert "cancelado" in wb._status_bar.currentMessage()
+
     def test_esc_no_cancela_una_importacion(self, wb):
         imp = MagicMock()
         imp.isRunning.return_value = True

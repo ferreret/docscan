@@ -460,6 +460,9 @@ class WorkbenchWindow(QMainWindow):
         # La adquisición de la pasada en curso no terminó entera (error o
         # cancelación): el lote no se da por leído ni se auto-transfiere.
         self._acquisition_incomplete = False
+        # Hojas conservadas si el operador canceló el escaneo (None: no lo
+        # canceló). Distingue «Cancelar escaneo» de un atasco en el aviso final.
+        self._scan_cancelled_kept: int | None = None
 
         # Configurar metadatos
         self._configure_metadata()
@@ -1381,6 +1384,7 @@ class WorkbenchWindow(QMainWindow):
         self._run_progress = (0, 0)
         self._run_errors = 0
         self._acquisition_incomplete = False
+        self._scan_cancelled_kept = None
         self._progress_bar.setVisible(True)
         self._set_acquire_enabled(False)
         if getattr(self._scan_worker, "_mode", "") == "scanner":
@@ -1484,6 +1488,7 @@ class WorkbenchWindow(QMainWindow):
         """
         log.info("Adquisición cancelada tras %d páginas", emitidas)
         self._acquisition_incomplete = True
+        self._scan_cancelled_kept = emitidas
         self._restore_scan_button()
         self._status_bar.showMessage(
             self.tr("Escaneo cancelado: se conservan {0} página(s)").format(emitidas),
@@ -1756,10 +1761,15 @@ class WorkbenchWindow(QMainWindow):
             # pero el lote está a medias: ni on_scan_complete ni
             # auto-transferencia hasta que el operador lo complete.
             log.warning("Adquisición incompleta: no se cierra el lote")
-            self._status_bar.showMessage(
-                self.tr("Escaneo incompleto: revisa el escáner y continúa el lote"),
-                8000,
-            )
+            if self._scan_cancelled_kept is not None:
+                message = self.tr(
+                    "Escaneo cancelado: se conservan {0} página(s)"
+                ).format(self._scan_cancelled_kept)
+            else:
+                message = self.tr(
+                    "Escaneo incompleto: revisa el escáner y continúa el lote"
+                )
+            self._status_bar.showMessage(message, 8000)
             return
 
         if self._batch_id:
@@ -1849,6 +1859,7 @@ class WorkbenchWindow(QMainWindow):
         self._run_progress = (0, 0)
         self._run_errors = 0
         self._acquisition_incomplete = False
+        self._scan_cancelled_kept = None
         self._progress_bar.setVisible(True)
         self._set_acquire_enabled(False)
 
