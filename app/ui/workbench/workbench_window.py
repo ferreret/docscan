@@ -302,7 +302,7 @@ class WorkbenchWindow(QMainWindow):
                 try:
                     self._script_engine.compile_step(step)
                 except Exception as e:
-                    log.warning("Error compilando script '%s': %s", step.id, e)
+                    log.error("El script '%s' no compila: %s", step.id, e)
 
         # Compilar eventos
         self._compile_events()
@@ -329,8 +329,10 @@ class WorkbenchWindow(QMainWindow):
                     label=event_name,
                 )
             except Exception as e:
-                log.warning(
-                    "Error compilando evento '%s': %s",
+                # Error y no aviso: el evento no correrá y el operador debe
+                # verlo en el panel de Log (cada disparo lo vuelve a decir).
+                log.error(
+                    "El evento '%s' no compila y no se ejecutará: %s",
                     event_name,
                     e,
                 )

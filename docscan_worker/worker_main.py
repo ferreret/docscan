@@ -193,7 +193,8 @@ def _compile_lifecycle_events(
     """Compila los scripts de eventos de ciclo de vida.
 
     Returns:
-        Diccionario {event_name: entry_point_name} de eventos compilados.
+        Diccionario {event_name: entry_point_name} de los eventos activos,
+        compilen o no (los que no compilan fallan con aviso al dispararse).
     """
     events: dict[str, str] = {}
     # Ambos formatos: str (código directo) o dict {"script", "entry_point",
@@ -203,11 +204,15 @@ def _compile_lifecycle_events(
         if not source.strip() or not event_enabled(event_config):
             continue
         entry_point = event_entry_point(event_name, event_config)
+        # Se registra aunque no compile: al dispararse, el ScriptEngine
+        # informa del fallo en cada lote en lugar de saltarlo en silencio.
+        events[event_name] = entry_point
         try:
             script_engine.compile_script(event_name, source, label=event_name)
-            events[event_name] = entry_point
         except Exception as exc:
-            log.error("Error compilando evento '%s': %s", event_name, exc)
+            log.error(
+                "El evento '%s' no compila y no se ejecutará: %s", event_name, exc
+            )
 
     return events
 

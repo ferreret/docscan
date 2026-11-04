@@ -107,6 +107,10 @@ class ScriptEngine:
         # Último hash conocido de cada script_id (para los eventos de
         # ciclo de vida, que no llevan el fuente en la llamada).
         self._hash_by_id: dict[str, str] = {}
+        # Último error de compilación de cada script_id. Un evento que no
+        # compila NO es un evento «no definido»: quien lo ejecute debe
+        # enterarse de que falla (regla «nada falla en silencio»).
+        self._compile_error_by_id: dict[str, str] = {}
         self._http_client = http_client
         self._script_timeout = script_timeout
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -137,11 +141,15 @@ class ScriptEngine:
             try:
                 code = compile(source, f"<script:{display_name}>", "exec")
             except SyntaxError as e:
-                raise ScriptCompilationError(
-                    f"Error de sintaxis en '{display_name}': {e}"
-                ) from e
+                message = f"Error de sintaxis en '{display_name}': {e}"
+                # La versión anterior (si la había) ya no es la vigente: no
+                # debe seguir ejecutándose como si nada.
+                self._hash_by_id.pop(script_id, None)
+                self._compile_error_by_id[script_id] = message
+                raise ScriptCompilationError(message) from e
             self._code_by_hash[source_hash] = code
         self._hash_by_id[script_id] = source_hash
+        self._compile_error_by_id.pop(script_id, None)
 
     def compile_step(self, step: Any) -> None:
         """Compila un ScriptStep (conveniencia).
@@ -155,10 +163,23 @@ class ScriptEngine:
         """¿El script está compilado en cache?"""
         return script_id in self._hash_by_id
 
+    def compile_error_for_id(self, script_id: str) -> str:
+        """Error de compilación del script ``script_id``, o ``""``."""
+        return self._compile_error_by_id.get(script_id, "")
+
+    def is_defined(self, script_id: str) -> bool:
+        """¿Hay un script con ese id, compile o no?
+
+        Distingue «la App no define este evento» de «lo define pero no
+        compila»: en el segundo caso el evento debe fallar con el motivo.
+        """
+        return script_id in self._hash_by_id or script_id in self._compile_error_by_id
+
     def clear_cache(self) -> None:
         """Limpia la cache de scripts compilados."""
         self._code_by_hash.clear()
         self._hash_by_id.clear()
+        self._compile_error_by_id.clear()
 
     @staticmethod
     def _source_hash(source: str) -> str:
@@ -314,6 +335,13 @@ class ScriptEngine:
         """
         code = self._code_for_id(script_id)
         if not code:
+            compile_error = self.compile_error_for_id(script_id)
+            if compile_error:
+                log.error(
+                    "El evento '%s' no se ejecuta porque no compila: %s",
+                    script_id,
+                    compile_error,
+                )
             return None
 
         namespace = self._build_namespace(**kwargs)
@@ -426,9 +454,17 @@ class ScriptEngine:
             **kwargs: Argumentos para la función (app, batch, pages…).
 
         Returns:
-            EventOutcome con ``ran=False`` si el evento no está compilado, o
-            con ``error`` relleno si no define la función o lanza.
+            EventOutcome con ``ran=False`` si la App no define el evento, o
+            con ``error`` relleno si no compila, no define la función o lanza.
         """
+        compile_error = self.compile_error_for_id(script_id)
+        if compile_error and not self.is_compiled(script_id):
+            log.error(
+                "El evento '%s' no se ejecuta porque no compila: %s",
+                script_id,
+                compile_error,
+            )
+            return EventOutcome(ran=True, error=f"no compila: {compile_error}")
         if not self.is_compiled(script_id):
             return EventOutcome(ran=False)
         try:
