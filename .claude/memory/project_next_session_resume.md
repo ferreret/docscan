@@ -1,6 +1,6 @@
 ---
 name: next-session-resume
-description: "Punto de retoma de DocScan. 2026-11-04: PR #12 deuda de revisión abierto. 2026-11-03: DR-M160 funcionando en Ubuntu; v0.1.10 publicada (escáner SANE + actualizador AppImage); siguiente: escáner en Windows, eCAP, deuda de revisión."
+description: "Punto de retoma de DocScan. 2026-11-04: deuda de revisión mergeada (PR #12). 2026-11-03: DR-M160 funcionando en Ubuntu; v0.1.10 publicada (escáner SANE + actualizador AppImage); siguiente: escáner en Windows, eCAP, deuda de revisión."
 metadata:
   node_type: memory
   type: project
@@ -64,7 +64,7 @@ pendiente.
    (`docs/portfolio/metricas.md`, medidas el 2026-10-29).
 1. Probar las Apps del Arnau con escáner real (DR-M160) y escaneos de verdad.
 2. Familia eCAP del Arnau (04, 08): secretos en scripts + ODBC contra BD simulada.
-3. ~~Pendientes de la revisión de código~~ **HECHO 2026-11-04 en PR #12** (rama `fix/deuda-revision-codigo`, 1278 tests, smoke e2e con BD del Arnau; pendiente de merge). Eran: eventos que no compilan
+3. ~~Pendientes de la revisión de código~~ **HECHO 2026-11-04, mergeado en main (PR #12, merge `2a4c4ef`)**: 1278 tests, smoke e2e y prueba manual de Nicolás en `docscan-entornos/arnau-lento` (copia con pipeline frenado 2 s/página y validación de 10 s, borrable). Eran: eventos que no compilan
    se saltan en silencio (viola la regla de lote 3), `on_transfer_validate` corre en el
    hilo de UI sin timeout, el reproceso duplica barcodes en BD, Ctrl+P/F9 pisan un
    RecognitionWorker vivo y los resultados se asocian por page_index y no por id.
