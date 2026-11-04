@@ -94,5 +94,6 @@
 - **PC Windows operativo desde 2026-08-05**: repo en `F:\<carpeta>\docscan`, venv `.venv` (Python 3.14.2, invocar `.venv\Scripts\python.exe`), BD y datos en `%LOCALAPPDATA%\docscan\` (backup `docscan.db.bak-preupgrade`). App arrancada y verificada visualmente. **Falta probar el escáner físico.**
 - ⚠️ **Pins solo-Windows no los valida el CI** (corre en Linux, el marcador `sys_platform == "win32"` los salta): `pywin32==310` era insatisfacible en Python 3.14 (sin wheel cp314) y abortaba `pip install -r` ENTERA. Subido a 311. Revisar a mano al tocar `pytwain`/`pywin32`.
 - Remoto: git@github.com:ferreret/docscan.git
+- **Entornos de prueba aislados** (desde 2026-11-04) en `~/Projects/Personal/docscan-entornos/`: `arnau/` (Apps del Arnau, `arrancar.sh` con XDG propio, hojas en `paginas/`, copias `pr4/` `pr5/`) y `prueba/` (AppImages 0.1.8/0.1.9 instalados aislados). Nada de carpetas sueltas en el home; las BD guardan rutas absolutas (`pages.image_path`, `transfer_json.destination`): si se mueven, reescribirlas.
 - Escáner de test: Canon imageFORMULA DR-M160 (canon_dr:libusb en Linux; TWAIN en Windows)
 - [Acceso a GitHub con gh](feedback_github_api.md) — `gh` autenticado; el $GITHUB_PAT está caducado

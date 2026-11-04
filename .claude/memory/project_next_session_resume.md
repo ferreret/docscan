@@ -18,7 +18,7 @@ metadata:
   `fix/lote3-nada-falla-en-silencio` y `feat/rediseno-ui` están subsumidas en main
   (borrables).
 - **Lote 6 mergeado en `main`** el 2026-10-27 (PR #3, merge `985bcad`), tras la
-  pasada manual de Nicolás con `~/DocScanArnau/arrancar.sh` (todo OK, incluido VS Code
+  pasada manual de Nicolás con `~/Projects/Personal/docscan-entornos/arnau/arrancar.sh` (todo OK, incluido VS Code
   para el script de nombre). Incluye separadores + Apps de archivo del Arnau, el
   Configurador revisado frente a Flexibar y los PR #4 (grupos en el launcher) y #5
   (Configurador al estilo Flexibar). **1240 tests verdes en main.** Publicado en v0.1.8. Ramas `feat/lote6-separadores` y las de #4/#5 borrables.
@@ -50,8 +50,8 @@ tocarla desde DocScan. SANE ya comprobado: `canon_dr` habilitado, DR-M160 en `ca
 en el hwdb de udev (acceso sin sudo); el escáner seguía sin conectar.
 
 **Próxima sesión (decidido 2026-10-28, sigue vigente): conectar el Canon DR-M160 en Ubuntu** y probar
-las Apps del Arnau (`~/DocScanArnau/arrancar.sh`, backend sane; hojas de
-`~/DocScanArnau/paginas/` impresas). Hoy solo SANE ve la HP DeskJet por red (escl).
+las Apps del Arnau (`~/Projects/Personal/docscan-entornos/arnau/arrancar.sh`, backend sane; hojas de
+`~/Projects/Personal/docscan-entornos/arnau/paginas/` impresas). Hoy solo SANE ve la HP DeskJet por red (escl).
 `main` lleva el arreglo del actualizador (PR #10, merge `44b8b9b`) sin publicar: v0.1.10
 pendiente.
 
@@ -74,5 +74,5 @@ pendiente.
 
 ## Pendientes de campo (solo el usuario)
 
-- ~~Validar la v0.1.9 instalada~~ HECHO 2026-10-28 en Linux (AppImage aislado en `~/DocScanPrueba`): Acerca de, BD de la v0.1.8 e idiomas EN/CA OK. **El actualizador de Linux no sustituía el AppImage** (leía `sys.argv[0]` en vez de `APPIMAGE`, y `rename` tmpfs→ext4 falla) y decía «aplicada»: arreglado en PR #10 (rama `fix/actualizador-appimage`, CI verde), va en la v0.1.10. Desde ≤0.1.9 en Linux hay que actualizar a mano una vez. Ubuntu 26.04 necesita `libfuse2t64` para los AppImage. Falta probar el instalador de Windows.
+- ~~Validar la v0.1.9 instalada~~ HECHO 2026-10-28 en Linux (AppImage aislado en `~/Projects/Personal/docscan-entornos/prueba`): Acerca de, BD de la v0.1.8 e idiomas EN/CA OK. **El actualizador de Linux no sustituía el AppImage** (leía `sys.argv[0]` en vez de `APPIMAGE`, y `rename` tmpfs→ext4 falla) y decía «aplicada»: arreglado en PR #10 (rama `fix/actualizador-appimage`, CI verde), va en la v0.1.10. Desde ≤0.1.9 en Linux hay que actualizar a mano una vez. Ubuntu 26.04 necesita `libfuse2t64` para los AppImage. Falta probar el instalador de Windows.
 - Escáner físico en Ubuntu.

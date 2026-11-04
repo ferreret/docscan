@@ -23,7 +23,7 @@ Canon DR-M160 en minis-nick-linux (Ubuntu 26.04), probado el 2026-11-03:
   vuelca basura binaria y grep trata la salida como binaria. Usar `grep -a`.
 - El `buffer-size 8000000` que avisa en `canon_dr.conf` es de otros modelos; inocuo.
 - Para pruebas: la HP DeskJet 2700 (`HP_DeskJet_2700_series_09FF11`) imprime las
-  hojas de `~/DocScanArnau/paginas/` con `lp -o media=A4 -o print-scaling=fit`.
+  hojas de `~/Projects/Personal/docscan-entornos/arnau/paginas/` con `lp -o media=A4 -o print-scaling=fit`.
   El DR-M160 alimenta desde abajo: cargar cara abajo con la hoja 1 abajo del todo.
 
 Relacionado: [[next-session-resume]], [[project-apps-arnau]].
