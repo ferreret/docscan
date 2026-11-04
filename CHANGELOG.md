@@ -8,6 +8,25 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-11-04
+
+Versión de mantenimiento sobre la 0.1.10: «Cancelar escaneo» y páginas al vuelo con
+alimentador, la salida de una transferencia fallida ya no se queda a medias, el
+escáner USB se reencuentra tras reconectarlo y se cierran los fallos pendientes de
+la revisión de código. Probada con el Canon DR-M160 en Linux. Es la primera que
+permite comprobar el actualizador de Linux, que se arregló en la 0.1.10.
+
+> **A revisar antes de actualizar**
+> - **Apps con eventos que no compilan**: un `on_transfer_validate` o un
+>   `on_transfer_advanced` con un error de sintaxis antes se saltaba sin avisar y la
+>   transferencia seguía; ahora la **bloquea** con el motivo. Revisa en el Log si
+>   alguna App avisa de «no compila».
+> - `on_transfer_validate` se corta a los 30 s (el límite de los scripts,
+>   `DOCSCAN_PIPELINE__SCRIPT_TIMEOUT_SECONDS`): una validación que tarde más bloquea
+>   la transferencia.
+> - Una transferencia que falla retira lo ya escrito en el destino, también si falla
+>   después `on_transfer_advanced`.
+
 ### ✨ Añadido
 
 - **«Cancelar escaneo» conserva lo recibido.** Mientras el escáner captura, el botón

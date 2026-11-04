@@ -1,7 +1,7 @@
 # DocScan Studio — Informe de Proyecto
 **Fecha**: 27 de octubre de 2026
 **Versión del documento**: 1.2
-**Estado del proyecto**: En desarrollo — v0.1.10 publicada, con instaladores; sin instalaciones en producción todavía
+**Estado del proyecto**: En desarrollo — v0.1.11 publicada, con instaladores; sin instalaciones en producción todavía
 
 ---
 
@@ -11,7 +11,7 @@ DocScan Studio es una aplicación de escritorio para la **captura por lotes, el 
 
 El sistema digitaliza documentos desde escáneres físicos o importando ficheros (imágenes y PDF), los procesa con un pipeline configurable (operaciones de imagen, códigos de barras, OCR y scripts Python), los divide en documentos por código de barras, permite revisarlos e indexarlos, y los transfiere al archivo de destino.
 
-**Estado actual**: v0.1.10, publicada el 3 de noviembre de 2026, con instaladores para Linux (AppImage) y Windows (.exe) y actualización automática. Hay **1226 tests automáticos** en verde, con una cobertura de líneas del **75 %**. La v0.1.8 incorpora el **separador de documento** de FlexibarNET 10 y, como prueba de aceptación, **seis aplicaciones reales** de FlexibarNET 10 portadas (las de archivo del Hospital Arnau de Vilanova); la v0.1.9 completa la interfaz en inglés y catalán y la v0.1.10 es la primera probada con un escáner físico (Canon DR-M160 en Linux). Falta el escáner en Windows y la primera instalación en producción.
+**Estado actual**: v0.1.11, publicada el 4 de noviembre de 2026, con instaladores para Linux (AppImage) y Windows (.exe) y actualización automática. Hay **1226 tests automáticos** en verde, con una cobertura de líneas del **75 %**. La v0.1.8 incorpora el **separador de documento** de FlexibarNET 10 y, como prueba de aceptación, **seis aplicaciones reales** de FlexibarNET 10 portadas (las de archivo del Hospital Arnau de Vilanova); la v0.1.9 completa la interfaz en inglés y catalán la v0.1.10 es la primera probada con un escáner físico (Canon DR-M160 en Linux) y la v0.1.11 añade «Cancelar escaneo», páginas al vuelo y la retirada de la salida de una transferencia fallida. Falta el escáner en Windows y la primera instalación en producción.
 
 ---
 
@@ -171,8 +171,8 @@ Medidas el 29 de octubre de 2026 sobre la v0.1.9 (detalle y método en `docs/por
 
 | Métrica | Valor |
 |---------|-------|
-| Versión actual | **v0.1.10** (03/11/2026) |
-| Releases publicadas | **13** (v0.1.0 a v0.1.10, más dos candidatas) |
+| Versión actual | **v0.1.11** (04/11/2026) |
+| Releases publicadas | **14** (v0.1.0 a v0.1.11, más dos candidatas) |
 | Tests automáticos | **1226** en verde |
 | Cobertura de líneas | **75 %** |
 | Líneas de Python de la aplicación | **26.172** |

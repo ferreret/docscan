@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/version-0.1.10-blue?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/ferreret/docscan/releases/latest"><img src="https://img.shields.io/badge/version-0.1.11-blue?style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/PySide6-6.11-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
   <img src="https://img.shields.io/badge/tests-1226_passing-brightgreen?style=flat-square" alt="Tests">
@@ -60,6 +60,17 @@ generative AI to create and configure applications.
 ```
 📥 Scan / import → 🔄 Pipeline (image · barcode · OCR · scripts) → ✅ Review and index → 📤 Transfer
 ```
+
+### What's new in v0.1.11
+
+- **Cancel scan keeps what was scanned**: while scanning, the Scan button becomes
+  «Cancel scan» (also F5 or Esc); sheets already through the scanner stay in the batch.
+- **Pages appear as they are scanned** with a document feeder on Linux (SANE), and
+  the scanner is found again after unplugging and replugging it.
+- **A failed transfer leaves nothing behind**: files already written are removed and
+  merged PDF/TIFF files go back to how they were, so a retry never duplicates pages.
+- Transfer validation runs in the background with a time limit, events with syntax
+  errors are reported instead of skipped, and reprocessing no longer duplicates barcodes.
 
 ### What's new in v0.1.10
 
@@ -187,8 +198,8 @@ Download the latest version from [Releases](https://github.com/ferreret/docscan/
 
 | System | File |
 |--------|------|
-| Linux (x86_64) | `docscan-0.1.10-x86_64.AppImage`: make it executable and open it |
-| Windows | `docscan-0.1.10-setup.exe`: installer |
+| Linux (x86_64) | `docscan-0.1.11-x86_64.AppImage`: make it executable and open it |
+| Windows | `docscan-0.1.11-setup.exe`: installer |
 
 `SHA256SUMS.txt` holds the checksums. The application tells you when a new version is
 out and updates itself. The database is created and migrated at startup.
@@ -562,5 +573,5 @@ maintained; its tests skip themselves when their dependencies are missing.
 Developed by **Nicolás Barceló**.
 
 <p align="center">
-  <sub>DocScan Studio v0.1.10</sub>
+  <sub>DocScan Studio v0.1.11</sub>
 </p>

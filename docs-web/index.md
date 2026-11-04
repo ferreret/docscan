@@ -54,8 +54,8 @@ Descarga el instalador de la
 
 | Sistema | Fichero |
 |---------|---------|
-| Linux (x86_64) | `docscan-0.1.10-x86_64.AppImage`: dale permiso de ejecución y ábrelo |
-| Windows | `docscan-0.1.10-setup.exe`: instalador |
+| Linux (x86_64) | `docscan-0.1.11-x86_64.AppImage`: dale permiso de ejecución y ábrelo |
+| Windows | `docscan-0.1.11-setup.exe`: instalador |
 
 Desde el código fuente (Python 3.14 con [uv](https://docs.astral.sh/uv/)):
 
@@ -73,6 +73,11 @@ La base de datos se crea y se migra sola al arrancar.
 [Guía completa de inicio :material-arrow-right:](user-guide/getting-started.md){ .md-button .md-button--primary }
 
 ## :sparkles: Novedades
+
+**v0.1.11**: «Cancelar escaneo» conserva lo escaneado, las páginas aparecen según
+se escanean con alimentador (Linux) y el escáner USB se reencuentra tras reconectarlo.
+Una transferencia fallida ya no deja salida a medias, la validación previa corre en
+segundo plano con límite de tiempo y los eventos que no compilan avisan.
 
 **v0.1.10**: probado con un escáner físico en Linux (Canon DR-M160 por SANE). Las A4
 ya no salen cortadas, hay opción de tamaño de página, el lote se captura con un solo
@@ -125,5 +130,5 @@ Detalle completo en el
 ---
 
 <p align="center">
-  <sub>DocScan Studio v0.1.10 — © 2026 Nicolás Barceló</sub>
+  <sub>DocScan Studio v0.1.11 — © 2026 Nicolás Barceló</sub>
 </p>
