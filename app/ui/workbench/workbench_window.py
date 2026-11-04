@@ -2210,8 +2210,12 @@ class WorkbenchWindow(QMainWindow):
                 ),
             )
 
-            # Cerrar después de transferencia (APP-03)
+            # Cerrar después de transferencia (APP-03). La señal llega
+            # mientras el hilo aún termina: sin esperarlo, closeEvent lo vería
+            # en marcha y no dejaría cerrar.
             if self._application and self._application.close_after_transfer:
+                if self._transfer_worker is not None:
+                    self._transfer_worker.wait(5000)
                 self.close()
             else:
                 self._start_new_batch_after_export()
@@ -3055,12 +3059,36 @@ class WorkbenchWindow(QMainWindow):
     # ==================================================================
 
     def closeEvent(self, event) -> None:
-        """Detiene workers y ejecuta on_app_end."""
+        """Detiene workers y ejecuta on_app_end.
+
+        Con una transferencia (o su validación) en curso no se cierra: antes
+        se esperaba medio segundo y se soltaba el hilo, y la transferencia
+        quedaba cortada a medias (FlexibarNET10: «cerrar con una
+        transferencia en curso espera o avisa»).
+        """
+        busy = next(
+            (
+                w
+                for w in (self._transfer_worker, self._validation_worker)
+                if w is not None and w.isRunning()
+            ),
+            None,
+        )
+        if busy is not None:
+            event.ignore()
+            QMessageBox.information(
+                self,
+                self.tr("Transferencia en curso"),
+                self.tr(
+                    "Hay una transferencia en curso. Espera a que termine para "
+                    "cerrar la ventana."
+                ),
+            )
+            return
+
         for worker in (
             self._scan_worker,
             self._recognition_worker,
-            self._transfer_worker,
-            self._validation_worker,
         ):
             if worker and worker.isRunning():
                 worker.requestInterruption()

@@ -3029,3 +3029,51 @@ class TestResultadosDelPipelinePorId:
         initial = worker.enqueue_page.call_args.args[2]
         assert initial["id"] == page.id
         assert wb._enqueued_page_ids[1] == page.id
+
+
+class TestCerrarConTransferenciaEnCurso:
+    """E6: cerrar con una transferencia en curso no la corta a medias."""
+
+    @pytest.fixture
+    def wb(self, qtbot, session_factory, sample_app, tmp_path):
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        return window
+
+    @staticmethod
+    def _worker(running: bool) -> MagicMock:
+        worker = MagicMock()
+        worker.isRunning.return_value = running
+        return worker
+
+    def test_no_cierra_y_avisa(self, wb):
+        wb.show()
+        wb._transfer_worker = self._worker(True)
+        with patch(
+            "app.ui.workbench.workbench_window.QMessageBox.information"
+        ) as aviso:
+            assert wb.close() is False
+        assert wb.isVisible()
+        assert "transferencia en curso" in aviso.call_args.args[2]
+        wb._transfer_worker.requestInterruption.assert_not_called()
+        assert wb._script_engine is not None  # on_app_end no se ha disparado
+
+    def test_tampoco_mientras_valida(self, wb):
+        wb.show()
+        wb._validation_worker = self._worker(True)
+        assert wb.close() is False
+
+    def test_cierra_cuando_termina(self, qtbot, session_factory, sample_app, tmp_path):
+        # Ventana propia y no el fixture: al cerrarse se destruye
+        # (WA_DeleteOnClose) y el fixture la mantendría referenciada.
+        with patch("app.ui.workbench.workbench_window.APP_DATA_DIR", tmp_path):
+            window = WorkbenchWindow(
+                app_id=sample_app.id, session_factory=session_factory
+            )
+        qtbot.addWidget(window)
+        window._transfer_worker = self._worker(False)
+        with qtbot.waitSignal(window.closed, timeout=3000):
+            window.close()
