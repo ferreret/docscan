@@ -8,6 +8,29 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### 🐛 Corregido
+
+- **Un evento con error de sintaxis ya no se salta en silencio.** Se trataba como si
+  la App no lo definiera: un `on_transfer_validate` roto dejaba pasar la
+  transferencia y un `on_transfer_advanced` roto no se ejecutaba sin decir nada.
+  Ahora la transferencia falla con el motivo, el resto de eventos deja un error en
+  el panel de Log cada vez que se disparan y, si se edita un evento y deja de
+  compilar, la versión anterior ya no sigue corriendo.
+- **`on_transfer_validate` ya no congela el Workbench.** Corre en segundo plano y
+  con el tiempo máximo de los scripts (30 s por defecto), también en el worker
+  desatendido: una validación que no responde bloquea la transferencia con el motivo
+  en vez de dejar la aplicación colgada.
+- **Resultados del pipeline en la página correcta.** Se asociaban por posición: borrar
+  o reordenar páginas (Alt+↑/↓) mientras se procesaban guardaba el resultado en otra
+  página. Ahora van por id, y en el Workbench `page.id` deja de valer `0` dentro
+  del pipeline.
+- **Ctrl+P ya no interrumpe un procesado en curso.** Sustituía al procesado vivo
+  (durante una captura, las páginas siguientes se perdían); ahora avisa en la barra
+  de estado, igual que **Procesar** (F9).
+- **Reprocesar ya no duplica los barcodes.** Se añadían junto a los de la pasada
+  anterior; ahora se sustituyen y se conservan los añadidos a mano. El worker
+  desatendido, al reprocesar lotes leídos, tampoco guardaba lo leído.
+
 ## [0.1.10] - 2026-11-03
 
 Versión de mantenimiento sobre la 0.1.9: primera validación con un escáner físico

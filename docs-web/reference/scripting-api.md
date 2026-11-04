@@ -28,7 +28,8 @@ otro error del script. El cliente se cierra al cerrar la aplicación.
     `page.flags.script_errors` y la página pasa a revisión. El límite se cambia
     con la variable de entorno `DOCSCAN_PIPELINE__SCRIPT_TIMEOUT_SECONDS`
     (en segundos) y vale para el Workbench, el worker desatendido y el modo
-    directo. Los eventos no tienen límite.
+    directo. `on_transfer_validate` tiene el mismo límite (si no responde, la
+    transferencia no empieza); el resto de eventos no tiene límite.
 
 ## AppContext
 
@@ -68,7 +69,7 @@ otro error del script. El cliente se cierra al cerrar la aplicación.
 
 | Atributo | Tipo | Descripción |
 |----------|------|-------------|
-| `id` | int | ID de la página en BD (disponible desde v0.1.1 / v0.1.2 desktop) |
+| `id` | int | ID de la página en BD (disponible desde v0.1.1 / v0.1.2 desktop; en el pipeline del Workbench valía `0` hasta la v0.1.10) |
 | `page_index` | int | Índice 0-based dentro del lote |
 | `image` | ndarray | Imagen actual (OpenCV). En `on_page_changed` vale `None` |
 | `barcodes` | list[BarcodeResult] | Barcodes detectados |
@@ -198,8 +199,9 @@ Igual en el Workbench y en el worker desatendido (lógica de FlexibarNET 10):
    CSV): si el patrón usa `{separator}` y algún documento no tiene
    valor, o si con la página separadora descartada un documento quedaría vacío
    o hay páginas antes de la primera hoja, la transferencia no empieza.
-3. **`on_transfer_validate`**: si devuelve `False` **o lanza una excepción**, la
-   transferencia no empieza. Un `ValueError` se toma como rechazo deliberado
+3. **`on_transfer_validate`**: si devuelve `False`, **lanza una excepción, no
+   compila o no responde en el tiempo máximo**, la transferencia no empieza. En el
+   Workbench corre en segundo plano (la ventana no se congela mientras valida). Un `ValueError` se toma como rechazo deliberado
    (aviso en el log, solo el mensaje al operador); otra excepción, como fallo
    del script (error con traza).
 4. **Transferencia simple**, si está activada (con «solo script» no hace falta
@@ -208,8 +210,8 @@ Igual en el Workbench y en el worker desatendido (lógica de FlexibarNET 10):
    de nombre falla, no queda salida a medias.
 5. **`on_transfer_advanced`**, con `pages`, `documents` y el `result` de la
    transferencia simple.
-   Si devuelve `False` **o lanza**, la transferencia falla y el lote **no** se
-   marca como exportado.
+   Si devuelve `False`, **lanza o no compila**, la transferencia falla y el lote
+   **no** se marca como exportado.
 
 Solo en el Workbench, antes del paso 1, el [panel de verificación](#panel-de-verificacion)
 valida cada página (`validate_page`) y el lote (`validate`); entre los pasos 3

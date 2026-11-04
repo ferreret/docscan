@@ -82,7 +82,11 @@ La barra del visor tiene además:
 - **Eliminar página actual** (Supr) y **Borrar desde aquí** (de la página actual
   al final del lote). Las dos piden confirmación.
 
-**Ctrl+P** reprocesa la página actual con el pipeline. La lista completa de
+**Ctrl+P** reprocesa la página actual con el pipeline: los barcodes leídos en la
+pasada anterior se sustituyen por los nuevos y los añadidos a mano se conservan.
+Si ya hay un procesado en curso (una captura o **Procesar**), Ctrl+P no hace nada
+y la barra de estado lo avisa. Se puede borrar o reordenar páginas mientras se
+procesan: cada resultado se guarda en su página. La lista completa de
 atajos está en [Atajos de teclado](../reference/shortcuts.md).
 
 ## Separadores de documento
