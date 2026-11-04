@@ -210,8 +210,9 @@ Igual en el Workbench y en el worker desatendido (lógica de FlexibarNET 10):
    de nombre falla, no queda salida a medias.
 5. **`on_transfer_advanced`**, con `pages`, `documents` y el `result` de la
    transferencia simple.
-   Si devuelve `False`, **lanza o no compila**, la transferencia falla y el lote
-   **no** se marca como exportado.
+   Si devuelve `False`, **lanza o no compila**, la transferencia falla, el lote
+   **no** se marca como exportado y se retira la salida de la transferencia
+   simple (lo que escriba el propio script no lo puede deshacer DocScan).
 
 Solo en el Workbench, antes del paso 1, el [panel de verificación](#panel-de-verificacion)
 valida cada página (`validate_page`) y el lote (`validate`); entre los pasos 3

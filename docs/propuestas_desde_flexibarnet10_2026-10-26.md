@@ -175,6 +175,20 @@ contrato de `BaseScanner.acquire` a un generador, o a un callback por página. L
 se pueden cubrir con mocks, pero **la validación final necesita el escáner físico**, y
 solo tú puedes hacerla.
 
+✅ **Hecho el 2026-11-04 para SANE (Linux)** (rama `feat/lote4-transferencia-y-escaner`):
+
+- E2 y E4 entraron antes, en la v0.1.10 (PR #11): un atasco conserva las páginas y
+  avisa, y el timeout es por inactividad.
+- E1 y E3: `acquire` admite `on_page` y `should_stop` (callback, no generador). SANE
+  entrega cada hoja al terminarla y «Cancelar escaneo» (botón, F5 o Esc) para
+  `scanimage` conservando las completas.
+- E5: con `scanimage`, una opción que el escáner rechaza hace fallar la captura con el
+  motivo; no se escanea en silencio con otra configuración.
+- E6: no se cierra el Workbench con una transferencia o su validación en curso.
+- D3: `OutputJournal` retira la salida si la transferencia (o el script avanzado) falla.
+- **Pendiente**: E1, E3 y E5 en TWAIN/WIA (solo se pueden probar en Windows) y la
+  prueba de E1/E3 con el DR-M160.
+
 ### Lote 5 — «Confianza y RGPD»
 
 F1 + F2 (diálogo de consentimiento con el código y los destinos de datos), F3 (secretos
