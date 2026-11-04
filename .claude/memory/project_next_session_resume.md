@@ -1,6 +1,6 @@
 ---
 name: next-session-resume
-description: "Punto de retoma de DocScan. 2026-11-04: deuda de revisión mergeada (PR #12); lote 4 en PR #13 pendiente de probar con el DR-M160. 2026-11-03: DR-M160 funcionando en Ubuntu; v0.1.10 publicada (escáner SANE + actualizador AppImage); siguiente: escáner en Windows, eCAP, deuda de revisión."
+description: "Punto de retoma de DocScan. 2026-11-04: deuda de revisión mergeada (PR #12); lote 4 (PR #13) y relocalización USB (PR #14) mergeados. 2026-11-03: DR-M160 funcionando en Ubuntu; v0.1.10 publicada (escáner SANE + actualizador AppImage); siguiente: escáner en Windows, eCAP, deuda de revisión."
 metadata:
   node_type: memory
   type: project
@@ -68,7 +68,7 @@ pendiente.
    se saltan en silencio (viola la regla de lote 3), `on_transfer_validate` corre en el
    hilo de UI sin timeout, el reproceso duplica barcodes en BD, Ctrl+P/F9 pisan un
    RecognitionWorker vivo y los resultados se asocian por page_index y no por id.
-4. ~~Lote 4~~ **HECHO 2026-11-04 en PR #13** (rama `feat/lote4-transferencia-y-escaner`, 1298 tests): D3 `OutputJournal` (retira la salida si la transferencia o el avanzado fallan), E6 (no cierra con transferencia en curso), E1+E3 SANE (páginas al vuelo vía `on_page`, «Cancelar escaneo» con F5/Esc vía `should_stop` + SIGTERM a scanimage), i18n de 8 textos. **Falta la prueba con el DR-M160 antes de mergear**; TWAIN/WIA pendientes de Windows. Siguiente: lote 5.
+4. ~~Lote 4~~ **HECHO y MERGEADO 2026-11-04 (PR #13, merge `3e6559d`; probado con el DR-M160)** (rama `feat/lote4-transferencia-y-escaner`, 1298 tests): D3 `OutputJournal` (retira la salida si la transferencia o el avanzado fallan), E6 (no cierra con transferencia en curso), E1+E3 SANE (páginas al vuelo vía `on_page`, «Cancelar escaneo» con F5/Esc vía `should_stop` + SIGTERM a scanimage), i18n de 8 textos. TWAIN/WIA pendientes de Windows. **PR #14 mergeado (`456cef9`)**: relocaliza el escáner SANE USB cuando cambia su dirección `libusb:BBB:DDD` al reconectarlo (`SaneScanner.resolve_source`, `ScannerLocateWorker`); probado con el DR-M160 (3 casos). `main` = 1322 tests. Siguiente: lote 5 o eCAP; v0.1.11 lista para publicar cuando se quiera (probará el actualizador AppImage). GOTCHA GitHub: tras una incidencia, un PR puede quedarse con la cabeza vieja y rechazar el merge («Head branch is out of date»); cerrar y reabrir el PR lo resincroniza.
 5. Resto del lote 6: `{pagefield:}`, arrastrar miniaturas, cabeceras de documento.
 
 ## Pendientes de campo (solo el usuario)
